@@ -62,46 +62,52 @@ func (v Verdict) allowed(reason string) Verdict {
 }
 
 // Decide decides whether digits, a code optionally followed by "*" and a
-// keypad command, opens d, which runs with config.
+// keypad command, opens d, which runs with config. The steps follow spec
+// section 2 in order.
 func (s Service) Decide(ctx context.Context, d connector.StoredDoor, config settings.DoorConfig, digits string) (Verdict, error) {
 	now := s.Clock.Now()
+	// 1. The door's rate limit, before the code is looked at.
 	if !s.Limits.Take(d.ID, config.RateLimitPerMinute, config.RateLimitBurst, now) {
-		return Verdict{Reason: event.RateLimited}, nil
+		return Verdict{}.Denied(event.RateLimited), nil
 	}
-	var v Verdict
 	current, err := s.Settings.Current(ctx)
 	if err != nil {
-		return v, err
+		return Verdict{}, err
 	}
 	code, command, commanded := strings.Cut(digits, "*")
-	u, known, err := s.holder(ctx, code)
+	v, err := s.holder(ctx, code)
 	if err != nil {
 		return v, err
 	}
-	if known {
-		v.User = &u
-	}
-	if known && auth.AccountEnded(u, now) {
+	known := v.User != nil
+	// 2. A known user whose account has ended.
+	if known && auth.AccountEnded(*v.User, now) {
 		return v.Denied(event.Expired), nil
 	}
-	commander := known && auth.UserOf(u).Has(auth.RoleDoorCommander)
+	commander := known && auth.UserOf(*v.User).Has(auth.RoleDoorCommander)
+	// 3. A keypad command.
 	if commanded {
 		return commandVerdict(v, commander, command), nil
 	}
+	// 4. A door commander.
 	if commander {
 		return v.allowed(event.Commander), nil
 	}
 	return s.byTime(ctx, v, d, current.Zone, now)
 }
 
-// holder returns the user whose door code is code, and whether there is
-// one.
-func (s Service) holder(ctx context.Context, code string) (connector.StoredUser, bool, error) {
+// holder is the verdict, still undecided, naming the user whose door code
+// is code, or no one when nobody has it.
+func (s Service) holder(ctx context.Context, code string) (Verdict, error) {
 	hash, err := s.Auth.CodeHash(ctx, code)
 	if err != nil {
-		return connector.StoredUser{}, false, err
+		return Verdict{}, err
 	}
-	return s.Store.UserByCodeHash(ctx, hash)
+	u, found, err := s.Store.UserByCodeHash(ctx, hash)
+	if !found {
+		return Verdict{}, err
+	}
+	return Verdict{User: &u}, err
 }
 
 // commandVerdict is v allowed to carry out text, a keypad command, when
@@ -111,7 +117,7 @@ func commandVerdict(v Verdict, commander bool, text string) Verdict {
 	if !commander {
 		return v.Denied(event.NotCommander)
 	}
-	c, ok := ParseCommand(text)
+	c, ok := parseCommand(text)
 	if !ok {
 		return v.Denied(event.BadCommand)
 	}
@@ -119,14 +125,15 @@ func commandVerdict(v Verdict, commander bool, text string) Verdict {
 	return v.allowed(event.Commanded)
 }
 
-// byTime decides by what is in force at d now, with schedules read in
-// zone: an override, its open mode, and the access rules that let v's user
-// in.
+// byTime decides the steps that depend on what is in force at d now, with
+// schedules read in zone: an override, its open mode, and the access rules
+// that let v's user in.
 func (s Service) byTime(ctx context.Context, v Verdict, d connector.StoredDoor, zone *time.Location, now time.Time) (Verdict, error) {
 	overrides, err := s.Store.DoorOverrides(ctx, d.ID, now)
 	if err != nil {
 		return v, err
 	}
+	// 5. A locked, then an open override in force.
 	if inForce(overrides, timeline.Locked, now) {
 		return v.Denied(event.Locked), nil
 	}
@@ -137,19 +144,23 @@ func (s Service) byTime(ctx context.Context, v Verdict, d connector.StoredDoor, 
 	if err != nil {
 		return v, err
 	}
-	if slices.ContainsFunc(d.OpenScheduleIDs, func(id int64) bool { return activeAt(schedules, id, zone, now) }) {
+	active := func(id int64) bool { return activeAt(schedules, id, zone, now) }
+	// 6. One of the door's open-mode schedules, for any code.
+	if slices.ContainsFunc(d.OpenScheduleIDs, active) {
 		return v.allowed(event.OpenMode), nil
 	}
 	rules, err := s.Store.Rules(ctx)
 	if err != nil {
 		return v, err
 	}
+	// 7. An access rule letting the user in now.
 	for _, r := range rules {
-		if letsIn(r, v.User, d) && activeAt(schedules, r.ScheduleID, zone, now) {
+		if letsIn(r, v.User, d) && active(r.ScheduleID) {
 			v.RuleID = r.ID
 			return v.allowed(event.AccessRule), nil
 		}
 	}
+	// 8. Nothing else.
 	return v.Denied(event.NoRule), nil
 }
 
@@ -196,11 +207,11 @@ type Command struct {
 // makes.
 var commandKinds = map[string]string{"1": timeline.Open, "2": timeline.Locked}
 
-// ParseCommand reads text, what follows the "*" of a keypad entry, as a
+// parseCommand reads text, what follows the "*" of a keypad entry, as a
 // command, and reports whether it is one: "001" and a number of minutes
 // from 1 to 1440 for an open override, "002" and one for a locked
 // override, and "000" to cancel the overrides in force.
-func ParseCommand(text string) (Command, bool) {
+func parseCommand(text string) (Command, bool) {
 	rest, ok := strings.CutPrefix(text, opcode)
 	if !ok || rest == "" {
 		return Command{}, false
@@ -211,5 +222,6 @@ func ParseCommand(text string) (Command, bool) {
 	}
 	kind, known := commandKinds[op]
 	n, err := strconv.Atoi(minutes)
-	return Command{Kind: kind, Minutes: n}, known && err == nil && n >= 1 && n <= maxMinutes
+	inRange := err == nil && n >= 1 && n <= maxMinutes
+	return Command{Kind: kind, Minutes: n}, known && inRange
 }

@@ -92,7 +92,9 @@ func readEventFilter(r *http.Request) (connector.EventQuery, bool) {
 	doorID, doorOK := queryID(r, "door")
 	userID, userOK := queryID(r, "user")
 	q := connector.EventQuery{DoorID: doorID, UserID: userID, Type: query.Get("type"), Outcome: query.Get("outcome"), Reason: query.Get("reason")}
-	return q, doorOK && userOK && oneOf(q.Type, event.Types) && oneOf(q.Outcome, event.Outcomes) && oneOf(q.Reason, event.Reasons)
+	idsOK := doorOK && userOK
+	namesOK := oneOf(q.Type, event.Types) && oneOf(q.Outcome, event.Outcomes) && oneOf(q.Reason, event.Reasons)
+	return q, idsOK && namesOK
 }
 
 // oneOf reports whether value is empty or among values.

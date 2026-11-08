@@ -114,8 +114,7 @@ func TestEachStepOfTheDecisionChainDecidesInItsOrder(t *testing.T) {
 			send(k.t, k.b, "PUT", "/api/v1/doors/1/config", `{"overrides":{"rate_limit_burst":"1"}}`, 200)
 			k.enter("999999")
 			k.checks = 0
-		}, "111111", denied, testsupport.JSON(`{"id":2,"at":"2026-01-05T09:00:00Z","door":{"id":1,"name":"Lobby"},"type":"check",` +
-			`"outcome":"denied","reason":"rate limited","request_id":"r1"}`)},
+		}, "111111", denied, checked("2", "denied", "rate limited", "")},
 		"an expired user is denied though a rule lets their group in": {staffRule, "333333", denied, checked("1", "denied", "expired", byEve)},
 		"a deleted door commander is denied": {func(k *keypad) {
 			k.f.StoreStub.DeleteUser("cid@example.com", "2026-01-05T08:00:00Z")

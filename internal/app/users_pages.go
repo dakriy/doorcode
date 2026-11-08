@@ -37,11 +37,8 @@ type usersContent struct {
 	Deleted bool
 	Rows    []userRow
 	// Empty says why the list is empty.
-	Empty    string
-	Total    int
-	From, To int
-	Previous string
-	Next     string
+	Empty string
+	pager
 }
 
 // userRow is one user as lists show them.
@@ -89,16 +86,10 @@ func (a *App) usersPage(w http.ResponseWriter, r *http.Request, viewer auth.User
 		a.pageError(w, err)
 		return
 	}
+	link := func(page int) string { return usersURL(search, deleted, page) }
 	content := usersContent{
-		Search: search, Deleted: deleted, Rows: a.rowsOf(found.Users), Total: found.Total,
-		From: (page-1)*usersPerPage + 1, To: (page-1)*usersPerPage + len(found.Users),
-		Empty: emptyUsers(search, found.Total),
-	}
-	if page > 1 {
-		content.Previous = usersURL(search, deleted, page-1)
-	}
-	if content.To < found.Total {
-		content.Next = usersURL(search, deleted, page+1)
+		Search: search, Deleted: deleted, Rows: a.rowsOf(found.Users), Empty: emptyUsers(search, found.Total),
+		pager: pagerOf(page, usersPerPage, len(found.Users), found.Total, link),
 	}
 	a.render(w, r, http.StatusOK, usersTemplate, "Users", &viewer, content)
 }

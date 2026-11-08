@@ -167,6 +167,30 @@ type eventCells struct {
 	Cols string
 }
 
+// pager is where a page of a list sits in the whole list: Total items in
+// all, From and To the numbers, from 1, of the first and last on this page,
+// and links to the pages before and after it, empty when there is none.
+type pager struct {
+	Total    int
+	From, To int
+	Previous string
+	Next     string
+}
+
+// pagerOf is the pager of page, holding perPage items of which shown are on
+// it, of total items, linking to other pages with link.
+func pagerOf(page, perPage, shown, total int, link func(page int) string) pager {
+	first := (page - 1) * perPage
+	p := pager{Total: total, From: first + 1, To: first + shown}
+	if page > 1 {
+		p.Previous = link(page - 1)
+	}
+	if p.To < total {
+		p.Next = link(page + 1)
+	}
+	return p
+}
+
 // choiceList is a list of checkboxes sharing the form field Name, with
 // what is wrong with them and what to say when there is nothing to choose.
 type choiceList struct {

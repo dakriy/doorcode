@@ -134,10 +134,7 @@ type eventsContent struct {
 	// set, so the page can offer to clear them.
 	Empty    string
 	Filtered bool
-	Total    int
-	From, To int
-	Previous string
-	Next     string
+	pager
 	// Alert says filters that could not be read were cleared.
 	Alert string
 }
@@ -148,14 +145,22 @@ func readEventFilters(r *http.Request, zone *time.Location) (eventFilters, bool)
 	q, filterOK := readEventFilter(r)
 	f := eventFilters{EventQuery: q, FromDate: r.URL.Query().Get("from"), ToDate: r.URL.Query().Get("to"), Page: 1}
 	from, fromErr := formDate(f.FromDate, zone)
-	to, toErr := formDate(f.ToDate, zone)
+	to, toErr := dayAfter(f.ToDate, zone)
 	page, pageOK := queryNumber(r, "page", 1, 1, maxPage)
-	if to != nil {
-		next := schedule.StartOf(schedule.DateOf(*to, zone).AddDate(0, 0, 1), zone)
-		to = &next
-	}
 	f.From, f.To, f.Page = from, to, page
 	return f, filterOK && fromErr == nil && toErr == nil && pageOK
+}
+
+// dayAfter is the start, in zone, of the day after the date value names,
+// so that events before it are those up to the end of that date; nil when
+// value is empty.
+func dayAfter(value string, zone *time.Location) (*time.Time, error) {
+	day, err := formDate(value, zone)
+	if day == nil {
+		return nil, err
+	}
+	next := schedule.StartOf(schedule.DateOf(*day, zone).AddDate(0, 0, 1), zone)
+	return &next, err
 }
 
 func (a *App) eventsPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
@@ -183,23 +188,25 @@ func (a *App) eventsPage(w http.ResponseWriter, r *http.Request, viewer auth.Use
 		a.pageError(w, err)
 		return
 	}
-	content.Filters, content.User, content.Rows, content.Total = f, user, rowsOfEvents(found.Events, zone), found.Total
+	content.Filters, content.User, content.Rows = f, user, rowsOfEvents(found.Events, zone)
 	content.Filtered = f.EventQuery != connector.EventQuery{}
+	content.Doors = doorOptions(doors, f.DoorID)
 	content.Types = optionsOf(event.Types, func(t string) string { return typeLabels[t] }, f.Type)
 	content.Outcomes = optionsOf(event.Outcomes, sentence, f.Outcome)
 	content.Reasons = optionsOf(event.Reasons, sentence, f.Reason)
-	for _, d := range doors {
-		content.Doors = append(content.Doors, filterOption{Value: strconv.FormatInt(d.ID, 10), Label: d.Name, Selected: d.ID == f.DoorID})
-	}
-	content.From, content.To = (f.Page-1)*eventsPerPage+1, (f.Page-1)*eventsPerPage+len(found.Events)
 	content.Empty = emptyEvents(content.Filtered, found.Total)
-	if f.Page > 1 {
-		content.Previous = eventsURL(r, f.Page-1)
-	}
-	if content.To < found.Total {
-		content.Next = eventsURL(r, f.Page+1)
-	}
+	content.pager = pagerOf(f.Page, eventsPerPage, len(found.Events), found.Total, func(page int) string { return eventsURL(r, page) })
 	a.render(w, r, http.StatusOK, eventsTemplate, "Events", &viewer, content)
+}
+
+// doorOptions is every door as the door filter offers it, with the door
+// whose id is chosen selected.
+func doorOptions(doors []connector.StoredDoor, chosen int64) []filterOption {
+	var out []filterOption
+	for _, d := range doors {
+		out = append(out, filterOption{Value: strconv.FormatInt(d.ID, 10), Label: d.Name, Selected: d.ID == chosen})
+	}
+	return out
 }
 
 // filterUser is the user whose id is id, by id and display name, for the

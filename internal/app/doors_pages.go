@@ -81,11 +81,8 @@ type doorsContent struct {
 	Zones   []connector.StoredZone
 	Rows    []doorRow
 	// Empty says why the list is empty.
-	Empty    string
-	Total    int
-	From, To int
-	Previous string
-	Next     string
+	Empty string
+	pager
 	// Pending is how many controllers wait to be approved.
 	Pending int
 	// Manage is true when the viewer may change doors, not only open
@@ -111,19 +108,14 @@ func (a *App) doorsPage(w http.ResponseWriter, r *http.Request, viewer auth.User
 		a.pageError(w, err)
 		return
 	}
+	link := func(page int) string { return doorsURL(q, page) }
 	content := doorsContent{
-		Search: q.Search, Deleted: q.Deleted, Zone: q.ZoneID, Zones: c.zones, Rows: []doorRow{}, Total: found.Total,
-		From: (q.Page-1)*doorsPerPage + 1, To: (q.Page-1)*doorsPerPage + len(found.Doors), Empty: emptyDoors(q, found.Total),
+		Search: q.Search, Deleted: q.Deleted, Zone: q.ZoneID, Zones: c.zones, Rows: []doorRow{}, Empty: emptyDoors(q, found.Total),
+		pager:   pagerOf(q.Page, doorsPerPage, len(found.Doors), found.Total, link),
 		Pending: len(a.controllers.Pending.List()), Manage: viewer.Has(auth.RoleManageDoors),
 	}
 	for _, d := range found.Doors {
 		content.Rows = append(content.Rows, c.rowOfDoor(d))
-	}
-	if q.Page > 1 {
-		content.Previous = doorsURL(q, q.Page-1)
-	}
-	if content.To < found.Total {
-		content.Next = doorsURL(q, q.Page+1)
 	}
 	a.render(w, r, http.StatusOK, doorsTemplate, "Doors", &viewer, content)
 }

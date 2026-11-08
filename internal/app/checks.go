@@ -119,9 +119,10 @@ func (a *App) endOverridesInForce(ctx context.Context, doorID int64) (int, error
 	if err != nil {
 		return 0, err
 	}
+	now := a.clock.Now()
 	ended := 0
 	for _, o := range overrides {
-		if door.Active(o, a.clock.Now()) {
+		if door.Active(o, now) {
 			if _, err := a.endOverride(ctx, doorID, o.ID); err != nil {
 				return 0, err
 			}
