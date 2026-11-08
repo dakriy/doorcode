@@ -61,6 +61,8 @@ type ImportRow struct {
 	profile      Profile
 	joinIDs      []int64
 	preassignIDs []int64
+	// expires is the expiry the row gives, nil when it gives none.
+	expires *time.Time
 }
 
 // Import is what importing a file does, row by row.
@@ -152,7 +154,8 @@ func (s Service) plan(ctx context.Context, im *importer, rec record) (ImportRow,
 		Line: rec.line, UserID: rec.values[ColumnUserID], Email: strings.ToLower(rec.values[ColumnEmail]),
 		Groups: slugsOf(rec.values[ColumnGroups]), Joins: []string{}, Outcome: ImportSkip,
 	}
-	_, expiryProblem := im.expiry(rec.values[ColumnExpiresAt])
+	expires, expiryProblem := im.expiry(rec.values[ColumnExpiresAt])
+	row.expires = expires
 	problems := rec.problems
 	problems.Add(ColumnUserID, im.userIDProblem(row))
 	listed := im.listedGroups(row.Groups, &problems)
@@ -259,23 +262,19 @@ func (s Service) updatedProfile(ctx context.Context, im *importer, row ImportRow
 	p.Email = cmp.Or(row.Email, u.Email)
 	p.FirstName = cmp.Or(rec.values[ColumnFirstName], u.FirstName)
 	p.LastName = cmp.Or(rec.values[ColumnLastName], u.LastName)
-	expires, _ := im.expiry(rec.values[ColumnExpiresAt])
-	if expires != nil {
-		p.ExpiresAt = expires
+	if row.expires != nil {
+		p.ExpiresAt = row.expires
 	}
 	changes := changedColumns(before, p)
 	if len(changes) == 0 {
 		return p, changes, nil, nil
 	}
 	var problems check.List
-	if u.ID == im.viewer.ID && p.ExpiresAt != nil && !p.ExpiresAt.After(im.now) {
+	if endsOwnAccount(im.viewer, u.ID, p.ExpiresAt, im.now) {
 		problems.Add(ColumnExpiresAt, "You cannot make your own account expire in the past.")
 	}
-	p, err := s.checkProfile(ctx, u.ID, p)
-	var profileProblems check.Problems
-	if errors.As(err, &profileProblems) {
-		problems = append(problems, profileProblems...)
-	} else if err != nil {
+	p, err := s.profileProblems(ctx, u.ID, p, &problems)
+	if err != nil {
 		return p, nil, nil, err
 	}
 	if len(problems) == 0 && slices.Contains(changes, ColumnEmail) {
@@ -364,12 +363,8 @@ func (s Service) planNew(ctx context.Context, im *importer, row ImportRow, rec r
 // or what is wrong with it.
 func (s Service) newUser(ctx context.Context, im *importer, row ImportRow, rec record) (Profile, check.List, error) {
 	var problems check.List
-	expires, _ := im.expiry(rec.values[ColumnExpiresAt])
-	p, err := s.checkProfile(ctx, 0, profileOf(row, rec, expires))
-	var profileProblems check.Problems
-	if errors.As(err, &profileProblems) {
-		problems = append(problems, profileProblems...)
-	} else if err != nil {
+	p, err := s.profileProblems(ctx, 0, profileOf(row, rec), &problems)
+	if err != nil {
 		return Profile{}, nil, err
 	}
 	if len(problems) == 0 {
@@ -378,13 +373,26 @@ func (s Service) newUser(ctx context.Context, im *importer, row ImportRow, rec r
 	return p, problems, nil
 }
 
-// profileOf is the profile of the user row, read from rec, creates,
-// expiring at expires: called by their names, or else their email.
-func profileOf(row ImportRow, rec record, expires *time.Time) Profile {
+// profileProblems is p checked as the user form checks it for the user
+// whose id is id (0 for a new one), adding what is wrong with it to
+// problems; the error is the store's.
+func (s Service) profileProblems(ctx context.Context, id int64, p Profile, problems *check.List) (Profile, error) {
+	p, err := s.checkProfile(ctx, id, p)
+	var found check.Problems
+	if errors.As(err, &found) {
+		*problems = append(*problems, found...)
+		return p, nil
+	}
+	return p, err
+}
+
+// profileOf is the profile of the user row, read from rec, creates, with
+// the row's expiry: called by their names, or else their email.
+func profileOf(row ImportRow, rec record) Profile {
 	first, last := rec.values[ColumnFirstName], rec.values[ColumnLastName]
 	return Profile{
 		Email: row.Email, UserID: row.UserID, FirstName: first, LastName: last,
-		DisplayName: cmp.Or(strings.TrimSpace(first+" "+last), row.Email), ExpiresAt: expires,
+		DisplayName: cmp.Or(strings.TrimSpace(first+" "+last), row.Email), ExpiresAt: row.expires,
 	}
 }
 

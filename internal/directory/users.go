@@ -178,10 +178,16 @@ func (s Service) UpdateUser(ctx context.Context, id int64, p Profile) (connector
 // ChangeUser is UpdateUser made by viewer, who may not make their own
 // account expire now or earlier: that would end it, as deleting it would.
 func (s Service) ChangeUser(ctx context.Context, viewer auth.User, id int64, p Profile) (connector.StoredUser, error) {
-	if id == viewer.ID && p.ExpiresAt != nil && !p.ExpiresAt.After(s.Clock.Now()) {
+	if endsOwnAccount(viewer, id, p.ExpiresAt, s.Clock.Now()) {
 		return connector.StoredUser{}, ErrOwnExpiry
 	}
 	return s.UpdateUser(ctx, id, p)
+}
+
+// endsOwnAccount reports whether viewer giving the user whose id is id the
+// expiry expires, at now, makes their own account expire now or earlier.
+func endsOwnAccount(viewer auth.User, id int64, expires *time.Time, now time.Time) bool {
+	return id == viewer.ID && expires != nil && !expires.After(now)
 }
 
 // DeleteUser soft-deletes the user whose id is id, which viewer may not be.
