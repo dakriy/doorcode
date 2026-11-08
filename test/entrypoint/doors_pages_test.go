@@ -14,6 +14,20 @@ var doorsNav = []string{"Home", "Users", "Groups", "Schedules", "Doors (current)
 // doorsHead is the header row of the door list.
 var doorsHead = []string{"Picture", "Name", "Zones", "Open mode", "Portal"}
 
+// overridesHead and entrantsHead are the header rows of a door's overrides
+// and of who can enter it.
+var (
+	overridesHead = []string{"Override", "When", "Reason", "Actions"}
+	entrantsHead  = []string{"Group", "Schedule", "Through", "Rule"}
+)
+
+// freshDoorTables are the tables of a door's page without overrides or
+// access rules.
+var freshDoorTables = map[string][][]string{
+	"Overrides":     {overridesHead, {"No overrides are in force or to come. The door follows its open mode and access rules."}},
+	"Who can enter": {entrantsHead, {"No access rule reaches this door, so only open mode, overrides, and door commanders open it."}},
+}
+
 // doorNote is what a door's page says about what enrollment adds.
 var doorNote = []string{"No controller has enrolled as this door yet. Its hardware, credentials, configuration, and live state appear here once one does."}
 
@@ -199,6 +213,7 @@ func TestCreatingADoorFromTheFormOpensItsPage(t *testing.T) {
 		Notes:    doorNote,
 		Values:   map[string]string{"name": "Lobby", "location": "Building A", "notes": "Side entrance.", "picture": ""},
 		Checked:  []string{"public=on"},
+		Tables:   freshDoorTables,
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("page (-want +got):\n%s", diff)
@@ -235,6 +250,7 @@ func TestDoorPageShowsTheDoorItsChoicesAndItsPictures(t *testing.T) {
 		Title: "Lobby · doorcode", Heading: "Lobby", Nav: doorsNav, Notes: doorNote,
 		Values:  map[string]string{"name": "Lobby", "location": "Building A", "notes": "Side.", "picture": ""},
 		Checked: []string{"open_schedule_ids=3", "zone_ids=2"},
+		Tables:  freshDoorTables,
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("page (-want +got):\n%s", diff)

@@ -76,7 +76,13 @@ func (a *App) routes() []route {
 	table = append(table, a.pictureRoutes()...)
 	table = append(table, a.doorPageRoutes()...)
 	table = append(table, a.zoneRoutes()...)
-	return append(table, a.zonePageRoutes()...)
+	table = append(table, a.zonePageRoutes()...)
+	table = append(table, a.ruleRoutes()...)
+	table = append(table, a.rulePageRoutes()...)
+	table = append(table, a.overrideRoutes()...)
+	table = append(table, a.overridePageRoutes()...)
+	table = append(table, a.timelineRoutes()...)
+	return append(table, a.calendarPageRoutes()...)
 }
 
 // handler registers every route of table on a new mux.

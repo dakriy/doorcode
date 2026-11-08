@@ -36,19 +36,25 @@ func Expand(sch connector.StoredSchedule, zone *time.Location, from, to time.Tim
 			found = appendCut(found, occurrence(w, day, zone), from, to)
 		}
 	}
-	return merged(found)
+	return Merged(found)
 }
 
 // ExpandDays is Expand from the start of the date first to the end of the
 // date last in zone, with every time in zone. Dates are midnight UTC on the
 // day they name.
 func ExpandDays(sch connector.StoredSchedule, zone *time.Location, first, last time.Time) []Interval {
-	intervals := Expand(sch, zone, at(first, 0, zone), at(last.AddDate(0, 0, 1), 0, zone))
+	intervals := Expand(sch, zone, StartOf(first, zone), StartOf(last.AddDate(0, 0, 1), zone))
 	for i := range intervals {
 		intervals[i].Start = intervals[i].Start.In(zone)
 		intervals[i].End = intervals[i].End.In(zone)
 	}
 	return intervals
+}
+
+// StartOf is the start of the date day in zone. Dates are midnight UTC on
+// the day they name.
+func StartOf(day time.Time, zone *time.Location) time.Time {
+	return at(day, 0, zone)
 }
 
 // DateOf is the date t falls on in zone, as midnight UTC on that date.
@@ -96,9 +102,9 @@ func appendCut(found []Interval, in Interval, from, to time.Time) []Interval {
 	return append(found, in)
 }
 
-// merged is intervals in start order, with those that overlap or touch
+// Merged is intervals in start order, with those that overlap or touch
 // joined.
-func merged(intervals []Interval) []Interval {
+func Merged(intervals []Interval) []Interval {
 	slices.SortFunc(intervals, func(a, b Interval) int { return a.Start.Compare(b.Start) })
 	out := []Interval{}
 	for _, in := range intervals {

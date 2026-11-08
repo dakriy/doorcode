@@ -4,6 +4,7 @@ package check
 
 import (
 	"fmt"
+	"slices"
 	"unicode/utf8"
 )
 
@@ -64,6 +65,22 @@ func TooLong(value string, limit int, message string) string {
 func Required(value, message string) string {
 	if value == "" {
 		return message
+	}
+	return ""
+}
+
+// Distinct is ids without repeats, ascending, and never nil.
+func Distinct(ids []int64) []int64 {
+	return append([]int64{}, slices.Compact(slices.Sorted(slices.Values(ids)))...)
+}
+
+// Unknown is message, with the id in place of its verb, for the first of
+// given that is no id of items, which id reads.
+func Unknown[T any](given []int64, items []T, id func(T) int64, message string) string {
+	for _, g := range given {
+		if !slices.ContainsFunc(items, func(item T) bool { return id(item) == g }) {
+			return fmt.Sprintf(message, g)
+		}
 	}
 	return ""
 }

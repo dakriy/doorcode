@@ -18,8 +18,8 @@ import (
 var templateFiles embed.FS
 
 // appCSS is built from ui/tailwind.css by `make ui`; htmx, Swagger UI, and
-// FullCalendar are vendored by the same target. apiDocsJS and
-// scheduleCalendarJS are ours.
+// FullCalendar are vendored by the same target. apiDocsJS and calendarJS
+// are ours.
 var (
 	//go:embed ui/static/app.css
 	appCSS []byte
@@ -33,8 +33,8 @@ var (
 	apiDocsJS []byte
 	//go:embed ui/static/fullcalendar/index.global.min.js
 	fullCalendarJS []byte
-	//go:embed ui/static/schedule-calendar.js
-	scheduleCalendarJS []byte
+	//go:embed ui/static/calendar.js
+	calendarJS []byte
 )
 
 const (
@@ -57,7 +57,7 @@ var assets = []asset{
 	{name: "SwaggerJS", path: "/static/swagger-ui/swagger-ui-bundle.js", contentType: jsType, content: swaggerJS},
 	{name: "APIDocsJS", path: "/static/api-docs.js", contentType: jsType, content: apiDocsJS},
 	{name: "FullCalendarJS", path: "/static/fullcalendar/index.global.min.js", contentType: jsType, content: fullCalendarJS},
-	{name: "ScheduleCalendarJS", path: "/static/schedule-calendar.js", contentType: jsType, content: scheduleCalendarJS},
+	{name: "CalendarJS", path: "/static/calendar.js", contentType: jsType, content: calendarJS},
 }
 
 // assetURLs maps each asset's name to a URL carrying a hash of its content,
@@ -108,6 +108,11 @@ var (
 	zonesTemplate   = shellPage("zones.html")
 	newZoneTemplate = shellPage("zone-new.html")
 	zoneTemplate    = shellPage("zone.html")
+
+	ruleTemplate           = shellPage("rule.html")
+	overrideTemplate       = shellPage("override.html")
+	doorCalendarTemplate   = shellPage("door-calendar.html")
+	accessCalendarTemplate = shellPage("access-calendar.html")
 )
 
 // navItem is one link in the main navigation. A Reload link loads its page
@@ -138,6 +143,7 @@ var templateFuncs = template.FuncMap{
 	"choicelist": func(name, legend string, choices []choice, problem, empty string) choiceList {
 		return choiceList{Name: name, Legend: legend, Choices: choices, Error: problem, Empty: empty}
 	},
+	"list": func(items ...string) []string { return items },
 	"thumb": func(row doorRow, size string) thumbnailView {
 		return thumbnailView{Row: row, Size: size}
 	},

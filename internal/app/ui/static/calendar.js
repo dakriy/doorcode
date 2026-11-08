@@ -1,17 +1,17 @@
-// Draws a schedule's week with the vendored FullCalendar. The page lists the
-// week's occurrences as local times in the site timezone, without an
-// offset; the calendar runs in UTC so it shows them exactly as given,
-// whatever the browser's own timezone.
+// Draws a week with the vendored FullCalendar. The page lists the week's
+// events as local times in the site timezone, without an offset, each with
+// a title and a kind that picks its color; the calendar runs in UTC so it
+// shows them exactly as given, whatever the browser's own timezone.
 (function () {
-  var root = document.getElementById("schedule-calendar");
+  var root = document.getElementById("calendar");
   if (!root) {
     return;
   }
   var clock = { hour: "2-digit", minute: "2-digit", hour12: false };
 
   function draw() {
-    var events = JSON.parse(root.dataset.events).map(function (o) {
-      return { start: o.start, end: o.end, title: root.dataset.title };
+    var events = JSON.parse(root.dataset.events).map(function (e) {
+      return { start: e.start, end: e.end, title: e.title, classNames: ["calendar-" + e.kind] };
     });
     root.textContent = "";
     new FullCalendar.Calendar(root, {
@@ -28,6 +28,7 @@
       slotLabelFormat: clock,
       eventTimeFormat: clock,
       dayHeaderFormat: { weekday: "short", day: "numeric", month: "short" },
+      slotEventOverlap: false,
       editable: false,
       selectable: false,
       events: events,

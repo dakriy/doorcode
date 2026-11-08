@@ -165,8 +165,8 @@ type GroupsStore interface {
 	// UpdateGroup stores g over the group whose id is g.ID, and reports
 	// whether there is one.
 	UpdateGroup(ctx context.Context, g StoredGroup) (bool, error)
-	// DeleteGroup removes the group whose id is id and its memberships, and
-	// reports whether there was one.
+	// DeleteGroup removes the group whose id is id, its memberships, and its
+	// access rules, and reports whether there was one.
 	DeleteGroup(ctx context.Context, id int64) (bool, error)
 	// GroupMembers returns the members of the group whose id is id, in the
 	// order Users uses.
@@ -267,7 +267,8 @@ type SchedulesStore interface {
 	// its windows, and reports whether there is one.
 	UpdateSchedule(ctx context.Context, s StoredSchedule) (bool, error)
 	// DeleteSchedule removes the schedule whose id is id, and reports
-	// whether there was one. Doors stop being in open mode during it.
+	// whether there was one. Doors stop being in open mode during it. It
+	// refuses a schedule an access rule uses.
 	DeleteSchedule(ctx context.Context, id int64) (bool, error)
 }
 
@@ -365,9 +366,75 @@ type ZonesStore interface {
 	// UpdateZone stores z over the zone whose id is z.ID, replacing its
 	// doors, and reports whether there is one.
 	UpdateZone(ctx context.Context, z StoredZone) (bool, error)
-	// DeleteZone removes the zone whose id is id, and reports whether there
-	// was one.
+	// DeleteZone removes the zone whose id is id, taking it off the access
+	// rules that name it, and reports whether there was one.
 	DeleteZone(ctx context.Context, id int64) (bool, error)
+}
+
+// StoredRule is an access rule as the store holds it: members of the group
+// whose id is GroupID may enter, with their code, the doors DoorIDs names
+// and the doors in the zones ZoneIDs names while the schedule whose id is
+// ScheduleID is active. DoorIDs and ZoneIDs are ascending.
+type StoredRule struct {
+	ID         int64
+	GroupID    int64
+	ScheduleID int64
+	DoorIDs    []int64
+	ZoneIDs    []int64
+}
+
+// RulesStore holds the access rules aggregate. A rule goes when its group
+// is deleted, and a deleted zone leaves the rules that named it; a schedule
+// a rule uses cannot be deleted.
+type RulesStore interface {
+	// Rules returns every rule, ordered by id.
+	Rules(ctx context.Context) ([]StoredRule, error)
+	// Rule returns the rule whose id is id, and whether there is one.
+	Rule(ctx context.Context, id int64) (StoredRule, bool, error)
+	// CreateRule stores r, ignoring r.ID, and returns the id it was given.
+	CreateRule(ctx context.Context, r StoredRule) (int64, error)
+	// UpdateRule stores r over the rule whose id is r.ID, replacing its
+	// doors and zones, and reports whether there is one.
+	UpdateRule(ctx context.Context, r StoredRule) (bool, error)
+	// DeleteRule removes the rule whose id is id, and reports whether there
+	// was one.
+	DeleteRule(ctx context.Context, id int64) (bool, error)
+}
+
+// StoredOverride is an override as the store holds it: from Start up to End
+// the door whose id is DoorID is forced open or locked, as Kind ("open" or
+// "locked") says. CreatedBy is the id of the user who created it;
+// CreatorName is that user's display name, which the store fills when it
+// returns an override and ignores when it stores one.
+type StoredOverride struct {
+	ID          int64
+	DoorID      int64
+	Kind        string
+	Start       time.Time
+	End         time.Time
+	Reason      string
+	CreatedBy   int64
+	CreatorName string
+	CreatedAt   time.Time
+}
+
+// OverridesStore holds the overrides aggregate.
+type OverridesStore interface {
+	// DoorOverrides returns the overrides of the door whose id is doorID
+	// that end after endsAfter, ordered by start and then by id.
+	DoorOverrides(ctx context.Context, doorID int64, endsAfter time.Time) ([]StoredOverride, error)
+	// Override returns the override whose id is id, and whether there is
+	// one.
+	Override(ctx context.Context, id int64) (StoredOverride, bool, error)
+	// CreateOverride stores o, ignoring o.ID, and returns the id it was
+	// given.
+	CreateOverride(ctx context.Context, o StoredOverride) (int64, error)
+	// UpdateOverride stores o's kind, start, end, and reason over the
+	// override whose id is o.ID, and reports whether there is one.
+	UpdateOverride(ctx context.Context, o StoredOverride) (bool, error)
+	// DeleteOverride removes the override whose id is id, and reports
+	// whether there was one.
+	DeleteOverride(ctx context.Context, id int64) (bool, error)
 }
 
 // Store is the application's persistent state, one interface per aggregate.
@@ -384,6 +451,8 @@ type Store interface {
 	DoorsStore
 	PicturesStore
 	ZonesStore
+	RulesStore
+	OverridesStore
 }
 
 // Factory constructs connectors. It has one method per connector.

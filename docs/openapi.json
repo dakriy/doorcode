@@ -11,6 +11,557 @@
     }
   ],
   "paths": {
+    "/access-rules": {
+      "get": {
+        "operationId": "listAccessRules",
+        "summary": "List access rules",
+        "tags": [
+          "access rules"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "group",
+            "in": "query",
+            "required": false,
+            "description": "Keeps the rules of the group with this id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The access rules.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "group is not a group's id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-groups role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createAccessRule",
+        "summary": "Create an access rule",
+        "tags": [
+          "access rules"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleRequest"
+              },
+              "example": {
+                "group_id": 1,
+                "schedule_id": 1,
+                "door_ids": [
+                  1
+                ],
+                "zone_ids": [
+                  1
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new access rule.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON access rule, or a field is wrong; the error says which.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-groups role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/access-rules/{id}": {
+      "delete": {
+        "operationId": "deleteAccessRule",
+        "summary": "Delete an access rule",
+        "tags": [
+          "access rules"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The access rule's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The access rule is gone; its members no longer get in by it."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-groups role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No access rule has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getAccessRule",
+        "summary": "Read one access rule",
+        "tags": [
+          "access rules"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The access rule's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The access rule.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-groups role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No access rule has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateAccessRule",
+        "summary": "Replace an access rule",
+        "tags": [
+          "access rules"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The access rule's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleRequest"
+              },
+              "example": {
+                "group_id": 1,
+                "schedule_id": 1,
+                "door_ids": [
+                  1
+                ],
+                "zone_ids": [
+                  1
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The access rule as it is now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON access rule, or a field is wrong; the error says which.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-groups role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No access rule has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/affected-doors": {
+      "get": {
+        "operationId": "listAffectedDoors",
+        "summary": "List the doors a change to something would affect",
+        "tags": [
+          "doors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "schedule",
+            "in": "query",
+            "required": false,
+            "description": "The id of the schedule to trace; give exactly one of the parameters.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "override",
+            "in": "query",
+            "required": false,
+            "description": "The id of the override to trace; give exactly one of the parameters.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "zone",
+            "in": "query",
+            "required": false,
+            "description": "The id of the zone to trace; give exactly one of the parameters.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "group",
+            "in": "query",
+            "required": false,
+            "description": "The id of the group to trace; give exactly one of the parameters.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "rule",
+            "in": "query",
+            "required": false,
+            "description": "The id of the rule to trace; give exactly one of the parameters.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The doors whose timeline or access depends on it as things stand. A change that moves doors in or out, such as a zone's doors, also affects those listed before it; an id that names nothing affects no door.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AffectedView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not exactly one parameter is given, or it is not an id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/doors": {
       "get": {
         "operationId": "listDoors",
@@ -464,6 +1015,662 @@
           },
           "404": {
             "description": "No door has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/doors/{id}/entrants": {
+      "get": {
+        "operationId": "listDoorEntrants",
+        "summary": "List who may enter a door",
+        "tags": [
+          "doors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Each access rule that reaches the door, directly or through its zones.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntrantList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/doors/{id}/overrides": {
+      "get": {
+        "operationId": "listDoorOverrides",
+        "summary": "List a door's overrides in force and to come",
+        "tags": [
+          "overrides"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The door's overrides that have not ended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverrideList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createDoorOverride",
+        "summary": "Force a door open or locked for a while",
+        "tags": [
+          "overrides"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OverrideRequest"
+              },
+              "example": {
+                "kind": "locked",
+                "start": "2026-12-24T18:00:00Z",
+                "end": "2026-12-27T06:00:00Z",
+                "reason": "Closed over the holiday."
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new override, made by the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverrideView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON override, or a field is wrong; the error says which.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/doors/{id}/overrides/{override}": {
+      "delete": {
+        "operationId": "deleteDoorOverride",
+        "summary": "Delete an override",
+        "tags": [
+          "overrides"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "override",
+            "in": "path",
+            "required": true,
+            "description": "The override's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The override is gone, as if it had never been made."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id, or it has no override with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getDoorOverride",
+        "summary": "Read one override",
+        "tags": [
+          "overrides"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "override",
+            "in": "path",
+            "required": true,
+            "description": "The override's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The override.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverrideView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id, or it has no override with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateDoorOverride",
+        "summary": "Replace an override",
+        "tags": [
+          "overrides"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "override",
+            "in": "path",
+            "required": true,
+            "description": "The override's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OverrideRequest"
+              },
+              "example": {
+                "kind": "locked",
+                "start": "2026-12-24T18:00:00Z",
+                "end": "2026-12-27T06:00:00Z",
+                "reason": "Closed over the holiday."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The override as it is now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverrideView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON override, or a field is wrong; the error says which.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id, or it has no override with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/doors/{id}/overrides/{override}/cancel": {
+      "post": {
+        "operationId": "cancelDoorOverride",
+        "summary": "End an override now",
+        "tags": [
+          "overrides"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "override",
+            "in": "path",
+            "required": true,
+            "description": "The override's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The override, ending now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverrideView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id, or it has no override with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The override has not started or has ended.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1055,6 +2262,117 @@
         "responses": {
           "204": {
             "description": "The door is no longer deleted."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/doors/{id}/timeline": {
+      "get": {
+        "operationId": "getDoorTimeline",
+        "summary": "Read when a door is open or locked",
+        "tags": [
+          "doors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "description": "The first day to cover, YYYY-MM-DD in the site timezone; by default the Monday of the current week.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-11-09"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "description": "The last day to cover, YYYY-MM-DD, at most 365 days after from; by default the Sunday after from.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-11-15"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The door's timeline during the days asked for.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "from or to is not a date, or the range is backwards or too long.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
           },
           "401": {
             "description": "No valid API token was sent.",
@@ -2022,7 +3340,7 @@
             }
           },
           "409": {
-            "description": "The schedule is the built-in Always schedule, which cannot be deleted, or doors that are not deleted are in open mode during it; the error names them.",
+            "description": "The schedule is the built-in Always schedule, which cannot be deleted, doors that are not deleted are in open mode during it, or access rules use it; the error names the doors and the groups whose rules they are.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3264,6 +4582,117 @@
         }
       }
     },
+    "/users/{id}/access": {
+      "get": {
+        "operationId": "getUserAccess",
+        "summary": "Read where and when a user's code works",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The user's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "description": "The first day to cover, YYYY-MM-DD in the site timezone; by default the Monday of the current week.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-11-09"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "description": "The last day to cover, YYYY-MM-DD, at most 365 days after from; by default the Sunday after from.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-11-15"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The doors the user's groups let them enter, and when.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserAccessView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "from or to is not a date, or the range is backwards or too long.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-users role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No user has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/users/{id}/code": {
       "delete": {
         "operationId": "clearUserCode",
@@ -4180,6 +5609,21 @@
   },
   "components": {
     "schemas": {
+      "AffectedView": {
+        "type": "object",
+        "properties": {
+          "door_ids": {
+            "type": "array",
+            "description": "The ids of the doors, ascending, that are not deleted whose timeline or access depends on what the query names.",
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "required": [
+          "door_ids"
+        ]
+      },
       "CodeRequest": {
         "type": "object",
         "properties": {
@@ -4207,6 +5651,34 @@
         "required": [
           "token",
           "secret"
+        ]
+      },
+      "DoorAccessView": {
+        "type": "object",
+        "properties": {
+          "door": {
+            "$ref": "#/components/schemas/NameRef",
+            "description": "The door."
+          },
+          "rule_ids": {
+            "type": "array",
+            "description": "The access rules naming one of the user's groups that reach the door.",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "works": {
+            "type": "array",
+            "description": "When the user's code opens the door during the days asked for: while a rule's schedule is active and the door is not locked.",
+            "items": {
+              "$ref": "#/components/schemas/OccurrenceView"
+            }
+          }
+        },
+        "required": [
+          "door",
+          "rule_ids",
+          "works"
         ]
       },
       "DoorList": {
@@ -4338,6 +5810,56 @@
           "open_schedules",
           "zones",
           "created_at"
+        ]
+      },
+      "EntrantList": {
+        "type": "object",
+        "properties": {
+          "entrants": {
+            "type": "array",
+            "description": "Each access rule that reaches the door, oldest first.",
+            "items": {
+              "$ref": "#/components/schemas/EntrantView"
+            }
+          }
+        },
+        "required": [
+          "entrants"
+        ]
+      },
+      "EntrantView": {
+        "type": "object",
+        "properties": {
+          "direct": {
+            "type": "boolean",
+            "description": "True when the rule names the door itself."
+          },
+          "group": {
+            "$ref": "#/components/schemas/NameRef",
+            "description": "The group whose members may enter."
+          },
+          "rule_id": {
+            "type": "integer",
+            "description": "The access rule that lets them in."
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/NameRef",
+            "description": "The schedule during which they may enter."
+          },
+          "zones": {
+            "type": "array",
+            "description": "The zones the door is in through which the rule reaches it, by name.",
+            "items": {
+              "$ref": "#/components/schemas/NameRef"
+            }
+          }
+        },
+        "required": [
+          "rule_id",
+          "group",
+          "schedule",
+          "direct",
+          "zones"
         ]
       },
       "ErrorBody": {
@@ -4557,6 +6079,104 @@
           "end"
         ]
       },
+      "OverrideList": {
+        "type": "object",
+        "properties": {
+          "overrides": {
+            "type": "array",
+            "description": "The overrides in force and those to come, by start.",
+            "items": {
+              "$ref": "#/components/schemas/OverrideView"
+            }
+          }
+        },
+        "required": [
+          "overrides"
+        ]
+      },
+      "OverrideRequest": {
+        "type": "object",
+        "properties": {
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it ends: after the start, and in the future."
+          },
+          "kind": {
+            "type": "string",
+            "description": "open or locked."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why it is made, up to 500 characters."
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it starts. A start in the past starts it now."
+          }
+        },
+        "required": [
+          "kind",
+          "start",
+          "end"
+        ]
+      },
+      "OverrideView": {
+        "type": "object",
+        "properties": {
+          "active": {
+            "type": "boolean",
+            "description": "True while it is in force: it has started and not ended."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it was made."
+          },
+          "created_by": {
+            "$ref": "#/components/schemas/NameRef",
+            "description": "The user who made it, by id and display name."
+          },
+          "door_id": {
+            "type": "integer",
+            "description": "The door it overrides."
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it ends."
+          },
+          "id": {
+            "type": "integer",
+            "description": "Names the override in the API."
+          },
+          "kind": {
+            "type": "string",
+            "description": "open forces the door open, so any keypress unlocks it; locked keeps it locked against every code but a door commander's."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why it was made; may be empty."
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it starts."
+          }
+        },
+        "required": [
+          "id",
+          "door_id",
+          "kind",
+          "start",
+          "end",
+          "reason",
+          "created_by",
+          "created_at",
+          "active"
+        ]
+      },
       "PictureList": {
         "type": "object",
         "properties": {
@@ -4626,6 +6246,90 @@
           "image_url",
           "thumbnail_url",
           "created_at"
+        ]
+      },
+      "RuleList": {
+        "type": "object",
+        "properties": {
+          "rules": {
+            "type": "array",
+            "description": "The access rules, oldest first.",
+            "items": {
+              "$ref": "#/components/schemas/RuleView"
+            }
+          }
+        },
+        "required": [
+          "rules"
+        ]
+      },
+      "RuleRequest": {
+        "type": "object",
+        "properties": {
+          "door_ids": {
+            "type": "array",
+            "description": "The ids of the doors it names.",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "group_id": {
+            "type": "integer",
+            "description": "The id of the group whose members the rule lets in."
+          },
+          "schedule_id": {
+            "type": "integer",
+            "description": "The id of the schedule during which it lets them in; the Always schedule has id 1."
+          },
+          "zone_ids": {
+            "type": "array",
+            "description": "The ids of the zones it names. A rule names at least one door or zone.",
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "required": [
+          "group_id",
+          "schedule_id"
+        ]
+      },
+      "RuleView": {
+        "type": "object",
+        "properties": {
+          "doors": {
+            "type": "array",
+            "description": "The doors it names, by name.",
+            "items": {
+              "$ref": "#/components/schemas/NameRef"
+            }
+          },
+          "group": {
+            "$ref": "#/components/schemas/NameRef",
+            "description": "The group whose members the rule lets in."
+          },
+          "id": {
+            "type": "integer",
+            "description": "Names the access rule in the API."
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/NameRef",
+            "description": "The schedule during which it lets them in."
+          },
+          "zones": {
+            "type": "array",
+            "description": "The zones it names, by name; it reaches every door in them.",
+            "items": {
+              "$ref": "#/components/schemas/NameRef"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "group",
+          "schedule",
+          "doors",
+          "zones"
         ]
       },
       "ScheduleList": {
@@ -4788,6 +6492,60 @@
           "env_var"
         ]
       },
+      "SpanView": {
+        "type": "object",
+        "properties": {
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it ends."
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the span starts, with the site timezone's offset."
+          },
+          "state": {
+            "type": "string",
+            "description": "open: the door is in open mode, from a schedule or an open override, and any keypress unlocks it. locked: a locked override keeps it locked."
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "state"
+        ]
+      },
+      "TimelineView": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "The first day covered, YYYY-MM-DD."
+          },
+          "spans": {
+            "type": "array",
+            "description": "When the door is open or locked during those days, in order; between spans it is in its normal state, where a code opens it. Locked overrides win over open overrides, which win over open-mode schedules.",
+            "items": {
+              "$ref": "#/components/schemas/SpanView"
+            }
+          },
+          "time_zone": {
+            "type": "string",
+            "description": "The site timezone schedules are read in."
+          },
+          "to": {
+            "type": "string",
+            "description": "The last day covered, YYYY-MM-DD."
+          }
+        },
+        "required": [
+          "time_zone",
+          "from",
+          "to",
+          "spans"
+        ]
+      },
       "TokenList": {
         "type": "object",
         "properties": {
@@ -4850,6 +6608,36 @@
           "name",
           "created_at",
           "expired"
+        ]
+      },
+      "UserAccessView": {
+        "type": "object",
+        "properties": {
+          "doors": {
+            "type": "array",
+            "description": "Each door that is not deleted which an access rule naming one of the user's groups reaches, by name.",
+            "items": {
+              "$ref": "#/components/schemas/DoorAccessView"
+            }
+          },
+          "from": {
+            "type": "string",
+            "description": "The first day covered, YYYY-MM-DD."
+          },
+          "time_zone": {
+            "type": "string",
+            "description": "The site timezone schedules are read in."
+          },
+          "to": {
+            "type": "string",
+            "description": "The last day covered, YYYY-MM-DD."
+          }
+        },
+        "required": [
+          "time_zone",
+          "from",
+          "to",
+          "doors"
         ]
       },
       "UserList": {

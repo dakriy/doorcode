@@ -152,6 +152,12 @@ func TestUsersPageIsPaged(t *testing.T) {
 	}
 }
 
+// accessHead is the header row of a user's door access.
+var accessHead = []string{"Door", "Through", "Calendar"}
+
+// noAccess is a user's door access when no rule names their groups.
+var noAccess = [][]string{accessHead, {"No access rule names one of their groups, so their code opens no door."}}
+
 // annPage is ann's page as an administrator first sees it.
 var annPage = testsupport.Page{
 	Title:   "Ann Smith · doorcode",
@@ -159,8 +165,9 @@ var annPage = testsupport.Page{
 	Nav:     usersNav,
 	Values:  annForm,
 	Tables: map[string][][]string{
-		"Groups":     {{"Group", "Roles"}, {"Not a member of any group."}},
-		"API tokens": {{"Name", "Created", "Expires", "Actions"}, {"Ann Smith has no API tokens."}},
+		"Groups":      {{"Group", "Roles"}, {"Not a member of any group."}},
+		"Door access": noAccess,
+		"API tokens":  {{"Name", "Created", "Expires", "Actions"}, {"Ann Smith has no API tokens."}},
 	},
 }
 
@@ -261,8 +268,9 @@ func TestUserPageShowsTheirGroupsAndTokens(t *testing.T) {
 	got := pageOf(b.Get("/admin/users/2"))
 
 	want := map[string][][]string{
-		"Groups":     {{"Group", "Roles"}, {"Administrators", "admin"}, {"Night", "view-logs door-commander"}},
-		"API tokens": {{"Name", "Created", "Expires", "Actions"}, {"sync", "5 Jan 2026", "Never", "Revoke"}},
+		"Groups":      {{"Group", "Roles"}, {"Administrators", "admin"}, {"Night", "view-logs door-commander"}},
+		"Door access": noAccess,
+		"API tokens":  {{"Name", "Created", "Expires", "Actions"}, {"sync", "5 Jan 2026", "Never", "Revoke"}},
 	}
 	if diff := cmp.Diff(want, got.Tables); diff != "" {
 		t.Errorf("tables (-want +got):\n%s", diff)
@@ -502,7 +510,7 @@ func TestUserManagerWithoutAdminSeesUsersButNotTheirTokens(t *testing.T) {
 
 	want := []any{
 		[]string{"Home", "Users (current)", "API tokens", "API docs"},
-		map[string][][]string{"Groups": {{"Group", "Roles"}, {"Staff", "manage-users"}}},
+		map[string][][]string{"Groups": {{"Group", "Roles"}, {"Staff", "manage-users"}}, "Door access": noAccess},
 		403,
 	}
 	if diff := cmp.Diff(want, []any{page.Nav, page.Tables, token.Status}); diff != "" {

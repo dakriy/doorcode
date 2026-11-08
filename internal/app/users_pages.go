@@ -209,6 +209,8 @@ type userContent struct {
 	CodeError string
 	// Alert is a refusal to show above everything else.
 	Alert string
+	// Access is the doors the user's groups let them enter.
+	Access []accessRow
 	// ShowTokens is true when the viewer may manage the user's tokens.
 	ShowTokens    bool
 	Tokens        []auth.Token
@@ -258,6 +260,12 @@ func (a *App) renderUser(w http.ResponseWriter, r *http.Request, status int, vie
 	content.User = a.viewOfUser(u)
 	content.Row = a.rowOf(u)
 	content.Self = u.ID == viewer.ID
+	access, err := a.accessRows(r, u)
+	if err != nil {
+		a.pageError(w, err)
+		return
+	}
+	content.Access = access
 	content.ShowTokens = viewer.Has(auth.RoleAdmin)
 	if content.ShowTokens {
 		tokens, err := a.auth.Tokens(r.Context(), u.ID)

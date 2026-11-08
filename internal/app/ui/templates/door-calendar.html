@@ -1,0 +1,59 @@
+{{define "content"}}
+{{$c := .Content}}{{$d := $c.Door}}{{$w := $c.Calendar}}
+{{template "back" (link (printf "/admin/doors/%d" $d.ID) $d.Name)}}
+<div class="mt-4 lg:flex lg:items-end lg:justify-between">
+  <div class="flex items-center gap-4">
+    {{template "door-thumbnail" (thumb $c.Row "size-12")}}
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight">{{$d.Name}}</h1>
+      <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-400"><span class="font-medium text-zinc-900 dark:text-zinc-100">{{$w.Heading}}</span> · times in {{$w.Zone}}</p>
+    </div>
+  </div>
+  {{template "week-nav" $w}}
+</div>
+{{template "calendar-key" (list "open" "locked" "access")}}
+{{template "calendar" $w}}
+
+<div class="mt-8 grid gap-8 lg:grid-cols-2">
+  <section aria-labelledby="timeline-heading" class="overflow-hidden {{template "card-class"}}">
+    <h2 id="timeline-heading" class="px-5 pt-5 text-sm font-semibold">Timeline</h2>
+    <p class="mt-1 px-5 text-xs text-zinc-500 dark:text-zinc-400">Locked overrides win over open overrides, which win over open mode. Between these times a code opens the door.</p>
+    <div class="mt-4 overflow-x-auto">
+      <table aria-label="Timeline" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+        <thead class="{{template "table-head-class"}}">
+          <tr><th scope="col" class="px-5 py-3">State</th><th scope="col" class="px-5 py-3">Starts</th><th scope="col" class="px-5 py-3">Ends</th><th scope="col" class="px-5 py-3 text-right">Length</th></tr>
+        </thead>
+        <tbody class="divide-y divide-zinc-100 tabular-nums dark:divide-zinc-800">
+          {{template "span-rows" $c.Spans}}
+          {{if not $c.Spans}}<tr><td colspan="4" class="px-5 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">The door is neither in open mode nor locked this week.</td></tr>{{end}}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="windows-heading" class="overflow-hidden {{template "card-class"}}">
+    <h2 id="windows-heading" class="px-5 pt-5 text-sm font-semibold">Access windows</h2>
+    <p class="mt-1 px-5 text-xs text-zinc-500 dark:text-zinc-400">When each access rule that reaches the door lets its group in.</p>
+    <div class="mt-4 overflow-x-auto">
+      <table aria-label="Access windows" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+        <thead class="{{template "table-head-class"}}">
+          <tr><th scope="col" class="px-5 py-3">Group</th><th scope="col" class="px-5 py-3">Schedule</th><th scope="col" class="px-5 py-3">Starts</th><th scope="col" class="px-5 py-3">Ends</th></tr>
+        </thead>
+        <tbody class="divide-y divide-zinc-100 tabular-nums dark:divide-zinc-800">
+          {{range $c.Windows}}
+          <tr>
+            <td class="px-5 py-3 font-medium whitespace-nowrap">{{.Group.Name}}</td>
+            <td class="px-5 py-3 whitespace-nowrap">{{.Schedule.Name}}</td>
+            <td class="px-5 py-3 whitespace-nowrap">{{.Start}}</td>
+            <td class="px-5 py-3 whitespace-nowrap">{{.End}}</td>
+          </tr>
+          {{else}}
+          <tr><td colspan="4" class="px-5 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">No access rule lets anyone in this week.</td></tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{{template "calendar-scripts" .}}
+{{end}}

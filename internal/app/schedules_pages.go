@@ -1,7 +1,6 @@
 package app
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -242,7 +241,7 @@ func (a *App) scheduleChanged(w http.ResponseWriter, r *http.Request, viewer aut
 	if errors.Is(err, schedule.ErrBuiltin) {
 		content.Alert = "Always is built in: it cannot be changed or deleted. Create another schedule for other times."
 	} else if errors.As(err, &inUse) {
-		content.Alert = "Doors are in open mode during this schedule: " + strings.Join(inUse.Doors, ", ") + ". Take it off them before deleting it."
+		content.Alert = inUseText(inUse)
 	}
 	if content.Alert != "" {
 		a.renderSchedule(w, r, http.StatusConflict, viewer, content)
@@ -251,44 +250,26 @@ func (a *App) scheduleChanged(w http.ResponseWriter, r *http.Request, viewer aut
 	a.changed(w, r, err, location, flash)
 }
 
+// inUseText says what uses a schedule that cannot be deleted, and what to
+// do about it.
+func inUseText(inUse schedule.InUseError) string {
+	var parts []string
+	if inUse.Doors != nil {
+		parts = append(parts, "Doors are in open mode during this schedule: "+strings.Join(inUse.Doors, ", ")+". Take it off them before deleting it.")
+	}
+	if inUse.Groups != nil {
+		parts = append(parts, "Access rules of these groups use this schedule: "+strings.Join(inUse.Groups, ", ")+". Change or delete those rules before deleting it.")
+	}
+	return strings.Join(parts, " ")
+}
+
 // calendarContent is the schedule calendar page's content.
 type calendarContent struct {
+	Calendar week
 	Schedule connector.StoredSchedule
 	Row      scheduleRow
-	Zone     string
-	// Week is the Monday the week shown starts on, and Today the date it is
-	// now, both as YYYY-MM-DD.
-	Week  string
-	Today string
-	// Heading names the week shown.
-	Heading  string
-	Previous string
-	Next     string
-	This     string
 	Rows     []occurrenceRow
-	// Events is the occurrences as JSON for the calendar, in local time.
-	Events string
 }
-
-// occurrenceRow is one occurrence as the calendar page lists it.
-type occurrenceRow struct {
-	Start  string
-	End    string
-	Length string
-}
-
-// calendarEvent is one occurrence as the calendar script reads it: local
-// times without an offset, which it shows as they are.
-type calendarEvent struct {
-	Start string `json:"start"`
-	End   string `json:"end"`
-}
-
-const (
-	occurrenceLayout = "Mon 2 Jan 15:04 MST"
-	localLayout      = "2006-01-02T15:04:05"
-	longDateLayout   = "2 Jan 2006"
-)
 
 func (a *App) scheduleCalendarPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	zone, ok := a.siteZone(w, r)
@@ -299,35 +280,16 @@ func (a *App) scheduleCalendarPage(w http.ResponseWriter, r *http.Request, viewe
 	if !ok {
 		return
 	}
-	today := a.today(zone)
-	day, ok := queryDate(r, "week", today)
-	if !ok {
-		day = today
-	}
-	first := monday(day)
 	calendar := calendarContent{
-		Schedule: content.Schedule, Row: content.Row, Zone: zone.String(),
-		Week: first.Format(schedule.DateLayout), Today: today.Format(schedule.DateLayout),
-		Heading:  "Week of " + first.Format(longDateLayout),
-		Previous: calendarPath(content.Schedule.ID, first.AddDate(0, 0, -7)),
-		Next:     calendarPath(content.Schedule.ID, first.AddDate(0, 0, 7)),
-		This:     schedulePath(content.Schedule.ID) + "/calendar",
-		Rows:     []occurrenceRow{},
+		Calendar: a.weekOf(r, zone, schedulePath(content.Schedule.ID)+"/calendar"), Schedule: content.Schedule, Row: content.Row, Rows: []occurrenceRow{},
 	}
 	events := []calendarEvent{}
-	for _, in := range schedule.ExpandDays(content.Schedule, zone, first, first.AddDate(0, 0, 6)) {
-		calendar.Rows = append(calendar.Rows, occurrenceRow{
-			Start: in.Start.Format(occurrenceLayout), End: in.End.Format(occurrenceLayout), Length: lengthText(in.End.Sub(in.Start)),
-		})
-		events = append(events, calendarEvent{Start: in.Start.Format(localLayout), End: in.End.Format(localLayout)})
+	for _, in := range schedule.ExpandDays(content.Schedule, zone, calendar.Calendar.first, calendar.Calendar.first.AddDate(0, 0, 6)) {
+		calendar.Rows = append(calendar.Rows, rowOfOccurrence(in))
+		events = append(events, eventOf(in, content.Schedule.Name, eventAccess))
 	}
-	encoded, _ := json.Marshal(events)
-	calendar.Events = string(encoded)
+	calendar.Calendar.Events = eventsText(events)
 	a.render(w, r, http.StatusOK, scheduleCalendarTemplate, content.Schedule.Name, &viewer, calendar)
-}
-
-func calendarPath(id int64, week time.Time) string {
-	return schedulePath(id) + "/calendar?week=" + week.Format(schedule.DateLayout)
 }
 
 // lengthText says how long d is, in hours and minutes.

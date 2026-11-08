@@ -1,0 +1,25 @@
+{{define "content"}}
+{{$c := .Content}}{{$d := $c.Door}}{{$f := $c.Form}}
+{{template "back" (link (printf "/admin/doors/%d" $d.ID) $d.Name)}}
+<h1 class="mt-4 text-2xl font-semibold tracking-tight">{{if $c.Override.ID}}Override of {{$d.Name}}{{else}}New override{{end}}</h1>
+<p class="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">From the start up to the end, an open door unlocks on any keypress and a locked one refuses every code but a door commander’s. Times are in {{$c.Zone}}.</p>
+<form method="post" action="{{$c.Action}}" novalidate hx-disabled-elt="find button" class="mt-8 max-w-3xl p-6 {{template "card-class"}}">
+  <div class="grid gap-5 sm:grid-cols-2">
+    {{$kindError := index $c.Errors "kind"}}
+    <div class="sm:col-span-2">
+      <label for="kind" class="block text-sm font-medium">Force the door</label>
+      <select id="kind" name="kind"{{if $kindError}} aria-invalid="true" aria-describedby="kind-error"{{end}} class="{{template "input-class"}} sm:max-w-xs">
+        {{range $c.Kinds}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
+      </select>
+      {{if $kindError}}<p id="kind-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$kindError}}</p>{{end}}
+    </div>
+    {{template "field" (field "start" "Starts" "datetime-local" $f.Start $c.Errors "A start in the past starts it now.")}}
+    {{template "field" (field "end" "Ends" "datetime-local" $f.End $c.Errors "After the start, and in the future.")}}
+    <div class="sm:col-span-2">{{template "field" (field "reason" "Reason" "text" $f.Reason $c.Errors "Shown on the door page and in the API.")}}</div>
+  </div>
+  <div class="mt-8 flex justify-end gap-3 border-t border-zinc-200 pt-6 dark:border-zinc-800">
+    <a href="/admin/doors/{{$d.ID}}" class="{{template "secondary-class"}}">Cancel</a>
+    <button type="submit" class="{{template "primary-class"}}">{{if $c.Override.ID}}Save changes{{else}}Create override{{end}}</button>
+  </div>
+</form>
+{{end}}

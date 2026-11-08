@@ -79,10 +79,13 @@ func (s *Store) UpdateSchedule(_ context.Context, sch connector.StoredSchedule) 
 }
 
 // DeleteSchedule removes the schedule with id, and takes it from the doors
-// in open mode during it.
+// in open mode during it. It refuses a schedule an access rule uses.
 func (s *Store) DeleteSchedule(_ context.Context, id int64) (bool, error) {
 	if err := s.writable(schedulesAggregate, scheduleWrites); err != nil {
 		return false, err
+	}
+	if s.scheduleInUse(id) {
+		return false, ErrReferenced
 	}
 	i := slices.IndexFunc(s.schedules, func(sch connector.StoredSchedule) bool { return sch.ID == id })
 	if i < 0 {

@@ -1,16 +1,19 @@
 {{define "content"}}
 {{$c := .Content}}{{$d := $c.Door}}
 {{template "back" (link "/admin/doors" "All doors")}}
-<div class="mt-4 flex items-center gap-5">
-  {{template "door-thumbnail" (thumb $c.Row "size-20")}}
-  <div class="min-w-0">
-    <div class="flex flex-wrap items-center gap-3">
-      <h1 class="text-2xl font-semibold tracking-tight">{{$d.Name}}</h1>
-      {{if $d.Public}}{{template "public-badge"}}{{end}}
-      {{if $d.DeletedAt}}{{template "status" "Deleted"}}{{end}}
+<div class="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+  <div class="flex items-center gap-5">
+    {{template "door-thumbnail" (thumb $c.Row "size-20")}}
+    <div class="min-w-0">
+      <div class="flex flex-wrap items-center gap-3">
+        <h1 class="text-2xl font-semibold tracking-tight">{{$d.Name}}</h1>
+        {{if $d.Public}}{{template "public-badge"}}{{end}}
+        {{if $d.DeletedAt}}{{template "status" "Deleted"}}{{end}}
+      </div>
+      <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{{with $d.Location}}{{.}} · {{end}}created {{$d.CreatedAt.UTC.Format "2 Jan 2006"}}</p>
     </div>
-    <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{{with $d.Location}}{{.}} · {{end}}created {{$d.CreatedAt.UTC.Format "2 Jan 2006"}}</p>
   </div>
+  <a href="/admin/doors/{{$d.ID}}/calendar" hx-boost="false" class="shrink-0 {{template "secondary-class"}}">{{template "calendar-icon"}}View timeline</a>
 </div>
 
 {{with $c.Alert}}<div class="mt-6">{{template "alert" .}}</div>{{end}}
@@ -38,6 +41,89 @@
           <button type="submit" class="{{template "primary-class"}}">Save changes</button>
         </div>
       </form>
+    </section>
+
+    <section aria-labelledby="overrides-heading" class="overflow-hidden {{template "card-class"}}">
+      <div class="flex flex-col gap-3 px-6 pt-6 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 id="overrides-heading" class="text-sm font-semibold">Overrides</h2>
+          <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Force the door open or locked for a while. Locked wins over open, and both win over open mode; door commanders always get in.</p>
+        </div>
+        <a href="/admin/doors/{{$d.ID}}/overrides/new" class="shrink-0 {{template "secondary-class"}}">{{template "plus-icon"}}New override</a>
+      </div>
+      <div class="mt-4 overflow-x-auto">
+        <table aria-label="Overrides" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+          <thead class="{{template "table-head-class"}}">
+            <tr>
+              <th scope="col" class="px-6 py-2">Override</th>
+              <th scope="col" class="px-6 py-2">When</th>
+              <th scope="col" class="px-6 py-2">Reason</th>
+              <th scope="col" class="px-6 py-2"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {{range $c.Overrides}}
+            <tr>
+              <td class="px-6 py-3 whitespace-nowrap">
+                <div class="flex items-center gap-2">
+                  {{if eq .Kind "Locked"}}<span class="inline-flex rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 ring-1 ring-red-600/20 ring-inset dark:bg-red-950 dark:text-red-300 dark:ring-red-400/20">Locked</span>
+                  {{else}}<span class="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-600/20 ring-inset dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-400/20">Open</span>{{end}}
+                  {{if .Active}}{{template "badge" "In force"}}{{else}}{{template "badge" "Upcoming"}}{{end}}
+                </div>
+              </td>
+              <td class="px-6 py-3 whitespace-nowrap tabular-nums text-zinc-600 dark:text-zinc-400">{{.Start}} – {{.End}}</td>
+              <td class="px-6 py-3"><span class="block">{{.Reason}}</span><span class="block text-xs text-zinc-500 dark:text-zinc-400">by {{.Creator}}</span></td>
+              <td class="px-6 py-3 text-right whitespace-nowrap">
+                <div class="flex justify-end gap-1">
+                  <a href="/admin/doors/{{$d.ID}}/overrides/{{.ID}}" class="{{template "row-button-class"}}">Edit</a>
+                  {{if .Active}}
+                  <form method="post" action="/admin/doors/{{$d.ID}}/overrides/{{.ID}}/cancel" hx-confirm="End this override of {{$d.Name}} now?">
+                    <button type="submit" class="{{template "row-button-class"}}">End now</button>
+                  </form>
+                  {{end}}
+                  <form method="post" action="/admin/doors/{{$d.ID}}/overrides/{{.ID}}/delete" hx-confirm="Delete this override of {{$d.Name}}? This cannot be undone.">
+                    <button type="submit" class="{{template "row-button-class"}} hover:text-red-700 dark:hover:text-red-300">Delete</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {{else}}
+            <tr><td colspan="4" class="px-6 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">No overrides are in force or to come. The door follows its open mode and access rules.</td></tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section aria-labelledby="entrants-heading" class="overflow-hidden {{template "card-class"}}">
+      <div class="px-6 pt-6">
+        <h2 id="entrants-heading" class="text-sm font-semibold">Who can enter</h2>
+        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Members of these groups may enter with their code while the schedule is active. Change access from a group’s page.</p>
+      </div>
+      <div class="mt-4 overflow-x-auto">
+        <table aria-label="Who can enter" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+          <thead class="{{template "table-head-class"}}">
+            <tr>
+              <th scope="col" class="px-6 py-2">Group</th>
+              <th scope="col" class="px-6 py-2">Schedule</th>
+              <th scope="col" class="px-6 py-2">Through</th>
+              <th scope="col" class="px-6 py-2"><span class="sr-only">Rule</span></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {{range $c.Entrants}}
+            <tr>
+              <td class="px-6 py-3 font-medium whitespace-nowrap">{{.Group.Name}}</td>
+              <td class="px-6 py-3 whitespace-nowrap">{{.Schedule.Name}}</td>
+              <td class="px-6 py-3 text-zinc-600 dark:text-zinc-400">{{.Through}}</td>
+              <td class="px-6 py-3 text-right whitespace-nowrap">{{if $.Viewer.Has "manage-groups"}}<a href="/admin/groups/{{.Group.ID}}/rules/{{.RuleID}}" class="{{template "row-button-class"}}">Rule {{.RuleID}}</a>{{else}}<span class="text-xs text-zinc-500 dark:text-zinc-400">Rule {{.RuleID}}</span>{{end}}</td>
+            </tr>
+            {{else}}
+            <tr><td colspan="4" class="px-6 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">No access rule reaches this door, so only open mode, overrides, and door commanders open it.</td></tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <section aria-labelledby="pictures-heading" class="p-6 {{template "card-class"}}">

@@ -78,6 +78,31 @@
   </div>
 </div>
 
+<section aria-labelledby="access-heading" class="mt-8 overflow-hidden {{template "card-class"}}">
+  <div class="px-6 pt-6">
+    <h2 id="access-heading" class="text-sm font-semibold">Door access</h2>
+    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">The doors access rules naming {{$u.DisplayName}}’s groups reach. Open a door’s calendar to see when their code works there.</p>
+  </div>
+  <div class="mt-4 overflow-x-auto">
+    <table aria-label="Door access" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+      <thead class="{{template "table-head-class"}}">
+        <tr><th scope="col" class="px-6 py-2">Door</th><th scope="col" class="px-6 py-2">Through</th><th scope="col" class="px-6 py-2"><span class="sr-only">Calendar</span></th></tr>
+      </thead>
+      <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {{range $c.Access}}
+        <tr>
+          <td class="px-6 py-3 font-medium whitespace-nowrap">{{.Door.Name}}</td>
+          <td class="px-6 py-3 text-zinc-600 dark:text-zinc-400">{{.Groups}}</td>
+          <td class="px-6 py-3 text-right"><a href="/admin/users/{{$u.ID}}/doors/{{.Door.ID}}/calendar" hx-boost="false" class="{{template "row-button-class"}}">{{template "calendar-icon"}}Calendar</a></td>
+        </tr>
+        {{else}}
+        <tr><td colspan="3" class="px-6 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">No access rule names one of their groups, so their code opens no door.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</section>
+
 {{if $c.ShowTokens}}
 <section aria-labelledby="tokens-heading" class="mt-8">
   <h2 id="tokens-heading" class="text-lg font-semibold tracking-tight">API tokens</h2>

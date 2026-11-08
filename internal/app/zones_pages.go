@@ -3,7 +3,6 @@ package app
 import (
 	"errors"
 	"net/http"
-	"slices"
 	"strconv"
 
 	"github.com/dakriy/doorcode/internal/auth"
@@ -71,13 +70,7 @@ func (a *App) showZone(w http.ResponseWriter, r *http.Request, status int, viewe
 		a.pageError(w, err)
 		return
 	}
-	content := zoneContent{Zone: z, Form: f, Errors: errs, Doors: []choice{}, Action: "/admin/zones"}
-	for _, d := range doors {
-		held := slices.Contains(f.DoorIDs, d.ID)
-		if d.DeletedAt == nil || held {
-			content.Doors = append(content.Doors, choice{ID: d.ID, Name: d.Name, Detail: doorDetail(d), Checked: held})
-		}
-	}
+	content := zoneContent{Zone: z, Form: f, Errors: errs, Doors: doorChoices(doors, f.DoorIDs), Action: "/admin/zones"}
 	page, title := newZoneTemplate, "New zone"
 	if z.ID != 0 {
 		page, title, content.Action = zoneTemplate, z.Name, zonePath(z.ID)

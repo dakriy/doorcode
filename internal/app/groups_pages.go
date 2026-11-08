@@ -96,6 +96,7 @@ func (a *App) createGroupFromForm(w http.ResponseWriter, r *http.Request, viewer
 type groupContent struct {
 	Group   connector.StoredGroup
 	Members []userRow
+	Rules   []ruleRow
 	Form    groupForm
 	// Member is the add member form's entry, and MemberError what is wrong
 	// with it.
@@ -119,7 +120,21 @@ func (a *App) pageGroup(w http.ResponseWriter, r *http.Request, viewer auth.User
 		a.pageError(w, err)
 		return groupContent{}, false
 	}
-	return groupContent{Group: g, Members: a.rowsOf(members), Form: formOfGroup(g)}, true
+	rules, err := a.rules.Rules(r.Context(), g.ID)
+	if err != nil {
+		a.pageError(w, err)
+		return groupContent{}, false
+	}
+	n, err := a.names(r.Context())
+	if err != nil {
+		a.pageError(w, err)
+		return groupContent{}, false
+	}
+	content := groupContent{Group: g, Members: a.rowsOf(members), Rules: []ruleRow{}, Form: formOfGroup(g)}
+	for _, stored := range rules {
+		content.Rules = append(content.Rules, n.rowOfRule(stored))
+	}
+	return content, true
 }
 
 func (a *App) groupPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {

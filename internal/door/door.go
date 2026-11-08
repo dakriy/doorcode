@@ -1,14 +1,13 @@
-// Package door keeps the site's doors, the zones that group them, and their
-// pictures. A door exists once an administrator creates it; enrollment
-// attaches the hardware later. Doors are soft-deleted, zones and pictures
-// removed.
+// Package door keeps the site's doors, the zones that group them, their
+// pictures, and their overrides, and works out their timelines. A door exists once an administrator creates it; enrollment
+// attaches the hardware later. Doors are soft-deleted; zones, pictures, and
+// overrides removed.
 package door
 
 import (
 	"cmp"
 	"context"
 	"errors"
-	"fmt"
 	"slices"
 	"strings"
 
@@ -38,6 +37,7 @@ type Store interface {
 	connector.PicturesStore
 	connector.ZonesStore
 	connector.SchedulesStore
+	connector.OverridesStore
 }
 
 // Service reads and changes doors, zones, and pictures.
@@ -202,14 +202,14 @@ func (s Service) checkDoor(ctx context.Context, all []connector.StoredDoor, id i
 	}
 	d := connector.StoredDoor{
 		Name: strings.TrimSpace(f.Name), Location: strings.TrimSpace(f.Location), Notes: strings.TrimSpace(f.Notes),
-		Public: f.Public, OpenScheduleIDs: distinct(f.OpenScheduleIDs), ZoneIDs: distinct(f.ZoneIDs),
+		Public: f.Public, OpenScheduleIDs: check.Distinct(f.OpenScheduleIDs), ZoneIDs: check.Distinct(f.ZoneIDs),
 	}
 	var found check.List
 	found.Add("name", doorNameProblem(all, id, d.Name))
 	found.Add("location", check.TooLong(d.Location, maxLocationLength, check.LongText))
 	found.Add("notes", check.TooLong(d.Notes, maxNotesLength, check.LongText))
-	found.Add("open_schedule_ids", unknown(d.OpenScheduleIDs, ids(schedules, func(sch connector.StoredSchedule) int64 { return sch.ID }), "No schedule has id %d."))
-	found.Add("zone_ids", unknown(d.ZoneIDs, ids(zones, func(z connector.StoredZone) int64 { return z.ID }), "No zone has id %d."))
+	found.Add("open_schedule_ids", check.Unknown(d.OpenScheduleIDs, schedules, func(sch connector.StoredSchedule) int64 { return sch.ID }, "No schedule has id %d."))
+	found.Add("zone_ids", check.Unknown(d.ZoneIDs, zones, zoneID, "No zone has id %d."))
 	return d, found.Err()
 }
 
@@ -240,27 +240,6 @@ func nameProblem(name string) string {
 	return check.TooLong(name, maxNameLength, check.LongText)
 }
 
-// distinct is given without repeats, ascending.
-func distinct(given []int64) []int64 {
-	return slices.Compact(slices.Concat([]int64{}, slices.Sorted(slices.Values(given))))
-}
+func zoneID(z connector.StoredZone) int64 { return z.ID }
 
-// unknown is message, with the id in place of its verb, for the first of
-// given that is not among known.
-func unknown(given, known []int64, message string) string {
-	for _, id := range given {
-		if !slices.Contains(known, id) {
-			return fmt.Sprintf(message, id)
-		}
-	}
-	return ""
-}
-
-// ids is the id of each of items, which id reads.
-func ids[T any](items []T, id func(T) int64) []int64 {
-	out := []int64{}
-	for _, item := range items {
-		out = append(out, id(item))
-	}
-	return out
-}
+func doorID(d connector.StoredDoor) int64 { return d.ID }

@@ -59,13 +59,8 @@ var (
 	scheduleIDParam = openapi.Param{Name: "id", In: "path", Description: "The schedule's id. The Always schedule has id 1.", Example: int64(1)}
 	noSchedule      = openapi.Response{Status: http.StatusNotFound, Description: "No schedule has this id.", Body: errorBody{}}
 	builtinRefused  = openapi.Response{Status: http.StatusConflict, Description: "The schedule is the built-in Always schedule, which cannot be changed or deleted.", Body: errorBody{}}
-	deleteRefused   = openapi.Response{Status: http.StatusConflict, Description: "The schedule is the built-in Always schedule, which cannot be deleted, or doors that are not deleted are in open mode during it; the error names them.", Body: errorBody{}}
+	deleteRefused   = openapi.Response{Status: http.StatusConflict, Description: "The schedule is the built-in Always schedule, which cannot be deleted, doors that are not deleted are in open mode during it, or access rules use it; the error names the doors and the groups whose rules they are.", Body: errorBody{}}
 	badSchedule     = openapi.Response{Status: http.StatusBadRequest, Description: "The body is not a JSON schedule, or a field is wrong; the error says which.", Body: errorBody{}}
-	occurrenceRange = []openapi.Param{
-		scheduleIDParam,
-		{Name: "from", In: "query", Description: "The first day to cover, YYYY-MM-DD in the site timezone; by default the Monday of the current week.", Example: "2026-11-09"},
-		{Name: "to", In: "query", Description: fmt.Sprintf("The last day to cover, YYYY-MM-DD, at most %d days after from; by default the Sunday after from.", maxOccurrenceSpan), Example: "2026-11-15"},
-	}
 )
 
 func (a *App) scheduleRoutes() []route {
@@ -99,11 +94,10 @@ func (a *App) scheduleRoutes() []route {
 			responses: []openapi.Response{{Status: http.StatusNoContent, Description: "The schedule is gone. Deleted doors stop being in open mode during it."}, noSchedule, deleteRefused},
 		}),
 		apiRoute(http.MethodGet, "/schedules/{id}/occurrences", schedules, a.listOccurrences, apiDoc{
-			id: "listScheduleOccurrences", summary: "List when a schedule is active", tag: "schedules", params: occurrenceRange,
+			id: "listScheduleOccurrences", summary: "List when a schedule is active", tag: "schedules", params: dayParams(scheduleIDParam),
 			responses: []openapi.Response{
 				{Status: http.StatusOK, Description: "When the schedule is active during the days asked for.", Body: occurrenceList{}},
-				{Status: http.StatusBadRequest, Description: "from or to is not a date, or the range is backwards or too long.", Body: errorBody{}},
-				noSchedule,
+				badDays, noSchedule,
 			},
 		}),
 	}
@@ -206,14 +200,8 @@ func (a *App) deleteSchedule(w http.ResponseWriter, r *http.Request, _ auth.User
 }
 
 func (a *App) listOccurrences(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	current, err := a.settings.Current(r.Context())
-	if err != nil {
-		a.internalError(w, err)
-		return
-	}
-	first, last, ok := occurrenceDays(r, a.today(current.Zone))
+	days, ok := a.apiDays(w, r)
 	if !ok {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("from and to must be dates as YYYY-MM-DD, with to on or after from and at most %d days after it", maxOccurrenceSpan))
 		return
 	}
 	sch, err := a.schedules.Schedule(r.Context(), pathID(r, "id"))
@@ -222,12 +210,55 @@ func (a *App) listOccurrences(w http.ResponseWriter, r *http.Request, _ auth.Use
 		return
 	}
 	views := []occurrenceView{}
-	for _, in := range schedule.ExpandDays(sch, current.Zone, first, last) {
+	for _, in := range schedule.ExpandDays(sch, days.zone, days.first, days.last) {
 		views = append(views, occurrenceView{Start: in.Start, End: in.End})
 	}
 	writeJSON(w, http.StatusOK, occurrenceList{
-		TimeZone: current.Zone.String(), From: first.Format(schedule.DateLayout), To: last.Format(schedule.DateLayout), Occurrences: views,
+		TimeZone: days.zone.String(), From: days.firstText(), To: days.lastText(), Occurrences: views,
 	})
+}
+
+// dayRange is the dates first to last that a request covers, in the site
+// timezone zone.
+type dayRange struct {
+	zone  *time.Location
+	first time.Time
+	last  time.Time
+}
+
+// from is the start of the first day.
+func (d dayRange) from() time.Time {
+	return schedule.StartOf(d.first, d.zone)
+}
+
+// to is the end of the last day.
+func (d dayRange) to() time.Time {
+	return schedule.StartOf(d.last.AddDate(0, 0, 1), d.zone)
+}
+
+func (d dayRange) firstText() string {
+	return d.first.Format(schedule.DateLayout)
+}
+
+func (d dayRange) lastText() string {
+	return d.last.Format(schedule.DateLayout)
+}
+
+// apiDays reads the days an API request covers from its from and to
+// query parameters, by default the week it is now, after answering that
+// the site timezone could not be read or that they are not a range it may
+// ask for.
+func (a *App) apiDays(w http.ResponseWriter, r *http.Request) (dayRange, bool) {
+	current, err := a.settings.Current(r.Context())
+	if err != nil {
+		a.internalError(w, err)
+		return dayRange{}, false
+	}
+	first, last, ok := occurrenceDays(r, a.today(current.Zone))
+	if !ok {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("from and to must be dates as YYYY-MM-DD, with to on or after from and at most %d days after it", maxOccurrenceSpan))
+	}
+	return dayRange{zone: current.Zone, first: first, last: last}, ok
 }
 
 // occurrenceDays reads the days an occurrences request covers, first to

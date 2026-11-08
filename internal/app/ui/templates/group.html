@@ -70,10 +70,51 @@
   </section>
 </div>
 
+<section aria-labelledby="rules-heading" class="mt-8 overflow-hidden {{template "card-class"}}">
+  <div class="flex flex-col gap-3 px-5 pt-5 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <h2 id="rules-heading" class="text-sm font-semibold">Access rules</h2>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Members may enter these doors, and every door in these zones, with their code while the schedule is active. Membership alone opens nothing.</p>
+    </div>
+    <a href="/admin/groups/{{$g.ID}}/rules/new" class="shrink-0 {{template "secondary-class"}}">{{template "plus-icon"}}New access rule</a>
+  </div>
+  <div class="mt-4 overflow-x-auto">
+    <table aria-label="Access rules" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+      <thead class="{{template "table-head-class"}}">
+        <tr>
+          <th scope="col" class="px-5 py-3">Schedule</th>
+          <th scope="col" class="px-5 py-3">Doors</th>
+          <th scope="col" class="px-5 py-3">Zones</th>
+          <th scope="col" class="px-5 py-3"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {{range $c.Rules}}
+        <tr>
+          <td class="px-5 py-3 font-medium whitespace-nowrap">{{.Schedule.Name}}</td>
+          <td class="px-5 py-3 text-zinc-600 dark:text-zinc-400">{{if .Doors}}{{template "names" .Doors}}{{else}}None{{end}}</td>
+          <td class="px-5 py-3 text-zinc-600 dark:text-zinc-400">{{if .Zones}}{{template "names" .Zones}}{{else}}None{{end}}</td>
+          <td class="px-5 py-3 text-right whitespace-nowrap">
+            <div class="flex justify-end gap-1">
+              <a href="/admin/groups/{{$g.ID}}/rules/{{.ID}}" class="{{template "row-button-class"}}">Edit</a>
+              <form method="post" action="/admin/groups/{{$g.ID}}/rules/{{.ID}}/delete" hx-confirm="Delete this access rule? Members of {{$g.Name}} stop getting in by it at once.">
+                <button type="submit" class="{{template "row-button-class"}} hover:text-red-700 dark:hover:text-red-300">Delete</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {{else}}
+        <tr><td colspan="4" class="px-5 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">No access rules yet, so members cannot open any door with their code.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</section>
+
 <section aria-labelledby="delete-heading" class="mt-8 rounded-xl border border-red-200 p-6 dark:border-red-900/60">
   <h2 id="delete-heading" class="text-sm font-semibold text-red-700 dark:text-red-300">Delete group</h2>
   <div class="mt-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-    <p class="text-sm text-zinc-600 dark:text-zinc-400">Members keep their accounts but lose this group’s roles. This cannot be undone.</p>
+    <p class="text-sm text-zinc-600 dark:text-zinc-400">Members keep their accounts but lose this group’s roles, and its access rules go with it. This cannot be undone.</p>
     <form method="post" action="/admin/groups/{{$g.ID}}/delete" hx-confirm="Delete the group {{$g.Name}}? Its {{$g.MemberCount}} members lose its roles at once. This cannot be undone.">
       <button type="submit" class="{{template "danger-class"}} py-2">Delete group</button>
     </form>

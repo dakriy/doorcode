@@ -13,6 +13,7 @@ import (
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/directory"
 	"github.com/dakriy/doorcode/internal/door"
+	"github.com/dakriy/doorcode/internal/rule"
 	"github.com/dakriy/doorcode/internal/schedule"
 	"github.com/dakriy/doorcode/internal/settings"
 )
@@ -27,6 +28,7 @@ type App struct {
 	directory directory.Service
 	schedules schedule.Service
 	doors     door.Service
+	rules     rule.Service
 	root      http.Handler
 	// openapi builds the OpenAPI document of the route table's API
 	// operations the first time it is served, so constructing an App does
@@ -58,6 +60,7 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 		directory: directory.Service{Store: store, Auth: authService, Clock: clock},
 		schedules: schedule.Service{Store: store},
 		doors:     door.Service{Store: store, Clock: clock},
+		rules:     rule.Service{Store: store},
 	}
 	if err := a.auth.CreateFirstAdmin(ctx); err != nil {
 		return nil, fmt.Errorf("create first administrator: %w", err)

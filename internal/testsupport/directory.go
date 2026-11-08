@@ -297,7 +297,7 @@ func (s *Store) storable(g connector.StoredGroup) error {
 	return nil
 }
 
-// DeleteGroup removes the group with id and its memberships.
+// DeleteGroup removes the group with id, its memberships, and its rules.
 func (s *Store) DeleteGroup(_ context.Context, id int64) (bool, error) {
 	if err := s.writable(groupsAggregate, groupWrites); err != nil {
 		return false, err
@@ -308,6 +308,7 @@ func (s *Store) DeleteGroup(_ context.Context, id int64) (bool, error) {
 	}
 	s.groups = slices.Delete(slices.Clone(s.groups), i, i+1)
 	s.members = slices.DeleteFunc(slices.Clone(s.members), func(m membership) bool { return m.group == id })
+	s.dropGroupRules(id)
 	return true, nil
 }
 

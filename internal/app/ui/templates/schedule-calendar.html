@@ -7,20 +7,12 @@
       <h1 class="text-2xl font-semibold tracking-tight">{{$s.Name}}</h1>
       {{if $s.Builtin}}{{template "builtin-badge"}}{{end}}
     </div>
-    <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400"><span class="font-medium text-zinc-900 dark:text-zinc-100">{{$c.Heading}}</span> · times in {{$c.Zone}}</p>
+    <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400"><span class="font-medium text-zinc-900 dark:text-zinc-100">{{$c.Calendar.Heading}}</span> · times in {{$c.Calendar.Zone}}</p>
   </div>
-  <nav aria-label="Weeks" class="mt-4 flex items-center gap-2 lg:mt-0">
-    <a href="{{$c.Previous}}" hx-boost="false" class="{{template "secondary-class"}}"><svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/></svg>Previous week</a>
-    <a href="{{$c.This}}" hx-boost="false" class="{{template "secondary-class"}}">This week</a>
-    <a href="{{$c.Next}}" hx-boost="false" class="{{template "secondary-class"}}">Next week<svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg></a>
-  </nav>
+  {{template "week-nav" $c.Calendar}}
 </div>
 
-<div class="mt-8 overflow-hidden p-4 {{template "card-class"}}">
-  <div id="schedule-calendar" class="schedule-calendar" data-week="{{$c.Week}}" data-today="{{$c.Today}}" data-title="{{$s.Name}}" data-events="{{$c.Events}}">
-    <p class="p-6 text-sm text-zinc-500 dark:text-zinc-400">Loading the calendar…</p>
-  </div>
-</div>
+{{template "calendar" $c.Calendar}}
 
 <section aria-labelledby="occurrences-heading" class="mt-8 overflow-hidden {{template "card-class"}}">
   <h2 id="occurrences-heading" class="px-5 pt-5 text-sm font-semibold">When it is active this week</h2>
@@ -48,6 +40,5 @@
   </div>
   <p class="border-t border-zinc-100 px-5 py-3 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">Windows that overlap or meet are shown joined; an occurrence that runs past the week is cut at its edge.</p>
 </section>
-<script id="fullcalendar-script" src="{{index .Assets "FullCalendarJS"}}" defer></script>
-<script src="{{index .Assets "ScheduleCalendarJS"}}" defer></script>
+{{template "calendar-scripts" .}}
 {{end}}

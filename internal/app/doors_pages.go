@@ -80,7 +80,7 @@ func (a *App) doorsPage(w http.ResponseWriter, r *http.Request, viewer auth.User
 	if page, ok := queryNumber(r, "page", 1, 1, maxPage); ok {
 		q.Page = page
 	}
-	if zone, ok := zoneQuery(r); ok {
+	if zone, ok := queryID(r, "zone"); ok {
 		q.ZoneID = zone
 	}
 	found, err := a.doors.Find(r.Context(), q)
@@ -215,10 +215,20 @@ type doorContent struct {
 	Schedules []choice
 	Zones     []choice
 	Pictures  []pictureTile
+	Entrants  []entrantRow
+	Overrides []overrideRow
 	// Alert is a refusal to show above everything else.
 	Alert          string
 	MaxPictureMB   int
 	MaxPictureSide int
+}
+
+// entrantRow is one access rule as a door's page lists who may enter.
+type entrantRow struct {
+	RuleID   int64
+	Group    nameRef
+	Schedule nameRef
+	Through  string
 }
 
 // storedDoor is a door and its pictures as the store holds them.
@@ -245,25 +255,49 @@ func (a *App) pageDoor(w http.ResponseWriter, r *http.Request, viewer auth.User)
 // showDoor shows the page about d with its forms holding form, answering
 // with status.
 func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewer auth.User, d storedDoor, form doorForm, alert string) {
-	c, err := a.catalog(r.Context())
+	zone, ok := a.siteZone(w, r)
+	if !ok {
+		return
+	}
+	n, err := a.names(r.Context())
+	if err != nil {
+		a.pageError(w, err)
+		return
+	}
+	entrants, err := a.rules.Entrants(r.Context(), d.StoredDoor)
+	if err != nil {
+		a.pageError(w, err)
+		return
+	}
+	_, overrides, err := a.doors.Overrides(r.Context(), d.ID)
 	if err != nil {
 		a.pageError(w, err)
 		return
 	}
 	content := doorContent{
-		Door: d.StoredDoor, Row: c.rowOfDoor(d.StoredDoor), Form: form, Alert: alert,
+		Door: d.StoredDoor, Row: n.rowOfDoor(d.StoredDoor), Form: form, Alert: alert,
+		Entrants: []entrantRow{}, Overrides: []overrideRow{},
 		MaxPictureMB: picture.Megabytes(), MaxPictureSide: picture.MaxSide,
 	}
-	for _, sch := range c.schedules {
+	for _, sch := range n.schedules {
 		content.Schedules = append(content.Schedules, choice{
 			ID: sch.ID, Name: sch.Name, Detail: strings.Join(windowSummaries(sch.Windows), " · "), Checked: slices.Contains(form.OpenScheduleIDs, sch.ID),
 		})
 	}
-	for _, z := range c.zones {
+	for _, z := range n.zones {
 		content.Zones = append(content.Zones, choice{ID: z.ID, Name: z.Name, Detail: z.Description, Checked: slices.Contains(form.ZoneIDs, z.ID)})
 	}
 	for i, p := range d.pictures {
 		content.Pictures = append(content.Pictures, pictureTile{pictureView: viewOfPicture(d.StoredDoor, p), Number: i + 1})
+	}
+	for _, reach := range entrants {
+		view := n.viewOfEntrant(reach)
+		content.Entrants = append(content.Entrants, entrantRow{
+			RuleID: view.RuleID, Group: view.Group, Schedule: view.Schedule, Through: throughText(view.Direct, view.Zones),
+		})
+	}
+	for _, o := range overrides {
+		content.Overrides = append(content.Overrides, a.rowOfOverride(o, zone))
 	}
 	a.render(w, r, status, doorTemplate, d.Name, &viewer, content)
 }
@@ -334,24 +368,39 @@ func uploadRefusal(err error) (int, bool) {
 	return http.StatusUnprocessableEntity, rejected
 }
 
-// pictureChanged finishes a change to a picture of d made from its page:
-// a picture that is gone is shown on the page.
-func (a *App) pictureChanged(w http.ResponseWriter, r *http.Request, viewer auth.User, d storedDoor, err error, flash string) {
-	if errors.Is(err, door.ErrNoPicture) {
-		a.showDoor(w, r, http.StatusNotFound, viewer, d, d.fresh(), "That picture is not there any more. It may have been deleted already.")
-		return
+// doorPageRefusals maps each refusal of a change made from a door's page
+// to the status and the message the page shows.
+var doorPageRefusals = []struct {
+	err     error
+	status  int
+	message string
+}{
+	{door.ErrNoPicture, http.StatusNotFound, "That picture is not there any more. It may have been deleted already."},
+	{door.ErrNoOverride, http.StatusNotFound, "That override is not there any more. It may have been deleted already."},
+	{door.ErrNotActive, http.StatusConflict, "Only an override in force can be cancelled. Delete one that has not started."},
+}
+
+// doorChanged finishes a change to d made from its page: a refusal is
+// shown on the page, a failure as an error, and success by going back to
+// the page with flash.
+func (a *App) doorChanged(w http.ResponseWriter, r *http.Request, viewer auth.User, d storedDoor, err error, flash string) {
+	for _, known := range doorPageRefusals {
+		if errors.Is(err, known.err) {
+			a.showDoor(w, r, known.status, viewer, d, d.fresh(), known.message)
+			return
+		}
 	}
 	a.changed(w, r, err, doorPath(d.ID), flash)
 }
 
 func (a *App) primaryPictureFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	if d, ok := a.pageDoor(w, r, viewer); ok {
-		a.pictureChanged(w, r, viewer, d, a.doors.SetPrimaryPicture(r.Context(), d.ID, pathID(r, "picture")), "picture-primary")
+		a.doorChanged(w, r, viewer, d, a.doors.SetPrimaryPicture(r.Context(), d.ID, pathID(r, "picture")), "picture-primary")
 	}
 }
 
 func (a *App) deletePictureFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	if d, ok := a.pageDoor(w, r, viewer); ok {
-		a.pictureChanged(w, r, viewer, d, a.doors.DeletePicture(r.Context(), d.ID, pathID(r, "picture")), "picture-deleted")
+		a.doorChanged(w, r, viewer, d, a.doors.DeletePicture(r.Context(), d.ID, pathID(r, "picture")), "picture-deleted")
 	}
 }

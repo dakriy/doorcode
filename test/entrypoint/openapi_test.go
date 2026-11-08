@@ -38,12 +38,27 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 	doorBody := `{"name":"North entrance","location":"Building A, ground floor","notes":"Strike replaced in 2026.",` +
 		`"public":true,"open_schedule_ids":[1],"zone_ids":[1]}`
 	zoneBody := `{"name":"Building A","description":"Every outside door of building A.","door_ids":[1]}`
+	ruleBody := `{"group_id":1,"schedule_id":1,"door_ids":[1],"zone_ids":[1]}`
+	overrideBody := `{"kind":"locked","start":"2026-12-24T18:00:00Z","end":"2026-12-27T06:00:00Z","reason":"Closed over the holiday."}`
 	want := []testsupport.APIOperation{
+		{Method: "GET", Target: "/api/v1/access-rules", ID: "listAccessRules", Statuses: []int{200, 400, 401, 403, 500}},
+		{Method: "POST", Target: "/api/v1/access-rules", ID: "createAccessRule", Body: ruleBody, Statuses: []int{201, 400, 401, 403, 500}},
+		{Method: "DELETE", Target: "/api/v1/access-rules/1", ID: "deleteAccessRule", Statuses: []int{204, 401, 403, 404, 500}},
+		{Method: "GET", Target: "/api/v1/access-rules/1", ID: "getAccessRule", Statuses: []int{200, 401, 403, 404, 500}},
+		{Method: "PUT", Target: "/api/v1/access-rules/1", ID: "updateAccessRule", Body: ruleBody, Statuses: []int{200, 400, 401, 403, 404, 500}},
+		{Method: "GET", Target: "/api/v1/affected-doors", ID: "listAffectedDoors", Statuses: []int{200, 400, 401, 403, 500}},
 		{Method: "GET", Target: "/api/v1/doors", ID: "listDoors", Statuses: []int{200, 400, 401, 403, 500}},
 		{Method: "POST", Target: "/api/v1/doors", ID: "createDoor", Body: doorBody, Statuses: []int{201, 400, 401, 403, 500}},
 		{Method: "DELETE", Target: "/api/v1/doors/1", ID: "deleteDoor", Statuses: []int{204, 401, 403, 404, 500}},
 		{Method: "GET", Target: "/api/v1/doors/1", ID: "getDoor", Statuses: []int{200, 401, 403, 404, 500}},
 		{Method: "PUT", Target: "/api/v1/doors/1", ID: "updateDoor", Body: doorBody, Statuses: []int{200, 400, 401, 403, 404, 500}},
+		{Method: "GET", Target: "/api/v1/doors/1/entrants", ID: "listDoorEntrants", Statuses: []int{200, 401, 403, 404, 500}},
+		{Method: "GET", Target: "/api/v1/doors/1/overrides", ID: "listDoorOverrides", Statuses: []int{200, 401, 403, 404, 500}},
+		{Method: "POST", Target: "/api/v1/doors/1/overrides", ID: "createDoorOverride", Body: overrideBody, Statuses: []int{201, 400, 401, 403, 404, 500}},
+		{Method: "DELETE", Target: "/api/v1/doors/1/overrides/1", ID: "deleteDoorOverride", Statuses: []int{204, 401, 403, 404, 500}},
+		{Method: "GET", Target: "/api/v1/doors/1/overrides/1", ID: "getDoorOverride", Statuses: []int{200, 401, 403, 404, 500}},
+		{Method: "PUT", Target: "/api/v1/doors/1/overrides/1", ID: "updateDoorOverride", Body: overrideBody, Statuses: []int{200, 400, 401, 403, 404, 500}},
+		{Method: "POST", Target: "/api/v1/doors/1/overrides/1/cancel", ID: "cancelDoorOverride", Statuses: []int{200, 401, 403, 404, 409, 500}},
 		{Method: "GET", Target: "/api/v1/doors/1/pictures", ID: "listDoorPictures", Statuses: []int{200, 401, 403, 404, 500}},
 		{Method: "POST", Target: "/api/v1/doors/1/pictures", ID: "uploadDoorPicture", Statuses: []int{201, 400, 401, 403, 404, 413, 500}},
 		{Method: "DELETE", Target: "/api/v1/doors/1/pictures/1", ID: "deleteDoorPicture", Statuses: []int{204, 401, 403, 404, 500}},
@@ -51,6 +66,7 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 		{Method: "POST", Target: "/api/v1/doors/1/pictures/1/primary", ID: "setPrimaryDoorPicture", Statuses: []int{204, 401, 403, 404, 500}},
 		{Method: "GET", Target: "/api/v1/doors/1/pictures/1/thumbnail", ID: "getDoorPictureThumbnail", Statuses: []int{200, 401, 403, 404, 500}},
 		{Method: "POST", Target: "/api/v1/doors/1/restore", ID: "restoreDoor", Statuses: []int{204, 401, 403, 404, 500}},
+		{Method: "GET", Target: "/api/v1/doors/1/timeline", ID: "getDoorTimeline", Statuses: []int{200, 400, 401, 403, 404, 500}},
 		{Method: "GET", Target: "/api/v1/groups", ID: "listGroups", Statuses: []int{200, 401, 403, 500}},
 		{Method: "POST", Target: "/api/v1/groups", ID: "createGroup", Body: groupBody, Statuses: []int{201, 400, 401, 403, 500}},
 		{Method: "DELETE", Target: "/api/v1/groups/1", ID: "deleteGroup", Statuses: []int{204, 401, 403, 404, 409, 500}},
@@ -79,6 +95,7 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 		{Method: "DELETE", Target: "/api/v1/users/1", ID: "deleteUser", Statuses: []int{204, 401, 403, 404, 409, 500}},
 		{Method: "GET", Target: "/api/v1/users/1", ID: "getUser", Statuses: []int{200, 401, 403, 404, 500}},
 		{Method: "PUT", Target: "/api/v1/users/1", ID: "updateUser", Body: userBody, Statuses: []int{200, 400, 401, 403, 404, 500}},
+		{Method: "GET", Target: "/api/v1/users/1/access", ID: "getUserAccess", Statuses: []int{200, 400, 401, 403, 404, 500}},
 		{Method: "DELETE", Target: "/api/v1/users/1/code", ID: "clearUserCode", Statuses: []int{204, 401, 403, 404, 500}},
 		{Method: "PUT", Target: "/api/v1/users/1/code", ID: "setUserCode", Body: `{"code":"73914862"}`,
 			Statuses: []int{204, 400, 401, 403, 404, 500}},

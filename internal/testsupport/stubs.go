@@ -124,27 +124,31 @@ func entry(level, msg string, fields []connector.Field) LogEntry {
 
 // Store is the stub connector.Store, held in memory.
 type Store struct {
-	migrated    bool
-	settings    map[string]connector.StoredSetting
-	users       []connector.StoredUser
-	groups      []connector.StoredGroup
-	members     []membership
-	nextGroup   int64
-	codeParams  string
-	sessions    map[string]connector.StoredSession
-	tokens      []connector.StoredToken
-	nextToken   int64
-	schedules   []connector.StoredSchedule
-	nextSched   int64
-	doors       []connector.StoredDoor
-	nextDoor    int64
-	pictures    []storedPicture
-	nextPicture int64
-	zones       []connector.StoredZone
-	nextZone    int64
-	zoneDoors   []zoneDoor
-	migrateErr  error
-	failing     map[aggregate]bool
+	migrated     bool
+	settings     map[string]connector.StoredSetting
+	users        []connector.StoredUser
+	groups       []connector.StoredGroup
+	members      []membership
+	nextGroup    int64
+	codeParams   string
+	sessions     map[string]connector.StoredSession
+	tokens       []connector.StoredToken
+	nextToken    int64
+	schedules    []connector.StoredSchedule
+	nextSched    int64
+	doors        []connector.StoredDoor
+	nextDoor     int64
+	pictures     []storedPicture
+	nextPicture  int64
+	zones        []connector.StoredZone
+	nextZone     int64
+	zoneDoors    []zoneDoor
+	rules        []connector.StoredRule
+	nextRule     int64
+	overrides    []connector.StoredOverride
+	nextOverride int64
+	migrateErr   error
+	failing      map[aggregate]bool
 }
 
 type aggregate int
@@ -165,6 +169,10 @@ const (
 	zonesAggregate
 	zoneWrites
 	primaryPictureWrites
+	rulesAggregate
+	ruleWrites
+	overridesAggregate
+	overrideWrites
 )
 
 // NewStore returns an empty, unmigrated stub store.
@@ -414,6 +422,8 @@ func (s *Store) Fail() {
 	s.FailSchedules()
 	s.FailDoors()
 	s.FailZones()
+	s.FailRules()
+	s.FailOverrides()
 }
 
 // FailSettings makes the settings methods report ErrUnavailable.

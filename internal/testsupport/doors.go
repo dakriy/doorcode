@@ -313,7 +313,8 @@ func (s *Store) UpdateZone(_ context.Context, z connector.StoredZone) (bool, err
 	return true, nil
 }
 
-// DeleteZone removes the zone with id; its doors stay.
+// DeleteZone removes the zone with id and takes it off the rules; its
+// doors stay.
 func (s *Store) DeleteZone(_ context.Context, id int64) (bool, error) {
 	if err := s.writable(zonesAggregate, zoneWrites); err != nil {
 		return false, err
@@ -324,6 +325,7 @@ func (s *Store) DeleteZone(_ context.Context, id int64) (bool, error) {
 	}
 	s.zones = slices.Delete(slices.Clone(s.zones), i, i+1)
 	s.fillZone(id, nil)
+	s.dropRuleZone(id)
 	return true, nil
 }
 

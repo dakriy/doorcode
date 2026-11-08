@@ -123,11 +123,11 @@ func (a *App) catalog(ctx context.Context) (catalog, error) {
 }
 
 func (c catalog) openSchedules(d connector.StoredDoor) []nameRef {
-	return refs(c.schedules, d.OpenScheduleIDs, func(sch connector.StoredSchedule) nameRef { return nameRef{ID: sch.ID, Name: sch.Name} })
+	return refs(c.schedules, d.OpenScheduleIDs, scheduleRef)
 }
 
 func (c catalog) zonesOf(d connector.StoredDoor) []nameRef {
-	return refs(c.zones, d.ZoneIDs, func(z connector.StoredZone) nameRef { return nameRef{ID: z.ID, Name: z.Name} })
+	return refs(c.zones, d.ZoneIDs, zoneRef)
 }
 
 // refs names the items whose ids are among held, in the order of items.
@@ -155,6 +155,8 @@ var doorStatuses = []refusalStatus{
 	{door.ErrNoDoor, http.StatusNotFound},
 	{door.ErrNoZone, http.StatusNotFound},
 	{door.ErrNoPicture, http.StatusNotFound},
+	{door.ErrNoOverride, http.StatusNotFound},
+	{door.ErrNotActive, http.StatusConflict},
 	{errTooBig, http.StatusRequestEntityTooLarge},
 }
 
@@ -179,10 +181,10 @@ func (a *App) writeDoor(w http.ResponseWriter, r *http.Request, status int, d co
 	writeJSON(w, status, c.viewOfDoor(d))
 }
 
-// zoneQuery reads the zone query parameter: zero, which names no zone,
-// when it is absent.
-func zoneQuery(r *http.Request) (int64, bool) {
-	value := r.URL.Query().Get("zone")
+// queryID reads the query parameter name as an id: zero, which names
+// nothing, when it is absent.
+func queryID(r *http.Request, name string) (int64, bool) {
+	value := r.URL.Query().Get(name)
 	if value == "" {
 		return 0, true
 	}
@@ -193,7 +195,7 @@ func zoneQuery(r *http.Request) (int64, bool) {
 func (a *App) listDoors(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	page, pageOK := queryNumber(r, "page", 1, 1, maxPage)
 	perPage, perPageOK := queryNumber(r, "per_page", doorsPerPage, 1, maxDoorsAPIPer)
-	zone, zoneOK := zoneQuery(r)
+	zone, zoneOK := queryID(r, "zone")
 	show := r.URL.Query().Get("show")
 	if !pageOK || !perPageOK || !zoneOK || (show != "" && show != showCurrent && show != showDeleted) {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("page must be a whole number from 1, per_page one from 1 to %d, zone a zone's id, and show current or deleted", maxDoorsAPIPer))

@@ -89,12 +89,12 @@ func (s Service) checkZone(ctx context.Context, id int64, f ZoneFields) (connect
 		return connector.StoredZone{}, err
 	}
 	z := connector.StoredZone{
-		Name: strings.TrimSpace(f.Name), Description: strings.TrimSpace(f.Description), DoorIDs: distinct(f.DoorIDs),
+		Name: strings.TrimSpace(f.Name), Description: strings.TrimSpace(f.Description), DoorIDs: check.Distinct(f.DoorIDs),
 	}
 	var found check.List
 	found.Add("name", zoneNameProblem(zones, id, z.Name))
 	found.Add("description", check.TooLong(z.Description, maxDescriptionLength, check.LongText))
-	found.Add("door_ids", unknown(z.DoorIDs, ids(doors, func(d connector.StoredDoor) int64 { return d.ID }), "No door has id %d."))
+	found.Add("door_ids", check.Unknown(z.DoorIDs, doors, doorID, "No door has id %d."))
 	return z, found.Err()
 }
 

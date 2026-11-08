@@ -80,7 +80,10 @@ func TestCreatingAGroupFromTheFormOpensItsPage(t *testing.T) {
 		Messages: []string{"The group has been created."},
 		Values:   nightForm,
 		Checked:  []string{"roles=view-logs", "roles=door-commander"},
-		Tables:   map[string][][]string{"Members": {membersHead, {"This group has no members yet. Add someone by their email or user id."}}},
+		Tables: map[string][][]string{
+			"Members":      {membersHead, {"This group has no members yet. Add someone by their email or user id."}},
+			"Access rules": noRules,
+		},
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("page (-want +got):\n%s", diff)
@@ -136,12 +139,15 @@ func TestGroupPageListsItsMembers(t *testing.T) {
 		Title: "Night · doorcode", Heading: "Night", Nav: groupsNav,
 		Values:  nightForm,
 		Checked: []string{"roles=view-logs", "roles=door-commander"},
-		Tables: map[string][][]string{"Members": {
-			membersHead,
-			{"Administrator", "admin@example.com", "Active", "Remove"},
-			{"Ann Smith", "ann@example.com", "Active", "Remove"},
-			{"Bo", "bo@example.com", "Deleted", "Remove"},
-		}},
+		Tables: map[string][][]string{
+			"Members": {
+				membersHead,
+				{"Administrator", "admin@example.com", "Active", "Remove"},
+				{"Ann Smith", "ann@example.com", "Active", "Remove"},
+				{"Bo", "bo@example.com", "Deleted", "Remove"},
+			},
+			"Access rules": noRules,
+		},
 	}
 	if diff := cmp.Diff(want, pageOf(got)); diff != "" {
 		t.Errorf("page (-want +got):\n%s", diff)

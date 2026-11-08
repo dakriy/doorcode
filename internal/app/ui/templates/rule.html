@@ -1,0 +1,45 @@
+{{define "content"}}
+{{$c := .Content}}{{$g := $c.Group}}
+{{template "back" (link (printf "/admin/groups/%d" $g.ID) $g.Name)}}
+<h1 class="mt-4 text-2xl font-semibold tracking-tight">{{if $c.Rule.ID}}Access rule {{$c.Rule.ID}}{{else}}New access rule{{end}}</h1>
+<p class="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">Members of {{$g.Name}} may enter the doors you choose, and every door in the zones you choose, with their code while the schedule is active.</p>
+<form method="post" action="{{$c.Action}}" novalidate hx-disabled-elt="find button" class="mt-8 max-w-3xl p-6 {{template "card-class"}}">
+  {{$error := index $c.Errors "schedule_id"}}
+  <div>
+    <label for="schedule_id" class="block text-sm font-medium">Schedule</label>
+    <select id="schedule_id" name="schedule_id"{{if $error}} aria-invalid="true" aria-describedby="schedule_id-error"{{end}} class="{{template "input-class"}} sm:max-w-sm">
+      <option value="">Choose a schedule</option>
+      {{range $c.Schedules}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Name}}</option>{{end}}
+    </select>
+    {{if $error}}<p id="schedule_id-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$error}}</p>
+    {{else}}<p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">Choose Always for access at any time.</p>{{end}}
+  </div>
+  <div class="mt-8 grid gap-8 sm:grid-cols-2">
+    <div>
+      <p class="text-sm font-medium">Doors</p>
+      <p class="mt-1 mb-3 text-xs text-zinc-500 dark:text-zinc-400">Doors the rule names itself.</p>
+      {{template "choices" (choicelist "door_ids" "Doors" $c.Doors (index $c.Errors "door_ids") "There are no doors yet. Create them on the doors page.")}}
+    </div>
+    <div>
+      <p class="text-sm font-medium">Zones</p>
+      <p class="mt-1 mb-3 text-xs text-zinc-500 dark:text-zinc-400">The rule reaches every door in them, including doors added later.</p>
+      {{template "choices" (choicelist "zone_ids" "Zones" $c.Zones (index $c.Errors "zone_ids") "There are no zones yet. Create them on the zones page.")}}
+    </div>
+  </div>
+  <div class="mt-8 flex justify-end gap-3 border-t border-zinc-200 pt-6 dark:border-zinc-800">
+    <a href="/admin/groups/{{$g.ID}}" class="{{template "secondary-class"}}">Cancel</a>
+    <button type="submit" class="{{template "primary-class"}}">{{if $c.Rule.ID}}Save changes{{else}}Create access rule{{end}}</button>
+  </div>
+</form>
+{{if $c.Rule.ID}}
+<section aria-labelledby="delete-heading" class="mt-8 max-w-3xl rounded-xl border border-red-200 p-6 dark:border-red-900/60">
+  <h2 id="delete-heading" class="text-sm font-semibold text-red-700 dark:text-red-300">Delete access rule</h2>
+  <div class="mt-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <p class="text-sm text-zinc-600 dark:text-zinc-400">Members of {{$g.Name}} stop getting in by this rule at once. This cannot be undone.</p>
+    <form method="post" action="{{$c.Action}}/delete" hx-confirm="Delete this access rule? Members of {{$g.Name}} stop getting in by it at once.">
+      <button type="submit" class="{{template "danger-class"}} py-2">Delete access rule</button>
+    </form>
+  </div>
+</section>
+{{end}}
+{{end}}
