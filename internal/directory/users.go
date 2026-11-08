@@ -139,12 +139,22 @@ func (s Service) preassigned(ctx context.Context, userID string) ([]int64, error
 		return nil, err
 	}
 	var ids []int64
-	for _, g := range groups {
-		if slices.Contains(g.PreassignedUserIDs, userID) {
-			ids = append(ids, g.ID)
-		}
+	for _, g := range preassignedTo(groups, userID) {
+		ids = append(ids, g.ID)
 	}
 	return ids, nil
+}
+
+// preassignedTo is those of groups whose pre-assigned list holds userID,
+// which a user created with that user id joins.
+func preassignedTo(groups []connector.StoredGroup, userID string) []connector.StoredGroup {
+	var held []connector.StoredGroup
+	for _, g := range groups {
+		if slices.Contains(g.PreassignedUserIDs, userID) {
+			held = append(held, g)
+		}
+	}
+	return held
 }
 
 // UpdateUser replaces the profile of the user whose id is id with p.

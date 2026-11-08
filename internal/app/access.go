@@ -33,6 +33,16 @@ func holding(roles ...string) access {
 	return access{roles: roles}
 }
 
+// eitherOf is the access of a route for signed-in users whom one of needs,
+// each holding roles, admits.
+func eitherOf(needs ...access) access {
+	var roles []string
+	for _, need := range needs {
+		roles = append(roles, need.roles...)
+	}
+	return holding(roles...)
+}
+
 // roleNames names need's roles, as in "the manage-doors or door-commander
 // role".
 func (need access) roleNames() string {

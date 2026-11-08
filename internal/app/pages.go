@@ -143,6 +143,12 @@ var livePages = map[*template.Template]bool{
 	doorsTemplate: true, doorTemplate: true, enrollmentsTemplate: true, firmwareTemplate: true,
 }
 
+// watchesLive may watch the live stream: whoever may see one of livePages
+// (those who open doors, and those who manage firmware, whose page follows
+// the rollout), and those who answer access requests, whose navigation
+// counts the requests waiting.
+var watchesLive = eitherOf(opensDoors, holding(auth.RoleManageFirmware), answersRequests)
+
 // navItem is one link in the main navigation. A Reload link loads its page
 // in full rather than through htmx, for a page whose scripts must run in
 // order.
@@ -335,7 +341,7 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, status int, page *t
 	}
 	if viewer != nil {
 		data.AdminEntry = adminEntry(*viewer)
-		data.Counted = !data.Portal && viewer.Has(auth.RoleManageUsers)
+		data.Counted = !data.Portal && holds(*viewer, answersRequests)
 	}
 	if data.Counted {
 		data.Waiting, err = a.requests.Waiting(r.Context())

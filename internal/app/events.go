@@ -42,11 +42,6 @@ type eventList struct {
 // opensDoors may open doors from the UI and manage their overrides.
 var opensDoors = holding(auth.RoleManageDoors, auth.RoleDoorCommander)
 
-// watchesLive may watch the live stream: those who open doors, those who
-// manage firmware, whose page follows the rollout, and those who manage
-// users, whose navigation counts the access requests waiting for them.
-var watchesLive = holding(auth.RoleManageDoors, auth.RoleDoorCommander, auth.RoleManageFirmware, auth.RoleManageUsers)
-
 func (a *App) eventRoutes() []route {
 	params := []openapi.Param{
 		{Name: "door", In: "query", Description: "Keeps the events of the door with this id.", Example: int64(1)},

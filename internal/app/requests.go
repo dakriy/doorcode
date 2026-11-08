@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"fmt"
 	"net/http"
 	"time"
@@ -54,12 +55,16 @@ var (
 	requestQueryHelp  = fmt.Sprintf("page must be a whole number from 1, per_page one from 1 to %d, state open, resolved, or all, and user a user's id", maxRequestsAPIPer)
 )
 
+// answersRequests may answer access requests, and sees how many wait in
+// the administration's navigation.
+var answersRequests = holding(auth.RoleManageUsers)
+
 // requestStatuses maps each refusal the administration's request
 // operations report to the status the API answers it with.
 var requestStatuses = []refusalStatus{{request.ErrNoSuchRequest, http.StatusNotFound}}
 
 func (a *App) requestRoutes() []route {
-	users := holding(auth.RoleManageUsers)
+	users := answersRequests
 	answered := func(what string) []openapi.Response {
 		return []openapi.Response{{Status: http.StatusOK, Description: what, Body: adminRequestView{}}, noSuchRequest}
 	}
@@ -99,11 +104,22 @@ func (a *App) requestRoutes() []route {
 	}
 }
 
+// requesterOf is who made r.
+func requesterOf(r connector.StoredRequest) nameRef {
+	return nameRef{ID: r.UserID, Name: r.UserName}
+}
+
 func viewOfAdminRequest(r connector.StoredRequest) adminRequestView {
 	return adminRequestView{
-		ID: r.ID, User: nameRef{ID: r.UserID, Name: r.UserName}, Title: r.Title, Body: r.Body, Reply: r.Reply,
+		ID: r.ID, User: requesterOf(r), Title: r.Title, Body: r.Body, Reply: r.Reply,
 		Resolved: r.ResolvedAt != nil, ResolvedAt: utc(r.ResolvedAt), CreatedAt: r.CreatedAt.UTC(), UpdatedAt: r.UpdatedAt.UTC(),
 	}
+}
+
+// stateIn is the requests list's state r asks for: open unless it names
+// another.
+func stateIn(r *http.Request) string {
+	return cmp.Or(r.URL.Query().Get("state"), stateOpen)
 }
 
 // resolvedBy is the Resolved filter of the requests list's state, and
@@ -111,7 +127,7 @@ func viewOfAdminRequest(r connector.StoredRequest) adminRequestView {
 func resolvedBy(state string) (*bool, bool) {
 	open, resolved := false, true
 	switch state {
-	case "", stateOpen:
+	case stateOpen:
 		return &open, true
 	case stateResolved:
 		return &resolved, true
@@ -124,7 +140,7 @@ func resolvedBy(state string) (*bool, bool) {
 func (a *App) listRequests(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	page, pageOK := queryNumber(r, "page", 1, 1, maxPage)
 	perPage, perPageOK := queryNumber(r, "per_page", requestsPerPage, 1, maxRequestsAPIPer)
-	resolved, stateOK := resolvedBy(r.URL.Query().Get("state"))
+	resolved, stateOK := resolvedBy(stateIn(r))
 	user, userOK := queryID(r, "user")
 	if !pageOK || !perPageOK || !stateOK || !userOK {
 		writeError(w, http.StatusBadRequest, requestQueryHelp)

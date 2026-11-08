@@ -5,8 +5,10 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/dakriy/doorcode/internal/auth"
+	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/request"
 )
 
@@ -14,7 +16,7 @@ import (
 const adminRequestsPath = "/admin/requests"
 
 func (a *App) requestPageRoutes() []route {
-	users := holding(auth.RoleManageUsers)
+	users := answersRequests
 	return []route{
 		pageRoute(http.MethodGet, adminRequestsPath, users, a.adminRequestsPage),
 		pageRoute(http.MethodGet, adminRequestsPath+"/{id}", users, a.adminRequestPage),
@@ -54,6 +56,11 @@ type adminRequestRow struct {
 	User nameRef
 }
 
+// adminRowOf is one as the administration lists it, its times in zone.
+func adminRowOf(one connector.StoredRequest, zone *time.Location) adminRequestRow {
+	return adminRequestRow{requestRow: rowOfRequest(one, zone), User: requesterOf(one)}
+}
+
 // adminRequestsContent is the requests page's content.
 type adminRequestsContent struct {
 	Filters requestFilters
@@ -80,10 +87,7 @@ var requestStateLabels = map[string]string{stateOpen: "Waiting for an answer", s
 // that cannot be read is the first page.
 func readRequestFilters(r *http.Request) (requestFilters, bool, bool) {
 	query := r.URL.Query()
-	f := requestFilters{Search: query.Get("q"), State: query.Get("state"), Page: 1}
-	if f.State == "" {
-		f.State = stateOpen
-	}
+	f := requestFilters{Search: query.Get("q"), State: stateIn(r), Page: 1}
 	_, stateOK := resolvedBy(f.State)
 	user, userOK := queryID(r, "user")
 	f.UserID = user
@@ -125,7 +129,7 @@ func (a *App) adminRequestsPage(w http.ResponseWriter, r *http.Request, viewer a
 	content.States = optionsOf([]string{stateOpen, stateResolved, stateAll}, func(s string) string { return requestStateLabels[s] }, f.State)
 	content.Rows = []adminRequestRow{}
 	for _, one := range found.Requests {
-		content.Rows = append(content.Rows, adminRequestRow{requestRow: rowOfRequest(one, zone), User: nameRef{ID: one.UserID, Name: one.UserName}})
+		content.Rows = append(content.Rows, adminRowOf(one, zone))
 	}
 	content.Empty = emptyRequests(f, found.Total)
 	content.pager = pagerOf(f.Page, requestsPerPage, len(found.Requests), found.Total, f.link)
@@ -186,7 +190,7 @@ func (a *App) showAdminRequest(w http.ResponseWriter, r *http.Request, status in
 		return
 	}
 	content := adminRequestContent{
-		Row:  adminRequestRow{requestRow: rowOfRequest(one, zone), User: nameRef{ID: one.UserID, Name: one.UserName}},
+		Row:  adminRowOf(one, zone),
 		Form: replyForm{Reply: one.Reply}, Waiting: requestFilters{State: stateOpen}.link(0), MaxReply: request.MaxReplyLength,
 	}
 	if form != nil {
