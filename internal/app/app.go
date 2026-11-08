@@ -78,7 +78,7 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 		live:      newHub(),
 	}
 	a.controllers = controller.Service{
-		Store: store, Broker: a.broker, Clock: clock, Entropy: entropy, Pending: controller.NewPending(), Changed: a.live.notify,
+		Store: store, Doors: a.doors, Broker: a.broker, Clock: clock, Entropy: entropy, Pending: controller.NewPending(), Changed: a.live.notify,
 	}
 	if err := a.auth.CreateFirstAdmin(ctx); err != nil {
 		return nil, fmt.Errorf("create first administrator: %w", err)

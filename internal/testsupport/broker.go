@@ -97,7 +97,7 @@ func (b *Broker) route(m connector.Message) {
 func (b *Broker) retainedFor(filter string) []connector.Message {
 	var out []connector.Message
 	for _, topic := range slices.Sorted(maps.Keys(b.retained)) {
-		if Matches(filter, topic) {
+		if matches(filter, topic) {
 			out = append(out, b.retained[topic])
 		}
 	}
@@ -276,22 +276,22 @@ func (c *Connection) Drop() {
 	}
 }
 
-// Matches reports whether the MQTT topic filter matches topic.
-func Matches(filter, topic string) bool {
-	levels := strings.Split(topic, "/")
-	for i, level := range strings.Split(filter, "/") {
+// matches reports whether the MQTT topic filter matches topic.
+func matches(filter, topic string) bool {
+	filterLevels, topicLevels := strings.Split(filter, "/"), strings.Split(topic, "/")
+	for i, level := range filterLevels {
 		if level == "#" {
 			return true
 		}
-		if i >= len(levels) || (level != "+" && level != levels[i]) {
+		if i >= len(topicLevels) || (level != "+" && level != topicLevels[i]) {
 			return false
 		}
 	}
-	return len(strings.Split(filter, "/")) == len(levels)
+	return len(filterLevels) == len(topicLevels)
 }
 
 func anyMatch(filters []string, topic string) bool {
-	return slices.ContainsFunc(filters, func(f string) bool { return Matches(f, topic) })
+	return slices.ContainsFunc(filters, func(f string) bool { return matches(f, topic) })
 }
 
 var (

@@ -52,7 +52,9 @@ type Store interface {
 
 // Service enrolls controllers and looks after their credentials and state.
 type Service struct {
-	Store   Store
+	Store Store
+	// Doors finds the doors whose controllers the service looks after.
+	Doors   door.Service
 	Broker  connector.Broker
 	Clock   connector.Clock
 	Entropy connector.Entropy
@@ -326,19 +328,10 @@ func (s Service) issue(ctx context.Context, doorID int64) (string, string, error
 	return username, token, err
 }
 
-// door returns the door whose id is id.
-func (s Service) door(ctx context.Context, id int64) (connector.StoredDoor, error) {
-	d, found, err := s.Store.Door(ctx, id)
-	if err == nil && !found {
-		err = door.ErrNoDoor
-	}
-	return d, err
-}
-
 // Credentials returns the credentials of the door whose id is id, oldest
 // first.
 func (s Service) Credentials(ctx context.Context, id int64) ([]connector.StoredCredential, error) {
-	if _, err := s.door(ctx, id); err != nil {
+	if _, err := s.Doors.Door(ctx, id); err != nil {
 		return nil, err
 	}
 	return s.Store.DoorCredentials(ctx, id)
@@ -349,7 +342,7 @@ func (s Service) Credentials(ctx context.Context, id int64) ([]connector.StoredC
 // connects with the new ones, or until the grace period after issuing them
 // has passed.
 func (s Service) Rotate(ctx context.Context, id int64) error {
-	d, err := s.door(ctx, id)
+	d, err := s.Doors.Door(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -372,7 +365,7 @@ func (s Service) Rotate(ctx context.Context, id int64) error {
 // disconnects its controller. The controller connects again only by
 // enrolling and being approved.
 func (s Service) Revoke(ctx context.Context, id int64) error {
-	d, err := s.door(ctx, id)
+	d, err := s.Doors.Door(ctx, id)
 	if err != nil {
 		return err
 	}

@@ -72,20 +72,11 @@ var definitions = []definition{
 		return err
 	}},
 	{key: keyAdminEmail, fallback: "admin@example.com"},
-	{key: keyPasswordHashMemory, fallback: "19456", validate: func(_ Service, value string) error {
-		_, err := passwordHashMemory(value)
-		return err
-	}},
+	{key: keyPasswordHashMemory, fallback: "19456", validate: accepting(passwordHashMemory)},
 	{key: keyEnrollmentUsername, fallback: "doorcode-enroll"},
 	{key: keyEnrollmentPassword, fallback: ""},
-	{key: keyRotationDays, fallback: "30", validate: func(_ Service, value string) error {
-		_, err := rotationInterval(value)
-		return err
-	}},
-	{key: keyGraceHours, fallback: "24", validate: func(_ Service, value string) error {
-		_, err := graceHours(value)
-		return err
-	}},
+	{key: keyRotationDays, fallback: "30", validate: accepting(rotationInterval)},
+	{key: keyGraceHours, fallback: "24", validate: accepting(graceHours)},
 }
 
 // Current is the settings the application acts on, parsed.
@@ -191,21 +182,21 @@ func (s Service) Current(ctx context.Context) (Current, error) {
 		return Current{}, err
 	}
 	values := valuesOf(all)
-	memory, err := passwordHashMemory(values[keyPasswordHashMemory])
+	memory, err := parsed(values, keyPasswordHashMemory, passwordHashMemory)
 	if err != nil {
-		return Current{}, fmt.Errorf("%w for %s: %w", ErrInvalid, keyPasswordHashMemory, err)
+		return Current{}, err
 	}
-	zone, err := s.siteZone(values[keySiteTimezone])
+	zone, err := parsed(values, keySiteTimezone, s.siteZone)
 	if err != nil {
-		return Current{}, fmt.Errorf("%w for %s: %w", ErrInvalid, keySiteTimezone, err)
+		return Current{}, err
 	}
-	rotateAfter, err := rotationInterval(values[keyRotationDays])
+	rotateAfter, err := parsed(values, keyRotationDays, rotationInterval)
 	if err != nil {
-		return Current{}, fmt.Errorf("%w for %s: %w", ErrInvalid, keyRotationDays, err)
+		return Current{}, err
 	}
-	grace, err := graceHours(values[keyGraceHours])
+	grace, err := parsed(values, keyGraceHours, graceHours)
 	if err != nil {
-		return Current{}, fmt.Errorf("%w for %s: %w", ErrInvalid, keyGraceHours, err)
+		return Current{}, err
 	}
 	return Current{
 		SiteName:              values[keySiteName],
@@ -223,6 +214,24 @@ func (s Service) Enrollment(ctx context.Context) (username, password string, err
 	all, err := s.List(ctx)
 	values := valuesOf(all)
 	return values[keyEnrollmentUsername], values[keyEnrollmentPassword], err
+}
+
+// accepting is a validator that accepts the values parse accepts.
+func accepting[T any](parse func(string) (T, error)) func(Service, string) error {
+	return func(_ Service, value string) error {
+		_, err := parse(value)
+		return err
+	}
+}
+
+// parsed is the value of the setting named key among values, parsed by
+// parse, or why it is invalid.
+func parsed[T any](values map[string]string, key string, parse func(string) (T, error)) (T, error) {
+	v, err := parse(values[key])
+	if err != nil {
+		return v, fmt.Errorf("%w for %s: %w", ErrInvalid, key, err)
+	}
+	return v, nil
 }
 
 // valuesOf maps the key of each setting among all to its value.
