@@ -9,31 +9,139 @@ import (
 	"github.com/dakriy/doorcode/internal/connector"
 )
 
-// doorColumns lists the doors columns, and the ids of each door's open
-// schedules and zones, in the order doorFields reads them.
-const doorColumns = `id, name, location, notes, public, primary_picture_id, deleted_at, created_at,
+// doorColumns lists the doors columns, the ids of each door's open
+// schedules and zones, and its controller's columns, all null without
+// one, in the order doorFields reads them, from doorTables.
+const (
+	doorColumns = `doors.id, doors.name, doors.location, doors.notes, doors.public, doors.primary_picture_id, doors.deleted_at,
+	doors.created_at,
 	array(select schedule_id from door_open_schedules where door_id = doors.id order by schedule_id),
-	array(select zone_id from zone_doors where door_id = doors.id order by zone_id)`
+	array(select zone_id from zone_doors where door_id = doors.id order by zone_id),
+	c.hardware_id, c.firmware_version, c.signal, c.online, c.last_seen_at`
+	doorTables = `doors left join door_controllers c on c.door_id = doors.id`
+)
 
-func doorFields(d *connector.StoredDoor) []any {
+// scannedDoor is a door as a row holds it, its controller's columns
+// nullable.
+type scannedDoor struct {
+	connector.StoredDoor
+	controller struct {
+		hardwareID, firmwareVersion *string
+		signal                      *int
+		online                      *bool
+		lastSeenAt                  *time.Time
+	}
+}
+
+func doorFields(d *scannedDoor) []any {
+	c := &d.controller
 	return []any{&d.ID, &d.Name, &d.Location, &d.Notes, &d.Public, &d.PrimaryPictureID, &d.DeletedAt, &d.CreatedAt,
-		&d.OpenScheduleIDs, &d.ZoneIDs}
+		&d.OpenScheduleIDs, &d.ZoneIDs, &c.hardwareID, &c.firmwareVersion, &c.signal, &c.online, &c.lastSeenAt}
+}
+
+// door is the door, with its controller when the row has one.
+func (d scannedDoor) door() connector.StoredDoor {
+	c := d.controller
+	if c.hardwareID != nil {
+		d.Controller = &connector.StoredController{
+			HardwareID: *c.hardwareID, FirmwareVersion: *c.firmwareVersion, Signal: *c.signal, Online: *c.online, LastSeenAt: *c.lastSeenAt,
+		}
+	}
+	return d.StoredDoor
 }
 
 // Doors returns every door in name order.
 func (s *Store) Doors(ctx context.Context) ([]connector.StoredDoor, error) {
-	rows, err := s.pool.Query(ctx, `select `+doorColumns+` from doors order by lower(name) collate "C", id`)
+	rows, err := s.pool.Query(ctx, `select `+doorColumns+` from `+doorTables+` order by lower(doors.name) collate "C", doors.id`)
 	if err != nil {
 		return nil, err
 	}
-	return pgx.CollectRows(rows, scanned(doorFields))
+	scanned, err := pgx.CollectRows(rows, scanned(doorFields))
+	doors := []connector.StoredDoor{}
+	for _, d := range scanned {
+		doors = append(doors, d.door())
+	}
+	return doors, err
 }
 
 // Door returns the door with id.
 func (s *Store) Door(ctx context.Context, id int64) (connector.StoredDoor, bool, error) {
-	var d connector.StoredDoor
-	err := s.pool.QueryRow(ctx, `select `+doorColumns+` from doors where id = $1`, id).Scan(doorFields(&d)...)
-	return found(d, err)
+	var d scannedDoor
+	err := s.pool.QueryRow(ctx, `select `+doorColumns+` from `+doorTables+` where doors.id = $1`, id).Scan(doorFields(&d)...)
+	return found(d.door(), err)
+}
+
+// SetController stores c as the controller of the door with id, or removes
+// its controller when c is nil.
+func (s *Store) SetController(ctx context.Context, id int64, c *connector.StoredController) (bool, error) {
+	var updated bool
+	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `select 1 from doors where id = $1 for update`, id)
+		updated = tag.RowsAffected() == 1
+		if err != nil || !updated {
+			return err
+		}
+		return replaceController(ctx, tx, id, c)
+	})
+	return updated, err
+}
+
+// replaceController makes c the controller of the door with id within tx.
+func replaceController(ctx context.Context, tx pgx.Tx, id int64, c *connector.StoredController) error {
+	if _, err := tx.Exec(ctx, `delete from door_controllers where door_id = $1`, id); err != nil || c == nil {
+		return err
+	}
+	_, err := tx.Exec(ctx, `
+		insert into door_controllers (door_id, hardware_id, firmware_version, signal, online, last_seen_at)
+		values ($1, $2, $3, $4, $5, $6)`, id, c.HardwareID, c.FirmwareVersion, c.Signal, c.Online, c.LastSeenAt)
+	return err
+}
+
+// credentialColumns lists the door_credentials columns in the order
+// credentialFields reads them.
+const credentialColumns = `id, door_id, username, issued_at, used_at, revoked_at`
+
+func credentialFields(c *connector.StoredCredential) []any {
+	return []any{&c.ID, &c.DoorID, &c.Username, &c.IssuedAt, &c.UsedAt, &c.RevokedAt}
+}
+
+// CreateCredential inserts c and returns its id.
+func (s *Store) CreateCredential(ctx context.Context, c connector.StoredCredential) (int64, error) {
+	var id int64
+	err := s.pool.QueryRow(ctx, `
+		insert into door_credentials (door_id, username, issued_at, used_at, revoked_at) values ($1, $2, $3, $4, $5) returning id`,
+		c.DoorID, c.Username, c.IssuedAt, c.UsedAt, c.RevokedAt).Scan(&id)
+	return id, err
+}
+
+// DoorCredentials returns the door's credentials in id order.
+func (s *Store) DoorCredentials(ctx context.Context, doorID int64) ([]connector.StoredCredential, error) {
+	rows, err := s.pool.Query(ctx, `select `+credentialColumns+` from door_credentials where door_id = $1 order by id`, doorID)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, scanned(credentialFields))
+}
+
+// LiveCredentials returns the credentials not revoked, by door and id.
+func (s *Store) LiveCredentials(ctx context.Context) ([]connector.StoredCredential, error) {
+	rows, err := s.pool.Query(ctx, `select `+credentialColumns+` from door_credentials where revoked_at is null order by door_id, id`)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, scanned(credentialFields))
+}
+
+// UseCredential stores at as when the credential with id was first used.
+func (s *Store) UseCredential(ctx context.Context, id int64, at time.Time) (bool, error) {
+	tag, err := s.pool.Exec(ctx, `update door_credentials set used_at = $2 where id = $1`, id, at)
+	return tag.RowsAffected() == 1, err
+}
+
+// RevokeCredential stores at as when the credential with id was revoked.
+func (s *Store) RevokeCredential(ctx context.Context, id int64, at time.Time) (bool, error) {
+	tag, err := s.pool.Exec(ctx, `update door_credentials set revoked_at = $2 where id = $1`, id, at)
+	return tag.RowsAffected() == 1, err
 }
 
 // CreateDoor inserts d with its open schedules and zones and returns its

@@ -12,7 +12,7 @@ import (
 var doorsNav = []string{"Home", "Users", "Groups", "Schedules", "Doors (current)", "Zones", "Settings", "API tokens", "API docs"}
 
 // doorsHead is the header row of the door list.
-var doorsHead = []string{"Picture", "Name", "Zones", "Open mode", "Portal"}
+var doorsHead = []string{"Picture", "Name", "Status", "Zones", "Open mode", "Portal"}
 
 // overridesHead and entrantsHead are the header rows of a door's overrides
 // and of who can enter it.
@@ -53,8 +53,8 @@ func TestDoorsPageListsDoorsWithTheirPrimaryPicture(t *testing.T) {
 		Values: map[string]string{"q": ""},
 		Tables: map[string][][]string{"Doors": {
 			doorsHead,
-			{"", "Dock", "None", "Never", "Hidden"},
-			{"", "Lobby Building A", "Annex, North", "Nights, Weekdays", "Public"},
+			{"", "Dock", "Not enrolled", "None", "Never", "Hidden"},
+			{"", "Lobby Building A", "Not enrolled", "Annex, North", "Nights, Weekdays", "Public"},
 			{"Showing 1 to 2 of 2"},
 		}},
 		Images: []testsupport.Image{{Src: "/api/v1/doors/1/pictures/1/thumbnail", Alt: "Lobby"}},

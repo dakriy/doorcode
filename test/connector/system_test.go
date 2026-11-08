@@ -29,6 +29,21 @@ func TestClockReportsTheCurrentTime(t *testing.T) {
 	}
 }
 
+func TestClockAlarmForATimeReachedRingsAtOnce(t *testing.T) {
+	for _, impl := range clockImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			clock := impl.clock()
+			at := clock.Now()
+
+			select {
+			case <-clock.Alarm(at):
+			case <-time.After(time.Second):
+				t.Error("the alarm did not ring")
+			}
+		})
+	}
+}
+
 func TestEntropyReturnsTheRequestedNumberOfFreshBytes(t *testing.T) {
 	for _, impl := range entropyImpls {
 		t.Run(impl.name, func(t *testing.T) {

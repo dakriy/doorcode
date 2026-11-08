@@ -47,6 +47,14 @@ const (
 	minPasswordHashMemory  = 8
 	maxPasswordHashMemory  = 1048576 // 1 GiB
 	passwordHashMemoryHint = "must be a whole number of KiB from 8 to 1048576"
+	keyEnrollmentUsername  = "enrollment_username"
+	keyEnrollmentPassword  = "enrollment_password"
+	keyRotationDays        = "door_credential_rotation_days"
+	maxRotationDays        = 3650
+	rotationDaysHint       = "must be a whole number of days from 1 to 3650"
+	keyGraceHours          = "door_credential_grace_hours"
+	maxGraceHours          = 8760
+	graceHoursHint         = "must be a whole number of hours from 1 to 8760"
 )
 
 type definition struct {
@@ -68,6 +76,16 @@ var definitions = []definition{
 		_, err := passwordHashMemory(value)
 		return err
 	}},
+	{key: keyEnrollmentUsername, fallback: "doorcode-enroll"},
+	{key: keyEnrollmentPassword, fallback: ""},
+	{key: keyRotationDays, fallback: "30", validate: func(_ Service, value string) error {
+		_, err := rotationInterval(value)
+		return err
+	}},
+	{key: keyGraceHours, fallback: "24", validate: func(_ Service, value string) error {
+		_, err := graceHours(value)
+		return err
+	}},
 }
 
 // Current is the settings the application acts on, parsed.
@@ -80,6 +98,10 @@ type Current struct {
 	// Zone is the site timezone: weekly schedule windows and dates typed on
 	// pages are in it.
 	Zone *time.Location
+	// RotateAfter is how long a door's credentials work before the server
+	// issues new ones, and Grace how long the old ones keep working after.
+	RotateAfter time.Duration
+	Grace       time.Duration
 }
 
 // siteZone loads the site timezone a value names. The empty name and
@@ -95,13 +117,32 @@ func (s Service) siteZone(value string) (*time.Location, error) {
 	return zone, nil
 }
 
+// wholeNumber parses value as a whole number from lowest to highest,
+// refusing anything else with hint.
+func wholeNumber(value string, lowest, highest int, hint string) (int, error) {
+	n, err := strconv.Atoi(value)
+	if err != nil || n < lowest || n > highest {
+		return 0, errors.New(hint)
+	}
+	return n, nil
+}
+
 // passwordHashMemory parses a password hashing memory cost in KiB.
 func passwordHashMemory(value string) (uint32, error) {
-	n, err := strconv.ParseUint(value, 10, 32)
-	if err != nil || n < minPasswordHashMemory || n > maxPasswordHashMemory {
-		return 0, errors.New(passwordHashMemoryHint)
-	}
-	return uint32(n), nil
+	n, err := wholeNumber(value, minPasswordHashMemory, maxPasswordHashMemory, passwordHashMemoryHint)
+	return uint32(n), err
+}
+
+// rotationInterval parses a credential rotation interval in days.
+func rotationInterval(value string) (time.Duration, error) {
+	n, err := wholeNumber(value, 1, maxRotationDays, rotationDaysHint)
+	return time.Duration(n) * 24 * time.Hour, err
+}
+
+// graceHours parses a credential grace period in hours.
+func graceHours(value string) (time.Duration, error) {
+	n, err := wholeNumber(value, 1, maxGraceHours, graceHoursHint)
+	return time.Duration(n) * time.Hour, err
 }
 
 // Setting is a resolved setting.
@@ -149,10 +190,7 @@ func (s Service) Current(ctx context.Context) (Current, error) {
 	if err != nil {
 		return Current{}, err
 	}
-	values := map[string]string{}
-	for _, setting := range all {
-		values[setting.Key] = setting.Value
-	}
+	values := valuesOf(all)
 	memory, err := passwordHashMemory(values[keyPasswordHashMemory])
 	if err != nil {
 		return Current{}, fmt.Errorf("%w for %s: %w", ErrInvalid, keyPasswordHashMemory, err)
@@ -161,12 +199,39 @@ func (s Service) Current(ctx context.Context) (Current, error) {
 	if err != nil {
 		return Current{}, fmt.Errorf("%w for %s: %w", ErrInvalid, keySiteTimezone, err)
 	}
+	rotateAfter, err := rotationInterval(values[keyRotationDays])
+	if err != nil {
+		return Current{}, fmt.Errorf("%w for %s: %w", ErrInvalid, keyRotationDays, err)
+	}
+	grace, err := graceHours(values[keyGraceHours])
+	if err != nil {
+		return Current{}, fmt.Errorf("%w for %s: %w", ErrInvalid, keyGraceHours, err)
+	}
 	return Current{
 		SiteName:              values[keySiteName],
 		AdminEmail:            values[keyAdminEmail],
 		PasswordHashMemoryKiB: memory,
 		Zone:                  zone,
+		RotateAfter:           rotateAfter,
+		Grace:                 grace,
 	}, nil
+}
+
+// Enrollment returns the broker username and password every controller
+// enrolls with, which do not depend on any other setting being valid.
+func (s Service) Enrollment(ctx context.Context) (username, password string, err error) {
+	all, err := s.List(ctx)
+	values := valuesOf(all)
+	return values[keyEnrollmentUsername], values[keyEnrollmentPassword], err
+}
+
+// valuesOf maps the key of each setting among all to its value.
+func valuesOf(all []Setting) map[string]string {
+	values := map[string]string{}
+	for _, setting := range all {
+		values[setting.Key] = setting.Value
+	}
+	return values
 }
 
 // Get returns the setting named key.

@@ -5,7 +5,12 @@
     <h1 class="text-2xl font-semibold tracking-tight">Doors</h1>
     <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Every door controller the site manages, with when it stands open and the zones it belongs to.</p>
   </div>
-  <a href="/admin/doors/new" class="mt-4 sm:mt-0 {{template "primary-class"}}">{{template "plus-icon"}}New door</a>
+  <div class="mt-4 flex gap-3 sm:mt-0">
+    <span id="pending-live" hx-get="{{.URI}}" hx-trigger="live-doors from:body" hx-select="#pending-live" hx-swap="outerHTML">
+      <a href="/admin/enrollments" class="{{template "secondary-class"}}">Pending enrollments{{if $c.Pending}} <span role="status" class="rounded-full bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white tabular-nums dark:bg-brand-500">{{$c.Pending}} waiting</span>{{end}}</a>
+    </span>
+    <a href="/admin/doors/new" class="{{template "primary-class"}}">{{template "plus-icon"}}New door</a>
+  </div>
 </div>
 
 <form method="get" action="/admin/doors" role="search" class="mt-8 flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -30,13 +35,14 @@
   <button type="submit" class="{{template "secondary-class"}}">Search</button>
 </form>
 
-<div class="mt-6 overflow-hidden {{template "card-class"}}">
+<div id="doors-live" hx-get="{{.URI}}" hx-trigger="live-doors from:body" hx-select="#doors-live" hx-swap="outerHTML" class="mt-6 overflow-hidden {{template "card-class"}}">
   <div class="overflow-x-auto">
     <table aria-label="Doors" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
       <thead class="{{template "table-head-class"}}">
         <tr>
           <th scope="col" class="w-16 px-4 py-3"><span class="sr-only">Picture</span></th>
           <th scope="col" class="px-4 py-3">Name</th>
+          <th scope="col" class="px-4 py-3">Status</th>
           <th scope="col" class="px-4 py-3">Zones</th>
           <th scope="col" class="px-4 py-3">Open mode</th>
           <th scope="col" class="px-4 py-3">Portal</th>
@@ -50,19 +56,20 @@
             <a href="/admin/doors/{{.ID}}" class="{{template "link-class"}}">{{.Name}}</a>
             {{with .Location}}<p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{{.}}</p>{{end}}
           </td>
+          <td class="px-4 py-3 whitespace-nowrap">{{template "door-status" .Status}}</td>
           <td class="px-4 py-3 text-zinc-600 dark:text-zinc-400">{{if .Zones}}{{template "names" .Zones}}{{else}}<span class="text-zinc-400 dark:text-zinc-500">None</span>{{end}}</td>
           <td class="px-4 py-3 text-zinc-600 dark:text-zinc-400">{{if .OpenMode}}{{template "names" .OpenMode}}{{else}}<span class="text-zinc-400 dark:text-zinc-500">Never</span>{{end}}</td>
           <td class="px-4 py-3 whitespace-nowrap">{{if .Public}}{{template "public-badge"}}{{else}}<span class="text-xs text-zinc-400 dark:text-zinc-500">Hidden</span>{{end}}</td>
         </tr>
         {{else}}
         <tr>
-          <td colspan="5" class="px-4 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">{{$c.Empty}}</td>
+          <td colspan="6" class="px-4 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">{{$c.Empty}}</td>
         </tr>
         {{end}}
       </tbody>
       {{if $c.Rows}}
       <tfoot class="border-t border-zinc-200 dark:border-zinc-800">
-        <tr><td colspan="5" class="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">Showing {{$c.From}} to {{$c.To}} of {{$c.Total}}</td></tr>
+        <tr><td colspan="6" class="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">Showing {{$c.From}} to {{$c.To}} of {{$c.Total}}</td></tr>
       </tfoot>
       {{end}}
     </table>
@@ -76,4 +83,5 @@
   </div>
   {{end}}
 </div>
+{{template "live" .}}
 {{end}}

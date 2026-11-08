@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // Handler is the application's HTTP handler as tests hold it.
@@ -146,10 +147,10 @@ func (b *Browser) do(method, target, contentType string, body io.Reader) Respons
 	}
 }
 
-// result sends a request and records the reply, keeping the cookies it
-// sets.
-func (b *Browser) result(method, target, contentType string, body io.Reader) *httptest.ResponseRecorder {
-	req := httptest.NewRequestWithContext(context.Background(), method, target, body)
+// request is a request as the browser sends it, with its headers and
+// cookies.
+func (b *Browser) request(ctx context.Context, method, target, contentType string, body io.Reader) *http.Request {
+	req := httptest.NewRequestWithContext(ctx, method, target, body)
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
@@ -159,6 +160,13 @@ func (b *Browser) result(method, target, contentType string, body io.Reader) *ht
 	for name, value := range b.cookies {
 		req.AddCookie(&http.Cookie{Name: name, Value: value})
 	}
+	return req
+}
+
+// result sends a request and records the reply, keeping the cookies it
+// sets.
+func (b *Browser) result(method, target, contentType string, body io.Reader) *httptest.ResponseRecorder {
+	req := b.request(context.Background(), method, target, contentType, body)
 	rec := httptest.NewRecorder()
 	b.handler.ServeHTTP(rec, req)
 	result := rec.Result()
@@ -170,4 +178,76 @@ func (b *Browser) result(method, target, contentType string, body io.Reader) *ht
 		}
 	}
 	return rec
+}
+
+// streamWait is how long Stream.Next waits for the handler to flush.
+const streamWait = 5 * time.Second
+
+// Stream is a response the handler keeps writing, such as a stream of
+// server-sent events, read a flushed part at a time.
+type Stream struct {
+	cancel context.CancelFunc
+	done   chan struct{}
+	w      *streamWriter
+}
+
+// Stream sends a GET whose response the handler keeps writing until the
+// stream is closed.
+func (b *Browser) Stream(target string) *Stream {
+	ctx, cancel := context.WithCancel(context.Background())
+	req := b.request(ctx, http.MethodGet, target, "", nil)
+	s := &Stream{cancel: cancel, done: make(chan struct{}), w: &streamWriter{header: http.Header{}, status: http.StatusOK, parts: make(chan string, 64)}}
+	go func() {
+		defer close(s.done)
+		b.handler.ServeHTTP(s.w, req)
+		s.w.Flush()
+	}()
+	return s
+}
+
+// Next is the next part the handler flushed, or "" when it flushes nothing
+// for five seconds.
+func (s *Stream) Next() string {
+	select {
+	case part := <-s.w.parts:
+		return part
+	case <-time.After(streamWait):
+		return ""
+	}
+}
+
+// Status and ContentType are the response's, once Next has returned a
+// part.
+func (s *Stream) Status() int { return s.w.status }
+
+// ContentType is the response's content type, once Next has returned a
+// part.
+func (s *Stream) ContentType() string { return s.w.header.Get("Content-Type") }
+
+// Close ends the request, as a browser leaving the page does, and waits
+// for the handler to return.
+func (s *Stream) Close() {
+	s.cancel()
+	<-s.done
+}
+
+// streamWriter hands each flushed part of a response to a Stream.
+type streamWriter struct {
+	header http.Header
+	status int
+	buf    bytes.Buffer
+	parts  chan string
+}
+
+func (w *streamWriter) Header() http.Header { return w.header }
+
+func (w *streamWriter) WriteHeader(status int) { w.status = status }
+
+func (w *streamWriter) Write(p []byte) (int, error) { return w.buf.Write(p) }
+
+func (w *streamWriter) Flush() {
+	if w.buf.Len() > 0 {
+		w.parts <- w.buf.String()
+		w.buf.Reset()
+	}
 }

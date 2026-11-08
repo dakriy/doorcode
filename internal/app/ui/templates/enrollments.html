@@ -1,0 +1,37 @@
+{{define "content"}}
+{{template "back" (link "/admin/doors" "All doors")}}
+<div class="mt-4">
+  <h1 class="text-2xl font-semibold tracking-tight">Pending enrollments</h1>
+  <p class="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">Controllers connected with the enrollment credentials, waiting to become doors. A controller is listed only while it stays connected. Approve one to send it the credentials it connects with as its door.</p>
+</div>
+
+<div id="enrollments-live" hx-get="{{.URI}}" hx-trigger="live-doors from:body" hx-select="#enrollments-live" hx-swap="outerHTML" class="mt-8 overflow-hidden {{template "card-class"}}">
+  <div class="overflow-x-auto">
+    <table aria-label="Pending enrollments" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+      <thead class="{{template "table-head-class"}}">
+        <tr>
+          <th scope="col" class="px-4 py-3">Hardware id</th>
+          <th scope="col" class="px-4 py-3">Firmware</th>
+          <th scope="col" class="px-4 py-3">Signal</th>
+          <th scope="col" class="px-4 py-3">Waiting since</th>
+          <th scope="col" class="px-4 py-3"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {{range .Content}}
+        <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
+          <td class="px-4 py-3 font-mono text-sm">{{.HardwareID}}</td>
+          <td class="px-4 py-3 text-zinc-600 dark:text-zinc-400">{{.Firmware}}</td>
+          <td class="px-4 py-3 whitespace-nowrap tabular-nums text-zinc-600 dark:text-zinc-400">{{.Signal}}</td>
+          <td class="px-4 py-3 whitespace-nowrap tabular-nums text-zinc-600 dark:text-zinc-400">{{.Since}}</td>
+          <td class="px-4 py-3 text-right whitespace-nowrap"><a href="{{.Path}}" class="{{template "primary-class"}} py-1.5">Approve</a></td>
+        </tr>
+        {{else}}
+        <tr><td colspan="5" class="px-4 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">No controller is waiting. One appears here while it is connected with the enrollment credentials.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{template "live" .}}
+{{end}}

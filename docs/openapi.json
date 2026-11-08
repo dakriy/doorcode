@@ -1036,6 +1036,245 @@
         }
       }
     },
+    "/doors/{id}/credentials": {
+      "get": {
+        "operationId": "listDoorCredentials",
+        "summary": "List the broker credentials of a door's controller",
+        "tags": [
+          "enrollment"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The door's credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CredentialList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/doors/{id}/credentials/revoke": {
+      "post": {
+        "operationId": "revokeDoorCredentials",
+        "summary": "Revoke every broker credential of a door's controller",
+        "tags": [
+          "enrollment"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The credentials no longer work and the controller is disconnected. It connects again only by enrolling and being approved."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/doors/{id}/credentials/rotate": {
+      "post": {
+        "operationId": "rotateDoorCredentials",
+        "summary": "Issue a door's controller new broker credentials",
+        "tags": [
+          "enrollment"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The new credentials are on their way to the controller. The old ones work until it connects with the new ones or the grace period passes."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The door's controller is not connected, so it cannot be sent new credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/doors/{id}/entrants": {
       "get": {
         "operationId": "listDoorEntrants",
@@ -2396,6 +2635,179 @@
           },
           "404": {
             "description": "No door has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/enrollments": {
+      "get": {
+        "operationId": "listEnrollments",
+        "summary": "List the controllers waiting to be approved",
+        "tags": [
+          "enrollment"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every waiting controller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollmentList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/enrollments/{hardware_id}/approve": {
+      "post": {
+        "operationId": "approveEnrollment",
+        "summary": "Approve a waiting controller as a door",
+        "tags": [
+          "enrollment"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "hardware_id",
+            "in": "path",
+            "required": true,
+            "description": "The controller's hardware id.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "a4cf12f00e3b"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApprovalRequest"
+              },
+              "example": {
+                "door_id": 1
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The door the controller now is. Its credentials are on their way to it, and the credentials of a controller the door had before no longer work.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoorView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body names no door or both kinds, or a field of the new door is wrong; the error says which.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No connected controller with this hardware id is waiting, or no door has the id given.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The door is deleted.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5624,6 +6036,19 @@
           "door_ids"
         ]
       },
+      "ApprovalRequest": {
+        "type": "object",
+        "properties": {
+          "door": {
+            "$ref": "#/components/schemas/DoorRequest",
+            "description": "A door to create for the controller to become. Give this or door_id, not both."
+          },
+          "door_id": {
+            "type": "integer",
+            "description": "The id of the door the controller becomes. Give this or door, not both."
+          }
+        }
+      },
       "CodeRequest": {
         "type": "object",
         "properties": {
@@ -5634,6 +6059,39 @@
         },
         "required": [
           "code"
+        ]
+      },
+      "ControllerView": {
+        "type": "object",
+        "properties": {
+          "firmware_version": {
+            "type": "string",
+            "description": "The firmware version the controller last reported; may be empty."
+          },
+          "hardware_id": {
+            "type": "string",
+            "description": "The controller's hardware id."
+          },
+          "last_seen_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the server last heard of the controller connecting, going away, or enrolling."
+          },
+          "online": {
+            "type": "boolean",
+            "description": "True while the controller is connected to the broker."
+          },
+          "signal": {
+            "type": "integer",
+            "description": "The signal strength in dBm the controller last reported; 0 when it reported none."
+          }
+        },
+        "required": [
+          "hardware_id",
+          "firmware_version",
+          "signal",
+          "online",
+          "last_seen_at"
         ]
       },
       "CreatedToken": {
@@ -5651,6 +6109,59 @@
         "required": [
           "token",
           "secret"
+        ]
+      },
+      "CredentialList": {
+        "type": "object",
+        "properties": {
+          "credentials": {
+            "type": "array",
+            "description": "Every credential the door's controllers were issued, oldest first.",
+            "items": {
+              "$ref": "#/components/schemas/CredentialView"
+            }
+          }
+        },
+        "required": [
+          "credentials"
+        ]
+      },
+      "CredentialView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Names the credential."
+          },
+          "issued_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the server issued the credential."
+          },
+          "revoked_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the broker stopped accepting it; absent while it works."
+          },
+          "status": {
+            "type": "string",
+            "description": "issued (not yet used), in-use, or revoked."
+          },
+          "used_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the controller first connected with it; absent until it has."
+          },
+          "username": {
+            "type": "string",
+            "description": "The broker username the controller connects with; the password is never shown."
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "issued_at",
+          "status"
         ]
       },
       "DoorAccessView": {
@@ -5752,6 +6263,10 @@
       "DoorView": {
         "type": "object",
         "properties": {
+          "controller": {
+            "$ref": "#/components/schemas/ControllerView",
+            "description": "The controller enrolled as the door; absent until one is."
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -5810,6 +6325,49 @@
           "open_schedules",
           "zones",
           "created_at"
+        ]
+      },
+      "EnrollmentList": {
+        "type": "object",
+        "properties": {
+          "enrollments": {
+            "type": "array",
+            "description": "Every controller connected and waiting to be approved, longest waiting first.",
+            "items": {
+              "$ref": "#/components/schemas/EnrollmentView"
+            }
+          }
+        },
+        "required": [
+          "enrollments"
+        ]
+      },
+      "EnrollmentView": {
+        "type": "object",
+        "properties": {
+          "firmware_version": {
+            "type": "string",
+            "description": "The firmware version the controller reports; may be empty."
+          },
+          "hardware_id": {
+            "type": "string",
+            "description": "The controller's hardware id."
+          },
+          "signal": {
+            "type": "integer",
+            "description": "The controller's signal strength in dBm; 0 when it reports none."
+          },
+          "waiting_since": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Since when the controller has waited, connected."
+          }
+        },
+        "required": [
+          "hardware_id",
+          "firmware_version",
+          "signal",
+          "waiting_since"
         ]
       },
       "EntrantList": {

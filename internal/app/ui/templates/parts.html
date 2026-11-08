@@ -295,3 +295,16 @@
 </tr>
 {{end}}
 {{end}}
+
+{{/* Opens the page's live stream, which reloads every region marked with
+     hx-trigger="live-doors from:body" when doors or enrollments change.
+     Given the page data. */}}
+{{define "live"}}
+<div hidden data-live-stream="/admin/live"></div>
+<script src="{{index .Assets "LiveJS"}}"></script>
+{{end}}
+
+{{/* Whether a door's controller is connected, given its status. */}}
+{{define "door-status"}}{{if eq . "Online"}}<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-600/20 ring-inset dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-400/20"><span class="size-1.5 rounded-full bg-emerald-500" aria-hidden="true"></span>Online</span>
+{{else if eq . "Offline"}}<span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-600/20 ring-inset dark:bg-amber-950 dark:text-amber-300 dark:ring-amber-400/20"><span class="size-1.5 rounded-full bg-amber-500" aria-hidden="true"></span>Offline</span>
+{{else}}<span class="text-xs text-zinc-400 dark:text-zinc-500">{{.}}</span>{{end}}{{end}}

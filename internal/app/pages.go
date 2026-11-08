@@ -18,8 +18,8 @@ import (
 var templateFiles embed.FS
 
 // appCSS is built from ui/tailwind.css by `make ui`; htmx, Swagger UI, and
-// FullCalendar are vendored by the same target. apiDocsJS and calendarJS
-// are ours.
+// FullCalendar are vendored by the same target. apiDocsJS, calendarJS, and
+// liveJS are ours.
 var (
 	//go:embed ui/static/app.css
 	appCSS []byte
@@ -35,6 +35,8 @@ var (
 	fullCalendarJS []byte
 	//go:embed ui/static/calendar.js
 	calendarJS []byte
+	//go:embed ui/static/live.js
+	liveJS []byte
 )
 
 const (
@@ -58,6 +60,7 @@ var assets = []asset{
 	{name: "APIDocsJS", path: "/static/api-docs.js", contentType: jsType, content: apiDocsJS},
 	{name: "FullCalendarJS", path: "/static/fullcalendar/index.global.min.js", contentType: jsType, content: fullCalendarJS},
 	{name: "CalendarJS", path: "/static/calendar.js", contentType: jsType, content: calendarJS},
+	{name: "LiveJS", path: "/static/live.js", contentType: jsType, content: liveJS},
 }
 
 // assetURLs maps each asset's name to a URL carrying a hash of its content,
@@ -113,6 +116,9 @@ var (
 	overrideTemplate       = shellPage("override.html")
 	doorCalendarTemplate   = shellPage("door-calendar.html")
 	accessCalendarTemplate = shellPage("access-calendar.html")
+
+	enrollmentsTemplate = shellPage("enrollments.html")
+	approvalTemplate    = shellPage("approval.html")
 )
 
 // navItem is one link in the main navigation. A Reload link loads its page
@@ -206,8 +212,10 @@ type pageData struct {
 	Title  string
 	Site   string
 	Assets map[string]string
-	// Path is the requested path, for marking the current navigation link.
+	// Path is the requested path, for marking the current navigation link,
+	// and URI the path with its query, for reloading part of the page.
 	Path string
+	URI  string
 	// Viewer is the signed-in person, nil on a page for signed-out people.
 	Viewer  *auth.User
 	IsAdmin bool
@@ -229,6 +237,7 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, status int, page *t
 		Site:    current.SiteName,
 		Assets:  assetURLs,
 		Path:    r.URL.Path,
+		URI:     r.URL.RequestURI(),
 		Viewer:  viewer,
 		IsAdmin: viewer != nil && viewer.Has(auth.RoleAdmin),
 		Flash:   takeFlash(w, r),

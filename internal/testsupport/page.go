@@ -42,6 +42,9 @@ type Page struct {
 	// Tables maps the label of each labelled table to the text of its
 	// cells, row by row.
 	Tables map[string][][]string
+	// Details maps the term of each entry of a description list to its
+	// description.
+	Details map[string]string
 	// Images is every image the page shows, in order.
 	Images []Image
 	// Assets is every stylesheet and script the page loads.
@@ -100,9 +103,24 @@ func (p *Page) read(n *html.Node) {
 		p.Notes = append(p.Notes, text(n))
 	case n.Data == "tr":
 		p.readRow(n)
+	case n.Data == "dt":
+		p.readDetail(n)
 	default:
 		p.readResource(n)
 	}
+}
+
+// readDetail reads a description list's term and the description after
+// it.
+func (p *Page) readDetail(dt *html.Node) {
+	dd := dt.NextSibling
+	for dd != nil && dd.Type != html.ElementNode {
+		dd = dd.NextSibling
+	}
+	if p.Details == nil {
+		p.Details = map[string]string{}
+	}
+	p.Details[text(dt)] = text(dd)
 }
 
 // readRow reads a table row into the table it belongs to.

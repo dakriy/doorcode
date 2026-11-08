@@ -15,6 +15,16 @@ const jsonType = "application/json"
 const hashMemoryJSON = `{"key":"password_hash_memory_kib","value":"8","source":"environment","read_only":true,` +
 	`"env_var":"DOORCODE_PASSWORD_HASH_MEMORY_KIB"}`
 
+// brokerSettingsJSON is how the settings API shows the broker settings
+// when nothing sets them.
+const brokerSettingsJSON = `{"key":"enrollment_username","value":"doorcode-enroll","source":"default","read_only":false,` +
+	`"env_var":"DOORCODE_ENROLLMENT_USERNAME"},` +
+	`{"key":"enrollment_password","value":"","source":"default","read_only":false,"env_var":"DOORCODE_ENROLLMENT_PASSWORD"},` +
+	`{"key":"door_credential_rotation_days","value":"30","source":"default","read_only":false,` +
+	`"env_var":"DOORCODE_DOOR_CREDENTIAL_ROTATION_DAYS"},` +
+	`{"key":"door_credential_grace_hours","value":"24","source":"default","read_only":false,` +
+	`"env_var":"DOORCODE_DOOR_CREDENTIAL_GRACE_HOURS"}`
+
 func TestSettingsListShowsDefaultsAndTheEnvironmentWhenNothingIsStored(t *testing.T) {
 	t.Parallel()
 	got := signedInAdmin(t, testsupport.NewFactory()).Get("/api/v1/settings")
@@ -23,7 +33,7 @@ func TestSettingsListShowsDefaultsAndTheEnvironmentWhenNothingIsStored(t *testin
 		`{"key":"site_name","value":"doorcode","source":"default","read_only":false,"env_var":"DOORCODE_SITE_NAME"},` +
 		`{"key":"site_timezone","value":"UTC","source":"default","read_only":false,"env_var":"DOORCODE_SITE_TIMEZONE"},` +
 		`{"key":"admin_email","value":"admin@example.com","source":"default","read_only":false,"env_var":"DOORCODE_ADMIN_EMAIL"},` +
-		hashMemoryJSON + `]}` + "\n"}
+		hashMemoryJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -41,7 +51,7 @@ func TestSettingsListShowsStoredAndEnvironmentValuesWithTheirSources(t *testing.
 		`{"key":"site_name","value":"Main Building","source":"database","read_only":false,"env_var":"DOORCODE_SITE_NAME","updated_at":"2026-01-02T08:00:00Z"},` +
 		`{"key":"site_timezone","value":"Europe/Berlin","source":"environment","read_only":true,"env_var":"DOORCODE_SITE_TIMEZONE"},` +
 		`{"key":"admin_email","value":"admin@example.com","source":"default","read_only":false,"env_var":"DOORCODE_ADMIN_EMAIL"},` +
-		hashMemoryJSON + `]}` + "\n"}
+		hashMemoryJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}

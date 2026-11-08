@@ -1,11 +1,14 @@
 # Local services for development and the slow connector tests.
 #
-#   docker compose up -d
+#   docker compose up -d --wait
 #   export DOORCODE_TEST_DATABASE_URL=postgres://doorcode:doorcode@localhost:5432/doorcode?sslmode=disable
+#   export DOORCODE_TEST_BROKER_URL=mqtt://doorcode:doorcode@localhost:1883
 #   make verify-integration
 #
 # Set DOORCODE_POSTGRES_PORT or DOORCODE_MQTT_PORT to publish on other host
-# ports when the defaults are taken.
+# ports when the defaults are taken. DOORCODE_BROKER_ADMIN_USERNAME and
+# DOORCODE_BROKER_ADMIN_PASSWORD name the broker's administrator, which the
+# server connects as; they take effect when the broker's volume is new.
 services:
   postgres:
     image: postgres:18
@@ -25,11 +28,21 @@ services:
 
   mosquitto:
     image: eclipse-mosquitto:2
+    entrypoint: ["/bin/sh", "/doorcode/entrypoint.sh"]
+    environment:
+      DOORCODE_BROKER_ADMIN_USERNAME: ${DOORCODE_BROKER_ADMIN_USERNAME:-doorcode}
+      DOORCODE_BROKER_ADMIN_PASSWORD: ${DOORCODE_BROKER_ADMIN_PASSWORD:-doorcode}
     ports:
       - "${DOORCODE_MQTT_PORT:-1883}:1883"
     volumes:
       - ./deploy/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./deploy/mosquitto/entrypoint.sh:/doorcode/entrypoint.sh:ro
       - mosquitto:/mosquitto/data
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -u \"$$DOORCODE_BROKER_ADMIN_USERNAME\" -P \"$$DOORCODE_BROKER_ADMIN_PASSWORD\" -t '$$SYS/broker/version' -C 1 -W 3"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
 
 volumes:
   postgres:

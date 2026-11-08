@@ -86,6 +86,21 @@ linters:
               desc: "effect package (database): put it behind a connector"
             - pkg: github.com/jackc/tern
               desc: "effect package (database migrations): put it behind a connector"
+            - pkg: github.com/eclipse/paho
+              desc: "effect package (MQTT network client): reach the broker through the Broker connector"
+        # Every MQTT message is encoded and decoded in internal/protocol,
+        # the only application package that may use the CBOR library.
+        cbor:
+          files:
+            - "$all"
+            - "!$test"
+            - "!**/cmd/**"
+            - "!**/internal/driver/**"
+            - "!**/internal/testsupport/**"
+            - "!**/internal/protocol/**"
+          deny:
+            - pkg: github.com/fxamacker/cbor
+              desc: "CBOR is encoded only in internal/protocol; use protocol.Encode and protocol.Decode"
         # Entrypoint suite: an allowlist. Nothing else may be imported.
         entrypoint-suite:
           list-mode: strict

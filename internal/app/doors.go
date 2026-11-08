@@ -10,6 +10,7 @@ import (
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/controller"
 	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/openapi"
 )
@@ -27,16 +28,17 @@ type nameRef struct {
 }
 
 type doorView struct {
-	ID               int64      `json:"id" doc:"Names the door in the API."`
-	Name             string     `json:"name" doc:"The door's name."`
-	Location         string     `json:"location" doc:"Where the door is; may be empty."`
-	Notes            string     `json:"notes" doc:"What administrators should know about the door; may be empty."`
-	Public           bool       `json:"public" doc:"True when the user portal shows the door."`
-	OpenSchedules    []nameRef  `json:"open_schedules" doc:"The schedules during which the door is in open mode and unlocks on any keypress, by name."`
-	Zones            []nameRef  `json:"zones" doc:"The zones the door is in, by name."`
-	PrimaryPictureID *int64     `json:"primary_picture_id,omitempty" doc:"The picture lists and the user portal show; absent when the door has no pictures."`
-	DeletedAt        *time.Time `json:"deleted_at,omitempty" doc:"When the door was deleted; absent unless it is deleted."`
-	CreatedAt        time.Time  `json:"created_at" doc:"When the door was created."`
+	ID               int64           `json:"id" doc:"Names the door in the API."`
+	Name             string          `json:"name" doc:"The door's name."`
+	Location         string          `json:"location" doc:"Where the door is; may be empty."`
+	Notes            string          `json:"notes" doc:"What administrators should know about the door; may be empty."`
+	Public           bool            `json:"public" doc:"True when the user portal shows the door."`
+	OpenSchedules    []nameRef       `json:"open_schedules" doc:"The schedules during which the door is in open mode and unlocks on any keypress, by name."`
+	Zones            []nameRef       `json:"zones" doc:"The zones the door is in, by name."`
+	PrimaryPictureID *int64          `json:"primary_picture_id,omitempty" doc:"The picture lists and the user portal show; absent when the door has no pictures."`
+	DeletedAt        *time.Time      `json:"deleted_at,omitempty" doc:"When the door was deleted; absent unless it is deleted."`
+	CreatedAt        time.Time       `json:"created_at" doc:"When the door was created."`
+	Controller       *controllerView `json:"controller,omitempty" doc:"The controller enrolled as the door; absent until one is."`
 }
 
 type doorRequest struct {
@@ -145,18 +147,21 @@ func (c catalog) viewOfDoor(d connector.StoredDoor) doorView {
 	return doorView{
 		ID: d.ID, Name: d.Name, Location: d.Location, Notes: d.Notes, Public: d.Public,
 		OpenSchedules: c.openSchedules(d), Zones: c.zonesOf(d), PrimaryPictureID: d.PrimaryPictureID,
-		DeletedAt: utc(d.DeletedAt), CreatedAt: d.CreatedAt.UTC(),
+		DeletedAt: utc(d.DeletedAt), CreatedAt: d.CreatedAt.UTC(), Controller: viewOfController(d.Controller),
 	}
 }
 
-// doorStatuses maps each refusal about doors, zones, and pictures to the
-// status the API answers it with.
+// doorStatuses maps each refusal about doors, zones, pictures, overrides,
+// and controllers to the status the API answers it with.
 var doorStatuses = []refusalStatus{
 	{door.ErrNoDoor, http.StatusNotFound},
 	{door.ErrNoZone, http.StatusNotFound},
 	{door.ErrNoPicture, http.StatusNotFound},
 	{door.ErrNoOverride, http.StatusNotFound},
 	{door.ErrNotActive, http.StatusConflict},
+	{controller.ErrNotPending, http.StatusNotFound},
+	{controller.ErrDeleted, http.StatusConflict},
+	{controller.ErrOffline, http.StatusConflict},
 	{errTooBig, http.StatusRequestEntityTooLarge},
 }
 

@@ -63,7 +63,7 @@ func (s *Store) CreateDoor(_ context.Context, d connector.StoredDoor) (int64, er
 	}
 	s.nextDoor++
 	d.ID = s.nextDoor
-	d.PrimaryPictureID = nil
+	d.PrimaryPictureID, d.Controller = nil, nil
 	s.placeDoor(d.ID, d.ZoneIDs)
 	d.OpenScheduleIDs, d.ZoneIDs = slices.Clone(d.OpenScheduleIDs), nil
 	s.doors = append(s.doors, d)
@@ -83,6 +83,32 @@ func (s *Store) UpdateDoor(_ context.Context, d connector.StoredDoor) (bool, err
 	held.Name, held.Location, held.Notes, held.Public = d.Name, d.Location, d.Notes, d.Public
 	held.OpenScheduleIDs = slices.Clone(d.OpenScheduleIDs)
 	s.placeDoor(d.ID, d.ZoneIDs)
+	return true, nil
+}
+
+// SetController stores c as the controller of the door with id, refusing
+// a hardware id another door's controller has.
+func (s *Store) SetController(_ context.Context, id int64, c *connector.StoredController) (bool, error) {
+	if err := s.writable(doorsAggregate, doorWrites); err != nil {
+		return false, err
+	}
+	if s.failing[controllerWrites] {
+		return false, ErrUnavailable
+	}
+	for _, held := range s.doors {
+		if c != nil && held.ID != id && held.Controller != nil && held.Controller.HardwareID == c.HardwareID {
+			return false, ErrDuplicate
+		}
+	}
+	held := s.doorByID(id)
+	if held == nil {
+		return false, nil
+	}
+	if c != nil {
+		copied := *c
+		c = &copied
+	}
+	held.Controller = c
 	return true, nil
 }
 
@@ -136,6 +162,10 @@ func (s *Store) doorByID(id int64) *connector.StoredDoor {
 // hold it.
 func (s *Store) cloneDoor(d connector.StoredDoor) connector.StoredDoor {
 	d.OpenScheduleIDs = append([]int64{}, slices.Sorted(slices.Values(d.OpenScheduleIDs))...)
+	if d.Controller != nil {
+		c := *d.Controller
+		d.Controller = &c
+	}
 	d.ZoneIDs = []int64{}
 	for _, p := range s.zoneDoors {
 		if p.door == d.ID {
@@ -384,6 +414,12 @@ func (s *Store) FailDoorWrites() {
 // while pictures can still be added and deleted.
 func (s *Store) FailPrimaryPictures() {
 	s.failing[primaryPictureWrites] = true
+}
+
+// FailControllerWrites makes SetController report ErrUnavailable, while
+// doors can still be changed otherwise.
+func (s *Store) FailControllerWrites() {
+	s.failing[controllerWrites] = true
 }
 
 // FailZones makes the zone methods report ErrUnavailable.

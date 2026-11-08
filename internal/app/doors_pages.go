@@ -4,12 +4,11 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
-	"slices"
 	"strconv"
-	"strings"
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/controller"
 	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/picture"
 )
@@ -47,17 +46,31 @@ type doorRow struct {
 	Thumbnail string
 	Zones     []nameRef
 	OpenMode  []nameRef
+	// Status is whether a controller is enrolled as the door and connected.
+	Status string
 }
 
 func (c catalog) rowOfDoor(d connector.StoredDoor) doorRow {
 	row := doorRow{
 		ID: d.ID, Name: d.Name, Location: d.Location, Public: d.Public,
-		Zones: c.zonesOf(d), OpenMode: c.openSchedules(d),
+		Zones: c.zonesOf(d), OpenMode: c.openSchedules(d), Status: doorStatus(d.Controller),
 	}
 	if d.PrimaryPictureID != nil {
 		row.Thumbnail = picturePath(d.ID, *d.PrimaryPictureID) + "/thumbnail"
 	}
 	return row
+}
+
+// doorStatus says whether a controller c is enrolled as a door and
+// connected.
+func doorStatus(c *connector.StoredController) string {
+	if c == nil {
+		return "Not enrolled"
+	}
+	if c.Online {
+		return "Online"
+	}
+	return "Offline"
 }
 
 // doorsContent is the door list's content.
@@ -73,6 +86,8 @@ type doorsContent struct {
 	From, To int
 	Previous string
 	Next     string
+	// Pending is how many controllers wait to be approved.
+	Pending int
 }
 
 func (a *App) doorsPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
@@ -96,6 +111,7 @@ func (a *App) doorsPage(w http.ResponseWriter, r *http.Request, viewer auth.User
 	content := doorsContent{
 		Search: q.Search, Deleted: q.Deleted, Zone: q.ZoneID, Zones: c.zones, Rows: []doorRow{}, Total: found.Total,
 		From: (q.Page-1)*doorsPerPage + 1, To: (q.Page-1)*doorsPerPage + len(found.Doors), Empty: emptyDoors(q, found.Total),
+		Pending: len(a.controllers.Pending.List()),
 	}
 	for _, d := range found.Doors {
 		content.Rows = append(content.Rows, c.rowOfDoor(d))
@@ -217,6 +233,10 @@ type doorContent struct {
 	Pictures  []pictureTile
 	Entrants  []entrantRow
 	Overrides []overrideRow
+	// Controller is the controller enrolled as the door, nil without one,
+	// and Credentials the credentials its controllers were issued.
+	Controller  *controllerRow
+	Credentials []credentialRow
 	// Alert is a refusal to show above everything else.
 	Alert          string
 	MaxPictureMB   int
@@ -269,18 +289,17 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 		a.pageError(w, err)
 		return
 	}
+	creds, err := a.controllers.Credentials(r.Context(), d.ID)
+	if err != nil {
+		a.pageError(w, err)
+		return
+	}
 	content := doorContent{
 		Door: d.StoredDoor, Row: n.rowOfDoor(d.StoredDoor), Form: form, Alert: alert,
 		Entrants: []entrantRow{}, Overrides: []overrideRow{},
+		Schedules: scheduleChoices(n.schedules, form.OpenScheduleIDs), Zones: zoneChoices(n.zones, form.ZoneIDs),
+		Controller: rowOfController(d.Controller, zone), Credentials: credentialRows(creds, zone),
 		MaxPictureMB: picture.Megabytes(), MaxPictureSide: picture.MaxSide,
-	}
-	for _, sch := range n.schedules {
-		content.Schedules = append(content.Schedules, choice{
-			ID: sch.ID, Name: sch.Name, Detail: strings.Join(windowSummaries(sch.Windows), " · "), Checked: slices.Contains(form.OpenScheduleIDs, sch.ID),
-		})
-	}
-	for _, z := range n.zones {
-		content.Zones = append(content.Zones, choice{ID: z.ID, Name: z.Name, Detail: z.Description, Checked: slices.Contains(form.ZoneIDs, z.ID)})
 	}
 	for i, p := range d.pictures {
 		content.Pictures = append(content.Pictures, pictureTile{pictureView: viewOfPicture(d.StoredDoor, p), Number: i + 1})
@@ -373,6 +392,7 @@ var doorPageRefusals = []struct {
 	{door.ErrNoPicture, http.StatusNotFound, "That picture is not there any more. It may have been deleted already."},
 	{door.ErrNoOverride, http.StatusNotFound, "That override is not there any more. It may have been deleted already."},
 	{door.ErrNotActive, http.StatusConflict, "Only an override in force can be cancelled. Delete one that has not started."},
+	{controller.ErrOffline, http.StatusConflict, "The controller is not connected, so it cannot be sent new credentials. Try again once it is online."},
 }
 
 // doorChanged finishes a change to d made from its page: a refusal is

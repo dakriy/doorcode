@@ -26,10 +26,63 @@
 </div>
 {{end}}
 
+<div id="controller-live" hx-get="{{.URI}}" hx-trigger="live-doors from:body" hx-select="#controller-live" hx-swap="outerHTML">
+{{with $c.Controller}}
+<section aria-labelledby="controller-heading" class="mt-6 overflow-hidden {{template "card-class"}}">
+  <div class="flex flex-col gap-3 px-6 pt-6 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <div class="flex items-center gap-3">
+        <h2 id="controller-heading" class="text-sm font-semibold">Controller</h2>
+        {{if .Online}}{{template "door-status" "Online"}}{{else}}{{template "door-status" "Offline"}}{{end}}
+      </div>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">The hardware enrolled as this door, and the broker credentials it connects with.</p>
+    </div>
+    <div class="flex shrink-0 gap-2">
+      {{if .Online}}
+      <form method="post" action="/admin/doors/{{$d.ID}}/credentials/rotate">
+        <button type="submit" class="{{template "secondary-class"}}">Rotate credentials</button>
+      </form>
+      {{end}}
+      <form method="post" action="/admin/doors/{{$d.ID}}/credentials/revoke" hx-confirm="Revoke the credentials of {{$d.Name}}? Its controller is disconnected and must enroll again.">
+        <button type="submit" class="{{template "danger-class"}} py-2">Revoke credentials</button>
+      </form>
+    </div>
+  </div>
+  <dl class="mt-5 grid gap-4 px-6 sm:grid-cols-4">
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Hardware id</dt><dd class="mt-1 font-mono text-sm">{{.HardwareID}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Firmware</dt><dd class="mt-1 text-sm">{{.Firmware}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Signal</dt><dd class="mt-1 text-sm tabular-nums">{{.Signal}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Last seen</dt><dd class="mt-1 text-sm tabular-nums">{{.LastSeen}}</dd></div>
+  </dl>
+  {{if not .Online}}<p role="note" class="mx-6 mt-4 text-xs text-zinc-500 dark:text-zinc-400">New credentials can be sent only while the controller is connected.</p>{{end}}
+  <div class="mt-5 overflow-x-auto">
+    <table aria-label="Credentials" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+      <thead class="{{template "table-head-class"}}">
+        <tr>
+          <th scope="col" class="px-6 py-2">Username</th>
+          <th scope="col" class="px-6 py-2">Issued</th>
+          <th scope="col" class="px-6 py-2">Status</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {{range $c.Credentials}}
+        <tr>
+          <td class="px-6 py-3 font-mono text-xs whitespace-nowrap">{{.Username}}</td>
+          <td class="px-6 py-3 whitespace-nowrap tabular-nums text-zinc-600 dark:text-zinc-400">{{.Issued}}</td>
+          <td class="px-6 py-3 whitespace-nowrap">{{template "badge" .Status}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</section>
+{{else}}
 <p role="note" class="mt-6 flex items-start gap-3 rounded-lg border border-dashed border-zinc-300 px-4 py-3 text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
   <svg class="mt-0.5 size-5 shrink-0 text-zinc-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z" clip-rule="evenodd"/></svg>
   <span>No controller has enrolled as this door yet. Its hardware, credentials, configuration, and live state appear here once one does.</span>
 </p>
+{{end}}
+</div>
 
 <div class="mt-8 grid gap-8 lg:grid-cols-3">
   <div class="space-y-8 lg:col-span-2">
@@ -211,4 +264,5 @@
   </div>
 </section>
 {{end}}
+{{template "live" .}}
 {{end}}

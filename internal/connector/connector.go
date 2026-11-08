@@ -7,9 +7,12 @@ import (
 	"time"
 )
 
-// Clock reports the current time.
+// Clock reports the current time and says when a time has come.
 type Clock interface {
 	Now() time.Time
+	// Alarm returns a channel that receives once the clock reaches at, at
+	// once when it has already.
+	Alarm(at time.Time) <-chan time.Time
 }
 
 // Entropy supplies unpredictable bytes.
@@ -272,12 +275,26 @@ type SchedulesStore interface {
 	DeleteSchedule(ctx context.Context, id int64) (bool, error)
 }
 
+// StoredController is the controller enrolled as a door: its hardware id,
+// what it last reported of its firmware version and signal strength (in
+// dBm), whether it is connected to the broker, and when the server last
+// heard of it.
+type StoredController struct {
+	HardwareID      string
+	FirmwareVersion string
+	Signal          int
+	Online          bool
+	LastSeenAt      time.Time
+}
+
 // StoredDoor is a door as the store holds it. OpenScheduleIDs are the
 // schedules during which the door is in open mode and ZoneIDs the zones it
 // is in, each ascending. A nil PrimaryPictureID is a door without a primary
 // picture, which the store sets only through SetPrimaryPicture and clears
 // when that picture is deleted; it ignores the field when it stores a door.
-// A nil DeletedAt is a door that is not deleted.
+// A nil DeletedAt is a door that is not deleted. A nil Controller is a door
+// no controller has enrolled as; the store sets it only through
+// SetController and ignores it when it stores a door.
 type StoredDoor struct {
 	ID               int64
 	Name             string
@@ -289,6 +306,7 @@ type StoredDoor struct {
 	PrimaryPictureID *int64
 	DeletedAt        *time.Time
 	CreatedAt        time.Time
+	Controller       *StoredController
 }
 
 // DoorsStore holds the doors aggregate. Doors are never removed; a deleted
@@ -308,6 +326,44 @@ type DoorsStore interface {
 	// SetDoorDeleted stores at as the deletion time of the door whose id is
 	// id, nil restoring it, and reports whether there is one.
 	SetDoorDeleted(ctx context.Context, id int64, at *time.Time) (bool, error)
+	// SetController stores c as the controller of the door whose id is id,
+	// nil detaching it, and reports whether there is such a door. Hardware
+	// ids are unique: it refuses one another door's controller has.
+	SetController(ctx context.Context, id int64, c *StoredController) (bool, error)
+}
+
+// StoredCredential is one set of broker credentials issued to the
+// controller of the door whose id is DoorID. The store keeps the username
+// only; the broker holds the password. UsedAt is when the controller first
+// connected with it, nil until it has; RevokedAt is when the broker stopped
+// accepting it, nil while it is live.
+type StoredCredential struct {
+	ID        int64
+	DoorID    int64
+	Username  string
+	IssuedAt  time.Time
+	UsedAt    *time.Time
+	RevokedAt *time.Time
+}
+
+// CredentialsStore holds the broker credentials issued to door
+// controllers. Usernames are unique; credentials are never removed.
+type CredentialsStore interface {
+	// CreateCredential stores c, ignoring c.ID, and returns the id it was
+	// given.
+	CreateCredential(ctx context.Context, c StoredCredential) (int64, error)
+	// DoorCredentials returns the credentials of the door whose id is
+	// doorID, oldest first.
+	DoorCredentials(ctx context.Context, doorID int64) ([]StoredCredential, error)
+	// LiveCredentials returns every credential that is not revoked, ordered
+	// by door id and then by id.
+	LiveCredentials(ctx context.Context) ([]StoredCredential, error)
+	// UseCredential stores at as when the credential whose id is id was
+	// first used, and reports whether there is one.
+	UseCredential(ctx context.Context, id int64, at time.Time) (bool, error)
+	// RevokeCredential stores at as when the credential whose id is id was
+	// revoked, and reports whether there is one.
+	RevokeCredential(ctx context.Context, id int64, at time.Time) (bool, error)
 }
 
 // StoredPicture is a picture of a door as the store holds it, without its
@@ -453,6 +509,46 @@ type Store interface {
 	ZonesStore
 	RulesStore
 	OverridesStore
+	CredentialsStore
+}
+
+// Message is one message the broker carries: its topic, its payload, and
+// whether the broker keeps it as the topic's retained message, which a
+// later subscriber receives first.
+type Message struct {
+	Topic    string
+	Payload  []byte
+	Retained bool
+}
+
+// BrokerClient is a client the broker lets connect with Username and
+// Password, allowed to publish to the topics Publish matches and to
+// subscribe to the topic filters Subscribe matches, and to nothing else.
+// Entries are MQTT topic filters.
+type BrokerClient struct {
+	Username  string
+	Password  string
+	Publish   []string
+	Subscribe []string
+}
+
+// Broker is the MQTT broker the door controllers connect to. The
+// application connects to it as a client allowed everything, and manages
+// the clients the controllers connect as.
+type Broker interface {
+	// Publish sends m, at least once.
+	Publish(ctx context.Context, m Message) error
+	// Subscribe subscribes the application to the topic filters and
+	// returns the channel the broker delivers the messages they match on,
+	// each retained message first. The channel is closed when the
+	// connection to the broker ends.
+	Subscribe(ctx context.Context, filters []string) (<-chan Message, error)
+	// CreateClient adds c to the clients the broker accepts. It refuses a
+	// username the broker has already.
+	CreateClient(ctx context.Context, c BrokerClient) error
+	// DeleteClient removes the client named username, disconnecting it.
+	// It refuses a username the broker does not have.
+	DeleteClient(ctx context.Context, username string) error
 }
 
 // Factory constructs connectors. It has one method per connector.
@@ -463,4 +559,5 @@ type Factory interface {
 	TimeZones() TimeZones
 	Log() Log
 	Store() Store
+	Broker() Broker
 }

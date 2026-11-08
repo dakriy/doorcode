@@ -82,6 +82,8 @@ func (a *App) routes() []route {
 	table = append(table, a.overrideRoutes()...)
 	table = append(table, a.overridePageRoutes()...)
 	table = append(table, a.timelineRoutes()...)
+	table = append(table, a.controllerRoutes()...)
+	table = append(table, a.controllerPageRoutes()...)
 	return append(table, a.calendarPageRoutes()...)
 }
 

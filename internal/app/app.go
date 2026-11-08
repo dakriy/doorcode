@@ -1,5 +1,6 @@
 // Package app is the entrypoint. New builds the application from a connector
-// factory; the application serves HTTP through Handler.
+// factory; the application serves HTTP through Handler and the door
+// controllers through Run.
 package app
 
 import (
@@ -8,9 +9,11 @@ import (
 	"io"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/controller"
 	"github.com/dakriy/doorcode/internal/directory"
 	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/rule"
@@ -29,6 +32,16 @@ type App struct {
 	schedules schedule.Service
 	doors     door.Service
 	rules     rule.Service
+	broker    connector.Broker
+	// controllers enrolls door controllers and looks after them; live
+	// tells the pages watching it when what they show of them changes.
+	controllers controller.Service
+	live        *hub
+	// enrolling says Run has set up the enrollment credentials, and
+	// nextSweep is when it next does the periodic work. Only Run reads and
+	// changes them.
+	enrolling bool
+	nextSweep time.Time
 	root      http.Handler
 	// openapi builds the OpenAPI document of the route table's API
 	// operations the first time it is served, so constructing an App does
@@ -61,6 +74,11 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 		schedules: schedule.Service{Store: store},
 		doors:     door.Service{Store: store, Clock: clock},
 		rules:     rule.Service{Store: store},
+		broker:    f.Broker(),
+		live:      newHub(),
+	}
+	a.controllers = controller.Service{
+		Store: store, Broker: a.broker, Clock: clock, Entropy: entropy, Pending: controller.NewPending(), Changed: a.live.notify,
 	}
 	if err := a.auth.CreateFirstAdmin(ctx); err != nil {
 		return nil, fmt.Errorf("create first administrator: %w", err)

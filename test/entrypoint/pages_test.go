@@ -37,6 +37,10 @@ func TestAdministratorReachesTheSettingsPage(t *testing.T) {
 			{"site_timezone", "UTC", "default", "DOORCODE_SITE_TIMEZONE"},
 			{"admin_email", "admin@example.com", "default", "DOORCODE_ADMIN_EMAIL"},
 			{"password_hash_memory_kib", "8", "environment, read-only", "DOORCODE_PASSWORD_HASH_MEMORY_KIB"},
+			{"enrollment_username", "doorcode-enroll", "default", "DOORCODE_ENROLLMENT_USERNAME"},
+			{"enrollment_password", "", "default", "DOORCODE_ENROLLMENT_PASSWORD"},
+			{"door_credential_rotation_days", "30", "default", "DOORCODE_DOOR_CREDENTIAL_ROTATION_DAYS"},
+			{"door_credential_grace_hours", "24", "default", "DOORCODE_DOOR_CREDENTIAL_GRACE_HOURS"},
 		},
 	}
 	if diff := cmp.Diff(want, pageOf(got)); diff != "" {

@@ -48,6 +48,18 @@ func (c *Clock) Now() time.Time {
 	return c.now
 }
 
+// Alarm returns a channel that has received when the stub time is at or
+// past at, and one that never receives otherwise: the stub time moves only
+// when a test sets it, which it does between runs.
+func (c *Clock) Alarm(at time.Time) <-chan time.Time {
+	if c.now.Before(at) {
+		return nil
+	}
+	ch := make(chan time.Time, 1)
+	ch <- c.now
+	return ch
+}
+
 // Set moves the clock to an RFC 3339 time.
 func (c *Clock) Set(rfc3339 string) {
 	c.now = mustTime(rfc3339)
@@ -147,6 +159,7 @@ type Store struct {
 	nextRule     int64
 	overrides    []connector.StoredOverride
 	nextOverride int64
+	credentials  []connector.StoredCredential
 	migrateErr   error
 	failing      map[aggregate]bool
 }
@@ -173,6 +186,9 @@ const (
 	ruleWrites
 	overridesAggregate
 	overrideWrites
+	credentialsAggregate
+	credentialWrites
+	controllerWrites
 )
 
 // NewStore returns an empty, unmigrated stub store.
@@ -424,6 +440,7 @@ func (s *Store) Fail() {
 	s.FailZones()
 	s.FailRules()
 	s.FailOverrides()
+	s.FailCredentials()
 }
 
 // FailSettings makes the settings methods report ErrUnavailable.
@@ -490,6 +507,7 @@ type Factory struct {
 	ZonesStub   TimeZones
 	LogStub     *Log
 	StoreStub   *Store
+	BrokerStub  *Broker
 }
 
 // DefaultNow is the stub clock's time until a test sets another.
@@ -509,6 +527,7 @@ func NewFactory() *Factory {
 		EnvStub:     Environment{"DOORCODE_PASSWORD_HASH_MEMORY_KIB": FastHashMemory},
 		LogStub:     &Log{},
 		StoreStub:   NewStore(),
+		BrokerStub:  NewBroker(),
 	}
 }
 
@@ -529,6 +548,9 @@ func (f *Factory) Log() connector.Log { return f.LogStub }
 
 // Store returns the stub store.
 func (f *Factory) Store() connector.Store { return f.StoreStub }
+
+// Broker returns the stub broker.
+func (f *Factory) Broker() connector.Broker { return f.BrokerStub }
 
 func mustTime(rfc3339 string) time.Time {
 	t, err := time.Parse(time.RFC3339, rfc3339)
