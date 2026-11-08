@@ -28,7 +28,7 @@ func TestAdministratorReachesTheSettingsPage(t *testing.T) {
 	want := testsupport.Page{
 		Title:   "Settings · North Campus",
 		Heading: "Settings",
-		Nav:     []string{"Home", "Settings (current)"},
+		Nav:     []string{"Home", "Settings (current)", "API tokens", "API docs"},
 		Table: [][]string{
 			{"Setting", "Value", "Source", "Environment variable"},
 			{"site_name", "North Campus", "database", "DOORCODE_SITE_NAME"},
@@ -56,7 +56,7 @@ func TestUserWithoutTheAdminRoleIsRefusedTheSettingsPage(t *testing.T) {
 	want := testsupport.Page{
 		Title:   "Not allowed · doorcode",
 		Heading: "You do not have access to this page",
-		Nav:     []string{"Home"},
+		Nav:     []string{"Home", "API tokens", "API docs"},
 	}
 	if diff := cmp.Diff(want, pageOf(got)); diff != "" {
 		t.Errorf("page (-want +got):\n%s", diff)
@@ -73,7 +73,7 @@ func TestHomeOffersOnlyWhatTheUserMayUse(t *testing.T) {
 
 	got := pageOf(b.Get("/"))
 
-	if diff := cmp.Diff([]string{"Home (current)"}, got.Nav); diff != "" {
+	if diff := cmp.Diff([]string{"Home (current)", "API tokens", "API docs"}, got.Nav); diff != "" {
 		t.Errorf("nav (-want +got):\n%s", diff)
 	}
 }
@@ -128,6 +128,26 @@ func TestPageStoreFailureShowsARequestIDThatTheLogCarries(t *testing.T) {
 			b := signedInAdmin(t, f)
 			f.StoreStub.FailSettings()
 			return b.Get("/admin/settings")
+		}},
+		"tokens page without tokens": {id: "4243444546474849", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
+			b := signedInAdmin(t, f)
+			f.StoreStub.FailTokens()
+			return b.Get("/account/tokens")
+		}},
+		"token creation without tokens, after drawing the secret": {id: "6263646566676869", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
+			b := signedInAdmin(t, f)
+			f.StoreStub.FailTokens()
+			return b.Post("/account/tokens", "name", "ci", "expires_in_days", "30")
+		}},
+		"rejected token form without tokens": {id: "4243444546474849", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
+			b := signedInAdmin(t, f)
+			f.StoreStub.FailTokens()
+			return b.Post("/account/tokens", "name", "", "expires_in_days", "30")
+		}},
+		"token revocation without tokens": {id: "4243444546474849", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
+			b := signedInAdmin(t, f)
+			f.StoreStub.FailTokens()
+			return b.Post("/account/tokens/1/revoke")
 		}},
 		"sign-out without sessions": {id: "4243444546474849", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
 			b := signedInAdmin(t, f)

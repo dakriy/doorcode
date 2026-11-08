@@ -2,6 +2,7 @@ package testsupport
 
 import (
 	"context"
+	"encoding/base64"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -79,7 +80,32 @@ func (b *Browser) Post(target string, fields ...string) Response {
 
 // PutJSON sends a PUT with a JSON body.
 func (b *Browser) PutJSON(target, body string) Response {
-	return b.do(http.MethodPut, target, "application/json", strings.NewReader(body))
+	return b.Send(http.MethodPut, target, body)
+}
+
+// PostJSON sends a POST with a JSON body.
+func (b *Browser) PostJSON(target, body string) Response {
+	return b.Send(http.MethodPost, target, body)
+}
+
+// Delete sends a DELETE.
+func (b *Browser) Delete(target string) Response {
+	return b.Send(http.MethodDelete, target, "")
+}
+
+// Send sends a request with method, and with body as JSON unless it is
+// empty.
+func (b *Browser) Send(method, target, body string) Response {
+	if body == "" {
+		return b.do(method, target, "", nil)
+	}
+	return b.do(method, target, "application/json", strings.NewReader(body))
+}
+
+// BasicAuth is the Authorization header value of HTTP Basic authentication
+// with user and password.
+func BasicAuth(user, password string) string {
+	return "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+password))
 }
 
 func (b *Browser) do(method, target, contentType string, body io.Reader) Response {

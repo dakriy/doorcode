@@ -16,8 +16,10 @@ const (
 // flashes are the one-time messages a redirect can carry. The cookie holds
 // only the key, so nobody can make the site display text of their choosing.
 var flashes = map[string]string{
-	"signed-in":  "You are signed in.",
-	"signed-out": "You have been signed out.",
+	"signed-in":     "You are signed in.",
+	"signed-out":    "You have been signed out.",
+	"token-revoked": "The token has been revoked. Anything still using it is refused from now on.",
+	"token-gone":    "That token had already been revoked.",
 }
 
 // signInForm is the sign-in page's content.
@@ -29,12 +31,12 @@ type signInForm struct {
 	PasswordError string
 }
 
-func (a *App) signInPage(w http.ResponseWriter, r *http.Request) {
+func (a *App) signInPage(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	form := signInForm{Next: localPath(r.URL.Query().Get("next"))}
 	a.renderSignIn(w, r, http.StatusOK, form)
 }
 
-func (a *App) signIn(w http.ResponseWriter, r *http.Request) {
+func (a *App) signIn(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	email := strings.TrimSpace(r.PostFormValue("email"))
 	password := r.PostFormValue("password")
 	form := signInForm{
@@ -87,7 +89,7 @@ func signInRefusal(err error) string {
 	return ""
 }
 
-func (a *App) signOut(w http.ResponseWriter, r *http.Request) {
+func (a *App) signOut(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	if cookie, err := r.Cookie(sessionCookie); err == nil {
 		if err := a.auth.SignOut(r.Context(), cookie.Value); err != nil {
 			a.pageError(w, err)

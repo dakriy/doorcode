@@ -1,0 +1,643 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "doorcode API",
+    "version": "1",
+    "description": "Every operation except this document needs a personal API token, created on the API tokens page or with createToken. A token acts as the user who created it, with that user's roles. Send it as a bearer token or as the password of HTTP Basic authentication."
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "paths": {
+    "/openapi.json": {
+      "get": {
+        "operationId": "getOpenAPI",
+        "summary": "This document",
+        "tags": [
+          "documentation"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The OpenAPI document of this API."
+          }
+        }
+      }
+    },
+    "/settings": {
+      "get": {
+        "operationId": "listSettings",
+        "summary": "List every setting",
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every setting.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the admin role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/{key}": {
+      "get": {
+        "operationId": "getSetting",
+        "summary": "Read one setting",
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "The setting's key.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "site_name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The setting.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the admin role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No setting has this key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateSetting",
+        "summary": "Store a new value for a setting",
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "The setting's key.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "site_name"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingUpdate"
+              },
+              "example": {
+                "value": "North Campus"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The setting with its new value.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON object with a string value, or the setting does not accept the value.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the admin role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No setting has this key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The environment provides the setting, so it is read-only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tokens": {
+      "get": {
+        "operationId": "listTokens",
+        "summary": "List your personal API tokens",
+        "tags": [
+          "tokens"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The caller's tokens, without their secrets.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createToken",
+        "summary": "Create a personal API token",
+        "tags": [
+          "tokens"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenRequest"
+              },
+              "example": {
+                "name": "deploy script",
+                "expires_in_days": 90
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The token and its secret, shown this once.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON token request, or the name or expiry is out of range.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tokens/{id}": {
+      "delete": {
+        "operationId": "revokeToken",
+        "summary": "Revoke one of your personal API tokens",
+        "tags": [
+          "tokens"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The token's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The token is revoked and refused from now on."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The caller has no token with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreatedToken": {
+        "type": "object",
+        "properties": {
+          "secret": {
+            "type": "string",
+            "description": "The token to send. This is the only time it is shown; it cannot be recovered."
+          },
+          "token": {
+            "$ref": "#/components/schemas/TokenView",
+            "description": "The new token."
+          }
+        },
+        "required": [
+          "token",
+          "secret"
+        ]
+      },
+      "ErrorBody": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "What went wrong."
+          },
+          "request_id": {
+            "type": "string",
+            "description": "Names the failure in the server log; present only when the server failed."
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "SettingList": {
+        "type": "object",
+        "properties": {
+          "settings": {
+            "type": "array",
+            "description": "Every setting, in display order.",
+            "items": {
+              "$ref": "#/components/schemas/SettingView"
+            }
+          }
+        },
+        "required": [
+          "settings"
+        ]
+      },
+      "SettingUpdate": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "description": "The new value."
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "SettingView": {
+        "type": "object",
+        "properties": {
+          "env_var": {
+            "type": "string",
+            "description": "The environment variable that overrides the setting."
+          },
+          "key": {
+            "type": "string",
+            "description": "The setting's key."
+          },
+          "read_only": {
+            "type": "boolean",
+            "description": "True when the environment provides the value, which then cannot be changed here."
+          },
+          "source": {
+            "type": "string",
+            "description": "Where the value comes from: environment, database, or default."
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When an administrator last stored a value; absent when none is stored."
+          },
+          "value": {
+            "type": "string",
+            "description": "The value in effect."
+          }
+        },
+        "required": [
+          "key",
+          "value",
+          "source",
+          "read_only",
+          "env_var"
+        ]
+      },
+      "TokenList": {
+        "type": "object",
+        "properties": {
+          "tokens": {
+            "type": "array",
+            "description": "The caller's tokens, oldest first.",
+            "items": {
+              "$ref": "#/components/schemas/TokenView"
+            }
+          }
+        },
+        "required": [
+          "tokens"
+        ]
+      },
+      "TokenRequest": {
+        "type": "object",
+        "properties": {
+          "expires_in_days": {
+            "type": "integer",
+            "description": "Days until the token expires, from 1 to 3650. Omit it for a token that never expires."
+          },
+          "name": {
+            "type": "string",
+            "description": "What the token is for, up to 100 characters."
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "TokenView": {
+        "type": "object",
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the token was created."
+          },
+          "expired": {
+            "type": "boolean",
+            "description": "True once the token has expired."
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the token stops working; absent when it never expires."
+          },
+          "id": {
+            "type": "integer",
+            "description": "Names the token, to revoke it."
+          },
+          "name": {
+            "type": "string",
+            "description": "What the token is for."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "created_at",
+          "expired"
+        ]
+      }
+    },
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "A personal API token as the HTTP Basic password. The user name is ignored."
+      },
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "A personal API token in the Authorization header: `Authorization: Bearer \u003ctoken\u003e`."
+      }
+    }
+  }
+}

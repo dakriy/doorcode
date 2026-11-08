@@ -3,14 +3,36 @@ package app
 import (
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/dakriy/doorcode/internal/auth"
 )
 
-// viewerHandler serves a request from a signed-in person.
+// viewerHandler serves a request from a signed-in person. A route anyone may
+// use gets the zero User.
 type viewerHandler func(w http.ResponseWriter, r *http.Request, viewer auth.User)
 
-// viewer returns who sent r, and whether anyone is signed in.
+// access says who may use a route.
+type access struct {
+	// public routes are open to anyone, signed in or not.
+	public bool
+	// role is the role a signed-in user must hold; empty means any
+	// signed-in user.
+	role string
+}
+
+var (
+	anyone       = access{public: true}
+	signedInUser = access{}
+)
+
+// holding is the access of a route for signed-in users holding role.
+func holding(role string) access {
+	return access{role: role}
+}
+
+// viewer returns who sent r from its session cookie, and whether anyone is
+// signed in.
 func (a *App) viewer(r *http.Request) (auth.User, bool, error) {
 	cookie, err := r.Cookie(sessionCookie)
 	if err != nil {
@@ -19,10 +41,33 @@ func (a *App) viewer(r *http.Request) (auth.User, bool, error) {
 	return a.auth.Authenticate(r.Context(), cookie.Value)
 }
 
-// signedIn serves a page to a signed-in person and sends anyone else to the
-// sign-in page, which returns them here afterwards.
-func (a *App) signedIn(next viewerHandler) http.HandlerFunc {
+// caller returns who sent an API request: the owner of the personal API
+// token in its Authorization header, sent as a bearer token or as the HTTP
+// Basic password, or else the user the session cookie belongs to, so the
+// browser's own calls work.
+func (a *App) caller(r *http.Request) (auth.User, bool, error) {
+	if token, ok := apiToken(r); ok {
+		return a.auth.AuthenticateToken(r.Context(), token)
+	}
+	return a.viewer(r)
+}
+
+func apiToken(r *http.Request) (string, bool) {
+	if _, password, ok := r.BasicAuth(); ok {
+		return password, true
+	}
+	scheme, token, _ := strings.Cut(r.Header.Get("Authorization"), " ")
+	return token, strings.EqualFold(scheme, "Bearer")
+}
+
+// page guards a page: anyone else is sent to the sign-in page, which returns
+// them here afterwards, and a user without the role sees a refusal.
+func (a *App) page(need access, next viewerHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if need.public {
+			next(w, r, auth.User{})
+			return
+		}
 		viewer, ok, err := a.viewer(r)
 		if err != nil {
 			a.pageError(w, err)
@@ -32,39 +77,41 @@ func (a *App) signedIn(next viewerHandler) http.HandlerFunc {
 			redirect(w, "/sign-in?next="+url.QueryEscape(r.URL.RequestURI()))
 			return
 		}
-		next(w, r, viewer)
-	}
-}
-
-// admin serves a page to a signed-in administrator.
-func (a *App) admin(next viewerHandler) http.HandlerFunc {
-	return a.signedIn(func(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-		if !viewer.Has(auth.RoleAdmin) {
+		if !holds(viewer, need) {
 			a.render(w, r, http.StatusForbidden, forbiddenTemplate, "Not allowed", &viewer, nil)
 			return
 		}
 		next(w, r, viewer)
-	})
+	}
 }
 
-// adminAPI serves an API call from a signed-in administrator.
-func (a *App) adminAPI(next http.HandlerFunc) http.HandlerFunc {
+// api guards an API operation, answering in JSON when the caller is not
+// authenticated or does not hold the role.
+func (a *App) api(need access, next viewerHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		viewer, ok, err := a.viewer(r)
+		if need.public {
+			next(w, r, auth.User{})
+			return
+		}
+		caller, ok, err := a.caller(r)
 		if err != nil {
 			a.internalError(w, err)
 			return
 		}
 		if !ok {
-			writeError(w, http.StatusUnauthorized, "sign in required")
+			writeError(w, http.StatusUnauthorized, "a valid API token is required")
 			return
 		}
-		if !viewer.Has(auth.RoleAdmin) {
-			writeError(w, http.StatusForbidden, "the admin role is required")
+		if !holds(caller, need) {
+			writeError(w, http.StatusForbidden, "the "+need.role+" role is required")
 			return
 		}
-		next(w, r)
+		next(w, r, caller)
 	}
+}
+
+func holds(u auth.User, need access) bool {
+	return need.role == "" || u.Has(need.role)
 }
 
 // redirect sends the browser to location with 303 See Other, so a form post

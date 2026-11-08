@@ -92,6 +92,33 @@ type SessionsStore interface {
 	DeleteSession(ctx context.Context, tokenHash []byte) error
 }
 
+// StoredToken is a personal API token as the store holds it. The store keeps
+// only a hash of the secret the owner holds. A nil ExpiresAt never expires.
+type StoredToken struct {
+	ID        int64
+	UserID    int64
+	Name      string
+	TokenHash []byte
+	CreatedAt time.Time
+	ExpiresAt *time.Time
+}
+
+// TokensStore holds the personal API tokens aggregate. A revoked token is
+// removed.
+type TokensStore interface {
+	// CreateToken stores t, ignoring t.ID, and returns the id it was given.
+	CreateToken(ctx context.Context, t StoredToken) (int64, error)
+	// UserTokens returns every token of the user whose id is userID, oldest
+	// first.
+	UserTokens(ctx context.Context, userID int64) ([]StoredToken, error)
+	// TokenUser returns the token whose hash is tokenHash, the user it
+	// belongs to, and whether there is one.
+	TokenUser(ctx context.Context, tokenHash []byte) (StoredToken, StoredUser, bool, error)
+	// DeleteToken removes the token with id that belongs to the user whose
+	// id is userID, and reports whether there was one.
+	DeleteToken(ctx context.Context, userID, id int64) (bool, error)
+}
+
 // Store is the application's persistent state, one interface per aggregate.
 type Store interface {
 	// Migrate brings the schema up to date. It runs once at startup, before
@@ -100,6 +127,7 @@ type Store interface {
 	SettingsStore
 	UsersStore
 	SessionsStore
+	TokensStore
 }
 
 // Factory constructs connectors. It has one method per connector.

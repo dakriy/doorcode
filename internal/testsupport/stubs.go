@@ -107,6 +107,8 @@ type Store struct {
 	settings   map[string]connector.StoredSetting
 	users      []connector.StoredUser
 	sessions   map[string]connector.StoredSession
+	tokens     []connector.StoredToken
+	nextToken  int64
 	migrateErr error
 	failing    map[aggregate]bool
 }
@@ -117,6 +119,7 @@ const (
 	settingsAggregate aggregate = iota
 	usersAggregate
 	sessionsAggregate
+	tokensAggregate
 )
 
 // NewStore returns an empty, unmigrated stub store.
@@ -216,6 +219,66 @@ func (s *Store) DeleteSession(_ context.Context, tokenHash []byte) error {
 	return nil
 }
 
+// CreateToken stores a token with the next id.
+func (s *Store) CreateToken(_ context.Context, t connector.StoredToken) (int64, error) {
+	if err := s.usable(tokensAggregate); err != nil {
+		return 0, err
+	}
+	if s.userByID(t.UserID) == nil {
+		return 0, ErrNoSuchUser
+	}
+	for _, held := range s.tokens {
+		if string(held.TokenHash) == string(t.TokenHash) {
+			return 0, ErrDuplicate
+		}
+	}
+	s.nextToken++
+	t.ID = s.nextToken
+	s.tokens = append(s.tokens, t)
+	return t.ID, nil
+}
+
+// UserTokens returns the user's tokens in id order.
+func (s *Store) UserTokens(_ context.Context, userID int64) ([]connector.StoredToken, error) {
+	if err := s.usable(tokensAggregate); err != nil {
+		return nil, err
+	}
+	var held []connector.StoredToken
+	for _, t := range s.tokens {
+		if t.UserID == userID {
+			held = append(held, t)
+		}
+	}
+	return held, nil
+}
+
+// TokenUser returns the token stored under tokenHash and its user.
+func (s *Store) TokenUser(_ context.Context, tokenHash []byte) (connector.StoredToken, connector.StoredUser, bool, error) {
+	if err := s.usable(tokensAggregate); err != nil {
+		return connector.StoredToken{}, connector.StoredUser{}, false, err
+	}
+	for _, t := range s.tokens {
+		if string(t.TokenHash) == string(tokenHash) {
+			return t, *s.userByID(t.UserID), true, nil
+		}
+	}
+	return connector.StoredToken{}, connector.StoredUser{}, false, nil
+}
+
+// DeleteToken removes the user's token with id.
+func (s *Store) DeleteToken(_ context.Context, userID, id int64) (bool, error) {
+	if err := s.usable(tokensAggregate); err != nil {
+		return false, err
+	}
+	for i, t := range s.tokens {
+		if t.ID == id && t.UserID == userID {
+			s.tokens = slices.Delete(slices.Clone(s.tokens), i, i+1)
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (s *Store) userByID(id int64) *connector.StoredUser {
 	for i := range s.users {
 		if s.users[i].ID == id {
@@ -306,6 +369,7 @@ func (s *Store) Fail() {
 	s.FailSettings()
 	s.FailUsers()
 	s.FailSessions()
+	s.FailTokens()
 }
 
 // FailSettings makes the settings methods report ErrUnavailable.
@@ -321,6 +385,11 @@ func (s *Store) FailUsers() {
 // FailSessions makes the session methods report ErrUnavailable.
 func (s *Store) FailSessions() {
 	s.failing[sessionsAggregate] = true
+}
+
+// FailTokens makes the API token methods report ErrUnavailable.
+func (s *Store) FailTokens() {
+	s.failing[tokensAggregate] = true
 }
 
 // Factory is the stub connector.Factory. Tests arrange and inspect the

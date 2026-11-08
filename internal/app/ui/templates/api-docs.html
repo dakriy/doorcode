@@ -1,0 +1,18 @@
+{{define "content"}}
+<div class="sm:flex sm:items-end sm:justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">API documentation</h1>
+    <p class="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">Every operation of the JSON API under <code class="rounded bg-zinc-100 px-1 py-0.5 font-mono text-xs dark:bg-zinc-800">/api/v1</code>. Scripts authenticate with a <a href="/account/tokens" class="font-medium text-brand-600 hover:text-brand-500 dark:text-brand-400">personal API token</a>; calls you try from this page run as you.</p>
+  </div>
+  <a href="{{.Content}}" hx-boost="false" class="mt-4 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-zinc-700 ring-1 ring-zinc-300 ring-inset transition hover:bg-zinc-100 sm:mt-0 dark:text-zinc-200 dark:ring-zinc-700 dark:hover:bg-zinc-800">
+    <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z"/><path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z"/></svg>
+    OpenAPI document
+  </a>
+</div>
+<link rel="stylesheet" href="{{index .Assets "SwaggerCSS"}}">
+<div class="mt-8 overflow-hidden rounded-xl border border-zinc-200 bg-white p-2 text-zinc-900 shadow-xs dark:border-zinc-800">
+  <div id="swagger-ui" data-url="{{.Content}}"><p class="p-6 text-sm text-zinc-500">Loading the API documentation…</p></div>
+</div>
+<script src="{{index .Assets "SwaggerJS"}}" defer></script>
+<script src="{{index .Assets "APIDocsJS"}}" defer></script>
+{{end}}

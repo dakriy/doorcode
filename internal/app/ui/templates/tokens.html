@@ -1,0 +1,83 @@
+{{define "content"}}
+{{$c := .Content}}
+<div>
+  <h1 class="text-2xl font-semibold tracking-tight">API tokens</h1>
+  <p class="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">A personal API token lets a script call the <a href="/api-docs" hx-boost="false" class="font-medium text-brand-600 hover:text-brand-500 dark:text-brand-400">JSON API</a> as you, with your roles. Send it as <code class="rounded bg-zinc-100 px-1 py-0.5 font-mono text-xs dark:bg-zinc-800">Authorization: Bearer &lt;token&gt;</code>, or as the password of HTTP Basic authentication.</p>
+</div>
+
+{{with $c.Created}}
+<div class="mt-8 rounded-xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-900/60 dark:bg-emerald-950/40">
+  <div role="status" class="flex items-start gap-3 text-sm text-emerald-900 dark:text-emerald-100">
+    <svg class="mt-0.5 size-5 shrink-0 text-emerald-600 dark:text-emerald-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clip-rule="evenodd"/></svg>
+    <p><span class="font-semibold">Token “{{.Name}}” created.</span> Copy it now: it is shown only this once and cannot be recovered.</p>
+  </div>
+  <label for="secret" class="sr-only">New token</label>
+  <input id="secret" name="secret" type="text" readonly value="{{.Secret}}" autocomplete="off" spellcheck="false"
+    class="mt-4 block w-full rounded-lg border-0 bg-white px-3 py-2 font-mono text-sm shadow-xs ring-1 ring-emerald-300 ring-inset focus:ring-2 focus:ring-emerald-600 focus:outline-none dark:bg-zinc-900 dark:ring-emerald-800">
+</div>
+{{end}}
+
+<div class="mt-8 grid gap-8 lg:grid-cols-3">
+  <section class="rounded-xl border border-zinc-200 bg-white p-5 shadow-xs lg:col-span-1 dark:border-zinc-800 dark:bg-zinc-900">
+    <h2 class="text-sm font-semibold">Create a token</h2>
+    <form method="post" action="/account/tokens" class="mt-4 space-y-5" novalidate hx-disabled-elt="find button">
+      <div>
+        <label for="name" class="block text-sm font-medium">Name</label>
+        <input id="name" name="name" type="text" maxlength="100" value="{{$c.Form.Name}}" placeholder="Deploy script"
+          {{if $c.Form.NameError}}aria-invalid="true" aria-describedby="name-error" autofocus{{end}}
+          class="mt-2 block w-full rounded-lg border-0 bg-white px-3 py-2 text-sm shadow-xs ring-1 ring-zinc-300 ring-inset placeholder:text-zinc-400 focus:ring-2 focus:ring-brand-600 focus:outline-none aria-invalid:ring-red-500 dark:bg-zinc-950 dark:ring-zinc-700 dark:focus:ring-brand-500">
+        {{if $c.Form.NameError}}<p id="name-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$c.Form.NameError}}</p>
+        {{else}}<p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">What the token is for, so you know which one to revoke.</p>{{end}}
+      </div>
+      <div>
+        <label for="expires_in_days" class="block text-sm font-medium">Expires after</label>
+        <select id="expires_in_days" name="expires_in_days"
+          {{if $c.Form.ExpiryError}}aria-invalid="true" aria-describedby="expiry-error"{{end}}
+          class="mt-2 block w-full rounded-lg border-0 bg-white px-3 py-2 text-sm shadow-xs ring-1 ring-zinc-300 ring-inset focus:ring-2 focus:ring-brand-600 focus:outline-none aria-invalid:ring-red-500 dark:bg-zinc-950 dark:ring-zinc-700 dark:focus:ring-brand-500">
+          {{range $c.Choices}}<option value="{{.Days}}"{{if eq .Days $c.Form.Expiry}} selected{{end}}>{{.Label}}</option>{{end}}
+        </select>
+        {{if $c.Form.ExpiryError}}<p id="expiry-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$c.Form.ExpiryError}}</p>{{end}}
+      </div>
+      <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-xs transition hover:bg-brand-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-wait disabled:opacity-70 dark:bg-brand-500 dark:hover:bg-brand-400">Create token</button>
+    </form>
+  </section>
+
+  <section class="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xs lg:col-span-2 dark:border-zinc-800 dark:bg-zinc-900">
+    <h2 class="sr-only">Your tokens</h2>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+        <thead class="bg-zinc-50 text-left text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:bg-zinc-900/60 dark:text-zinc-400">
+          <tr>
+            <th scope="col" class="px-4 py-3">Name</th>
+            <th scope="col" class="px-4 py-3">Created</th>
+            <th scope="col" class="px-4 py-3">Expires</th>
+            <th scope="col" class="px-4 py-3"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+          {{range $c.Tokens}}
+          <tr>
+            <td class="px-4 py-3 font-medium">{{.Name}}</td>
+            <td class="px-4 py-3 whitespace-nowrap text-zinc-600 dark:text-zinc-400">{{.CreatedAt.UTC.Format "2 Jan 2006"}}</td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              {{if .Expired}}<span class="inline-flex rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 ring-1 ring-red-600/20 ring-inset dark:bg-red-950 dark:text-red-300 dark:ring-red-400/20">Expired {{.ExpiresAt.UTC.Format "2 Jan 2006"}}</span>
+              {{else if .ExpiresAt}}<span class="text-zinc-600 dark:text-zinc-400">{{.ExpiresAt.UTC.Format "2 Jan 2006"}}</span>
+              {{else}}<span class="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">Never</span>{{end}}
+            </td>
+            <td class="px-4 py-3 text-right">
+              <form method="post" action="/account/tokens/{{.ID}}/revoke" hx-confirm="Revoke “{{.Name}}”? Anything using it is refused at once. This cannot be undone.">
+                <button type="submit" class="rounded-lg px-3 py-1.5 text-sm font-medium text-red-700 ring-1 ring-red-300 ring-inset transition hover:bg-red-50 dark:text-red-300 dark:ring-red-900 dark:hover:bg-red-950">Revoke</button>
+              </form>
+            </td>
+          </tr>
+          {{else}}
+          <tr>
+            <td colspan="4" class="px-4 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">You have no API tokens yet. Create one to call the API from a script.</td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{{end}}

@@ -4,7 +4,7 @@ LINT = $(GO) tool golangci-lint
 # Runtime budget for everything verify-fast runs as tests, in seconds.
 FAST_BUDGET_SECONDS ?= 10
 
-.PHONY: verify-fast verify-mutation verify-integration verify-all fmt ui
+.PHONY: verify-fast verify-mutation verify-integration verify-all fmt ui openapi
 
 verify-fast:
 	$(GO) build ./...
@@ -15,6 +15,7 @@ verify-fast:
 	$(LINT) run -c .golangci.connector.yml
 	sh scripts/fast-tests.sh $(FAST_BUDGET_SECONDS)
 	sh scripts/deadcode.sh
+	sh scripts/openapi-drift.sh
 	@echo "duplicate-code report (never fails):"
 	$(LINT) run -c .golangci.dupl.yml --issues-exit-code=0
 	@echo "verify-fast ok"
@@ -36,3 +37,7 @@ fmt:
 # Vendors htmx and rebuilds the stylesheet with the pinned Tailwind CLI.
 ui:
 	sh scripts/vendor-ui.sh
+
+# Rewrites docs/openapi.json from the route table.
+openapi:
+	$(GO) run ./cmd/doorcode-openapi >docs/openapi.json

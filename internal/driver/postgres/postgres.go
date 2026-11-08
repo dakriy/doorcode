@@ -140,6 +140,56 @@ func (s *Store) DeleteSession(ctx context.Context, tokenHash []byte) error {
 	return err
 }
 
+// tokenColumns lists the api_tokens columns in the order tokenFields reads
+// them.
+const tokenColumns = `api_tokens.id, api_tokens.user_id, api_tokens.name, api_tokens.token_hash,
+	api_tokens.created_at, api_tokens.expires_at`
+
+func tokenFields(t *connector.StoredToken) []any {
+	return []any{&t.ID, &t.UserID, &t.Name, &t.TokenHash, &t.CreatedAt, &t.ExpiresAt}
+}
+
+// CreateToken inserts a token and returns its id.
+func (s *Store) CreateToken(ctx context.Context, t connector.StoredToken) (int64, error) {
+	var id int64
+	err := s.pool.QueryRow(ctx, `
+		insert into api_tokens (user_id, name, token_hash, created_at, expires_at)
+		values ($1, $2, $3, $4, $5) returning id`,
+		t.UserID, t.Name, t.TokenHash, t.CreatedAt, t.ExpiresAt).Scan(&id)
+	return id, err
+}
+
+// UserTokens returns the user's tokens in id order.
+func (s *Store) UserTokens(ctx context.Context, userID int64) ([]connector.StoredToken, error) {
+	rows, err := s.pool.Query(ctx, `select `+tokenColumns+` from api_tokens where user_id = $1 order by id`, userID)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (connector.StoredToken, error) {
+		var t connector.StoredToken
+		err := row.Scan(tokenFields(&t)...)
+		return t, err
+	})
+}
+
+// TokenUser returns the token stored under tokenHash and its user.
+func (s *Store) TokenUser(ctx context.Context, tokenHash []byte) (connector.StoredToken, connector.StoredUser, bool, error) {
+	var t connector.StoredToken
+	var u connector.StoredUser
+	err := s.pool.QueryRow(ctx, `
+		select `+tokenColumns+`, `+userColumns+`
+		from api_tokens join users on users.id = api_tokens.user_id
+		where api_tokens.token_hash = $1`, tokenHash).Scan(append(tokenFields(&t), userFields(&u)...)...)
+	u, ok, err := found(u, err)
+	return t, u, ok, err
+}
+
+// DeleteToken removes the user's token with id.
+func (s *Store) DeleteToken(ctx context.Context, userID, id int64) (bool, error) {
+	tag, err := s.pool.Exec(ctx, `delete from api_tokens where id = $1 and user_id = $2`, id, userID)
+	return tag.RowsAffected() == 1, err
+}
+
 // found translates pgx's no-rows error into a not-found result.
 func found[T any](value T, err error) (T, bool, error) {
 	if errors.Is(err, pgx.ErrNoRows) {
