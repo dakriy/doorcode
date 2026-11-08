@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/dakriy/doorcode/internal/auth"
-	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/directory"
 )
@@ -69,9 +68,8 @@ func readGroupForm(r *http.Request) (directory.GroupFields, groupForm) {
 // rejected is f carrying what err says is wrong, and whether err is a
 // problem or refusal the form shows.
 func (f groupForm) rejected(err error) (groupForm, int, bool) {
-	var problems check.Problems
-	if errors.As(err, &problems) {
-		f.Errors = problems.ByField()
+	if errs, rejected := fieldErrors(err); rejected {
+		f.Errors = errs
 		return f, http.StatusUnprocessableEntity, true
 	}
 	status, message, refused := refusal(err)
@@ -91,11 +89,7 @@ func (a *App) createGroupFromForm(w http.ResponseWriter, r *http.Request, viewer
 		a.render(w, r, status, newGroupTemplate, "New group", &viewer, form)
 		return
 	}
-	if err != nil {
-		a.pageError(w, err)
-		return
-	}
-	done(w, r, groupPath(g.ID), "group-created")
+	a.changed(w, r, err, groupPath(g.ID), "group-created")
 }
 
 // groupContent is the group detail page's content.
@@ -162,11 +156,7 @@ func (a *App) groupChanged(w http.ResponseWriter, r *http.Request, viewer auth.U
 		a.renderGroup(w, r, status, viewer, content)
 		return
 	}
-	if err != nil {
-		a.pageError(w, err)
-		return
-	}
-	done(w, r, location, flash)
+	a.changed(w, r, err, location, flash)
 }
 
 func (a *App) deleteGroupFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {

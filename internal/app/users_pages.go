@@ -172,12 +172,9 @@ func readUserForm(r *http.Request, zone *time.Location) (directory.Profile, user
 
 // rejected is f carrying the problems err holds, and whether it holds any.
 func (f userForm) rejected(err error) (userForm, bool) {
-	var problems check.Problems
-	if !errors.As(err, &problems) {
-		return f, false
-	}
-	f.Errors = problems.ByField()
-	return f, true
+	errs, rejected := fieldErrors(err)
+	f.Errors = errs
+	return f, rejected
 }
 
 func (a *App) newUserPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
@@ -199,11 +196,7 @@ func (a *App) createUserFromForm(w http.ResponseWriter, r *http.Request, viewer 
 		a.render(w, r, http.StatusUnprocessableEntity, newUserTemplate, "New user", &viewer, form)
 		return
 	}
-	if err != nil {
-		a.pageError(w, err)
-		return
-	}
-	done(w, r, userPath(u.ID), "user-created")
+	a.changed(w, r, err, userPath(u.ID), "user-created")
 }
 
 // userContent is the user detail page's content.
@@ -308,11 +301,7 @@ func (a *App) userChanged(w http.ResponseWriter, r *http.Request, viewer auth.Us
 		a.renderUser(w, r, status, viewer, u, content)
 		return
 	}
-	if err != nil {
-		a.pageError(w, err)
-		return
-	}
-	done(w, r, userPath(u.ID), flash)
+	a.changed(w, r, err, userPath(u.ID), flash)
 }
 
 func (a *App) setCodeFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {

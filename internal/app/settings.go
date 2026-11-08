@@ -1,7 +1,6 @@
 package app
 
 import (
-	"errors"
 	"net/http"
 	"time"
 
@@ -113,18 +112,16 @@ func (a *App) updateSetting(w http.ResponseWriter, r *http.Request, _ auth.User)
 	writeJSON(w, http.StatusOK, viewOf(s))
 }
 
+// settingStatuses maps each refusal the settings report to the status the
+// API answers it with.
+var settingStatuses = []refusalStatus{
+	{settings.ErrUnknown, http.StatusNotFound},
+	{settings.ErrInvalid, http.StatusBadRequest},
+	{settings.ErrReadOnly, http.StatusConflict},
+}
+
+// settingError answers an API request with what err, from the settings,
+// means.
 func (a *App) settingError(w http.ResponseWriter, err error) {
-	if errors.Is(err, settings.ErrUnknown) {
-		writeError(w, http.StatusNotFound, err.Error())
-		return
-	}
-	if errors.Is(err, settings.ErrInvalid) {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	if errors.Is(err, settings.ErrReadOnly) {
-		writeError(w, http.StatusConflict, err.Error())
-		return
-	}
-	a.internalError(w, err)
+	a.refuse(w, err, settingStatuses)
 }

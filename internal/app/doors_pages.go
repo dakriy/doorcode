@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/dakriy/doorcode/internal/auth"
-	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/picture"
@@ -186,16 +185,11 @@ func (a *App) newDoorPage(w http.ResponseWriter, r *http.Request, viewer auth.Us
 func (a *App) createDoorFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	f := readDoorDetails(r, door.Fields{})
 	d, err := a.doors.Create(r.Context(), f)
-	var problems check.Problems
-	if errors.As(err, &problems) {
-		a.render(w, r, http.StatusUnprocessableEntity, newDoorTemplate, "New door", &viewer, doorForm{Fields: f, Errors: problems.ByField()})
+	if errs, rejected := fieldErrors(err); rejected {
+		a.render(w, r, http.StatusUnprocessableEntity, newDoorTemplate, "New door", &viewer, doorForm{Fields: f, Errors: errs})
 		return
 	}
-	if err != nil {
-		a.pageError(w, err)
-		return
-	}
-	done(w, r, doorPath(d.ID), "door-created")
+	a.changed(w, r, err, doorPath(d.ID), "door-created")
 }
 
 // choice is one checkbox of a list of things to choose from.
@@ -295,34 +289,23 @@ func (a *App) doorSaver(read func(r *http.Request, f door.Fields) door.Fields, f
 		}
 		f := read(r, door.FieldsOf(d.StoredDoor))
 		_, err := a.doors.Update(r.Context(), d.ID, f)
-		var problems check.Problems
-		if errors.As(err, &problems) {
-			a.showDoor(w, r, http.StatusUnprocessableEntity, viewer, d, doorForm{Fields: f, Errors: problems.ByField()}, "")
+		if errs, rejected := fieldErrors(err); rejected {
+			a.showDoor(w, r, http.StatusUnprocessableEntity, viewer, d, doorForm{Fields: f, Errors: errs}, "")
 			return
 		}
-		a.doorChanged(w, r, err, doorPath(d.ID), flash)
+		a.changed(w, r, err, doorPath(d.ID), flash)
 	}
-}
-
-// doorChanged finishes a change made from a door's page: a failure is
-// shown as an error, and success by going to location with flash.
-func (a *App) doorChanged(w http.ResponseWriter, r *http.Request, err error, location, flash string) {
-	if err != nil {
-		a.pageError(w, err)
-		return
-	}
-	done(w, r, location, flash)
 }
 
 func (a *App) deleteDoorFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	if d, ok := a.pageDoor(w, r, viewer); ok {
-		a.doorChanged(w, r, a.doors.Delete(r.Context(), d.ID), doorPath(d.ID), "door-deleted")
+		a.changed(w, r, a.doors.Delete(r.Context(), d.ID), doorPath(d.ID), "door-deleted")
 	}
 }
 
 func (a *App) restoreDoorFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	if d, ok := a.pageDoor(w, r, viewer); ok {
-		a.doorChanged(w, r, a.doors.Restore(r.Context(), d.ID), doorPath(d.ID), "door-restored")
+		a.changed(w, r, a.doors.Restore(r.Context(), d.ID), doorPath(d.ID), "door-restored")
 	}
 }
 
@@ -338,7 +321,7 @@ func (a *App) uploadPictureFromForm(w http.ResponseWriter, r *http.Request, view
 		a.showDoor(w, r, status, viewer, d, form, "")
 		return
 	}
-	a.doorChanged(w, r, err, doorPath(d.ID), "picture-added")
+	a.changed(w, r, err, doorPath(d.ID), "picture-added")
 }
 
 // uploadRefusal is the status a page answers a refused upload with, and
@@ -347,8 +330,8 @@ func uploadRefusal(err error) (int, bool) {
 	if errors.Is(err, errTooBig) {
 		return http.StatusRequestEntityTooLarge, true
 	}
-	var problems check.Problems
-	return http.StatusUnprocessableEntity, errors.As(err, &problems)
+	_, rejected := fieldErrors(err)
+	return http.StatusUnprocessableEntity, rejected
 }
 
 // pictureChanged finishes a change to a picture of d made from its page:
@@ -358,7 +341,7 @@ func (a *App) pictureChanged(w http.ResponseWriter, r *http.Request, viewer auth
 		a.showDoor(w, r, http.StatusNotFound, viewer, d, d.fresh(), "That picture is not there any more. It may have been deleted already.")
 		return
 	}
-	a.doorChanged(w, r, err, doorPath(d.ID), flash)
+	a.changed(w, r, err, doorPath(d.ID), flash)
 }
 
 func (a *App) primaryPictureFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {

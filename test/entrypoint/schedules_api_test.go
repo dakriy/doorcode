@@ -424,3 +424,43 @@ func TestSchedulesAPIRefusesAUserWithoutTheRole(t *testing.T) {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
 }
+
+func TestDeletingAScheduleADoorIsInOpenModeDuringIsRefused(t *testing.T) {
+	b := doorSite(t, testsupport.NewFactory())
+	createDoor(t, b, `{"name":"Lobby","open_schedule_ids":[2]}`)
+	createDoor(t, b, `{"name":"Atrium","open_schedule_ids":[2,3]}`)
+
+	got := b.Delete("/api/v1/schedules/2")
+
+	want := testsupport.Response{Status: 409, ContentType: jsonType,
+		Body: `{"error":"doors are in open mode during this schedule: Atrium, Lobby"}` + "\n"}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("response (-want +got):\n%s", diff)
+	}
+}
+
+func TestDeletingAScheduleTakesItOffDeletedDoors(t *testing.T) {
+	b := doorSite(t, testsupport.NewFactory())
+	createDoor(t, b, `{"name":"Lobby","open_schedule_ids":[2,3]}`)
+	send(t, b, "DELETE", "/api/v1/doors/1", "", 204)
+
+	deleted := b.Delete("/api/v1/schedules/2")
+	got := testsupport.JSONAt(b.Get("/api/v1/doors/1").Body, "/open_schedules")
+
+	if diff := cmp.Diff([]any{204, testsupport.JSON(`[{"id":3,"name":"Nights"}]`)}, []any{deleted.Status, got}); diff != "" {
+		t.Errorf("status, the door's open schedules (-want +got):\n%s", diff)
+	}
+}
+
+func TestDeletingAScheduleAnswersWithARequestIDWhenDoorsCannotBeRead(t *testing.T) {
+	f := testsupport.NewFactory()
+	b := doorSite(t, f)
+	f.StoreStub.FailDoors()
+
+	got := b.Delete("/api/v1/schedules/2")
+
+	want := testsupport.Response{Status: 500, ContentType: jsonType, Body: `{"error":"internal error","request_id":"4243444546474849"}` + "\n"}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("response (-want +got):\n%s", diff)
+	}
+}

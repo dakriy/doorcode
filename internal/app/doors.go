@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -10,7 +9,6 @@ import (
 	"time"
 
 	"github.com/dakriy/doorcode/internal/auth"
-	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/openapi"
@@ -153,10 +151,7 @@ func (c catalog) viewOfDoor(d connector.StoredDoor) doorView {
 
 // doorStatuses maps each refusal about doors, zones, and pictures to the
 // status the API answers it with.
-var doorStatuses = []struct {
-	err    error
-	status int
-}{
+var doorStatuses = []refusalStatus{
 	{door.ErrNoDoor, http.StatusNotFound},
 	{door.ErrNoZone, http.StatusNotFound},
 	{door.ErrNoPicture, http.StatusNotFound},
@@ -166,18 +161,7 @@ var doorStatuses = []struct {
 // doorError answers an API request with what err, about doors, zones, or
 // pictures, means.
 func (a *App) doorError(w http.ResponseWriter, err error) {
-	var problems check.Problems
-	if errors.As(err, &problems) {
-		writeError(w, http.StatusBadRequest, problems.Error())
-		return
-	}
-	for _, known := range doorStatuses {
-		if errors.Is(err, known.err) {
-			writeError(w, known.status, err.Error())
-			return
-		}
-	}
-	a.internalError(w, err)
+	a.refuse(w, err, doorStatuses)
 }
 
 // writeDoor answers with d, which err may say could not be read or

@@ -1,22 +1,17 @@
 package app
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/directory"
 )
 
 // directoryStatuses maps each refusal the directory reports to the status
 // the API answers it with.
-var directoryStatuses = []struct {
-	err    error
-	status int
-}{
+var directoryStatuses = []refusalStatus{
 	{directory.ErrNoUser, http.StatusNotFound},
 	{directory.ErrNoGroup, http.StatusNotFound},
 	{directory.ErrNotMember, http.StatusNotFound},
@@ -28,18 +23,7 @@ var directoryStatuses = []struct {
 // directoryError answers an API request with what err, from the
 // directory, means.
 func (a *App) directoryError(w http.ResponseWriter, err error) {
-	var problems check.Problems
-	if errors.As(err, &problems) {
-		writeError(w, http.StatusBadRequest, problems.Error())
-		return
-	}
-	for _, known := range directoryStatuses {
-		if errors.Is(err, known.err) {
-			writeError(w, known.status, err.Error())
-			return
-		}
-	}
-	a.internalError(w, err)
+	a.refuse(w, err, directoryStatuses)
 }
 
 // pathID is the id the path parameter name holds; zero, which names

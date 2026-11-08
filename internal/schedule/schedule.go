@@ -21,6 +21,8 @@ var (
 	ErrNoSchedule = errors.New("no schedule has this id")
 	// ErrBuiltin reports a change to the built-in Always schedule.
 	ErrBuiltin = errors.New("the Always schedule is built in and cannot be changed or deleted")
+	// ErrInUse is what every InUseError is, whichever doors it names.
+	ErrInUse = errors.New("doors are in open mode during this schedule")
 )
 
 // InUseError reports the deletion of a schedule doors are in open mode
@@ -30,7 +32,12 @@ type InUseError struct {
 }
 
 func (e InUseError) Error() string {
-	return "doors are in open mode during this schedule: " + strings.Join(e.Doors, ", ")
+	return ErrInUse.Error() + ": " + strings.Join(e.Doors, ", ")
+}
+
+// Is reports whether target is ErrInUse.
+func (e InUseError) Is(target error) bool {
+	return target == ErrInUse
 }
 
 const (

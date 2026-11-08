@@ -1,13 +1,11 @@
 package app
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/dakriy/doorcode/internal/auth"
-	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/openapi"
 	"github.com/dakriy/doorcode/internal/schedule"
@@ -123,24 +121,18 @@ func viewOfSchedule(sch connector.StoredSchedule) scheduleView {
 	}
 }
 
+// scheduleStatuses maps each refusal the schedules report to the status
+// the API answers it with.
+var scheduleStatuses = []refusalStatus{
+	{schedule.ErrNoSchedule, http.StatusNotFound},
+	{schedule.ErrBuiltin, http.StatusConflict},
+	{schedule.ErrInUse, http.StatusConflict},
+}
+
 // scheduleError answers an API request with what err, from the schedules,
 // means.
 func (a *App) scheduleError(w http.ResponseWriter, err error) {
-	var problems check.Problems
-	if errors.As(err, &problems) {
-		writeError(w, http.StatusBadRequest, problems.Error())
-		return
-	}
-	if errors.Is(err, schedule.ErrNoSchedule) {
-		writeError(w, http.StatusNotFound, err.Error())
-		return
-	}
-	var inUse schedule.InUseError
-	if errors.Is(err, schedule.ErrBuiltin) || errors.As(err, &inUse) {
-		writeError(w, http.StatusConflict, err.Error())
-		return
-	}
-	a.internalError(w, err)
+	a.refuse(w, err, scheduleStatuses)
 }
 
 func (a *App) listSchedules(w http.ResponseWriter, r *http.Request, _ auth.User) {

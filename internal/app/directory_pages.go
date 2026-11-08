@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/dakriy/doorcode/internal/auth"
+	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/directory"
 	"github.com/dakriy/doorcode/internal/schedule"
 )
@@ -44,6 +45,27 @@ func (a *App) notFound(w http.ResponseWriter, r *http.Request, viewer auth.User,
 func done(w http.ResponseWriter, r *http.Request, location, flash string) {
 	setCookie(w, r, flashCookie, flash, 0)
 	redirect(w, location)
+}
+
+// changed finishes a change made from a page that err does not refuse: a
+// failure is shown as an error, and success by going to location with
+// flash.
+func (a *App) changed(w http.ResponseWriter, r *http.Request, err error, location, flash string) {
+	if err != nil {
+		a.pageError(w, err)
+		return
+	}
+	done(w, r, location, flash)
+}
+
+// fieldErrors maps each field err finds a problem with to the problem, and
+// reports whether err holds field problems for a form to show.
+func fieldErrors(err error) (map[string]string, bool) {
+	var problems check.Problems
+	if !errors.As(err, &problems) {
+		return nil, false
+	}
+	return problems.ByField(), true
 }
 
 // formDate reads a date input: the start of that day in zone, nil when the

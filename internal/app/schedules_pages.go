@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/dakriy/doorcode/internal/auth"
-	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/schedule"
 )
@@ -144,12 +143,9 @@ func without[T any](items []T, value string) []T {
 
 // rejected is f carrying the problems err holds, and whether it holds any.
 func (f scheduleForm) rejected(err error) (scheduleForm, bool) {
-	var problems check.Problems
-	if !errors.As(err, &problems) {
-		return f, false
-	}
-	f.Errors = problems.ByField()
-	return f, true
+	errs, rejected := fieldErrors(err)
+	f.Errors = errs
+	return f, rejected
 }
 
 func (a *App) newSchedulePage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
@@ -168,11 +164,7 @@ func (a *App) createScheduleFromForm(w http.ResponseWriter, r *http.Request, vie
 		a.render(w, r, http.StatusUnprocessableEntity, newScheduleTemplate, "New schedule", &viewer, form)
 		return
 	}
-	if err != nil {
-		a.pageError(w, err)
-		return
-	}
-	done(w, r, schedulePath(sch.ID), "schedule-created")
+	a.changed(w, r, err, schedulePath(sch.ID), "schedule-created")
 }
 
 func schedulePath(id int64) string {
@@ -256,11 +248,7 @@ func (a *App) scheduleChanged(w http.ResponseWriter, r *http.Request, viewer aut
 		a.renderSchedule(w, r, http.StatusConflict, viewer, content)
 		return
 	}
-	if err != nil {
-		a.pageError(w, err)
-		return
-	}
-	done(w, r, location, flash)
+	a.changed(w, r, err, location, flash)
 }
 
 // calendarContent is the schedule calendar page's content.

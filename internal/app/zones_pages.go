@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/dakriy/doorcode/internal/auth"
-	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/door"
 )
@@ -101,12 +100,11 @@ func (a *App) newZonePage(w http.ResponseWriter, r *http.Request, viewer auth.Us
 func (a *App) createZoneFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	f := readZoneForm(r)
 	z, err := a.doors.CreateZone(r.Context(), f)
-	var problems check.Problems
-	if errors.As(err, &problems) {
-		a.showZone(w, r, http.StatusUnprocessableEntity, viewer, connector.StoredZone{}, f, problems.ByField())
+	if errs, rejected := fieldErrors(err); rejected {
+		a.showZone(w, r, http.StatusUnprocessableEntity, viewer, connector.StoredZone{}, f, errs)
 		return
 	}
-	a.doorChanged(w, r, err, zonePath(z.ID), "zone-created")
+	a.changed(w, r, err, zonePath(z.ID), "zone-created")
 }
 
 // pageZone returns the zone the path names, after showing that there is
@@ -137,16 +135,15 @@ func (a *App) saveZoneFromForm(w http.ResponseWriter, r *http.Request, viewer au
 	}
 	f := readZoneForm(r)
 	_, err := a.doors.UpdateZone(r.Context(), z.ID, f)
-	var problems check.Problems
-	if errors.As(err, &problems) {
-		a.showZone(w, r, http.StatusUnprocessableEntity, viewer, z, f, problems.ByField())
+	if errs, rejected := fieldErrors(err); rejected {
+		a.showZone(w, r, http.StatusUnprocessableEntity, viewer, z, f, errs)
 		return
 	}
-	a.doorChanged(w, r, err, zonePath(z.ID), "zone-saved")
+	a.changed(w, r, err, zonePath(z.ID), "zone-saved")
 }
 
 func (a *App) deleteZoneFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	if z, ok := a.pageZone(w, r, viewer); ok {
-		a.doorChanged(w, r, a.doors.DeleteZone(r.Context(), z.ID), "/admin/zones", "zone-deleted")
+		a.changed(w, r, a.doors.DeleteZone(r.Context(), z.ID), "/admin/zones", "zone-deleted")
 	}
 }

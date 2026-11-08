@@ -2,7 +2,10 @@ package app
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+
+	"github.com/dakriy/doorcode/internal/check"
 )
 
 // requestIDBytes is how much entropy names one failed request.
@@ -38,4 +41,29 @@ func writeError(w http.ResponseWriter, status int, message string) {
 func (a *App) internalError(w http.ResponseWriter, err error) {
 	id := a.logFailure(err)
 	writeJSON(w, http.StatusInternalServerError, errorBody{Error: "internal error", RequestID: id})
+}
+
+// refusalStatus pairs a refusal a service reports with the status the API
+// answers it with.
+type refusalStatus struct {
+	err    error
+	status int
+}
+
+// refuse answers an API request with what err means: field problems are a
+// bad request, a refusal among known is answered with its status, and
+// anything else is a failure.
+func (a *App) refuse(w http.ResponseWriter, err error, known []refusalStatus) {
+	var problems check.Problems
+	if errors.As(err, &problems) {
+		writeError(w, http.StatusBadRequest, problems.Error())
+		return
+	}
+	for _, k := range known {
+		if errors.Is(err, k.err) {
+			writeError(w, k.status, err.Error())
+			return
+		}
+	}
+	a.internalError(w, err)
 }
