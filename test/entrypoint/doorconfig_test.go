@@ -334,7 +334,7 @@ func TestSavingSettingsFromTheSettingsPageStoresOnlyWhatChanged(t *testing.T) {
 		settingsPage(defaultSettings, map[string]shownSetting{
 			"site_name":           {"site_name", "North Campus", "database"},
 			"door_log_level":      {"door_log_level", "debug", "database"},
-			"enrollment_password": {"enrollment_password", enrollPassword, "environment, read-only"},
+			"enrollment_password": {"enrollment_password", "********", "environment, read-only"},
 		}, nil, nil).Tables, topicsOf("config", "3", "2", "1")}
 	if diff := cmp.Diff(want, []any{got.Status, got.Location, page.Messages, page.Tables, f.BrokerStub.Topics(sent, "config")}); diff != "" {
 		t.Errorf("status, location, messages, settings, configurations sent (-want +got):\n%s", diff)

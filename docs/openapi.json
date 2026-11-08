@@ -9083,6 +9083,10 @@
             "type": "boolean",
             "description": "True when the environment provides the value, which then cannot be changed here."
           },
+          "secret": {
+            "type": "boolean",
+            "description": "True for a secret, which is stored encrypted and whose value shows only as ******** when it has one. Storing an empty value leaves a secret as it is."
+          },
           "source": {
             "type": "string",
             "description": "Where the value comes from: environment, database, or default."

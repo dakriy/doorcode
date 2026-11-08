@@ -161,16 +161,24 @@ func (s Service) SignIn(ctx context.Context, email, password string) (string, er
 	if !passwordMatches(*u.PasswordHash, password) {
 		return "", ErrBadCredentials
 	}
-	now := s.Clock.Now()
-	if reached(u.ExpiresAt, now) {
+	if reached(u.ExpiresAt, s.Clock.Now()) {
 		return "", ErrExpired
 	}
+	return s.StartSession(ctx, u.ID, false)
+}
+
+// StartSession starts a session for the user whose id is userID and
+// returns the token the browser keeps. viaIdentity says the person signed
+// in at the identity provider.
+func (s Service) StartSession(ctx context.Context, userID int64, viaIdentity bool) (string, error) {
+	now := s.Clock.Now()
 	token := tokenEncoding.EncodeToString(s.Entropy.Bytes(sessionTokenBytes))
 	session := connector.StoredSession{
-		TokenHash: tokenHash(token),
-		UserID:    u.ID,
-		CreatedAt: now,
-		ExpiresAt: now.Add(SessionLifetime()),
+		TokenHash:   tokenHash(token),
+		UserID:      userID,
+		CreatedAt:   now,
+		ExpiresAt:   now.Add(SessionLifetime()),
+		ViaIdentity: viaIdentity,
 	}
 	if err := s.Store.CreateSession(ctx, session); err != nil {
 		return "", err
@@ -216,9 +224,15 @@ func UserOf(u connector.StoredUser) User {
 	return User{ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, groups: u.Groups}
 }
 
-// SignOut ends the session token belongs to.
-func (s Service) SignOut(ctx context.Context, token string) error {
-	return s.Store.DeleteSession(ctx, tokenHash(token))
+// SignOut ends the session token belongs to, and reports whether it began
+// with a sign-in at the identity provider.
+func (s Service) SignOut(ctx context.Context, token string) (bool, error) {
+	hash := tokenHash(token)
+	session, _, _, err := s.Store.SessionUser(ctx, hash)
+	if err != nil {
+		return false, err
+	}
+	return session.ViaIdentity, s.Store.DeleteSession(ctx, hash)
 }
 
 // PurgeSessions removes the sessions that have expired, which no longer

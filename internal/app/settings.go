@@ -15,6 +15,7 @@ type settingView struct {
 	Source    string     `json:"source" doc:"Where the value comes from: environment, database, or default."`
 	ReadOnly  bool       `json:"read_only" doc:"True when the environment provides the value, which then cannot be changed here."`
 	EnvVar    string     `json:"env_var" doc:"The environment variable that overrides the setting."`
+	Secret    bool       `json:"secret,omitempty" doc:"True for a secret, which is stored encrypted and whose value shows only as ******** when it has one. Storing an empty value leaves a secret as it is."`
 	UpdatedAt *time.Time `json:"updated_at,omitempty" doc:"When an administrator last stored a value; absent when none is stored."`
 }
 
@@ -68,6 +69,7 @@ func viewOf(s settings.Setting) settingView {
 		Source:   string(s.Source),
 		ReadOnly: s.ReadOnly(),
 		EnvVar:   s.EnvVar,
+		Secret:   s.Secret,
 	}
 	if !s.UpdatedAt.IsZero() {
 		updated := s.UpdatedAt.UTC()

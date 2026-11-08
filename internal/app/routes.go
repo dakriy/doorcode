@@ -63,6 +63,7 @@ func (a *App) routes() []route {
 			responses: []openapi.Response{{Status: http.StatusOK, Description: "The OpenAPI document of this API."}},
 		}),
 	}
+	table = append(table, a.providerRoutes()...)
 	table = append(table, assetRoutes()...)
 	table = append(table, a.settingsRoutes()...)
 	table = append(table, a.tokenRoutes()...)

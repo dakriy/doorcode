@@ -4,9 +4,25 @@ package check
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
 	"unicode/utf8"
 )
+
+// slugPattern is what a slug may look like: lowercase words of letters and
+// digits joined by single dashes.
+var slugPattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+
+// MaxSlugLength is the longest a slug may be.
+const MaxSlugLength = 64
+
+// SlugHint says what a slug may look like.
+var SlugHint = fmt.Sprintf("Use up to %d lowercase letters and digits, in words joined by single dashes.", MaxSlugLength)
+
+// Slug reports whether s is a slug, such as a group's.
+func Slug(s string) bool {
+	return slugPattern.MatchString(s) && len(s) <= MaxSlugLength
+}
 
 // Problem is what is wrong with one submitted field.
 type Problem struct {

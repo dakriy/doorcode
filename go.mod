@@ -9,6 +9,7 @@ tool (
 )
 
 require (
+	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/eclipse/paho.mqtt.golang v1.5.1
 	github.com/fxamacker/cbor/v2 v2.9.1
 	github.com/google/go-cmp v0.7.0
@@ -17,6 +18,7 @@ require (
 	golang.org/x/crypto v0.58.0
 	golang.org/x/image v0.47.0
 	golang.org/x/net v0.62.0
+	golang.org/x/oauth2 v0.37.0
 )
 
 require (
@@ -91,6 +93,7 @@ require (
 	github.com/ghostiam/protogetter v1.0.1 // indirect
 	github.com/go-critic/go-critic v0.15.0 // indirect
 	github.com/go-gremlins/gremlins v0.6.0 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-toolsmith/astcast v1.1.0 // indirect
 	github.com/go-toolsmith/astcopy v1.1.0 // indirect
 	github.com/go-toolsmith/astequal v1.2.0 // indirect

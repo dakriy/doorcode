@@ -82,6 +82,19 @@ func (s Service) FindUser(ctx context.Context, handle string) (connector.StoredU
 	return s.Store.UserByUserID(ctx, handle)
 }
 
+// Match returns the user whose user id is userID or, when nobody has it,
+// whose email is email ignoring case, and whether there is one. An empty
+// userID is nobody's.
+func (s Service) Match(ctx context.Context, userID, email string) (connector.StoredUser, bool, error) {
+	if userID != "" {
+		u, found, err := s.Store.UserByUserID(ctx, userID)
+		if err != nil || found {
+			return u, found, err
+		}
+	}
+	return s.Store.UserByEmail(ctx, strings.ToLower(email))
+}
+
 // CreateUser creates a user from p. A user whose user id is on a group's
 // pre-assigned list joins that group as they are created; every way of
 // creating a user goes through here.

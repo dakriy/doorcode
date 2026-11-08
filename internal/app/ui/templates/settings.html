@@ -7,7 +7,7 @@
   </div>
 </div>
 <div role="note" class="mt-6 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400">
-  Settings starting with <span class="font-mono text-xs">door_</span> are the defaults every door is configured with; a door's own page overrides them for that door. Doors receive a changed default as soon as it is saved. A changed enrollment username or password takes effect when the server next starts.
+  Settings starting with <span class="font-mono text-xs">door_</span> are the defaults every door is configured with; a door's own page overrides them for that door. Doors receive a changed default as soon as it is saved. A changed enrollment username or password takes effect when the server next starts. Secret settings are stored encrypted and never shown; leave one blank to keep it, or enter a new value to replace it.
 </div>
 <form method="post" action="/admin/settings" novalidate hx-disabled-elt="find button" class="mt-6 overflow-hidden {{template "card-class"}}">
   <div class="overflow-x-auto">
@@ -26,6 +26,8 @@
           <td class="px-4 py-3 align-top font-medium whitespace-nowrap"><label for="setting-{{.Key}}">{{.Key}}</label></td>
           <td class="min-w-64 px-4 py-3 align-top">
             {{if .ReadOnly}}<span id="setting-{{.Key}}" class="font-mono text-xs break-all">{{.Value}}</span>
+            {{else if .Secret}}
+            <input id="setting-{{.Key}}" name="{{.Key}}" type="password" value="" autocomplete="new-password" placeholder="{{if .Value}}Set; leave blank to keep it{{else}}Not set{{end}}" class="{{template "input-base"}} font-mono">
             {{else}}{{$error := index $c.Errors .Key}}
             <input id="setting-{{.Key}}" name="{{.Key}}" type="text" value="{{.Entered}}" spellcheck="false"{{if $error}} aria-invalid="true" aria-describedby="{{.Key}}-error"{{end}} class="{{template "input-base"}} font-mono">
             {{if $error}}<p id="{{.Key}}-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$error}}</p>{{end}}{{end}}

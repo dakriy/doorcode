@@ -88,6 +88,10 @@ linters:
               desc: "effect package (database migrations): put it behind a connector"
             - pkg: github.com/eclipse/paho
               desc: "effect package (MQTT network client): reach the broker through the Broker connector"
+            - pkg: github.com/coreos/go-oidc
+              desc: "effect package (OpenID Connect discovery and token requests over the network): reach the provider through the Identity connector"
+            - pkg: golang.org/x/oauth2
+              desc: "effect package (OAuth 2 token requests over the network): reach the provider through the Identity connector"
         # Every MQTT message is encoded and decoded in internal/protocol,
         # the only application package that may use the CBOR library.
         cbor:

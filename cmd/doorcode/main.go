@@ -16,6 +16,7 @@ import (
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/driver/cryptoentropy"
 	"github.com/dakriy/doorcode/internal/driver/dynsec"
+	"github.com/dakriy/doorcode/internal/driver/oidcprovider"
 	"github.com/dakriy/doorcode/internal/driver/osenv"
 	"github.com/dakriy/doorcode/internal/driver/postgres"
 	"github.com/dakriy/doorcode/internal/driver/slogjson"
@@ -35,6 +36,9 @@ func (factory) TimeZones() connector.TimeZones     { return tzdb.Zones{} }
 func (factory) Log() connector.Log                 { return slogjson.New(os.Stderr) }
 func (f factory) Store() connector.Store           { return f.store }
 func (f factory) Broker() connector.Broker         { return f.broker }
+func (factory) Identity() connector.Identity {
+	return oidcprovider.New(&http.Client{Timeout: identityTimeout})
+}
 
 func requireEnv(name string) string {
 	value := os.Getenv(name)
@@ -47,6 +51,10 @@ func requireEnv(name string) string {
 // brokerCommandTimeout is how long the broker has to answer a command
 // that manages its clients.
 const brokerCommandTimeout = 10 * time.Second
+
+// identityTimeout is how long an identity provider has to answer each
+// request: discovery, a code exchange, or a userinfo request.
+const identityTimeout = 10 * time.Second
 
 func main() {
 	if err := run(context.Background()); err != nil {

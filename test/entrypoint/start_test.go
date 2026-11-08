@@ -131,12 +131,29 @@ func TestSecondStartKeepsTheFirstAdministratorsPassword(t *testing.T) {
 	}
 }
 
+// secretKeyRefusal is why the application does not start without a key
+// for its secret settings.
+const secretKeyRefusal = "DOORCODE_SECRET_KEY must be 32 random bytes in base64, such as the output of openssl rand -base64 32; " +
+	"it encrypts the secret settings the database holds"
+
 func TestStartupFails(t *testing.T) {
 	t.Parallel()
 	cases := map[string]struct {
 		arrange func(f *testsupport.Factory)
 		want    string
 	}{
+		"when no secret key is set": {
+			arrange: func(f *testsupport.Factory) { delete(f.EnvStub, "DOORCODE_SECRET_KEY") },
+			want:    secretKeyRefusal,
+		},
+		"when the secret key is not base64": {
+			arrange: func(f *testsupport.Factory) { f.EnvStub["DOORCODE_SECRET_KEY"] = "not base64!" },
+			want:    secretKeyRefusal,
+		},
+		"when the secret key is not 32 bytes": {
+			arrange: func(f *testsupport.Factory) { f.EnvStub["DOORCODE_SECRET_KEY"] = "MDEyMzQ1Njc4OWFiY2RlZg==" },
+			want:    secretKeyRefusal,
+		},
 		"when the schema cannot be migrated": {
 			arrange: func(f *testsupport.Factory) { f.StoreStub.FailMigration() },
 			want:    "migrate schema: stub: unavailable",

@@ -2,8 +2,6 @@ package directory
 
 import (
 	"context"
-	"fmt"
-	"regexp"
 	"slices"
 	"strings"
 
@@ -16,12 +14,6 @@ const (
 	maxGroupNameLength   = 100
 	maxDescriptionLength = 1000
 )
-
-// slugPattern is what a group slug may look like: lowercase words of
-// letters and digits joined by single dashes.
-var slugPattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
-
-const maxSlugLength = 64
 
 // GroupFields is what an administrator says about a group. Text is trimmed
 // before it is checked; roles are put in the order auth.Roles lists them,
@@ -189,8 +181,8 @@ func (s Service) slugProblem(ctx context.Context, id int64, slug string) (string
 	if slug == "" {
 		return "Enter a slug.", nil
 	}
-	if !slugPattern.MatchString(slug) || len(slug) > maxSlugLength {
-		return fmt.Sprintf("Use up to %d lowercase letters and digits, in words joined by single dashes.", maxSlugLength), nil
+	if !check.Slug(slug) {
+		return check.SlugHint, nil
 	}
 	holder, taken, err := s.Store.GroupBySlug(ctx, slug)
 	return conflict(id, holder.ID, taken, "Another group has this slug."), err
@@ -227,4 +219,27 @@ func badUserIDs(ids []string) string {
 		}
 	}
 	return ""
+}
+
+// Sync makes the user whose id is userID a member of the groups whose
+// slugs are in join and ends their membership of the groups whose slugs
+// are in leave, as a sign-in at the identity provider decides; leaving
+// wins over joining. Slugs that name no group are passed over, and
+// nobody's roles limit it.
+func (s Service) Sync(ctx context.Context, userID int64, join, leave []string) error {
+	groups, err := s.Store.Groups(ctx)
+	if err != nil {
+		return err
+	}
+	for _, g := range groups {
+		if slices.Contains(leave, g.Slug) {
+			_, err = s.Store.RemoveMember(ctx, g.ID, userID)
+		} else if slices.Contains(join, g.Slug) {
+			err = s.Store.AddMember(ctx, g.ID, userID)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

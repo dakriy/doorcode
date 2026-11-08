@@ -7,6 +7,7 @@ import (
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/check"
+	"github.com/dakriy/doorcode/internal/settings"
 )
 
 const (
@@ -68,18 +69,37 @@ var flashes = map[string]string{
 	"override-deleted":       "The override has been deleted.",
 }
 
-// signInForm is the sign-in page's content.
+// signInForm is the sign-in page's content. Bypass says the person asked
+// for the password form, which auto sign-in otherwise skips; Provider and
+// Password say whether the page offers signing in at the identity
+// provider and with a password.
 type signInForm struct {
 	Email         string
 	Next          string
 	Error         string
 	EmailError    string
 	PasswordError string
+	Bypass        bool
+	Provider      bool
+	Password      bool
 }
 
+// signInPage shows the sign-in page, or sends the browser on to the
+// identity provider under auto sign-in unless the query says
+// auto_sign_in=false.
 func (a *App) signInPage(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	form := signInForm{Next: localPath(r.URL.Query().Get("next"))}
-	a.renderSignIn(w, r, http.StatusOK, form)
+	query := r.URL.Query()
+	form := signInForm{Next: localPath(query.Get("next")), Bypass: query.Get("auto_sign_in") == "false"}
+	current, err := a.settings.Current(r.Context())
+	if err != nil {
+		a.pageError(w, err)
+		return
+	}
+	if current.OIDC.HidesPasswordForms() && !form.Bypass {
+		a.startAtProvider(w, r, form.Next)
+		return
+	}
+	a.showSignIn(w, r, http.StatusOK, current.OIDC, form)
 }
 
 func (a *App) signIn(w http.ResponseWriter, r *http.Request, _ auth.User) {
@@ -88,6 +108,7 @@ func (a *App) signIn(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	form := signInForm{
 		Email:         email,
 		Next:          localPath(r.PostFormValue("next")),
+		Bypass:        true,
 		EmailError:    check.Required(email, "Enter your email address."),
 		PasswordError: check.Required(password, "Enter your password."),
 	}
@@ -112,8 +133,26 @@ func (a *App) signIn(w http.ResponseWriter, r *http.Request, _ auth.User) {
 }
 
 func (a *App) renderSignIn(w http.ResponseWriter, r *http.Request, status int, form signInForm) {
+	current, err := a.settings.Current(r.Context())
+	if err != nil {
+		a.pageError(w, err)
+		return
+	}
+	a.showSignIn(w, r, status, current.OIDC, form)
+}
+
+// showSignIn shows the sign-in page with form, offering what o allows:
+// the identity provider when it is enabled, and the password form unless
+// it is hidden and the person did not ask for it.
+func (a *App) showSignIn(w http.ResponseWriter, r *http.Request, status int, o settings.OIDC, form signInForm) {
+	form.Provider = o.Enabled
+	form.Password = !o.HidesPasswordForms() || form.Bypass
 	a.render(w, r, status, signInTemplate, "Sign in", nil, form)
 }
+
+// expiredMessage is what the sign-in page says to someone whose account has
+// ended.
+const expiredMessage = "This account has expired. Ask an administrator to renew it."
 
 // signInRefusal is what the sign-in page says about err, or nothing when err
 // is not a refusal.
@@ -122,21 +161,25 @@ func signInRefusal(err error) string {
 		return "That email and password do not match an account."
 	}
 	if errors.Is(err, auth.ErrExpired) {
-		return "This account has expired. Ask an administrator to renew it."
+		return expiredMessage
 	}
 	return ""
 }
 
+// signOut ends the session and goes to the sign-in page, by way of the
+// identity provider's end-session page when the session began there.
 func (a *App) signOut(w http.ResponseWriter, r *http.Request, _ auth.User) {
+	viaIdentity := false
 	if cookie, err := r.Cookie(sessionCookie); err == nil {
-		if err := a.auth.SignOut(r.Context(), cookie.Value); err != nil {
+		viaIdentity, err = a.auth.SignOut(r.Context(), cookie.Value)
+		if err != nil {
 			a.pageError(w, err)
 			return
 		}
 	}
 	setCookie(w, r, sessionCookie, "", -1)
 	setCookie(w, r, flashCookie, "signed-out", 0)
-	redirect(w, "/sign-in")
+	redirect(w, a.signedOut(r.Context(), viaIdentity))
 }
 
 // takeFlash returns the flash message r carries, if any, and clears it.

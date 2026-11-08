@@ -82,8 +82,8 @@ func (s *Store) PutSetting(ctx context.Context, key, value string, at time.Time)
 // CreateSession inserts a session.
 func (s *Store) CreateSession(ctx context.Context, session connector.StoredSession) error {
 	_, err := s.pool.Exec(ctx, `
-		insert into sessions (token_hash, user_id, created_at, expires_at) values ($1, $2, $3, $4)`,
-		session.TokenHash, session.UserID, session.CreatedAt, session.ExpiresAt)
+		insert into sessions (token_hash, user_id, created_at, expires_at, via_identity) values ($1, $2, $3, $4, $5)`,
+		session.TokenHash, session.UserID, session.CreatedAt, session.ExpiresAt, session.ViaIdentity)
 	return err
 }
 
@@ -97,9 +97,9 @@ func (s *Store) DeleteExpiredSessions(ctx context.Context, now time.Time) (int, 
 func (s *Store) SessionUser(ctx context.Context, tokenHash []byte) (connector.StoredSession, connector.StoredUser, bool, error) {
 	var session connector.StoredSession
 	var u connector.StoredUser
-	dest := append([]any{&session.TokenHash, &session.UserID, &session.CreatedAt, &session.ExpiresAt}, userFields(&u)...)
+	dest := append([]any{&session.TokenHash, &session.UserID, &session.CreatedAt, &session.ExpiresAt, &session.ViaIdentity}, userFields(&u)...)
 	err := s.pool.QueryRow(ctx, `
-		select sessions.token_hash, sessions.user_id, sessions.created_at, sessions.expires_at, `+userColumns+`
+		select sessions.token_hash, sessions.user_id, sessions.created_at, sessions.expires_at, sessions.via_identity, `+userColumns+`
 		from sessions join users on users.id = sessions.user_id
 		where sessions.token_hash = $1`, tokenHash).Scan(dest...)
 	u, ok, err := s.withGroups(ctx, u, err)

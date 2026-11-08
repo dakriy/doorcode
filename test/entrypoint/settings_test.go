@@ -15,11 +15,30 @@ const jsonType = "application/json"
 const hashMemoryJSON = `{"key":"password_hash_memory_kib","value":"8","source":"environment","read_only":true,` +
 	`"env_var":"DOORCODE_PASSWORD_HASH_MEMORY_KIB"}`
 
+// signInSettingsJSON is how the settings API shows the settings of new
+// users and of signing in through an identity provider when nothing sets
+// them.
+var signInSettingsJSON = defaultSetting("new_user_expiry_days", "1826") + `,` +
+	defaultSetting("oidc_enabled", "false") + `,` +
+	defaultSetting("oidc_auto_sign_in", "false") + `,` +
+	defaultSetting("oidc_issuer", "") + `,` +
+	defaultSetting("oidc_client_id", "") + `,` +
+	`{"key":"oidc_client_secret","value":"","source":"default","read_only":false,"env_var":"DOORCODE_OIDC_CLIENT_SECRET","secret":true},` +
+	defaultSetting("oidc_scopes", "openid email profile") + `,` +
+	defaultSetting("oidc_claim_user_id", "") + `,` +
+	defaultSetting("oidc_claim_email", "email") + `,` +
+	defaultSetting("oidc_claim_first_name", "given_name") + `,` +
+	defaultSetting("oidc_claim_last_name", "family_name") + `,` +
+	defaultSetting("oidc_claim_display_name", "name") + `,` +
+	defaultSetting("oidc_claim_entitlements", "") + `,` +
+	defaultSetting("oidc_entitlement_groups", "") + `,` +
+	defaultSetting("oidc_default_groups", "")
+
 // brokerSettingsJSON is how the settings API shows the broker settings
 // and the door configuration defaults when nothing sets them.
 var brokerSettingsJSON = `{"key":"enrollment_username","value":"doorcode-enroll","source":"default","read_only":false,` +
 	`"env_var":"DOORCODE_ENROLLMENT_USERNAME"},` +
-	`{"key":"enrollment_password","value":"","source":"default","read_only":false,"env_var":"DOORCODE_ENROLLMENT_PASSWORD"},` +
+	`{"key":"enrollment_password","value":"","source":"default","read_only":false,"env_var":"DOORCODE_ENROLLMENT_PASSWORD","secret":true},` +
 	`{"key":"door_credential_grace_hours","value":"24","source":"default","read_only":false,` +
 	`"env_var":"DOORCODE_DOOR_CREDENTIAL_GRACE_HOURS"},` +
 	defaultSetting("telemetry_retention_days", "7") + `,` +
@@ -71,7 +90,7 @@ func TestSettingsListShowsDefaultsAndTheEnvironmentWhenNothingIsStored(t *testin
 		`{"key":"site_name","value":"doorcode","source":"default","read_only":false,"env_var":"DOORCODE_SITE_NAME"},` +
 		`{"key":"site_timezone","value":"UTC","source":"default","read_only":false,"env_var":"DOORCODE_SITE_TIMEZONE"},` +
 		`{"key":"admin_email","value":"admin@example.com","source":"default","read_only":false,"env_var":"DOORCODE_ADMIN_EMAIL"},` +
-		hashMemoryJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
+		hashMemoryJSON + `,` + signInSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -89,7 +108,7 @@ func TestSettingsListShowsStoredAndEnvironmentValuesWithTheirSources(t *testing.
 		`{"key":"site_name","value":"Main Building","source":"database","read_only":false,"env_var":"DOORCODE_SITE_NAME","updated_at":"2026-01-02T08:00:00Z"},` +
 		`{"key":"site_timezone","value":"Europe/Berlin","source":"environment","read_only":true,"env_var":"DOORCODE_SITE_TIMEZONE"},` +
 		`{"key":"admin_email","value":"admin@example.com","source":"default","read_only":false,"env_var":"DOORCODE_ADMIN_EMAIL"},` +
-		hashMemoryJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
+		hashMemoryJSON + `,` + signInSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}

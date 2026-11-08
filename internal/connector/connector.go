@@ -189,6 +189,9 @@ type StoredSession struct {
 	UserID    int64
 	CreatedAt time.Time
 	ExpiresAt time.Time
+	// ViaIdentity says the session began with a sign-in at the identity
+	// provider rather than with a password.
+	ViaIdentity bool
 }
 
 // SessionsStore holds the sessions aggregate.
@@ -799,6 +802,49 @@ type Broker interface {
 	DeleteClient(ctx context.Context, username string) error
 }
 
+// IdentityClient is the site as a client an OpenID Connect provider knows:
+// the id and secret it was registered with, the scopes it asks for, and the
+// address the provider sends the browser back to.
+type IdentityClient struct {
+	ID          string
+	Secret      string
+	Scopes      []string
+	RedirectURL string
+}
+
+// IdentityGrant is what a provider gave for a sign-in: the claims of its ID
+// token and the access token its userinfo endpoint takes.
+type IdentityGrant struct {
+	Claims      map[string]any
+	AccessToken string
+}
+
+// Identity reaches OpenID Connect providers.
+type Identity interface {
+	// Discover reads the configuration the provider whose issuer is issuer
+	// publishes.
+	Discover(ctx context.Context, issuer string) (IdentityProvider, error)
+}
+
+// IdentityProvider is one OpenID Connect provider, discovered.
+type IdentityProvider interface {
+	// AuthURL is the address of the provider's sign-in page for c, asking
+	// for an authorization code and carrying state, nonce, and the S256
+	// challenge of verifier.
+	AuthURL(c IdentityClient, state, nonce, verifier string) string
+	// Exchange redeems code, with verifier, at the provider's token
+	// endpoint, and returns the claims of the ID token it answers with once
+	// the token's signature, issuer, audience (c's id), and expiry are
+	// verified.
+	Exchange(ctx context.Context, c IdentityClient, code, verifier string) (IdentityGrant, error)
+	// UserInfo returns the claims the provider's userinfo endpoint answers
+	// accessToken with.
+	UserInfo(ctx context.Context, accessToken string) (map[string]any, error)
+	// EndSessionURL is the provider's end_session_endpoint, empty when its
+	// configuration names none.
+	EndSessionURL() string
+}
+
 // Factory constructs connectors. It has one method per connector.
 type Factory interface {
 	Clock() Clock
@@ -808,4 +854,5 @@ type Factory interface {
 	Log() Log
 	Store() Store
 	Broker() Broker
+	Identity() Identity
 }

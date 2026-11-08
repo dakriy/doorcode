@@ -19,6 +19,7 @@ import (
 	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/event"
 	"github.com/dakriy/doorcode/internal/firmware"
+	"github.com/dakriy/doorcode/internal/identity"
 	"github.com/dakriy/doorcode/internal/push"
 	"github.com/dakriy/doorcode/internal/rule"
 	"github.com/dakriy/doorcode/internal/schedule"
@@ -53,6 +54,8 @@ type App struct {
 	// firmware keeps the firmware images and rolls updates out to the
 	// doors.
 	firmware firmware.Service
+	// identity signs people in through the OpenID Connect provider.
+	identity identity.Service
 	// enrolling says Run has set up the enrollment credentials, and
 	// nextSweep is when it next does the periodic work. Only Run reads and
 	// changes them.
@@ -66,9 +69,16 @@ type App struct {
 }
 
 // New brings the store's schema up to date, creates the first administrator
-// when there is no user yet, and returns the application. It takes every
+// when there is no user yet, and returns the application. It refuses to
+// start without the key that encrypts the secret settings. It takes every
 // connector from f and constructs none itself.
 func New(ctx context.Context, f connector.Factory) (*App, error) {
+	env := f.Environment()
+	entropy := f.Entropy()
+	secrets, err := settings.OpenSecrets(env, entropy)
+	if err != nil {
+		return nil, err
+	}
 	store := f.Store()
 	log := f.Log()
 	if err := store.Migrate(ctx); err != nil {
@@ -77,8 +87,7 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 	log.Info("schema migrated")
 
 	clock := f.Clock()
-	entropy := f.Entropy()
-	s := settings.Service{Store: store, Env: f.Environment(), Clock: clock, Zones: f.TimeZones()}
+	s := settings.Service{Store: store, Env: env, Clock: clock, Zones: f.TimeZones(), Secrets: secrets}
 	authService := auth.Service{Store: store, Settings: s, Clock: clock, Entropy: entropy, Log: log}
 	a := &App{
 		log:       log,
@@ -104,6 +113,10 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 	a.firmware = firmware.Service{
 		Store: store, Doors: a.doors, Controllers: a.controllers, Events: a.events, Settings: s, Clock: clock, Entropy: entropy,
 		DownloadPath: firmwareImagePath, Changed: a.live.notify,
+	}
+	a.identity = identity.Service{
+		Settings: s, Directory: a.directory, Auth: authService, Identity: f.Identity(), Entropy: entropy, Clock: clock,
+		Providers: &identity.Providers{},
 	}
 	a.telemetry = telemetry.Service{
 		Store: store, Doors: a.doors, Events: a.events, Settings: s, Clock: clock, Changed: a.live.notify, Reported: a.live.report,

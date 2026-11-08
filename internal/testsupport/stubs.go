@@ -539,13 +539,14 @@ func (s *Store) FailScheduleWrites() {
 // Factory is the stub connector.Factory. Tests arrange and inspect the
 // stubs through its fields.
 type Factory struct {
-	ClockStub   *Clock
-	EntropyStub *Entropy
-	EnvStub     Environment
-	ZonesStub   TimeZones
-	LogStub     *Log
-	StoreStub   *Store
-	BrokerStub  *Broker
+	ClockStub    *Clock
+	EntropyStub  *Entropy
+	EnvStub      Environment
+	ZonesStub    TimeZones
+	LogStub      *Log
+	StoreStub    *Store
+	BrokerStub   *Broker
+	IdentityStub *Identity
 }
 
 // DefaultNow is the stub clock's time until a test sets another.
@@ -557,15 +558,17 @@ const DefaultNow = "2026-01-05T09:00:00Z"
 const FastHashMemory = "8"
 
 // NewFactory returns stubs with an empty store and an environment that sets
-// only DOORCODE_PASSWORD_HASH_MEMORY_KIB, to FastHashMemory.
+// only DOORCODE_PASSWORD_HASH_MEMORY_KIB, to FastHashMemory, and
+// DOORCODE_SECRET_KEY, to SecretKey.
 func NewFactory() *Factory {
 	return &Factory{
-		ClockStub:   &Clock{now: mustTime(DefaultNow)},
-		EntropyStub: &Entropy{},
-		EnvStub:     Environment{"DOORCODE_PASSWORD_HASH_MEMORY_KIB": FastHashMemory},
-		LogStub:     &Log{},
-		StoreStub:   NewStore(),
-		BrokerStub:  NewBroker(),
+		ClockStub:    &Clock{now: mustTime(DefaultNow)},
+		EntropyStub:  &Entropy{},
+		EnvStub:      Environment{"DOORCODE_PASSWORD_HASH_MEMORY_KIB": FastHashMemory, "DOORCODE_SECRET_KEY": SecretKey},
+		LogStub:      &Log{},
+		StoreStub:    NewStore(),
+		BrokerStub:   NewBroker(),
+		IdentityStub: NewIdentity(),
 	}
 }
 
@@ -589,6 +592,9 @@ func (f *Factory) Store() connector.Store { return f.StoreStub }
 
 // Broker returns the stub broker.
 func (f *Factory) Broker() connector.Broker { return f.BrokerStub }
+
+// Identity returns the stub identity.
+func (f *Factory) Identity() connector.Identity { return f.IdentityStub }
 
 func mustTime(rfc3339 string) time.Time {
 	t, err := time.Parse(time.RFC3339, rfc3339)

@@ -260,6 +260,30 @@ func TestStoreReturnsASessionWithItsUser(t *testing.T) {
 	}
 }
 
+func TestStoreKeepsWhetherASessionBeganAtTheIdentityProvider(t *testing.T) {
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			ctx := context.Background()
+			store := withAdmin(t, impl)
+			viaIdentity := session("provider")
+			viaIdentity.ViaIdentity = true
+			for _, s := range []connector.StoredSession{session("password"), viaIdentity} {
+				if err := store.CreateSession(ctx, s); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			password, _, _, errPassword := store.SessionUser(ctx, []byte("password"))
+			provider, _, _, errProvider := store.SessionUser(ctx, []byte("provider"))
+
+			if diff := cmp.Diff([]any{session("password"), viaIdentity, "<nil>", "<nil>"},
+				[]any{password, provider, testsupport.ErrorText(errPassword), testsupport.ErrorText(errProvider)}); diff != "" {
+				t.Errorf("sessions, errors (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestStoreFindsNoSessionForAnUnknownToken(t *testing.T) {
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {

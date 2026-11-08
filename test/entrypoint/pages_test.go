@@ -21,7 +21,8 @@ func TestHomeAsksForSignIn(t *testing.T) {
 // settingsNote is what the settings page says about door defaults.
 var settingsNote = []string{"Settings starting with door_ are the defaults every door is configured with; a door's own page overrides " +
 	"them for that door. Doors receive a changed default as soon as it is saved. A changed enrollment username or password takes " +
-	"effect when the server next starts."}
+	"effect when the server next starts. Secret settings are stored encrypted and never shown; leave one blank to keep it, or " +
+	"enter a new value to replace it."}
 
 // shownSetting is a setting as the settings page shows it.
 type shownSetting struct {
@@ -34,6 +35,12 @@ type shownSetting struct {
 var defaultSettings = []shownSetting{
 	{"site_name", "doorcode", "default"}, {"site_timezone", "UTC", "default"}, {"admin_email", "admin@example.com", "default"},
 	{"password_hash_memory_kib", "8", "environment, read-only"},
+	{"new_user_expiry_days", "1826", "default"}, {"oidc_enabled", "false", "default"}, {"oidc_auto_sign_in", "false", "default"},
+	{"oidc_issuer", "", "default"}, {"oidc_client_id", "", "default"}, {"oidc_client_secret", "", "default"},
+	{"oidc_scopes", "openid email profile", "default"}, {"oidc_claim_user_id", "", "default"}, {"oidc_claim_email", "email", "default"},
+	{"oidc_claim_first_name", "given_name", "default"}, {"oidc_claim_last_name", "family_name", "default"},
+	{"oidc_claim_display_name", "name", "default"}, {"oidc_claim_entitlements", "", "default"},
+	{"oidc_entitlement_groups", "", "default"}, {"oidc_default_groups", "", "default"},
 	{"enrollment_username", "doorcode-enroll", "default"}, {"enrollment_password", "", "default"},
 	{"door_credential_grace_hours", "24", "default"},
 	{"telemetry_retention_days", "7", "default"}, {"telemetry_rollup_retention_days", "730", "default"},
@@ -47,6 +54,10 @@ var defaultSettings = []shownSetting{
 	{"door_rate_limit_per_minute", "30", "default"}, {"door_rate_limit_burst", "10", "default"},
 	{"door_ntp_server", "pool.ntp.org", "default"}, {"door_log_level", "info", "default"},
 }
+
+// secretSettings are the settings the settings page offers as password
+// fields, which are left blank.
+var secretSettings = map[string]bool{"oidc_client_secret": true, "enrollment_password": true}
 
 // settingsPage is the settings page showing shown, where changed replaces
 // the value and source of the settings it names, entered the value an
@@ -65,6 +76,8 @@ func settingsPage(shown []shownSetting, changed map[string]shownSetting, entered
 		cell := refused[s.key]
 		if s.source == "environment, read-only" {
 			cell = s.value
+		} else if secretSettings[s.key] {
+			// A secret's input is a password field, whose value is not read.
 		} else if value, ok := entered[s.key]; ok {
 			page.Values[s.key] = value
 		} else {

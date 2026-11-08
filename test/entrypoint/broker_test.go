@@ -266,17 +266,18 @@ func TestFirstRunWithoutAnEnrollmentPasswordGeneratesOneAndLogsIt(t *testing.T) 
 	run(t, start(t, f))
 	_, refused := f.BrokerStub.Connect("A1", enrollUser, "", "", nil)
 	_, accepted := f.BrokerStub.Connect("A1", enrollUser, "IiMkJSYnKCkqKywtLi8wMTIz", "", nil)
+	stored, err := testsupport.OpenSecret("enrollment_password", f.StoreStub.StoredSetting("enrollment_password"))
 
 	want := []any{
 		[]testsupport.LogEntry{{Level: "info", Message: "generated the enrollment password; controllers enroll with these credentials, " +
 			"and the enrollment_password setting changes the password",
 			Fields: map[string]string{"username": enrollUser, "password": "IiMkJSYnKCkqKywtLi8wMTIz"}},
 			{Level: "info", Message: "schema migrated"}},
-		"stub: not authorized", "<nil>",
+		"stub: not authorized", "<nil>", "IiMkJSYnKCkqKywtLi8wMTIz", "<nil>",
 	}
-	got := []any{logsSince(f, logged), testsupport.ErrorText(refused), testsupport.ErrorText(accepted)}
+	got := []any{logsSince(f, logged), testsupport.ErrorText(refused), testsupport.ErrorText(accepted), stored, testsupport.ErrorText(err)}
 	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("log of both starts, empty password, generated password (-want +got):\n%s", diff)
+		t.Errorf("log of both starts, empty password, generated password, password stored encrypted (-want +got):\n%s", diff)
 	}
 }
 
@@ -288,9 +289,10 @@ func TestEnrollmentPasswordSavedInTheSettingsLetsRunStart(t *testing.T) {
 	a := start(t, f)
 
 	got := runFails(t, a)
+	_, accepted := f.BrokerStub.Connect("A1", enrollUser, "from-the-ui", "", nil)
 
-	if diff := cmp.Diff("<nil>", got); diff != "" {
-		t.Errorf("run (-want +got):\n%s", diff)
+	if diff := cmp.Diff([]string{"<nil>", "<nil>"}, []string{got, testsupport.ErrorText(accepted)}); diff != "" {
+		t.Errorf("run, connecting with the saved password (-want +got):\n%s", diff)
 	}
 }
 
