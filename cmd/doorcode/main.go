@@ -17,6 +17,7 @@ import (
 	"github.com/dakriy/doorcode/internal/driver/postgres"
 	"github.com/dakriy/doorcode/internal/driver/slogjson"
 	"github.com/dakriy/doorcode/internal/driver/systemclock"
+	"github.com/dakriy/doorcode/internal/driver/tzdb"
 )
 
 type factory struct {
@@ -26,6 +27,7 @@ type factory struct {
 func (factory) Clock() connector.Clock             { return systemclock.Clock{} }
 func (factory) Entropy() connector.Entropy         { return cryptoentropy.Source{} }
 func (factory) Environment() connector.Environment { return osenv.Environment{} }
+func (factory) TimeZones() connector.TimeZones     { return tzdb.Zones{} }
 func (factory) Log() connector.Log                 { return slogjson.New(os.Stderr) }
 func (f factory) Store() connector.Store           { return f.store }
 

@@ -144,6 +144,11 @@ func TestStartupFails(t *testing.T) {
 			arrange: func(f *testsupport.Factory) { f.StoreStub.FailUsers() },
 			want:    "create first administrator: stub: unavailable",
 		},
+		"when the site timezone names no zone": {
+			arrange: func(f *testsupport.Factory) { f.EnvStub["DOORCODE_SITE_TIMEZONE"] = "Mars/Olympus" },
+			want: "create first administrator: invalid value for site_timezone: " +
+				"must be a time zone name from the tz database, such as UTC or Europe/Berlin",
+		},
 		"when the password hashing cost is not a number": {
 			arrange: func(f *testsupport.Factory) { f.EnvStub["DOORCODE_PASSWORD_HASH_MEMORY_KIB"] = "lots" },
 			want: "create first administrator: invalid value for password_hash_memory_kib: " +

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/dakriy/doorcode/internal/auth"
+	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
 )
 
@@ -168,20 +169,20 @@ func (s Service) checkGroup(ctx context.Context, id int64, f GroupFields) (conne
 		Roles:              knownRoles(f.Roles),
 		PreassignedUserIDs: distinctUserIDs(f.PreassignedUserIDs),
 	}
-	var found problems
+	var found check.List
 	slugProblem, err := s.slugProblem(ctx, id, g.Slug)
 	if err != nil {
 		return g, err
 	}
-	found.add("slug", slugProblem)
-	found.add("name", required(g.Name, "Enter a name."))
-	found.add("name", tooLong(g.Name, maxGroupNameLength, longText))
-	found.add("description", tooLong(g.Description, maxDescriptionLength, longText))
+	found.Add("slug", slugProblem)
+	found.Add("name", check.Required(g.Name, "Enter a name."))
+	found.Add("name", check.TooLong(g.Name, maxGroupNameLength, check.LongText))
+	found.Add("description", check.TooLong(g.Description, maxDescriptionLength, check.LongText))
 	if len(g.Roles) != len(slices.Compact(slices.Sorted(slices.Values(f.Roles)))) {
-		found.add("roles", "Choose roles from the list.")
+		found.Add("roles", "Choose roles from the list.")
 	}
-	found.add("preassigned_user_ids", badUserIDs(g.PreassignedUserIDs))
-	return g, found.err()
+	found.Add("preassigned_user_ids", badUserIDs(g.PreassignedUserIDs))
+	return g, found.Err()
 }
 
 func (s Service) slugProblem(ctx context.Context, id int64, slug string) (string, error) {
@@ -193,13 +194,6 @@ func (s Service) slugProblem(ctx context.Context, id int64, slug string) (string
 	}
 	holder, taken, err := s.Store.GroupBySlug(ctx, slug)
 	return conflict(id, holder.ID, taken, "Another group has this slug."), err
-}
-
-func required(value, message string) string {
-	if value == "" {
-		return message
-	}
-	return ""
 }
 
 // knownRoles is the roles of auth.Roles that roles names, in that order.

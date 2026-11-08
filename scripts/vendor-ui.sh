@@ -6,11 +6,14 @@
 #   internal/app/ui/static/htmx.min.js  htmx, downloaded and verified
 #   internal/app/ui/static/swagger-ui/  Swagger UI's bundle, stylesheet, and
 #                                       license, from the verified npm package
+#   internal/app/ui/static/fullcalendar/ FullCalendar's standard bundle and
+#                                       license, from the verified npm package
 #   internal/app/ui/static/app.css      built by the Tailwind standalone CLI
 #
-# The Tailwind CLI and the Swagger UI package are cached under build/tools
-# and never committed. The Swagger UI checksum is the SHA-256 of the npm
-# tarball, whose published sha512 integrity it was checked against.
+# The Tailwind CLI and the npm packages are cached under build/tools and
+# never committed. The Swagger UI and FullCalendar checksums are the SHA-256
+# of the npm tarballs, whose published sha512 integrity they were checked
+# against.
 # To move to a new version, change the version and every checksum below,
 # taking the checksums from the release's own published sums.
 set -eu
@@ -20,6 +23,8 @@ HTMX_VERSION=v2.0.10
 HTMX_SHA256=71ea67185bfa8c98c39d31717c6fce5d852370fcdfd129db4543774d3145c0de
 SWAGGER_UI_VERSION=5.34.0
 SWAGGER_UI_SHA256=15cdd55151558cf29ee70fb485332251a9911ebe27414b243ddd10fef9942394
+FULLCALENDAR_VERSION=6.1.22
+FULLCALENDAR_SHA256=44d3b853622df17902c2e1f34113ef40492a80e1ad2a6bd103683307a74c123d
 
 UI=internal/app/ui
 TOOLS=build/tools
@@ -85,5 +90,12 @@ for f in swagger-ui-bundle.js swagger-ui.css LICENSE; do
 	tar -xzOf "$swagger" "package/$f" >"$UI/static/swagger-ui/$f"
 done
 
+fullcalendar="$TOOLS/fullcalendar-$FULLCALENDAR_VERSION.tgz"
+fetch "https://registry.npmjs.org/fullcalendar/-/fullcalendar-$FULLCALENDAR_VERSION.tgz" "$FULLCALENDAR_SHA256" "$fullcalendar"
+mkdir -p "$UI/static/fullcalendar"
+for f in index.global.min.js LICENSE.md; do
+	tar -xzOf "$fullcalendar" "package/$f" >"$UI/static/fullcalendar/$f"
+done
+
 "$tailwind" --input "$UI/tailwind.css" --output "$UI/static/app.css" --minify
-echo "vendor-ui ok: Tailwind $TAILWIND_VERSION, htmx $HTMX_VERSION, Swagger UI $SWAGGER_UI_VERSION"
+echo "vendor-ui ok: Tailwind $TAILWIND_VERSION, htmx $HTMX_VERSION, Swagger UI $SWAGGER_UI_VERSION, FullCalendar $FULLCALENDAR_VERSION"

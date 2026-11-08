@@ -1,0 +1,12 @@
+{{define "content"}}
+{{template "back" (link "/admin/schedules" "All schedules")}}
+<h1 class="mt-4 text-2xl font-semibold tracking-tight">New schedule</h1>
+<p class="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">Choose the days and times it covers each week. Doors and access rules can use it once it exists.</p>
+<form id="schedule-form" method="post" action="{{.Content.Action}}" novalidate hx-disabled-elt="find button" class="relative mt-8 max-w-4xl p-6 {{template "card-class"}}">
+  {{template "schedule-fields" .Content}}
+  <div class="mt-8 flex justify-end gap-3 border-t border-zinc-200 pt-6 dark:border-zinc-800">
+    <a href="/admin/schedules" class="{{template "secondary-class"}}">Cancel</a>
+    <button type="submit" class="{{template "primary-class"}}">Create schedule</button>
+  </div>
+</form>
+{{end}}

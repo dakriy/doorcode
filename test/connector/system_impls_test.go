@@ -13,6 +13,7 @@ import (
 	"github.com/dakriy/doorcode/internal/driver/osenv"
 	"github.com/dakriy/doorcode/internal/driver/slogjson"
 	"github.com/dakriy/doorcode/internal/driver/systemclock"
+	"github.com/dakriy/doorcode/internal/driver/tzdb"
 	"github.com/dakriy/doorcode/internal/testsupport"
 )
 
@@ -46,6 +47,16 @@ type entropyImpl struct {
 var entropyImpls = []entropyImpl{
 	{name: "stub", source: func() connector.Entropy { return testsupport.NewFactory().EntropyStub }},
 	{name: "crypto", source: func() connector.Entropy { return cryptoentropy.Source{} }},
+}
+
+type zonesImpl struct {
+	name  string
+	zones func() connector.TimeZones
+}
+
+var zonesImpls = []zonesImpl{
+	{name: "stub", zones: func() connector.TimeZones { return testsupport.NewFactory().ZonesStub }},
+	{name: "tzdb", zones: func() connector.TimeZones { return tzdb.Zones{} }},
 }
 
 // envImpl builds an environment where name is set to value, or is unset.

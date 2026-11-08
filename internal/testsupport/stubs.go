@@ -9,6 +9,9 @@ import (
 	"slices"
 	"time"
 
+	// The embedded tz database, so the stub zones load on any host.
+	_ "time/tzdata"
+
 	"github.com/dakriy/doorcode/internal/connector"
 )
 
@@ -76,6 +79,16 @@ func (e Environment) Lookup(name string) (string, bool) {
 	return value, ok
 }
 
+// TimeZones is the stub connector.TimeZones. Zones are fixed data rather
+// than state, so it loads them as the real one does, from the host's tz
+// database or Go's embedded copy.
+type TimeZones struct{}
+
+// Zone loads the zone named name.
+func (TimeZones) Zone(name string) (*time.Location, error) {
+	return time.LoadLocation(name)
+}
+
 // LogEntry is one line the stub log recorded.
 type LogEntry struct {
 	Level   string
@@ -121,6 +134,8 @@ type Store struct {
 	sessions   map[string]connector.StoredSession
 	tokens     []connector.StoredToken
 	nextToken  int64
+	schedules  []connector.StoredSchedule
+	nextSched  int64
 	migrateErr error
 	failing    map[aggregate]bool
 }
@@ -136,6 +151,8 @@ const (
 	groupWrites
 	sessionsAggregate
 	tokensAggregate
+	schedulesAggregate
+	scheduleWrites
 )
 
 // NewStore returns an empty, unmigrated stub store.
@@ -155,7 +172,7 @@ var AdministratorsGroup = connector.StoredGroup{
 }
 
 // Migrate marks the schema as present and, the first time, seeds the
-// administrators group as the real migration does.
+// administrators group and the Always schedule as the real migrations do.
 func (s *Store) Migrate(context.Context) error {
 	if s.migrateErr != nil {
 		return s.migrateErr
@@ -163,6 +180,8 @@ func (s *Store) Migrate(context.Context) error {
 	if !s.migrated {
 		s.groups = append(s.groups, cloneGroup(AdministratorsGroup))
 		s.nextGroup = AdministratorsGroup.ID
+		s.schedules = append(s.schedules, cloneSchedule(AlwaysSchedule))
+		s.nextSched = AlwaysSchedule.ID
 	}
 	s.migrated = true
 	return nil
@@ -380,6 +399,7 @@ func (s *Store) Fail() {
 	s.FailGroups()
 	s.FailSessions()
 	s.FailTokens()
+	s.FailSchedules()
 }
 
 // FailSettings makes the settings methods report ErrUnavailable.
@@ -426,12 +446,24 @@ func (s *Store) FailTokens() {
 	s.failing[tokensAggregate] = true
 }
 
+// FailSchedules makes the schedule methods report ErrUnavailable.
+func (s *Store) FailSchedules() {
+	s.failing[schedulesAggregate] = true
+}
+
+// FailScheduleWrites makes the methods that change schedules report
+// ErrUnavailable, while the ones that read them still work.
+func (s *Store) FailScheduleWrites() {
+	s.failing[scheduleWrites] = true
+}
+
 // Factory is the stub connector.Factory. Tests arrange and inspect the
 // stubs through its fields.
 type Factory struct {
 	ClockStub   *Clock
 	EntropyStub *Entropy
 	EnvStub     Environment
+	ZonesStub   TimeZones
 	LogStub     *Log
 	StoreStub   *Store
 }
@@ -464,6 +496,9 @@ func (f *Factory) Entropy() connector.Entropy { return f.EntropyStub }
 
 // Environment returns the stub environment.
 func (f *Factory) Environment() connector.Environment { return f.EnvStub }
+
+// TimeZones returns the stub time zones.
+func (f *Factory) TimeZones() connector.TimeZones { return f.ZonesStub }
 
 // Log returns the stub log.
 func (f *Factory) Log() connector.Log { return f.LogStub }

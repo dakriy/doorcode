@@ -5,6 +5,7 @@ package connector_test
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 
@@ -102,6 +103,36 @@ func TestLogRecordsLevelMessageAndFieldsInOrder(t *testing.T) {
 			}
 			if diff := cmp.Diff(want, written()); diff != "" {
 				t.Errorf("log (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestTimeZonesLoadAZoneWithItsDaylightSavingRules(t *testing.T) {
+	for _, impl := range zonesImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			zone, err := impl.zones().Zone("America/New_York")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, winter := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC).In(zone).Zone()
+			_, summer := time.Date(2026, 7, 15, 12, 0, 0, 0, time.UTC).In(zone).Zone()
+
+			if diff := cmp.Diff([]any{"America/New_York", -5 * 3600, -4 * 3600}, []any{zone.String(), winter, summer}); diff != "" {
+				t.Errorf("name, winter and summer offsets (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestTimeZonesReportAZoneTheDatabaseDoesNotHave(t *testing.T) {
+	for _, impl := range zonesImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			_, err := impl.zones().Zone("Mars/Olympus")
+
+			if err == nil {
+				t.Error("Zone(Mars/Olympus) returned no error")
 			}
 		})
 	}

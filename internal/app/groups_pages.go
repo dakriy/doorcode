@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/dakriy/doorcode/internal/auth"
+	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/directory"
 )
@@ -68,7 +69,7 @@ func readGroupForm(r *http.Request) (directory.GroupFields, groupForm) {
 // rejected is f carrying what err says is wrong, and whether err is a
 // problem or refusal the form shows.
 func (f groupForm) rejected(err error) (groupForm, int, bool) {
-	var problems directory.Problems
+	var problems check.Problems
 	if errors.As(err, &problems) {
 		f.Errors = problems.ByField()
 		return f, http.StatusUnprocessableEntity, true

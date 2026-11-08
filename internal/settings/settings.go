@@ -40,6 +40,8 @@ const envPrefix = "DOORCODE_"
 // The keys of the settings the application reads.
 const (
 	keySiteName            = "site_name"
+	keySiteTimezone        = "site_timezone"
+	siteTimezoneHint       = "must be a time zone name from the tz database, such as UTC or Europe/Berlin"
 	keyAdminEmail          = "admin_email"
 	keyPasswordHashMemory  = "password_hash_memory_kib"
 	minPasswordHashMemory  = 8
@@ -51,15 +53,18 @@ type definition struct {
 	key      string
 	fallback string
 	// validate rejects a value the setting cannot take; nil accepts any.
-	validate func(value string) error
+	validate func(s Service, value string) error
 }
 
 // definitions is every setting the site has, in display order.
 var definitions = []definition{
 	{key: keySiteName, fallback: "doorcode"},
-	{key: "site_timezone", fallback: "UTC"},
+	{key: keySiteTimezone, fallback: "UTC", validate: func(s Service, value string) error {
+		_, err := s.siteZone(value)
+		return err
+	}},
 	{key: keyAdminEmail, fallback: "admin@example.com"},
-	{key: keyPasswordHashMemory, fallback: "19456", validate: func(value string) error {
+	{key: keyPasswordHashMemory, fallback: "19456", validate: func(_ Service, value string) error {
 		_, err := passwordHashMemory(value)
 		return err
 	}},
@@ -72,6 +77,22 @@ type Current struct {
 	AdminEmail string
 	// PasswordHashMemoryKiB is the memory cost of hashing a new password.
 	PasswordHashMemoryKiB uint32
+	// Zone is the site timezone: weekly schedule windows and dates typed on
+	// pages are in it.
+	Zone *time.Location
+}
+
+// siteZone loads the site timezone a value names. The empty name and
+// "Local", which Go reads as UTC and as the server's own zone, name none.
+func (s Service) siteZone(value string) (*time.Location, error) {
+	if value == "" || value == "Local" {
+		return nil, errors.New(siteTimezoneHint)
+	}
+	zone, err := s.Zones.Zone(value)
+	if err != nil {
+		return nil, errors.New(siteTimezoneHint)
+	}
+	return zone, nil
 }
 
 // passwordHashMemory parses a password hashing memory cost in KiB.
@@ -106,6 +127,7 @@ type Service struct {
 	Store connector.SettingsStore
 	Env   connector.Environment
 	Clock connector.Clock
+	Zones connector.TimeZones
 }
 
 // List returns every setting in display order.
@@ -135,10 +157,15 @@ func (s Service) Current(ctx context.Context) (Current, error) {
 	if err != nil {
 		return Current{}, fmt.Errorf("%w for %s: %w", ErrInvalid, keyPasswordHashMemory, err)
 	}
+	zone, err := s.siteZone(values[keySiteTimezone])
+	if err != nil {
+		return Current{}, fmt.Errorf("%w for %s: %w", ErrInvalid, keySiteTimezone, err)
+	}
 	return Current{
 		SiteName:              values[keySiteName],
 		AdminEmail:            values[keyAdminEmail],
 		PasswordHashMemoryKiB: memory,
+		Zone:                  zone,
 	}, nil
 }
 
@@ -166,7 +193,7 @@ func (s Service) Update(ctx context.Context, key, value string) (Setting, error)
 		return Setting{}, fmt.Errorf("%w: %s is set by environment variable %s", ErrReadOnly, key, envVar)
 	}
 	if def.validate != nil {
-		if err := def.validate(value); err != nil {
+		if err := def.validate(s, value); err != nil {
 			return Setting{}, fmt.Errorf("%w for %s: %w", ErrInvalid, key, err)
 		}
 	}

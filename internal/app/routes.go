@@ -66,7 +66,9 @@ func (a *App) routes() []route {
 	table = append(table, a.userRoutes()...)
 	table = append(table, a.userPageRoutes()...)
 	table = append(table, a.groupRoutes()...)
-	return append(table, a.groupPageRoutes()...)
+	table = append(table, a.groupPageRoutes()...)
+	table = append(table, a.scheduleRoutes()...)
+	return append(table, a.schedulePageRoutes()...)
 }
 
 // handler registers every route of table on a new mux.

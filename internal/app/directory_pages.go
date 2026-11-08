@@ -48,22 +48,34 @@ func done(w http.ResponseWriter, r *http.Request, location, flash string) {
 // dateLayout is how a date input writes a date.
 const dateLayout = "2006-01-02"
 
-// formDate reads a date input: the start of that day in UTC, nil when the
+// formDate reads a date input: the start of that day in zone, nil when the
 // input is empty.
-func formDate(value string) (*time.Time, error) {
+func formDate(value string, zone *time.Location) (*time.Time, error) {
 	if value == "" {
 		return nil, nil
 	}
-	day, err := time.Parse(dateLayout, value)
+	day, err := time.ParseInLocation(dateLayout, value, zone)
 	return &day, err
 }
 
-// inputDate writes t for a date input, empty when t is nil.
-func inputDate(t *time.Time) string {
+// inputDate writes the day t falls on in zone for a date input, empty when
+// t is nil.
+func inputDate(t *time.Time, zone *time.Location) string {
 	if t == nil {
 		return ""
 	}
-	return t.UTC().Format(dateLayout)
+	return t.In(zone).Format(dateLayout)
+}
+
+// siteZone returns the site timezone, after showing that it could not be
+// read.
+func (a *App) siteZone(w http.ResponseWriter, r *http.Request) (*time.Location, bool) {
+	current, err := a.settings.Current(r.Context())
+	if err != nil {
+		a.pageError(w, err)
+		return nil, false
+	}
+	return current.Zone, true
 }
 
 func userPath(id int64) string {

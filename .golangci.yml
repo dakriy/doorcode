@@ -123,6 +123,8 @@ linters:
       forbid:
         - pattern: ^time\.(Now|Since|Until|Sleep|After|AfterFunc|Tick|NewTimer|NewTicker)$
           msg: clock read; put the clock behind a connector
+        - pattern: ^time\.LoadLocation$
+          msg: reads the tz database from the filesystem; look zones up through the TimeZones connector
         - pattern: ^os\.(Getenv|LookupEnv|Environ|ExpandEnv)$
           msg: environment read; pass configuration through a connector
         - pattern: ^fmt\.(Print|Printf|Println|Scan|Scanf|Scanln)$

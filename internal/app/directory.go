@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/directory"
 )
@@ -27,7 +28,7 @@ var directoryStatuses = []struct {
 // directoryError answers an API request with what err, from the
 // directory, means.
 func (a *App) directoryError(w http.ResponseWriter, err error) {
-	var problems directory.Problems
+	var problems check.Problems
 	if errors.As(err, &problems) {
 		writeError(w, http.StatusBadRequest, problems.Error())
 		return

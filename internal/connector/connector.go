@@ -22,6 +22,13 @@ type Environment interface {
 	Lookup(name string) (value string, ok bool)
 }
 
+// TimeZones looks time zones up in the tz database.
+type TimeZones interface {
+	// Zone returns the zone the tz database names name, such as
+	// "Europe/Berlin", or an error when it has no such zone.
+	Zone(name string) (*time.Location, error)
+}
+
 // Field is one key and value attached to a log line.
 type Field struct {
 	Key   string
@@ -219,6 +226,51 @@ type TokensStore interface {
 	DeleteToken(ctx context.Context, userID, id int64) (bool, error)
 }
 
+// StoredWindow is one weekly window of a schedule. It opens on each of
+// Days at Start minutes after midnight and closes End minutes after
+// midnight, on the same day when End is after Start and on the next day
+// otherwise.
+type StoredWindow struct {
+	Days  []time.Weekday
+	Start int
+	End   int
+}
+
+// StoredSchedule is a schedule as the store holds it. Dates are midnight
+// UTC on the day they name. Nil StartsOn and EndsOn leave the schedule
+// unbounded on that side. Windows are in the order they were stored;
+// Excluded is in date order. Builtin marks the seeded Always schedule; the
+// store sets it only when seeding and ignores it when it stores one.
+type StoredSchedule struct {
+	ID       int64
+	Name     string
+	StartsOn *time.Time
+	EndsOn   *time.Time
+	Windows  []StoredWindow
+	Excluded []time.Time
+	Builtin  bool
+}
+
+// SchedulesStore holds the schedules aggregate. Schedule names are unique
+// ignoring case.
+type SchedulesStore interface {
+	// Schedules returns every schedule, ordered by name compared byte by
+	// byte after lowercasing and then by id.
+	Schedules(ctx context.Context) ([]StoredSchedule, error)
+	// Schedule returns the schedule whose id is id, and whether there is
+	// one.
+	Schedule(ctx context.Context, id int64) (StoredSchedule, bool, error)
+	// CreateSchedule stores s, ignoring s.ID, and returns the id it was
+	// given.
+	CreateSchedule(ctx context.Context, s StoredSchedule) (int64, error)
+	// UpdateSchedule stores s over the schedule whose id is s.ID, replacing
+	// its windows, and reports whether there is one.
+	UpdateSchedule(ctx context.Context, s StoredSchedule) (bool, error)
+	// DeleteSchedule removes the schedule whose id is id, and reports
+	// whether there was one.
+	DeleteSchedule(ctx context.Context, id int64) (bool, error)
+}
+
 // Store is the application's persistent state, one interface per aggregate.
 type Store interface {
 	// Migrate brings the schema up to date. It runs once at startup, before
@@ -229,6 +281,7 @@ type Store interface {
 	GroupsStore
 	SessionsStore
 	TokensStore
+	SchedulesStore
 }
 
 // Factory constructs connectors. It has one method per connector.
@@ -236,6 +289,7 @@ type Factory interface {
 	Clock() Clock
 	Entropy() Entropy
 	Environment() Environment
+	TimeZones() TimeZones
 	Log() Log
 	Store() Store
 }

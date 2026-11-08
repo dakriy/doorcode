@@ -9,7 +9,7 @@ import (
 )
 
 // usersNav is the navigation of a users page for an administrator.
-var usersNav = []string{"Home", "Users (current)", "Groups", "Settings", "API tokens", "API docs"}
+var usersNav = []string{"Home", "Users (current)", "Groups", "Schedules", "Settings", "API tokens", "API docs"}
 
 // usersHead is the header row of the user list.
 var usersHead = []string{"Name", "Email", "User id", "Groups", "Status"}
@@ -192,6 +192,18 @@ func TestCreatingAUserFromTheFormOpensTheirPage(t *testing.T) {
 		"last_name": "Smith", "display_name": "Ann Smith", "expires_on": "2027-03-01", "name": ""}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("page (-want +got):\n%s", diff)
+	}
+}
+
+func TestExpiryTypedOnAPageIsTheStartOfThatDayInTheSiteTimezone(t *testing.T) {
+	b := inZone(t, "Europe/Berlin")
+	b.Post("/admin/users", "email", "ann@example.com", "display_name", "Ann", "expires_on", "2027-03-01")
+
+	stored := testsupport.JSONString(b.Get("/api/v1/users/2").Body, "/expires_at")
+	shown := pageOf(b.Get("/admin/users/2")).Values["expires_on"]
+
+	if diff := cmp.Diff([]string{"2027-02-28T23:00:00Z", "2027-03-01"}, []string{stored, shown}); diff != "" {
+		t.Errorf("stored, shown (-want +got):\n%s", diff)
 	}
 }
 
@@ -494,8 +506,12 @@ func TestUserPageStoreFailureShowsARequestID(t *testing.T) {
 		fail    func(s *testsupport.Store)
 		request func(b *testsupport.Browser) testsupport.Response
 	}{
-		"list":          {fail: (*testsupport.Store).FailUsers, request: func(b *testsupport.Browser) testsupport.Response { return b.Get("/admin/users") }},
-		"user":          {fail: (*testsupport.Store).FailUsers, request: func(b *testsupport.Browser) testsupport.Response { return b.Get("/admin/users/1") }},
+		"list":         {fail: (*testsupport.Store).FailUsers, request: func(b *testsupport.Browser) testsupport.Response { return b.Get("/admin/users") }},
+		"user":         {fail: (*testsupport.Store).FailUsers, request: func(b *testsupport.Browser) testsupport.Response { return b.Get("/admin/users/1") }},
+		"user's dates": {fail: (*testsupport.Store).FailSettings, request: func(b *testsupport.Browser) testsupport.Response { return b.Get("/admin/users/1") }},
+		"create's dates": {fail: (*testsupport.Store).FailSettings, request: func(b *testsupport.Browser) testsupport.Response {
+			return b.Post("/admin/users", "email", "a@example.com", "display_name", "A")
+		}},
 		"user's tokens": {fail: (*testsupport.Store).FailTokens, request: func(b *testsupport.Browser) testsupport.Response { return b.Get("/admin/users/1") }},
 		"create": {fail: (*testsupport.Store).FailUsers, request: func(b *testsupport.Browser) testsupport.Response {
 			return b.Post("/admin/users", "email", "a@example.com", "display_name", "A")

@@ -9,7 +9,7 @@ import (
 )
 
 // groupsNav is the navigation of a groups page for an administrator.
-var groupsNav = []string{"Home", "Users", "Groups (current)", "Settings", "API tokens", "API docs"}
+var groupsNav = []string{"Home", "Users", "Groups (current)", "Schedules", "Settings", "API tokens", "API docs"}
 
 // groupsHead is the header row of the group list.
 var groupsHead = []string{"Name", "Slug", "Roles", "Members", "Pre-assigned"}

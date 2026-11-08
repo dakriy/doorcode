@@ -75,7 +75,7 @@ func TestHomeGreetsTheSignedInAdministratorAndShowsTheFlashOnce(t *testing.T) {
 	want := testsupport.Page{
 		Title:    "Home · doorcode",
 		Heading:  "Welcome, Administrator",
-		Nav:      []string{"Home (current)", "Users", "Groups", "Settings", "API tokens", "API docs"},
+		Nav:      []string{"Home (current)", "Users", "Groups", "Schedules", "Settings", "API tokens", "API docs"},
 		Messages: []string{"You are signed in."},
 	}
 	if diff := cmp.Diff(want, first); diff != "" {

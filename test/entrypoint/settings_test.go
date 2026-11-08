@@ -283,3 +283,32 @@ func TestSettingsAPIAnswersWithARequestIDWhenSessionsCannotBeRead(t *testing.T) 
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
 }
+
+func TestSiteTimezoneAcceptsOnlyZonesOfTheTzDatabase(t *testing.T) {
+	values := map[string]int{
+		"America/New_York": 200,
+		"UTC":              200,
+		"Mars/Olympus":     400,
+		"":                 400,
+		"Local":            400,
+	}
+	for value, want := range values {
+		t.Run(value, func(t *testing.T) {
+			got := signedInAdmin(t, testsupport.NewFactory()).PutJSON("/api/v1/settings/site_timezone", `{"value":"`+value+`"}`)
+
+			if diff := cmp.Diff(want, got.Status); diff != "" {
+				t.Errorf("status (-want +got):\n%s\n%s", diff, got.Body)
+			}
+		})
+	}
+}
+
+func TestRejectedSiteTimezoneSaysWhatItAccepts(t *testing.T) {
+	got := signedInAdmin(t, testsupport.NewFactory()).PutJSON("/api/v1/settings/site_timezone", `{"value":"Mars/Olympus"}`)
+
+	want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"invalid value for site_timezone: ` +
+		`must be a time zone name from the tz database, such as UTC or Europe/Berlin"}` + "\n"}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("response (-want +got):\n%s", diff)
+	}
+}

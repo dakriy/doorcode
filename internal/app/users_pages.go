@@ -5,8 +5,10 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/dakriy/doorcode/internal/auth"
+	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/directory"
 )
@@ -137,10 +139,10 @@ type userForm struct {
 	Errors      map[string]string
 }
 
-func formOfUser(u connector.StoredUser) userForm {
+func formOfUser(u connector.StoredUser, zone *time.Location) userForm {
 	f := userForm{
 		Email: u.Email, FirstName: u.FirstName, LastName: u.LastName,
-		DisplayName: u.DisplayName, ExpiresOn: inputDate(u.ExpiresAt),
+		DisplayName: u.DisplayName, ExpiresOn: inputDate(u.ExpiresAt, zone),
 	}
 	if u.UserID != nil {
 		f.UserID = *u.UserID
@@ -148,15 +150,15 @@ func formOfUser(u connector.StoredUser) userForm {
 	return f
 }
 
-// readUserForm reads the profile form. It reports false, with the form
-// saying why, when the expiry is not a date.
-func readUserForm(r *http.Request) (directory.Profile, userForm, bool) {
+// readUserForm reads the profile form, with the expiry day in zone. It
+// reports false, with the form saying why, when the expiry is not a date.
+func readUserForm(r *http.Request, zone *time.Location) (directory.Profile, userForm, bool) {
 	f := userForm{
 		Email: r.PostFormValue("email"), UserID: r.PostFormValue("user_id"),
 		FirstName: r.PostFormValue("first_name"), LastName: r.PostFormValue("last_name"),
 		DisplayName: r.PostFormValue("display_name"), ExpiresOn: r.PostFormValue("expires_on"),
 	}
-	expires, err := formDate(f.ExpiresOn)
+	expires, err := formDate(f.ExpiresOn, zone)
 	if err != nil {
 		f.Errors = map[string]string{"expires_on": "Enter a date, or leave it empty for an account that never expires."}
 		return directory.Profile{}, f, false
@@ -170,7 +172,7 @@ func readUserForm(r *http.Request) (directory.Profile, userForm, bool) {
 
 // rejected is f carrying the problems err holds, and whether it holds any.
 func (f userForm) rejected(err error) (userForm, bool) {
-	var problems directory.Problems
+	var problems check.Problems
 	if !errors.As(err, &problems) {
 		return f, false
 	}
@@ -183,7 +185,11 @@ func (a *App) newUserPage(w http.ResponseWriter, r *http.Request, viewer auth.Us
 }
 
 func (a *App) createUserFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	p, form, ok := readUserForm(r)
+	zone, ok := a.siteZone(w, r)
+	if !ok {
+		return
+	}
+	p, form, ok := readUserForm(r, zone)
 	if !ok {
 		a.render(w, r, http.StatusUnprocessableEntity, newUserTemplate, "New user", &viewer, form)
 		return
@@ -217,31 +223,39 @@ type userContent struct {
 	Choices       []expiryChoice
 	MaxNameLength int
 	Created       *createdSecret
+	// zone is the site timezone the forms' dates are in.
+	zone *time.Location
 }
 
-// freshUser is the content of u's page with every form as it starts.
-func freshUser(u connector.StoredUser) userContent {
-	return userContent{Form: formOfUser(u), TokenForm: tokenForm{Expiry: defaultTokenExpiry}}
+// freshUser is the content of u's page with every form as it starts, its
+// dates in zone.
+func freshUser(u connector.StoredUser, zone *time.Location) userContent {
+	return userContent{Form: formOfUser(u, zone), TokenForm: tokenForm{Expiry: defaultTokenExpiry}, zone: zone}
 }
 
-// pageUser returns the user the path names, after showing that there is
-// none or that the store failed.
-func (a *App) pageUser(w http.ResponseWriter, r *http.Request, viewer auth.User) (connector.StoredUser, bool) {
+// pageUser returns the content of the page about the user the path names,
+// with every form as it starts, after showing that there is none or that
+// the store failed.
+func (a *App) pageUser(w http.ResponseWriter, r *http.Request, viewer auth.User) (connector.StoredUser, userContent, bool) {
+	zone, ok := a.siteZone(w, r)
+	if !ok {
+		return connector.StoredUser{}, userContent{}, false
+	}
 	u, err := a.directory.User(r.Context(), pathID(r, "id"))
 	if errors.Is(err, directory.ErrNoUser) {
 		a.notFound(w, r, viewer, "There is no user here. They may never have existed; deleted users are listed under Deleted.")
-		return u, false
+		return u, userContent{}, false
 	}
 	if err != nil {
 		a.pageError(w, err)
-		return u, false
+		return u, userContent{}, false
 	}
-	return u, true
+	return u, freshUser(u, zone), true
 }
 
 func (a *App) userPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	if u, ok := a.pageUser(w, r, viewer); ok {
-		a.renderUser(w, r, http.StatusOK, viewer, u, freshUser(u))
+	if u, content, ok := a.pageUser(w, r, viewer); ok {
+		a.renderUser(w, r, http.StatusOK, viewer, u, content)
 	}
 }
 
@@ -265,12 +279,11 @@ func (a *App) renderUser(w http.ResponseWriter, r *http.Request, status int, vie
 }
 
 func (a *App) saveUserFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	u, ok := a.pageUser(w, r, viewer)
+	u, content, ok := a.pageUser(w, r, viewer)
 	if !ok {
 		return
 	}
-	content := freshUser(u)
-	p, form, ok := readUserForm(r)
+	p, form, ok := readUserForm(r, content.zone)
 	if !ok {
 		content.Form = form
 		a.renderUser(w, r, http.StatusUnprocessableEntity, viewer, u, content)
@@ -282,14 +295,15 @@ func (a *App) saveUserFromForm(w http.ResponseWriter, r *http.Request, viewer au
 		a.renderUser(w, r, http.StatusUnprocessableEntity, viewer, u, content)
 		return
 	}
-	a.userChanged(w, r, viewer, u, err, "user-saved")
+	a.userChanged(w, r, viewer, u, content, err, "user-saved")
 }
 
-// userChanged finishes a change to u made from its page: a refusal is shown
-// on the page, a failure as an error, and success with flash.
-func (a *App) userChanged(w http.ResponseWriter, r *http.Request, viewer auth.User, u connector.StoredUser, err error, flash string) {
+// userChanged finishes a change to u made from its page, whose content
+// fresh is as it starts: a refusal is shown on the page, a failure as an
+// error, and success with flash.
+func (a *App) userChanged(w http.ResponseWriter, r *http.Request, viewer auth.User, u connector.StoredUser, fresh userContent, err error, flash string) {
 	if status, message, refused := refusal(err); refused {
-		content := freshUser(u)
+		content := fresh
 		content.Alert = message
 		a.renderUser(w, r, status, viewer, u, content)
 		return
@@ -302,45 +316,43 @@ func (a *App) userChanged(w http.ResponseWriter, r *http.Request, viewer auth.Us
 }
 
 func (a *App) setCodeFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	u, ok := a.pageUser(w, r, viewer)
+	u, content, ok := a.pageUser(w, r, viewer)
 	if !ok {
 		return
 	}
 	err := a.directory.SetCode(r.Context(), u.ID, r.PostFormValue("code"))
-	var problems directory.Problems
+	var problems check.Problems
 	if errors.As(err, &problems) {
-		content := freshUser(u)
 		content.CodeError = problems.Error()
 		a.renderUser(w, r, http.StatusUnprocessableEntity, viewer, u, content)
 		return
 	}
-	a.userChanged(w, r, viewer, u, err, "code-set")
+	a.userChanged(w, r, viewer, u, content, err, "code-set")
 }
 
 func (a *App) clearCodeFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	if u, ok := a.pageUser(w, r, viewer); ok {
-		a.userChanged(w, r, viewer, u, a.directory.ClearCode(r.Context(), u.ID), "code-cleared")
+	if u, content, ok := a.pageUser(w, r, viewer); ok {
+		a.userChanged(w, r, viewer, u, content, a.directory.ClearCode(r.Context(), u.ID), "code-cleared")
 	}
 }
 
 func (a *App) deleteUserFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	if u, ok := a.pageUser(w, r, viewer); ok {
-		a.userChanged(w, r, viewer, u, a.directory.DeleteUser(r.Context(), viewer, u.ID), "user-deleted")
+	if u, content, ok := a.pageUser(w, r, viewer); ok {
+		a.userChanged(w, r, viewer, u, content, a.directory.DeleteUser(r.Context(), viewer, u.ID), "user-deleted")
 	}
 }
 
 func (a *App) restoreUserFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	if u, ok := a.pageUser(w, r, viewer); ok {
-		a.userChanged(w, r, viewer, u, a.directory.RestoreUser(r.Context(), u.ID), "user-restored")
+	if u, content, ok := a.pageUser(w, r, viewer); ok {
+		a.userChanged(w, r, viewer, u, content, a.directory.RestoreUser(r.Context(), u.ID), "user-restored")
 	}
 }
 
 func (a *App) createUserTokenFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	u, ok := a.pageUser(w, r, viewer)
+	u, content, ok := a.pageUser(w, r, viewer)
 	if !ok {
 		return
 	}
-	content := freshUser(u)
 	form, days, ok := readTokenForm(r)
 	if !ok {
 		content.TokenForm = form
@@ -357,7 +369,7 @@ func (a *App) createUserTokenFromForm(w http.ResponseWriter, r *http.Request, vi
 }
 
 func (a *App) revokeUserTokenFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	if u, ok := a.pageUser(w, r, viewer); ok {
+	if u, _, ok := a.pageUser(w, r, viewer); ok {
 		a.revokeFromForm(w, r, u.ID, "token", userPath(u.ID))
 	}
 }

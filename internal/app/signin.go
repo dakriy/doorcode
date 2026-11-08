@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/dakriy/doorcode/internal/auth"
+	"github.com/dakriy/doorcode/internal/check"
 )
 
 const (
@@ -16,21 +17,24 @@ const (
 // flashes are the one-time messages a redirect can carry. The cookie holds
 // only the key, so nobody can make the site display text of their choosing.
 var flashes = map[string]string{
-	"signed-in":      "You are signed in.",
-	"signed-out":     "You have been signed out.",
-	"token-revoked":  "The token has been revoked. Anything still using it is refused from now on.",
-	"token-gone":     "That token had already been revoked.",
-	"user-created":   "The user has been created.",
-	"user-saved":     "The user's changes have been saved.",
-	"user-deleted":   "The user has been deleted. They are refused everywhere until restored.",
-	"user-restored":  "The user has been restored.",
-	"code-set":       "The door code has been set. It is stored only as a hash and cannot be shown.",
-	"code-cleared":   "The door code has been removed.",
-	"group-created":  "The group has been created.",
-	"group-saved":    "The group's changes have been saved.",
-	"group-deleted":  "The group has been deleted.",
-	"member-added":   "The member has been added.",
-	"member-removed": "The member has been removed.",
+	"signed-in":        "You are signed in.",
+	"signed-out":       "You have been signed out.",
+	"token-revoked":    "The token has been revoked. Anything still using it is refused from now on.",
+	"token-gone":       "That token had already been revoked.",
+	"user-created":     "The user has been created.",
+	"user-saved":       "The user's changes have been saved.",
+	"user-deleted":     "The user has been deleted. They are refused everywhere until restored.",
+	"user-restored":    "The user has been restored.",
+	"code-set":         "The door code has been set. It is stored only as a hash and cannot be shown.",
+	"code-cleared":     "The door code has been removed.",
+	"group-created":    "The group has been created.",
+	"group-saved":      "The group's changes have been saved.",
+	"group-deleted":    "The group has been deleted.",
+	"member-added":     "The member has been added.",
+	"member-removed":   "The member has been removed.",
+	"schedule-created": "The schedule has been created.",
+	"schedule-saved":   "The schedule's changes have been saved.",
+	"schedule-deleted": "The schedule has been deleted.",
 }
 
 // signInForm is the sign-in page's content.
@@ -53,8 +57,8 @@ func (a *App) signIn(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	form := signInForm{
 		Email:         email,
 		Next:          localPath(r.PostFormValue("next")),
-		EmailError:    required(email, "Enter your email address."),
-		PasswordError: required(password, "Enter your password."),
+		EmailError:    check.Required(email, "Enter your email address."),
+		PasswordError: check.Required(password, "Enter your password."),
 	}
 	if form.EmailError != "" || form.PasswordError != "" {
 		a.renderSignIn(w, r, http.StatusUnprocessableEntity, form)
@@ -78,14 +82,6 @@ func (a *App) signIn(w http.ResponseWriter, r *http.Request, _ auth.User) {
 
 func (a *App) renderSignIn(w http.ResponseWriter, r *http.Request, status int, form signInForm) {
 	a.render(w, r, status, signInTemplate, "Sign in", nil, form)
-}
-
-// required returns message when value is empty, and nothing otherwise.
-func required(value, message string) string {
-	if value == "" {
-		return message
-	}
-	return ""
 }
 
 // signInRefusal is what the sign-in page says about err, or nothing when err

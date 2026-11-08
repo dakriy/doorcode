@@ -715,6 +715,567 @@
         }
       }
     },
+    "/schedules": {
+      "get": {
+        "operationId": "listSchedules",
+        "summary": "List every schedule",
+        "tags": [
+          "schedules"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every schedule.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-schedules role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createSchedule",
+        "summary": "Create a schedule",
+        "tags": [
+          "schedules"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleRequest"
+              },
+              "example": {
+                "name": "Night shift",
+                "starts_on": "2026-01-01",
+                "ends_on": "2026-12-31",
+                "windows": [
+                  {
+                    "days": [
+                      "mon",
+                      "tue",
+                      "wed",
+                      "thu",
+                      "fri"
+                    ],
+                    "start": "22:00",
+                    "end": "06:00"
+                  }
+                ],
+                "excluded_dates": [
+                  "2026-12-25"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new schedule.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON schedule, or a field is wrong; the error says which.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-schedules role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/schedules/{id}": {
+      "delete": {
+        "operationId": "deleteSchedule",
+        "summary": "Delete a schedule",
+        "tags": [
+          "schedules"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The schedule's id. The Always schedule has id 1.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The schedule is gone."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-schedules role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No schedule has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The schedule is the built-in Always schedule, which cannot be changed or deleted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getSchedule",
+        "summary": "Read one schedule",
+        "tags": [
+          "schedules"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The schedule's id. The Always schedule has id 1.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The schedule.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-schedules role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No schedule has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateSchedule",
+        "summary": "Replace a schedule",
+        "tags": [
+          "schedules"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The schedule's id. The Always schedule has id 1.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleRequest"
+              },
+              "example": {
+                "name": "Night shift",
+                "starts_on": "2026-01-01",
+                "ends_on": "2026-12-31",
+                "windows": [
+                  {
+                    "days": [
+                      "mon",
+                      "tue",
+                      "wed",
+                      "thu",
+                      "fri"
+                    ],
+                    "start": "22:00",
+                    "end": "06:00"
+                  }
+                ],
+                "excluded_dates": [
+                  "2026-12-25"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The schedule as it is now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON schedule, or a field is wrong; the error says which.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-schedules role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No schedule has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The schedule is the built-in Always schedule, which cannot be changed or deleted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/schedules/{id}/occurrences": {
+      "get": {
+        "operationId": "listScheduleOccurrences",
+        "summary": "List when a schedule is active",
+        "tags": [
+          "schedules"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The schedule's id. The Always schedule has id 1.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "description": "The first day to cover, YYYY-MM-DD in the site timezone; by default the Monday of the current week.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-11-09"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "description": "The last day to cover, YYYY-MM-DD, at most 365 days after from; by default the Sunday after from.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-11-15"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "When the schedule is active during the days asked for.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OccurrenceList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "from or to is not a date, or the range is backwards or too long.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-schedules role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No schedule has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/settings": {
       "get": {
         "operationId": "listSettings",
@@ -2309,6 +2870,151 @@
           "members"
         ]
       },
+      "OccurrenceList": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "The first day covered, YYYY-MM-DD."
+          },
+          "occurrences": {
+            "type": "array",
+            "description": "When the schedule is active during those days, in order. Overlapping or touching windows are joined, and an occurrence that runs past the range is cut at it.",
+            "items": {
+              "$ref": "#/components/schemas/OccurrenceView"
+            }
+          },
+          "time_zone": {
+            "type": "string",
+            "description": "The site timezone the schedule's windows are read in."
+          },
+          "to": {
+            "type": "string",
+            "description": "The last day covered, YYYY-MM-DD."
+          }
+        },
+        "required": [
+          "time_zone",
+          "from",
+          "to",
+          "occurrences"
+        ]
+      },
+      "OccurrenceView": {
+        "type": "object",
+        "properties": {
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it stops being active."
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the schedule becomes active, with the site timezone's offset."
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ]
+      },
+      "ScheduleList": {
+        "type": "object",
+        "properties": {
+          "schedules": {
+            "type": "array",
+            "description": "Every schedule, by name.",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleView"
+            }
+          }
+        },
+        "required": [
+          "schedules"
+        ]
+      },
+      "ScheduleRequest": {
+        "type": "object",
+        "properties": {
+          "ends_on": {
+            "type": "string",
+            "description": "The last day, YYYY-MM-DD, on which windows open. Omit it for a schedule that never ends."
+          },
+          "excluded_dates": {
+            "type": "array",
+            "description": "Up to 366 dates, YYYY-MM-DD, on which no window opens.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string",
+            "description": "The schedule's name, up to 100 characters; unique, ignoring case."
+          },
+          "starts_on": {
+            "type": "string",
+            "description": "The first day, YYYY-MM-DD, on which windows open. Omit it for a schedule that has always been in effect."
+          },
+          "windows": {
+            "type": "array",
+            "description": "One to 20 weekly windows.",
+            "items": {
+              "$ref": "#/components/schemas/WindowBody"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "windows"
+        ]
+      },
+      "ScheduleView": {
+        "type": "object",
+        "properties": {
+          "builtin": {
+            "type": "boolean",
+            "description": "True for the seeded Always schedule, which cannot be changed or deleted."
+          },
+          "ends_on": {
+            "type": "string",
+            "description": "The last day, YYYY-MM-DD, on which windows open; absent when the schedule never ends."
+          },
+          "excluded_dates": {
+            "type": "array",
+            "description": "The dates, YYYY-MM-DD, on which no window opens, in order.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "id": {
+            "type": "integer",
+            "description": "Names the schedule in the API."
+          },
+          "name": {
+            "type": "string",
+            "description": "The schedule's name."
+          },
+          "starts_on": {
+            "type": "string",
+            "description": "The first day, YYYY-MM-DD, on which windows open; absent when the schedule has always been in effect."
+          },
+          "windows": {
+            "type": "array",
+            "description": "The weekly windows, in the order they were given.",
+            "items": {
+              "$ref": "#/components/schemas/WindowBody"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "windows",
+          "excluded_dates",
+          "builtin"
+        ]
+      },
       "SettingList": {
         "type": "object",
         "properties": {
@@ -2568,6 +3274,31 @@
           "expired",
           "created_at",
           "groups"
+        ]
+      },
+      "WindowBody": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "array",
+            "description": "The weekdays the window opens on: mon, tue, wed, thu, fri, sat, sun.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "end": {
+            "type": "string",
+            "description": "When the window closes, as HH:MM in the site timezone. An end at or before the start is on the next day, so 00:00 to 00:00 is all day."
+          },
+          "start": {
+            "type": "string",
+            "description": "When the window opens, as HH:MM in the site timezone."
+          }
+        },
+        "required": [
+          "days",
+          "start",
+          "end"
         ]
       }
     },

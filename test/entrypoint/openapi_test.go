@@ -29,6 +29,8 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 
 	groupBody := `{"slug":"night-staff","name":"Night staff","description":"Security and cleaning crews.",` +
 		`"roles":["view-logs"],"preassigned_user_ids":["100234","100877"]}`
+	scheduleBody := `{"name":"Night shift","starts_on":"2026-01-01","ends_on":"2026-12-31",` +
+		`"windows":[{"days":["mon","tue","wed","thu","fri"],"start":"22:00","end":"06:00"}],"excluded_dates":["2026-12-25"]}`
 	userBody := `{"email":"ann.smith@example.com","user_id":"100234","first_name":"Ann","last_name":"Smith",` +
 		`"expires_at":"2030-06-30T00:00:00Z"}`
 	want := []testsupport.APIOperation{
@@ -41,6 +43,12 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 		{Method: "DELETE", Target: "/api/v1/groups/1/members/1", ID: "removeGroupMember", Statuses: []int{204, 401, 403, 404, 409, 500}},
 		{Method: "PUT", Target: "/api/v1/groups/1/members/1", ID: "addGroupMember", Statuses: []int{204, 401, 403, 404, 500}},
 		{Method: "GET", Target: "/api/v1/openapi.json", ID: "getOpenAPI", Statuses: []int{200}},
+		{Method: "GET", Target: "/api/v1/schedules", ID: "listSchedules", Statuses: []int{200, 401, 403, 500}},
+		{Method: "POST", Target: "/api/v1/schedules", ID: "createSchedule", Body: scheduleBody, Statuses: []int{201, 400, 401, 403, 500}},
+		{Method: "DELETE", Target: "/api/v1/schedules/1", ID: "deleteSchedule", Statuses: []int{204, 401, 403, 404, 409, 500}},
+		{Method: "GET", Target: "/api/v1/schedules/1", ID: "getSchedule", Statuses: []int{200, 401, 403, 404, 500}},
+		{Method: "PUT", Target: "/api/v1/schedules/1", ID: "updateSchedule", Body: scheduleBody, Statuses: []int{200, 400, 401, 403, 404, 409, 500}},
+		{Method: "GET", Target: "/api/v1/schedules/1/occurrences", ID: "listScheduleOccurrences", Statuses: []int{200, 400, 401, 403, 404, 500}},
 		{Method: "GET", Target: "/api/v1/settings", ID: "listSettings", Statuses: []int{200, 401, 403, 500}},
 		{Method: "GET", Target: "/api/v1/settings/site_name", ID: "getSetting", Statuses: []int{200, 401, 403, 404, 500}},
 		{Method: "PUT", Target: "/api/v1/settings/site_name", ID: "updateSetting", Body: `{"value":"North Campus"}`,

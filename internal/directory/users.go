@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dakriy/doorcode/internal/auth"
+	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
 )
 
@@ -162,7 +163,7 @@ func (s Service) RestoreUser(ctx context.Context, id int64) error {
 // that no other user has.
 func (s Service) SetCode(ctx context.Context, id int64, code string) error {
 	if problem := codeProblem(code); problem != "" {
-		return Problems{{Field: "code", Message: problem}}
+		return check.Problems{{Field: "code", Message: problem}}
 	}
 	hash, err := s.Auth.CodeHash(ctx, code)
 	if err != nil {
@@ -173,7 +174,7 @@ func (s Service) SetCode(ctx context.Context, id int64, code string) error {
 		return err
 	}
 	if problem := conflict(id, holder.ID, taken, "Another user has this code. Choose a different one."); problem != "" {
-		return Problems{{Field: "code", Message: problem}}
+		return check.Problems{{Field: "code", Message: problem}}
 	}
 	return s.changed(s.Store.SetCodeHash(ctx, id, &hash))
 }
@@ -220,16 +221,16 @@ func (s Service) checkProfile(ctx context.Context, id int64, p Profile) (Profile
 	if err := cmp.Or(emailErr, userIDErr); err != nil {
 		return p, err
 	}
-	var found problems
-	found.add("email", emailProblem)
-	found.add("user_id", userIDProblem)
-	found.add("first_name", tooLong(p.FirstName, maxNameLength, longText))
-	found.add("last_name", tooLong(p.LastName, maxNameLength, longText))
-	found.add("display_name", tooLong(p.DisplayName, maxNameLength, longText))
+	var found check.List
+	found.Add("email", emailProblem)
+	found.Add("user_id", userIDProblem)
+	found.Add("first_name", check.TooLong(p.FirstName, maxNameLength, check.LongText))
+	found.Add("last_name", check.TooLong(p.LastName, maxNameLength, check.LongText))
+	found.Add("display_name", check.TooLong(p.DisplayName, maxNameLength, check.LongText))
 	if p.DisplayName == "" {
-		found.add("display_name", "Enter a display name, or a first or last name.")
+		found.Add("display_name", "Enter a display name, or a first or last name.")
 	}
-	return p, found.err()
+	return p, found.Err()
 }
 
 func tidy(p Profile) Profile {
@@ -251,7 +252,7 @@ func (s Service) emailProblem(ctx context.Context, id int64, email string) (stri
 	if !validEmail(email) {
 		return "Enter an email address like name@example.com.", nil
 	}
-	if long := tooLong(email, maxEmailLength, "Use at most %d characters for the email address."); long != "" {
+	if long := check.TooLong(email, maxEmailLength, "Use at most %d characters for the email address."); long != "" {
 		return long, nil
 	}
 	holder, taken, err := s.Store.UserByEmail(ctx, email)

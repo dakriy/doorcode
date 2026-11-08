@@ -17,8 +17,9 @@ import (
 //go:embed ui/templates/*.html
 var templateFiles embed.FS
 
-// appCSS is built from ui/tailwind.css by `make ui`; htmx and Swagger UI
-// are vendored by the same target. apiDocsJS is ours.
+// appCSS is built from ui/tailwind.css by `make ui`; htmx, Swagger UI, and
+// FullCalendar are vendored by the same target. apiDocsJS and
+// scheduleCalendarJS are ours.
 var (
 	//go:embed ui/static/app.css
 	appCSS []byte
@@ -30,6 +31,10 @@ var (
 	swaggerJS []byte
 	//go:embed ui/static/api-docs.js
 	apiDocsJS []byte
+	//go:embed ui/static/fullcalendar/index.global.min.js
+	fullCalendarJS []byte
+	//go:embed ui/static/schedule-calendar.js
+	scheduleCalendarJS []byte
 )
 
 const (
@@ -51,6 +56,8 @@ var assets = []asset{
 	{name: "SwaggerCSS", path: "/static/swagger-ui/swagger-ui.css", contentType: cssType, content: swaggerCSS},
 	{name: "SwaggerJS", path: "/static/swagger-ui/swagger-ui-bundle.js", contentType: jsType, content: swaggerJS},
 	{name: "APIDocsJS", path: "/static/api-docs.js", contentType: jsType, content: apiDocsJS},
+	{name: "FullCalendarJS", path: "/static/fullcalendar/index.global.min.js", contentType: jsType, content: fullCalendarJS},
+	{name: "ScheduleCalendarJS", path: "/static/schedule-calendar.js", contentType: jsType, content: scheduleCalendarJS},
 }
 
 // assetURLs maps each asset's name to a URL carrying a hash of its content,
@@ -89,6 +96,11 @@ var (
 	groupsTemplate    = shellPage("groups.html")
 	newGroupTemplate  = shellPage("group-new.html")
 	groupTemplate     = shellPage("group.html")
+
+	schedulesTemplate        = shellPage("schedules.html")
+	newScheduleTemplate      = shellPage("schedule-new.html")
+	scheduleTemplate         = shellPage("schedule.html")
+	scheduleCalendarTemplate = shellPage("schedule-calendar.html")
 )
 
 // navItem is one link in the main navigation. A Reload link loads its page
@@ -111,7 +123,8 @@ var templateFuncs = template.FuncMap{
 	"field": func(name, label, kind, value string, errors map[string]string, help string) fieldView {
 		return fieldView{Name: name, Label: label, Type: kind, Value: value, Error: errors[name], Help: help}
 	},
-	"has": slices.Contains[[]string],
+	"has":      slices.Contains[[]string],
+	"weekdays": func() []dayChoice { return dayChoices },
 	"link": func(href, label string) navItem {
 		return navItem{Href: href, Label: label}
 	},
