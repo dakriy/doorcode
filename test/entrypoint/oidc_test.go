@@ -807,7 +807,7 @@ func TestAnEntitlementsClaimThatIsNeitherTextNorAListHoldsNone(t *testing.T) {
 	}
 }
 
-func TestTheUserinfoEndpointIsNotAskedWhenTheIDTokenHoldsEveryClaimRead(t *testing.T) {
+func TestASignInNeedsNoUserinfoWhenTheIDTokenHoldsEveryClaimRead(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	h, _ := providerSite(t, f)

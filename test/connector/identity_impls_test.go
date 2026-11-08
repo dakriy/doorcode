@@ -5,6 +5,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -75,6 +76,7 @@ type fakeProvider struct {
 	key    *ecdsa.PrivateKey
 	keys   *oidctest.Server
 	mu     sync.Mutex
+	issued int
 	codes  map[string]fakeGrant
 	tokens map[string]map[string]any
 }
@@ -118,7 +120,8 @@ func (p *fakeProvider) authorize(t *testing.T, authURL string, claims, userInfo 
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	code := "code-" + string(rune('a'+len(p.codes)))
+	p.issued++
+	code := fmt.Sprintf("code-%d", p.issued)
 	p.codes[code] = fakeGrant{
 		claims: token, userInfo: userInfo, clientID: testsupport.QueryParam(authURL, "client_id"),
 		redirectURL: testsupport.QueryParam(authURL, "redirect_uri"), challenge: testsupport.QueryParam(authURL, "code_challenge"),

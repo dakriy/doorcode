@@ -533,20 +533,6 @@ func (s Service) ClientSecret(ctx context.Context) (string, error) {
 	return s.secret(keyOIDCClientSecret, stored)
 }
 
-// secret returns the value of the secret setting named key: as the
-// environment gives it, decrypted as stored holds it, or empty, which
-// every secret defaults to.
-func (s Service) secret(key string, stored map[string]connector.StoredSetting) (string, error) {
-	if value, set := s.Env.Lookup(envVarFor(key)); set {
-		return value, nil
-	}
-	row, found := stored[key]
-	if !found {
-		return "", nil
-	}
-	return s.Secrets.open(key, row.Value)
-}
-
 // SetEnrollmentPassword stores password as the one every controller
 // enrolls with.
 func (s Service) SetEnrollmentPassword(ctx context.Context, password string) error {
@@ -604,7 +590,7 @@ func (s Service) Update(ctx context.Context, key, value string) (Setting, error)
 	if _, set := s.Env.Lookup(envVar); set {
 		return Setting{}, fmt.Errorf("%w: %s is set by environment variable %s", ErrReadOnly, key, envVar)
 	}
-	if def.secret && value == "" {
+	if keeps(def, value) {
 		return s.Get(ctx, key)
 	}
 	if def.validate != nil {
@@ -617,15 +603,6 @@ func (s Service) Update(ctx context.Context, key, value string) (Setting, error)
 		return Setting{}, err
 	}
 	return fromStore(def, row), nil
-}
-
-// storable is value as the store holds it for the setting def: encrypted
-// when def is secret.
-func (s Service) storable(def definition, value string) string {
-	if def.secret {
-		return s.Secrets.seal(def.key, value)
-	}
-	return value
 }
 
 // UpdateAll stores each of values, keyed by setting key, that differs from
@@ -643,7 +620,7 @@ func (s Service) UpdateAll(ctx context.Context, values map[string]string) ([]str
 	var changed []definition
 	for i, def := range definitions {
 		value, given := values[def.key]
-		if !given || value == all[i].Value || all[i].ReadOnly() || (def.secret && value == "") {
+		if !given || value == all[i].Value || all[i].ReadOnly() || keeps(def, value) {
 			continue
 		}
 		found.Add(def.key, s.refusal(def, value))
@@ -690,15 +667,6 @@ func (s Service) resolve(def definition, stored map[string]connector.StoredSetti
 // fromStore is the setting as an administrator saved it.
 func fromStore(def definition, row connector.StoredSetting) Setting {
 	return shown(def, Setting{Key: def.key, Value: row.Value, Source: SourceDatabase, EnvVar: envVarFor(def.key), UpdatedAt: row.UpdatedAt})
-}
-
-// shown is s as the setting def lets it be seen: a secret's value masked.
-func shown(def definition, s Setting) Setting {
-	s.Secret = def.secret
-	if def.secret && s.Value != "" {
-		s.Value = Mask
-	}
-	return s
 }
 
 func lookup(key string) (definition, error) {

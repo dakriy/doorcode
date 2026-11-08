@@ -74,6 +74,44 @@ func (s Secrets) open(key, stored string) (string, error) {
 	return string(value), nil
 }
 
+// secret returns the value of the secret setting named key: as the
+// environment gives it, decrypted as stored holds it, or empty, which
+// every secret defaults to.
+func (s Service) secret(key string, stored map[string]connector.StoredSetting) (string, error) {
+	if value, set := s.Env.Lookup(envVarFor(key)); set {
+		return value, nil
+	}
+	row, found := stored[key]
+	if !found {
+		return "", nil
+	}
+	return s.Secrets.open(key, row.Value)
+}
+
+// storable is value as the store holds it for the setting def: encrypted
+// when def is secret.
+func (s Service) storable(def definition, value string) string {
+	if def.secret {
+		return s.Secrets.seal(def.key, value)
+	}
+	return value
+}
+
+// keeps reports whether storing value for the setting def leaves it as it
+// is: an empty value for a secret, which forms and the API offer blank.
+func keeps(def definition, value string) bool {
+	return def.secret && value == ""
+}
+
+// shown is s as the setting def lets it be seen: a secret's value masked.
+func shown(def definition, s Setting) Setting {
+	s.Secret = def.secret
+	if def.secret && s.Value != "" {
+		s.Value = Mask
+	}
+	return s
+}
+
 // unreadable reports a stored secret that cannot be decrypted.
 func unreadable(key string) error {
 	return fmt.Errorf("the stored %s cannot be decrypted with the key in %s; store it again", key, SecretKeyVar)
