@@ -322,7 +322,7 @@ func (a *App) scheduleCalendarPage(w http.ResponseWriter, r *http.Request, viewe
 		Rows:     []occurrenceRow{},
 	}
 	events := []calendarEvent{}
-	for _, in := range expandDays(content.Schedule, zone, first, first.AddDate(0, 0, 6)) {
+	for _, in := range schedule.ExpandDays(content.Schedule, zone, first, first.AddDate(0, 0, 6)) {
 		calendar.Rows = append(calendar.Rows, occurrenceRow{
 			Start: in.Start.Format(occurrenceLayout), End: in.End.Format(occurrenceLayout), Length: lengthText(in.End.Sub(in.Start)),
 		})
@@ -376,7 +376,7 @@ func daysText(days []time.Weekday) string {
 	if len(days) == len(dayLabels) {
 		return "Every day"
 	}
-	held := func(i int) bool { return slices.Contains(days, time.Weekday((i+1)%7)) }
+	held := func(i int) bool { return slices.Contains(days, schedule.Weekday(i)) }
 	var parts []string
 	// start is where the run of held days that reaches i begins.
 	start := 0

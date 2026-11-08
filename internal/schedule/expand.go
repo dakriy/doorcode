@@ -24,8 +24,8 @@ func Expand(sch connector.StoredSchedule, zone *time.Location, from, to time.Tim
 	var found []Interval
 	// A window opens at most a day before it closes, so the day before the
 	// range is the earliest whose windows can reach it.
-	last := civil(to, zone)
-	for day := civil(from, zone).AddDate(0, 0, -1); !day.After(last); day = day.AddDate(0, 0, 1) {
+	last := DateOf(to, zone)
+	for day := DateOf(from, zone).AddDate(0, 0, -1); !day.After(last); day = day.AddDate(0, 0, 1) {
 		if !opensOn(sch, day) {
 			continue
 		}
@@ -39,8 +39,20 @@ func Expand(sch connector.StoredSchedule, zone *time.Location, from, to time.Tim
 	return merged(found)
 }
 
-// civil is the date t falls on in zone, as midnight UTC on that date.
-func civil(t time.Time, zone *time.Location) time.Time {
+// ExpandDays is Expand from the start of the date first to the end of the
+// date last in zone, with every time in zone. Dates are midnight UTC on the
+// day they name.
+func ExpandDays(sch connector.StoredSchedule, zone *time.Location, first, last time.Time) []Interval {
+	intervals := Expand(sch, zone, at(first, 0, zone), at(last.AddDate(0, 0, 1), 0, zone))
+	for i := range intervals {
+		intervals[i].Start = intervals[i].Start.In(zone)
+		intervals[i].End = intervals[i].End.In(zone)
+	}
+	return intervals
+}
+
+// DateOf is the date t falls on in zone, as midnight UTC on that date.
+func DateOf(t time.Time, zone *time.Location) time.Time {
 	local := t.In(zone)
 	return time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.UTC)
 }

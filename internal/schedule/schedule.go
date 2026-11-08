@@ -39,8 +39,13 @@ const DateLayout = "2006-01-02"
 const clockLayout = "15:04"
 
 // DayNames names the weekdays as fields and the API write them, Monday
-// first; the name at index i is the weekday (i+1)%7.
+// first; the name at index i is Weekday(i).
 var DayNames = []string{"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
+
+// Weekday is the weekday at index i of DayNames.
+func Weekday(i int) time.Weekday {
+	return time.Weekday((i + 1) % 7)
+}
 
 // Fields is what an administrator says about a schedule, as typed. Text is
 // trimmed before it is checked.
@@ -238,7 +243,7 @@ func weekdays(names []string) ([]time.Weekday, bool) {
 		if i < 0 {
 			return days, false
 		}
-		days = append(days, time.Weekday((i+1)%7))
+		days = append(days, Weekday(i))
 	}
 	return slices.Compact(slices.Sorted(slices.Values(days))), true
 }
@@ -287,7 +292,7 @@ func FieldsOf(sch connector.StoredSchedule) Fields {
 func DayNamesOf(days []time.Weekday) []string {
 	names := []string{}
 	for i, name := range DayNames {
-		if slices.Contains(days, time.Weekday((i+1)%7)) {
+		if slices.Contains(days, Weekday(i)) {
 			names = append(names, name)
 		}
 	}

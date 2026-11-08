@@ -228,7 +228,7 @@ func (a *App) listOccurrences(w http.ResponseWriter, r *http.Request, _ auth.Use
 		return
 	}
 	views := []occurrenceView{}
-	for _, in := range expandDays(sch, current.Zone, first, last) {
+	for _, in := range schedule.ExpandDays(sch, current.Zone, first, last) {
 		views = append(views, occurrenceView{Start: in.Start, End: in.End})
 	}
 	writeJSON(w, http.StatusOK, occurrenceList{
@@ -259,25 +259,11 @@ func queryDate(r *http.Request, name string, fallback time.Time) (time.Time, boo
 
 // today is the date it is now in zone, as midnight UTC on that date.
 func (a *App) today(zone *time.Location) time.Time {
-	now := a.clock.Now().In(zone)
-	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	return schedule.DateOf(a.clock.Now(), zone)
 }
 
 // monday is the Monday on or before day.
 func monday(day time.Time) time.Time {
 	back := (int(day.Weekday()) + 6) % 7
 	return day.AddDate(0, 0, -back)
-}
-
-// expandDays is when sch is active from the start of first to the end of
-// last in zone, with every time in zone.
-func expandDays(sch connector.StoredSchedule, zone *time.Location, first, last time.Time) []schedule.Interval {
-	from := time.Date(first.Year(), first.Month(), first.Day(), 0, 0, 0, 0, zone)
-	to := time.Date(last.Year(), last.Month(), last.Day()+1, 0, 0, 0, 0, zone)
-	intervals := schedule.Expand(sch, zone, from, to)
-	for i := range intervals {
-		intervals[i].Start = intervals[i].Start.In(zone)
-		intervals[i].End = intervals[i].End.In(zone)
-	}
-	return intervals
 }

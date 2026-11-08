@@ -8,6 +8,7 @@ import (
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/directory"
+	"github.com/dakriy/doorcode/internal/schedule"
 )
 
 // pageRefusals maps each refusal the directory reports for a change made
@@ -45,16 +46,13 @@ func done(w http.ResponseWriter, r *http.Request, location, flash string) {
 	redirect(w, location)
 }
 
-// dateLayout is how a date input writes a date.
-const dateLayout = "2006-01-02"
-
 // formDate reads a date input: the start of that day in zone, nil when the
 // input is empty.
 func formDate(value string, zone *time.Location) (*time.Time, error) {
 	if value == "" {
 		return nil, nil
 	}
-	day, err := time.ParseInLocation(dateLayout, value, zone)
+	day, err := time.ParseInLocation(schedule.DateLayout, value, zone)
 	return &day, err
 }
 
@@ -64,7 +62,7 @@ func inputDate(t *time.Time, zone *time.Location) string {
 	if t == nil {
 		return ""
 	}
-	return t.In(zone).Format(dateLayout)
+	return t.In(zone).Format(schedule.DateLayout)
 }
 
 // siteZone returns the site timezone, after showing that it could not be
