@@ -1,0 +1,22 @@
+# Connector complexity cap (5) over connector implementations and the
+# production wiring only.
+version: "2"
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  default: none
+  enable:
+    - gocognit
+    - gocyclo
+  settings:
+    gocyclo:
+      min-complexity: 5
+    gocognit:
+      min-complexity: 5
+  exclusions:
+    rules:
+      - path-except: (^|/)(cmd|internal/driver)/
+        linters: [gocyclo, gocognit]

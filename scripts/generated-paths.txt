@@ -1,0 +1,2 @@
+# Module-relative path prefixes of generated code, one per line. These are the
+# only paths excluded from the coverage gate. Lines starting with # are ignored.

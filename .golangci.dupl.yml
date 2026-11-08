@@ -1,0 +1,19 @@
+# Duplicate-code report over production code. Run with --issues-exit-code=0:
+# it reports, it never fails.
+version: "2"
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  default: none
+  enable:
+    - dupl
+  settings:
+    dupl:
+      threshold: 50
+  exclusions:
+    rules:
+      - path: (_test\.go$|(^|/)(test|internal/testsupport)/)
+        linters: [dupl]

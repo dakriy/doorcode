@@ -1,0 +1,148 @@
+# Main lint config: static analysis, formatting, import gates, effect-call
+# bans, and the application complexity cap (15). Connector code (cmd/ and
+# internal/driver/) gets its cap of 5 from .golangci.connector.yml.
+version: "2"
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - depguard
+    - errcheck
+    - errorlint
+    - forbidigo
+    - gocognit
+    - gocyclo
+    - govet
+    - ineffassign
+    - misspell
+    - noctx
+    - staticcheck
+    - unconvert
+    - unused
+  settings:
+    gocyclo:
+      min-complexity: 15
+    gocognit:
+      min-complexity: 15
+    depguard:
+      rules:
+        # Application code: a denylist. Everything not listed is allowed.
+        application:
+          files:
+            - "$all"
+            - "!$test"
+            - "!**/cmd/**"
+            - "!**/internal/driver/**"
+            - "!**/internal/testsupport/**"
+          deny:
+            - pkg: github.com/dakriy/doorcode/internal/driver
+              desc: connector implementation; reach it through a connector interface
+            - pkg: github.com/dakriy/doorcode/cmd
+              desc: production wiring
+            - pkg: github.com/dakriy/doorcode/internal/testsupport
+              desc: test support is for tests only
+            - pkg: os
+              desc: "effect package (filesystem, process, environment): put it behind a connector"
+            - pkg: io/ioutil
+              desc: "effect package (filesystem): put it behind a connector"
+            - pkg: io/fs
+              desc: "effect package (filesystem): put it behind a connector"
+            - pkg: path/filepath
+              desc: "effect package (filesystem): put it behind a connector"
+            - pkg: syscall
+              desc: "effect package: put it behind a connector"
+            - pkg: plugin
+              desc: "effect package (loads code from disk): put it behind a connector"
+            - pkg: net$
+              desc: "effect package (network): put it behind a connector"
+            - pkg: net/rpc
+              desc: "effect package (network): put it behind a connector"
+            - pkg: net/smtp
+              desc: "effect package (network): put it behind a connector"
+            - pkg: net/http/httptest
+              desc: "test helper that opens sockets; tests use testsupport"
+            - pkg: net/http/httputil
+              desc: "reverse proxy and client dumps perform network I/O: put it behind a connector"
+            - pkg: net/http/cookiejar
+              desc: "HTTP client state: put the client behind a connector"
+            - pkg: database/sql
+              desc: "effect package (database): put it behind a connector"
+            - pkg: math/rand
+              desc: "effect package (randomness): put it behind a connector"
+            - pkg: crypto/rand
+              desc: "effect package (entropy): put it behind a connector"
+            - pkg: log
+              desc: "effect package (writes to stderr/syslog): put it behind a connector"
+            - pkg: github.com/google/uuid
+              desc: "identifier generation: put it behind a connector"
+        # Entrypoint suite: an allowlist. Nothing else may be imported.
+        entrypoint-suite:
+          list-mode: strict
+          files:
+            - "**/test/entrypoint/**"
+          allow:
+            - testing$
+            - github.com/dakriy/doorcode/internal/app$
+            - github.com/dakriy/doorcode/internal/testsupport$
+            - github.com/google/go-cmp/cmp$
+        # No mocking library anywhere in the repository.
+        no-mocks:
+          files:
+            - "$all"
+          deny:
+            - pkg: github.com/golang/mock
+              desc: no mocking libraries; write a stub in internal/testsupport
+            - pkg: go.uber.org/mock
+              desc: no mocking libraries; write a stub in internal/testsupport
+            - pkg: github.com/stretchr/testify/mock
+              desc: no mocking libraries; write a stub in internal/testsupport
+            - pkg: github.com/vektra/mockery
+              desc: no mocking libraries; write a stub in internal/testsupport
+            - pkg: github.com/gojuno/minimock
+              desc: no mocking libraries; write a stub in internal/testsupport
+            - pkg: github.com/petergtz/pegomock
+              desc: no mocking libraries; write a stub in internal/testsupport
+            - pkg: github.com/maxbrunsfeld/counterfeiter
+              desc: no mocking libraries; write a stub in internal/testsupport
+            - pkg: github.com/DATA-DOG/go-sqlmock
+              desc: no mocking libraries; write a stub in internal/testsupport
+            - pkg: github.com/jarcoal/httpmock
+              desc: no mocking libraries; write a stub in internal/testsupport
+    forbidigo:
+      forbid:
+        - pattern: ^time\.(Now|Since|Until|Sleep|After|AfterFunc|Tick|NewTimer|NewTicker)$
+          msg: clock read; put the clock behind a connector
+        - pattern: ^os\.(Getenv|LookupEnv|Environ|ExpandEnv)$
+          msg: environment read; pass configuration through a connector
+        - pattern: ^fmt\.(Print|Printf|Println|Scan|Scanf|Scanln)$
+          msg: process stdio; write to the handles the entrypoint was given
+        - pattern: ^print(ln)?$
+          msg: process stdio; write to the handles the entrypoint was given
+        - pattern: ^http\.(Get|Head|Post|PostForm|DefaultClient|DefaultTransport|Client|Transport|NewRequest|NewRequestWithContext|ListenAndServe|ListenAndServeTLS|Serve|ServeTLS|Server|ServeFile|ServeFileFS|FileServer|FileServerFS|Dir)$
+          msg: HTTP client, listener, or filesystem access; put it behind a connector
+        - pattern: ^uuid\.
+          msg: identifier generation; put it behind a connector
+  exclusions:
+    rules:
+      - path: (^|/)(cmd|internal/driver)/
+        linters: [gocyclo, gocognit]
+      - path: (^|/)(cmd|internal/driver|internal/testsupport|test)/
+        linters: [forbidigo]
+      # Connector-test helpers are shared by the fast and slow files; under
+      # either build tag the other half's helpers look unused.
+      - path: (^|/)test/connector/
+        linters: [unused]
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/dakriy/doorcode
