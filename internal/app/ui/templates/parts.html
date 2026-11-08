@@ -1,0 +1,87 @@
+{{/* Pieces every admin page shares, so forms, badges, and tables look alike. */}}
+
+{{define "field"}}
+<div>
+  <label for="{{.Name}}" class="block text-sm font-medium">{{.Label}}</label>
+  <input id="{{.Name}}" name="{{.Name}}" type="{{.Type}}" value="{{.Value}}"{{if eq .Type "email"}} autocomplete="off" spellcheck="false"{{end}}
+    {{if .Error}}aria-invalid="true" aria-describedby="{{.Name}}-error"{{end}}
+    class="{{template "input-class"}}">
+  {{template "field-note" .}}
+</div>
+{{end}}
+
+{{define "field-note"}}{{if .Error}}<p id="{{.Name}}-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{.Error}}</p>
+{{else if .Help}}<p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{{.Help}}</p>{{end}}{{end}}
+
+{{define "input-class"}}mt-2 {{template "input-base"}}{{end}}
+
+{{define "input-base"}}block w-full rounded-lg border-0 bg-white px-3 py-2 text-sm shadow-xs ring-1 ring-zinc-300 ring-inset placeholder:text-zinc-400 focus:ring-2 focus:ring-brand-600 focus:outline-none aria-invalid:ring-red-500 dark:bg-zinc-950 dark:ring-zinc-700 dark:focus:ring-brand-500{{end}}
+
+{{define "primary-class"}}inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-xs transition hover:bg-brand-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-wait disabled:opacity-70 dark:bg-brand-500 dark:hover:bg-brand-400{{end}}
+
+{{define "secondary-class"}}inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-zinc-700 ring-1 ring-zinc-300 ring-inset transition hover:bg-zinc-100 dark:text-zinc-200 dark:ring-zinc-700 dark:hover:bg-zinc-800{{end}}
+
+{{define "danger-class"}}inline-flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-red-700 ring-1 ring-red-300 ring-inset transition hover:bg-red-50 dark:text-red-300 dark:ring-red-900 dark:hover:bg-red-950{{end}}
+
+{{define "card-class"}}rounded-xl border border-zinc-200 bg-white shadow-xs dark:border-zinc-800 dark:bg-zinc-900{{end}}
+
+{{define "table-head-class"}}bg-zinc-50 text-left text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:bg-zinc-900/60 dark:text-zinc-400{{end}}
+
+{{define "link-class"}}font-medium text-brand-700 hover:text-brand-500 dark:text-brand-300 dark:hover:text-brand-200{{end}}
+
+{{define "alert"}}{{if .}}
+<div role="alert" class="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/60 dark:bg-red-950/50 dark:text-red-200">
+  <svg class="mt-0.5 size-5 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>
+  <span>{{.}}</span>
+</div>
+{{end}}{{end}}
+
+{{define "roles"}}<div class="flex flex-wrap gap-1">{{range .}}<span class="inline-flex rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 ring-1 ring-brand-600/20 ring-inset dark:bg-brand-950 dark:text-brand-300 dark:ring-brand-400/20">{{.}}</span>
+{{else}}<span class="text-xs text-zinc-400 dark:text-zinc-500">No roles</span>{{end}}</div>{{end}}
+
+{{define "status"}}{{if eq . "Active"}}<span class="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-600/20 ring-inset dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-400/20">Active</span>
+{{else if eq . "Expired"}}<span class="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-600/20 ring-inset dark:bg-amber-950 dark:text-amber-300 dark:ring-amber-400/20">Expired</span>
+{{else}}<span class="inline-flex rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 ring-1 ring-red-600/20 ring-inset dark:bg-red-950 dark:text-red-300 dark:ring-red-400/20">{{.}}</span>{{end}}{{end}}
+
+{{define "back"}}<a href="{{.Href}}" class="inline-flex items-center gap-1 text-sm font-medium text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"><svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/></svg>{{.Label}}</a>{{end}}
+
+{{define "user-fields"}}
+<div class="grid gap-5 sm:grid-cols-2">
+  <div class="sm:col-span-2">{{template "field" (field "email" "Email" "email" .Email .Errors "Unique. Stored in lowercase.")}}</div>
+  {{template "field" (field "first_name" "First name" "text" .FirstName .Errors "")}}
+  {{template "field" (field "last_name" "Last name" "text" .LastName .Errors "")}}
+  {{template "field" (field "display_name" "Display name" "text" .DisplayName .Errors "Leave it empty to use the first and last names.")}}
+  {{template "field" (field "user_id" "User id" "text" .UserID .Errors "An employee or student number, if the user has one. Unique.")}}
+  {{template "field" (field "expires_on" "Expires on" "date" .ExpiresOn .Errors "The account stops working at the start of this day, UTC. Leave it empty for never.")}}
+</div>
+{{end}}
+
+{{define "group-fields"}}
+<div class="grid gap-5 sm:grid-cols-2">
+  {{template "field" (field "name" "Name" "text" .Name .Errors "")}}
+  {{template "field" (field "slug" "Slug" "text" .Slug .Errors "Lowercase words joined by dashes. Identity provider entitlements match it.")}}
+  <div class="sm:col-span-2">
+    <label for="description" class="block text-sm font-medium">Description</label>
+    <textarea id="description" name="description" rows="2"{{with index .Errors "description"}} aria-invalid="true" aria-describedby="description-error"{{end}} class="{{template "input-class"}}">{{.Description}}</textarea>
+    {{template "field-note" (field "description" "" "" "" .Errors "")}}
+  </div>
+  <fieldset name="roles" class="sm:col-span-2"{{with index .Errors "roles"}} aria-invalid="true" aria-describedby="roles-error"{{end}}>
+    <legend class="text-sm font-medium">Roles</legend>
+    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Every member holds these roles. admin may do everything.</p>
+    <div class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      {{$roles := .Roles}}{{range .Choices}}
+      <label class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm ring-1 ring-zinc-200 ring-inset has-checked:bg-brand-50 has-checked:ring-brand-300 dark:ring-zinc-800 dark:has-checked:bg-brand-950 dark:has-checked:ring-brand-700">
+        <input type="checkbox" name="roles" value="{{.}}"{{if has $roles .}} checked{{end}} class="size-4 rounded border-zinc-300 accent-brand-600">
+        <span class="font-mono text-xs">{{.}}</span>
+      </label>
+      {{end}}
+    </div>
+    {{with index .Errors "roles"}}<p id="roles-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{.}}</p>{{end}}
+  </fieldset>
+  <div class="sm:col-span-2">
+    <label for="preassigned_user_ids" class="block text-sm font-medium">Pre-assigned user ids</label>
+    <textarea id="preassigned_user_ids" name="preassigned_user_ids" rows="4" spellcheck="false"{{with index .Errors "preassigned_user_ids"}} aria-invalid="true" aria-describedby="preassigned_user_ids-error"{{end}} class="{{template "input-class"}} font-mono">{{.Preassigned}}</textarea>
+    {{template "field-note" (field "preassigned_user_ids" "" "" "" .Errors "One per line. A user with one of these user ids joins the group when they are created.")}}
+  </div>
+</div>
+{{end}}

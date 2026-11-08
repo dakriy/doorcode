@@ -42,19 +42,33 @@ func hashPassword(password string, salt []byte, memoryKiB uint32) string {
 	return hashParams{memory: memoryKiB, iterations: hashIterations, parallelism: hashParallelism, salt: salt}.encode(password)
 }
 
+// prefix is the PHC string of p without a key: what a hash made with p
+// starts with.
+func (p hashParams) prefix() string {
+	return fmt.Sprintf(hashParamFormat, argon2.Version, p.memory, p.iterations, p.parallelism, hashEncoding.EncodeToString(p.salt))
+}
+
+// parseHash reads the parameters and salt from the start of a PHC string,
+// which may end after the salt or carry a key after it. A salt that is not
+// valid base64 reads as empty.
+func parseHash(encoded string) (hashParams, error) {
+	var version int
+	var p hashParams
+	var rest string
+	_, err := fmt.Sscanf(encoded, hashParamFormat, &version, &p.memory, &p.iterations, &p.parallelism, &rest)
+	salt, _, _ := strings.Cut(rest, "$")
+	p.salt, _ = hashEncoding.DecodeString(salt)
+	return p, err
+}
+
 // passwordMatches reports whether password hashes to encoded. It rehashes
 // password with the parameters and salt encoded carries and compares the
 // whole strings, so a malformed salt or key, or another version, can never
 // match.
 func passwordMatches(encoded, password string) bool {
-	var version int
-	var p hashParams
-	var rest string
-	_, err := fmt.Sscanf(encoded, hashParamFormat, &version, &p.memory, &p.iterations, &p.parallelism, &rest)
+	p, err := parseHash(encoded)
 	if err != nil {
 		return false
 	}
-	salt, _, _ := strings.Cut(rest, "$")
-	p.salt, _ = hashEncoding.DecodeString(salt)
 	return subtle.ConstantTimeCompare([]byte(p.encode(password)), []byte(encoded)) == 1
 }

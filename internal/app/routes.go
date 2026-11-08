@@ -62,7 +62,11 @@ func (a *App) routes() []route {
 	}
 	table = append(table, assetRoutes()...)
 	table = append(table, a.settingsRoutes()...)
-	return append(table, a.tokenRoutes()...)
+	table = append(table, a.tokenRoutes()...)
+	table = append(table, a.userRoutes()...)
+	table = append(table, a.userPageRoutes()...)
+	table = append(table, a.groupRoutes()...)
+	return append(table, a.groupPageRoutes()...)
 }
 
 // handler registers every route of table on a new mux.
@@ -103,13 +107,14 @@ func (a *App) guard(rt route) http.HandlerFunc {
 var apiInfo = openapi.Info{
 	Title:       "doorcode API",
 	Version:     "1",
-	Description: `Every operation except this document needs a personal API token, created on the API tokens page or with createToken. A token acts as the user who created it, with that user's roles. Send it as a bearer token or as the password of HTTP Basic authentication.`,
+	Description: `Every operation except this document needs a personal API token, created on the API tokens page or with createToken, or by an administrator for another user with createUserToken. A token acts as the user it belongs to, with that user's roles. Send it as a bearer token or as the password of HTTP Basic authentication.`,
 	Server:      apiPrefix,
 }
 
 // apiDocument is the OpenAPI document of the API operations in table. Each
 // operation that needs a signed-in caller also lists the refusals the access
-// check answers with.
+// check answers with; an operation that documents one of those statuses
+// itself describes it instead.
 func apiDocument(table []route) []byte {
 	var ops []openapi.Operation
 	for _, rt := range table {
@@ -125,7 +130,7 @@ func apiDocument(table []route) []byte {
 			Secured:   !rt.access.public,
 			Params:    rt.doc.params,
 			Request:   rt.doc.request,
-			Responses: slices.Concat(rt.doc.responses, refusals(rt.access)),
+			Responses: slices.Concat(refusals(rt.access), rt.doc.responses),
 		})
 	}
 	return openapi.Document(apiInfo, ops)

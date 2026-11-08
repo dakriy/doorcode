@@ -16,8 +16,28 @@ import (
 	"github.com/dakriy/doorcode/internal/settings"
 )
 
-// RoleAdmin is the role that may do everything.
-const RoleAdmin = "admin"
+// The roles a group may carry. A user holds a role when one of their groups
+// carries it or carries RoleAdmin, which may do everything.
+const (
+	RoleAdmin           = "admin"
+	RoleManageUsers     = "manage-users"
+	RoleManageDoors     = "manage-doors"
+	RoleManageGroups    = "manage-groups"
+	RoleManageSchedules = "manage-schedules"
+	RoleManageFirmware  = "manage-firmware"
+	RoleViewLogs        = "view-logs"
+	RoleDoorCommander   = "door-commander"
+)
+
+// Roles is every role, in the order pages list them.
+var Roles = []string{
+	RoleAdmin, RoleManageUsers, RoleManageDoors, RoleManageGroups,
+	RoleManageSchedules, RoleManageFirmware, RoleViewLogs, RoleDoorCommander,
+}
+
+// AdministratorsSlug is the slug of the group the schema seeds with the
+// admin role. The first administrator joins it.
+const AdministratorsSlug = "administrators"
 
 // sessionHours is how long a sign-in lasts.
 const sessionHours = 12
@@ -47,16 +67,45 @@ type User struct {
 	ID          int64
 	Email       string
 	DisplayName string
-	roles       []string
+	// groups are the groups u is a member of; their roles are u's.
+	groups []connector.UserGroup
 }
 
-// Has reports whether u holds role. It is the one place that decides.
+// Has reports whether u holds role: whether one of u's groups carries it or
+// carries the admin role. It is the one place that decides.
 func (u User) Has(role string) bool {
-	return slices.Contains(u.roles, role)
+	for _, g := range u.groups {
+		if slices.Contains(g.Roles, role) || slices.Contains(g.Roles, RoleAdmin) {
+			return true
+		}
+	}
+	return false
+}
+
+// Without is u as it would be if u were not a member of the group whose id
+// is groupID.
+func (u User) Without(groupID int64) User {
+	u.groups = slices.DeleteFunc(slices.Clone(u.groups), func(g connector.UserGroup) bool { return g.ID == groupID })
+	return u
+}
+
+// WithGroupRoles is u as it would be if the group whose id is groupID
+// carried roles instead of what it carries.
+func (u User) WithGroupRoles(groupID int64, roles []string) User {
+	groups := make([]connector.UserGroup, 0, len(u.groups))
+	for _, g := range u.groups {
+		if g.ID == groupID {
+			g.Roles = roles
+		}
+		groups = append(groups, g)
+	}
+	u.groups = groups
+	return u
 }
 
 // Store is the part of the store this package uses.
 type Store interface {
+	connector.SettingsStore
 	connector.UsersStore
 	connector.SessionsStore
 	connector.TokensStore
@@ -85,10 +134,9 @@ func (s Service) CreateFirstAdmin(ctx context.Context) error {
 		Email:        normalizeEmail(current.AdminEmail),
 		DisplayName:  adminDisplayName,
 		PasswordHash: &hash,
-		Roles:        []string{RoleAdmin},
 		CreatedAt:    s.Clock.Now(),
 	}
-	created, err := s.Store.CreateFirstUser(ctx, admin)
+	created, err := s.Store.CreateFirstUser(ctx, admin, AdministratorsSlug)
 	if err != nil {
 		return err
 	}
@@ -160,7 +208,7 @@ func (s Service) admit(u connector.StoredUser, found bool, ends *time.Time) (Use
 	if credentialEnded || accountEnded(u, now) {
 		return User{}, false, nil
 	}
-	return User{ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, roles: u.Roles}, true, nil
+	return User{ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, groups: u.Groups}, true, nil
 }
 
 // SignOut ends the session token belongs to.

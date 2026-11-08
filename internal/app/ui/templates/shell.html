@@ -8,6 +8,8 @@
       </a>
       <nav aria-label="Main" class="flex flex-1 items-center gap-1 text-sm font-medium">
         {{template "navlink" (navlink "/" "Home" .Path)}}
+        {{if .Viewer.Has "manage-users"}}{{template "navlink" (navlink "/admin/users" "Users" .Path)}}{{end}}
+        {{if .Viewer.Has "manage-groups"}}{{template "navlink" (navlink "/admin/groups" "Groups" .Path)}}{{end}}
         {{if .IsAdmin}}{{template "navlink" (navlink "/admin/settings" "Settings" .Path)}}{{end}}
         {{template "navlink" (navlink "/account/tokens" "API tokens" .Path)}}
         {{template "navlink" (reloadlink "/api-docs" "API docs" .Path)}}

@@ -100,7 +100,12 @@ func viewOfToken(t auth.Token) tokenView {
 }
 
 func (a *App) listTokens(w http.ResponseWriter, r *http.Request, caller auth.User) {
-	tokens, err := a.auth.Tokens(r.Context(), caller)
+	a.writeTokens(w, r, caller.ID)
+}
+
+// writeTokens answers with the tokens of the user whose id is ownerID.
+func (a *App) writeTokens(w http.ResponseWriter, r *http.Request, ownerID int64) {
+	tokens, err := a.auth.Tokens(r.Context(), ownerID)
 	if err != nil {
 		a.internalError(w, err)
 		return
@@ -113,6 +118,12 @@ func (a *App) listTokens(w http.ResponseWriter, r *http.Request, caller auth.Use
 }
 
 func (a *App) createToken(w http.ResponseWriter, r *http.Request, caller auth.User) {
+	a.issueToken(w, r, caller.ID)
+}
+
+// issueToken creates the token the request asks for, for the user whose id
+// is ownerID.
+func (a *App) issueToken(w http.ResponseWriter, r *http.Request, ownerID int64) {
 	var body tokenRequest
 	if err := decodeJSON(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, `body must be a JSON object with a string "name"`)
@@ -124,7 +135,7 @@ func (a *App) createToken(w http.ResponseWriter, r *http.Request, caller auth.Us
 		writeError(w, http.StatusBadRequest, problem)
 		return
 	}
-	token, secret, err := a.auth.CreateToken(r.Context(), caller, name, body.ExpiresInDays)
+	token, secret, err := a.auth.CreateToken(r.Context(), ownerID, name, body.ExpiresInDays)
 	if err != nil {
 		a.internalError(w, err)
 		return
@@ -133,26 +144,32 @@ func (a *App) createToken(w http.ResponseWriter, r *http.Request, caller auth.Us
 }
 
 func (a *App) revokeToken(w http.ResponseWriter, r *http.Request, caller auth.User) {
-	revoked, err := a.revoke(r, caller)
+	a.withdrawToken(w, r, caller.ID, "id", "you have no token with this id")
+}
+
+// withdrawToken revokes the token the path parameter param names of the
+// user whose id is ownerID, answering with missing when they have none.
+func (a *App) withdrawToken(w http.ResponseWriter, r *http.Request, ownerID int64, param, missing string) {
+	revoked, err := a.revoke(r, ownerID, param)
 	if err != nil {
 		a.internalError(w, err)
 		return
 	}
 	if !revoked {
-		writeError(w, http.StatusNotFound, "you have no token with this id")
+		writeError(w, http.StatusNotFound, missing)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// revoke revokes the caller's token the path names, and reports whether
-// there was one.
-func (a *App) revoke(r *http.Request, caller auth.User) (bool, error) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+// revoke revokes the token of the user whose id is ownerID that the path
+// parameter param names, and reports whether there was one.
+func (a *App) revoke(r *http.Request, ownerID int64, param string) (bool, error) {
+	id, err := strconv.ParseInt(r.PathValue(param), 10, 64)
 	if err != nil {
 		return false, nil
 	}
-	return a.auth.RevokeToken(r.Context(), caller, id)
+	return a.auth.RevokeToken(r.Context(), ownerID, id)
 }
 
 // tokensContent is the API tokens page's content.
@@ -197,18 +214,25 @@ func (a *App) tokensPage(w http.ResponseWriter, r *http.Request, viewer auth.Use
 	a.renderTokens(w, r, http.StatusOK, viewer, tokenForm{Expiry: defaultTokenExpiry}, nil)
 }
 
-func (a *App) createTokenFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
+// readTokenForm reads the token form, and reports whether it is fine; when
+// it is not, the form says why.
+func readTokenForm(r *http.Request) (tokenForm, *int, bool) {
 	form := tokenForm{Name: strings.TrimSpace(r.PostFormValue("name")), Expiry: r.PostFormValue("expires_in_days")}
 	days, err := formDays(form.Expiry)
 	form.NameError, form.ExpiryError = tokenProblems(form.Name, days)
 	if err != nil {
 		form.ExpiryError = "Choose when the token expires."
 	}
-	if form.NameError != "" || form.ExpiryError != "" {
+	return form, days, form.NameError == "" && form.ExpiryError == ""
+}
+
+func (a *App) createTokenFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
+	form, days, ok := readTokenForm(r)
+	if !ok {
 		a.renderTokens(w, r, http.StatusUnprocessableEntity, viewer, form, nil)
 		return
 	}
-	token, secret, err := a.auth.CreateToken(r.Context(), viewer, form.Name, days)
+	token, secret, err := a.auth.CreateToken(r.Context(), viewer.ID, form.Name, days)
 	if err != nil {
 		a.pageError(w, err)
 		return
@@ -228,7 +252,14 @@ func formDays(value string) (*int, error) {
 }
 
 func (a *App) revokeTokenFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	revoked, err := a.revoke(r, viewer)
+	a.revokeFromForm(w, r, viewer.ID, "id", "/account/tokens")
+}
+
+// revokeFromForm revokes the token the path parameter param names of the
+// user whose id is ownerID, and returns the browser to back saying what
+// happened.
+func (a *App) revokeFromForm(w http.ResponseWriter, r *http.Request, ownerID int64, param, back string) {
+	revoked, err := a.revoke(r, ownerID, param)
 	if err != nil {
 		a.pageError(w, err)
 		return
@@ -237,12 +268,11 @@ func (a *App) revokeTokenFromForm(w http.ResponseWriter, r *http.Request, viewer
 	if revoked {
 		flash = "token-revoked"
 	}
-	setCookie(w, r, flashCookie, flash, 0)
-	redirect(w, "/account/tokens")
+	done(w, r, back, flash)
 }
 
 func (a *App) renderTokens(w http.ResponseWriter, r *http.Request, status int, viewer auth.User, form tokenForm, created *createdSecret) {
-	tokens, err := a.auth.Tokens(r.Context(), viewer)
+	tokens, err := a.auth.Tokens(r.Context(), viewer.ID)
 	if err != nil {
 		a.pageError(w, err)
 		return

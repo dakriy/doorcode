@@ -79,40 +79,6 @@ func (s *Store) PutSetting(ctx context.Context, key, value string, at time.Time)
 	return err
 }
 
-// userColumns lists the users columns in the order scanUser reads them.
-const userColumns = `users.id, users.email, users.display_name, users.password_hash,
-	users.roles, users.expires_at, users.deleted_at, users.created_at`
-
-func userFields(u *connector.StoredUser) []any {
-	return []any{&u.ID, &u.Email, &u.DisplayName, &u.PasswordHash, &u.Roles, &u.ExpiresAt, &u.DeletedAt, &u.CreatedAt}
-}
-
-// CreateFirstUser inserts u when the users table is empty. The table lock
-// keeps two servers starting together from both inserting.
-func (s *Store) CreateFirstUser(ctx context.Context, u connector.StoredUser) (bool, error) {
-	var created bool
-	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `lock table users in exclusive mode`); err != nil {
-			return err
-		}
-		tag, err := tx.Exec(ctx, `
-			insert into users (email, display_name, password_hash, roles, expires_at, deleted_at, created_at)
-			select $1, $2, $3, $4, $5, $6, $7
-			where not exists (select 1 from users)`,
-			u.Email, u.DisplayName, u.PasswordHash, u.Roles, u.ExpiresAt, u.DeletedAt, u.CreatedAt)
-		created = tag.RowsAffected() == 1
-		return err
-	})
-	return created, err
-}
-
-// UserByEmail returns the user stored under email.
-func (s *Store) UserByEmail(ctx context.Context, email string) (connector.StoredUser, bool, error) {
-	var u connector.StoredUser
-	err := s.pool.QueryRow(ctx, `select `+userColumns+` from users where email = $1`, email).Scan(userFields(&u)...)
-	return found(u, err)
-}
-
 // CreateSession inserts a session.
 func (s *Store) CreateSession(ctx context.Context, session connector.StoredSession) error {
 	_, err := s.pool.Exec(ctx, `
@@ -130,7 +96,7 @@ func (s *Store) SessionUser(ctx context.Context, tokenHash []byte) (connector.St
 		select sessions.token_hash, sessions.user_id, sessions.created_at, sessions.expires_at, `+userColumns+`
 		from sessions join users on users.id = sessions.user_id
 		where sessions.token_hash = $1`, tokenHash).Scan(dest...)
-	u, ok, err := found(u, err)
+	u, ok, err := s.withGroups(ctx, u, err)
 	return session, u, ok, err
 }
 
@@ -180,7 +146,7 @@ func (s *Store) TokenUser(ctx context.Context, tokenHash []byte) (connector.Stor
 		select `+tokenColumns+`, `+userColumns+`
 		from api_tokens join users on users.id = api_tokens.user_id
 		where api_tokens.token_hash = $1`, tokenHash).Scan(append(tokenFields(&t), userFields(&u)...)...)
-	u, ok, err := found(u, err)
+	u, ok, err := s.withGroups(ctx, u, err)
 	return t, u, ok, err
 }
 

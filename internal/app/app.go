@@ -10,16 +10,19 @@ import (
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/directory"
 	"github.com/dakriy/doorcode/internal/settings"
 )
 
 // App is the running application.
 type App struct {
-	log      connector.Log
-	entropy  connector.Entropy
-	settings settings.Service
-	auth     auth.Service
-	root     http.Handler
+	log       connector.Log
+	entropy   connector.Entropy
+	clock     connector.Clock
+	settings  settings.Service
+	auth      auth.Service
+	directory directory.Service
+	root      http.Handler
 	// openapi is the OpenAPI document of the route table's API operations.
 	openapi []byte
 }
@@ -38,11 +41,14 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 	clock := f.Clock()
 	entropy := f.Entropy()
 	s := settings.Service{Store: store, Env: f.Environment(), Clock: clock}
+	authService := auth.Service{Store: store, Settings: s, Clock: clock, Entropy: entropy, Log: log}
 	a := &App{
-		log:      log,
-		entropy:  entropy,
-		settings: s,
-		auth:     auth.Service{Store: store, Settings: s, Clock: clock, Entropy: entropy, Log: log},
+		log:       log,
+		entropy:   entropy,
+		clock:     clock,
+		settings:  s,
+		auth:      authService,
+		directory: directory.Service{Store: store, Auth: authService, Clock: clock},
 	}
 	if err := a.auth.CreateFirstAdmin(ctx); err != nil {
 		return nil, fmt.Errorf("create first administrator: %w", err)

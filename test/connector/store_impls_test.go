@@ -40,6 +40,18 @@ var storeImpls = []storeImpl{
 // drops the schema when the test ends.
 func freshPostgres(t *testing.T) connector.Store {
 	t.Helper()
+	store, err := postgres.Open(context.Background(), freshSchema(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(store.Close)
+	return store
+}
+
+// freshSchema creates a new, empty schema of the test database, drops it
+// when the test ends, and returns a URL whose connections use it.
+func freshSchema(t *testing.T) string {
+	t.Helper()
 	base := os.Getenv(testDatabaseEnv)
 	if base == "" {
 		t.Fatalf("%s must name a disposable Postgres database (see AGENTS.md)", testDatabaseEnv)
@@ -64,12 +76,20 @@ func freshPostgres(t *testing.T) connector.Store {
 	query := u.Query()
 	query.Set("search_path", schema)
 	u.RawQuery = query.Encode()
-	store, err := postgres.Open(ctx, u.String())
+	return u.String()
+}
+
+// connect opens a connection to the database at url, closed when the test
+// ends.
+func connect(t *testing.T, url string) *pgx.Conn {
+	t.Helper()
+	ctx := context.Background()
+	conn, err := pgx.Connect(ctx, url)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(store.Close)
-	return store
+	t.Cleanup(func() { _ = conn.Close(ctx) })
+	return conn
 }
 
 // migrated returns a fresh store with its schema in place.

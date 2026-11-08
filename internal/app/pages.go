@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"html/template"
 	"net/http"
+	"slices"
+	"strings"
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
@@ -80,6 +82,13 @@ var (
 	forbiddenTemplate = shellPage("forbidden.html")
 	tokensTemplate    = shellPage("tokens.html")
 	apiDocsTemplate   = shellPage("api-docs.html")
+	notFoundTemplate  = shellPage("not-found.html")
+	usersTemplate     = shellPage("users.html")
+	newUserTemplate   = shellPage("user-new.html")
+	userTemplate      = shellPage("user.html")
+	groupsTemplate    = shellPage("groups.html")
+	newGroupTemplate  = shellPage("group-new.html")
+	groupTemplate     = shellPage("group.html")
 )
 
 // navItem is one link in the main navigation. A Reload link loads its page
@@ -94,11 +103,35 @@ type navItem struct {
 
 var templateFuncs = template.FuncMap{
 	"navlink": func(href, label, path string) navItem {
-		return navItem{Href: href, Label: label, Current: href == path}
+		return navItem{Href: href, Label: label, Current: within(path, href)}
 	},
 	"reloadlink": func(href, label, path string) navItem {
-		return navItem{Href: href, Label: label, Current: href == path, Reload: true}
+		return navItem{Href: href, Label: label, Current: within(path, href), Reload: true}
 	},
+	"field": func(name, label, kind, value string, errors map[string]string, help string) fieldView {
+		return fieldView{Name: name, Label: label, Type: kind, Value: value, Error: errors[name], Help: help}
+	},
+	"has": slices.Contains[[]string],
+	"link": func(href, label string) navItem {
+		return navItem{Href: href, Label: label}
+	},
+}
+
+// within reports whether path is the page href or, for any page but home,
+// one below it.
+func within(path, href string) bool {
+	return path == href || (href != "/" && strings.HasPrefix(path, href+"/"))
+}
+
+// fieldView is one labelled input of a form, with its problem or, without
+// one, its help.
+type fieldView struct {
+	Name  string
+	Label string
+	Type  string
+	Value string
+	Error string
+	Help  string
 }
 
 func barePage(name string) *template.Template {
@@ -106,7 +139,7 @@ func barePage(name string) *template.Template {
 }
 
 func shellPage(name string) *template.Template {
-	return parsePage("ui/templates/base.html", "ui/templates/shell.html", "ui/templates/"+name)
+	return parsePage("ui/templates/base.html", "ui/templates/shell.html", "ui/templates/parts.html", "ui/templates/"+name)
 }
 
 func parsePage(files ...string) *template.Template {

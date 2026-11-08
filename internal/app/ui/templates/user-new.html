@@ -1,0 +1,12 @@
+{{define "content"}}
+{{template "back" (link "/admin/users" "All users")}}
+<h1 class="mt-4 text-2xl font-semibold tracking-tight">New user</h1>
+<p class="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">A user whose user id is pre-assigned to a group joins that group as they are created. Set their door code once they exist.</p>
+<form method="post" action="/admin/users" novalidate hx-disabled-elt="find button" class="mt-8 max-w-3xl p-6 {{template "card-class"}}">
+  {{template "user-fields" .Content}}
+  <div class="mt-8 flex justify-end gap-3">
+    <a href="/admin/users" class="{{template "secondary-class"}}">Cancel</a>
+    <button type="submit" class="{{template "primary-class"}}">Create user</button>
+  </div>
+</form>
+{{end}}

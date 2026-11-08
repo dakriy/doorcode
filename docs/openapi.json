@@ -3,7 +3,7 @@
   "info": {
     "title": "doorcode API",
     "version": "1",
-    "description": "Every operation except this document needs a personal API token, created on the API tokens page or with createToken. A token acts as the user who created it, with that user's roles. Send it as a bearer token or as the password of HTTP Basic authentication."
+    "description": "Every operation except this document needs a personal API token, created on the API tokens page or with createToken, or by an administrator for another user with createUserToken. A token acts as the user it belongs to, with that user's roles. Send it as a bearer token or as the password of HTTP Basic authentication."
   },
   "servers": [
     {
@@ -11,6 +11,695 @@
     }
   ],
   "paths": {
+    "/groups": {
+      "get": {
+        "operationId": "listGroups",
+        "summary": "List every group",
+        "tags": [
+          "groups"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every group.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-groups role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createGroup",
+        "summary": "Create a group",
+        "tags": [
+          "groups"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupRequest"
+              },
+              "example": {
+                "slug": "night-staff",
+                "name": "Night staff",
+                "description": "Security and cleaning crews.",
+                "roles": [
+                  "view-logs"
+                ],
+                "preassigned_user_ids": [
+                  "100234",
+                  "100877"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new group.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON group, or a field is wrong; the error says which.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-groups role, or does not hold every role the group carries or would carry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/groups/{id}": {
+      "delete": {
+        "operationId": "deleteGroup",
+        "summary": "Delete a group",
+        "tags": [
+          "groups"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The group's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The group and its memberships are gone. Its members keep their accounts."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-groups role, or does not hold every role the group carries or would carry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No group has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The change would take the admin role from the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getGroup",
+        "summary": "Read one group",
+        "tags": [
+          "groups"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The group's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The group.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-groups role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No group has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateGroup",
+        "summary": "Replace a group",
+        "tags": [
+          "groups"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The group's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupRequest"
+              },
+              "example": {
+                "slug": "night-staff",
+                "name": "Night staff",
+                "description": "Security and cleaning crews.",
+                "roles": [
+                  "view-logs"
+                ],
+                "preassigned_user_ids": [
+                  "100234",
+                  "100877"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The group as it is now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON group, or a field is wrong; the error says which.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-groups role, or does not hold every role the group carries or would carry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No group has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The change would take the admin role from the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/groups/{id}/members": {
+      "get": {
+        "operationId": "listGroupMembers",
+        "summary": "List a group's members",
+        "tags": [
+          "groups"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The group's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The group's members.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-groups role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No group has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/groups/{id}/members/{user}": {
+      "delete": {
+        "operationId": "removeGroupMember",
+        "summary": "Remove a member from a group",
+        "tags": [
+          "groups"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The group's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "user",
+            "in": "path",
+            "required": true,
+            "description": "The member's user id in the API (the id field of a user).",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The user is no longer a member."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-groups role, or does not hold every role the group carries or would carry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No group has this id, or the user is not a member.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The change would take the admin role from the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "addGroupMember",
+        "summary": "Add a member to a group",
+        "tags": [
+          "groups"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The group's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "user",
+            "in": "path",
+            "required": true,
+            "description": "The member's user id in the API (the id field of a user).",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The user is a member. Adding a member again changes nothing."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-groups role, or does not hold every role the group carries or would carry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No group or no user has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/openapi.json": {
       "get": {
         "operationId": "getOpenAPI",
@@ -461,10 +1150,997 @@
           }
         }
       }
+    },
+    "/users": {
+      "get": {
+        "operationId": "listUsers",
+        "summary": "List users, a page at a time",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Keeps users whose email, user id, or names contain this text, ignoring case.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "smith"
+          },
+          {
+            "name": "show",
+            "in": "query",
+            "required": false,
+            "description": "current (the default) lists users who are not deleted; deleted lists those who are.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "current"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "The page to return, from 1 (the default).",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "description": "How many users a page holds, from 1 to 200; 25 by default.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 25
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The page of users.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A query parameter is out of range.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-users role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createUser",
+        "summary": "Create a user",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRequest"
+              },
+              "example": {
+                "email": "ann.smith@example.com",
+                "user_id": "100234",
+                "first_name": "Ann",
+                "last_name": "Smith",
+                "expires_at": "2030-06-30T00:00:00Z"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new user, already a member of every group whose pre-assigned user ids hold theirs.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON user, or a field is wrong; the error says which.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-users role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{id}": {
+      "delete": {
+        "operationId": "deleteUser",
+        "summary": "Delete a user",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The user's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The user is deleted and refused everywhere; their history stays. Deleting a deleted user changes nothing."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-users role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No user has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The user is the caller, who cannot delete their own account.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getUser",
+        "summary": "Read one user",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The user's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-users role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No user has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateUser",
+        "summary": "Replace a user's profile",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The user's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRequest"
+              },
+              "example": {
+                "email": "ann.smith@example.com",
+                "user_id": "100234",
+                "first_name": "Ann",
+                "last_name": "Smith",
+                "expires_at": "2030-06-30T00:00:00Z"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The user with the new profile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON user, or a field is wrong; the error says which.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-users role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No user has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{id}/code": {
+      "delete": {
+        "operationId": "clearUserCode",
+        "summary": "Remove a user's door code",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The user's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The user has no door code."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-users role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No user has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setUserCode",
+        "summary": "Set a user's door code",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The user's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodeRequest"
+              },
+              "example": {
+                "code": "73914862"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The code is set. It is stored only as a hash and never shown again."
+          },
+          "400": {
+            "description": "The body is not a JSON code, the code is not 6 to 20 digits, or another user has it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-users role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No user has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{id}/restore": {
+      "post": {
+        "operationId": "restoreUser",
+        "summary": "Restore a deleted user",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The user's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The user is no longer deleted."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-users role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No user has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{id}/tokens": {
+      "get": {
+        "operationId": "listUserTokens",
+        "summary": "List a user's personal API tokens",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The user's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The user's tokens, without their secrets.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the admin role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No user has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createUserToken",
+        "summary": "Create a personal API token for a user",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The user's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenRequest"
+              },
+              "example": {
+                "name": "door sync",
+                "expires_in_days": 30
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The token, which acts as the user with their roles, and its secret, shown this once.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON token request, or the name or expiry is out of range.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the admin role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No user has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{id}/tokens/{token}": {
+      "delete": {
+        "operationId": "revokeUserToken",
+        "summary": "Revoke a user's personal API token",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The user's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "description": "The token's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The token is revoked and refused from now on."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the admin role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No user has this id, or the user has no token with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "CodeRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "The door code: 6 to 20 digits that no other user has."
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
       "CreatedToken": {
         "type": "object",
         "properties": {
@@ -496,6 +2172,141 @@
         },
         "required": [
           "error"
+        ]
+      },
+      "GroupList": {
+        "type": "object",
+        "properties": {
+          "groups": {
+            "type": "array",
+            "description": "Every group, by name.",
+            "items": {
+              "$ref": "#/components/schemas/GroupView"
+            }
+          }
+        },
+        "required": [
+          "groups"
+        ]
+      },
+      "GroupRef": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "The group's id."
+          },
+          "name": {
+            "type": "string",
+            "description": "The group's name."
+          },
+          "slug": {
+            "type": "string",
+            "description": "The group's slug."
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name"
+        ]
+      },
+      "GroupRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "What the group is for, up to 1000 characters."
+          },
+          "name": {
+            "type": "string",
+            "description": "The group's name, up to 100 characters."
+          },
+          "preassigned_user_ids": {
+            "type": "array",
+            "description": "User ids whose users join the group when they are created.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "roles": {
+            "type": "array",
+            "description": "The roles the group carries: admin, manage-users, manage-doors, manage-groups, manage-schedules, manage-firmware, view-logs, door-commander. The caller must hold each.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "slug": {
+            "type": "string",
+            "description": "Up to 64 lowercase letters and digits, in words joined by single dashes; unique."
+          }
+        },
+        "required": [
+          "slug",
+          "name"
+        ]
+      },
+      "GroupView": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "What the group is for; may be empty."
+          },
+          "id": {
+            "type": "integer",
+            "description": "Names the group in the API."
+          },
+          "member_count": {
+            "type": "integer",
+            "description": "How many users are members."
+          },
+          "name": {
+            "type": "string",
+            "description": "The group's name."
+          },
+          "preassigned_user_ids": {
+            "type": "array",
+            "description": "User ids whose users join the group when they are created.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "roles": {
+            "type": "array",
+            "description": "The roles the group carries; every member holds them.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "slug": {
+            "type": "string",
+            "description": "The group's unique, URL-safe name; identity providers' entitlements match it."
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "description",
+          "roles",
+          "preassigned_user_ids",
+          "member_count"
+        ]
+      },
+      "MemberList": {
+        "type": "object",
+        "properties": {
+          "members": {
+            "type": "array",
+            "description": "The group's members, by display name.",
+            "items": {
+              "$ref": "#/components/schemas/UserView"
+            }
+          }
+        },
+        "required": [
+          "members"
         ]
       },
       "SettingList": {
@@ -624,6 +2435,139 @@
           "name",
           "created_at",
           "expired"
+        ]
+      },
+      "UserList": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "description": "This page's number, from 1."
+          },
+          "per_page": {
+            "type": "integer",
+            "description": "How many users a page holds."
+          },
+          "total": {
+            "type": "integer",
+            "description": "How many users the search selects, on every page together."
+          },
+          "users": {
+            "type": "array",
+            "description": "This page of users, by display name.",
+            "items": {
+              "$ref": "#/components/schemas/UserView"
+            }
+          }
+        },
+        "required": [
+          "users",
+          "total",
+          "page",
+          "per_page"
+        ]
+      },
+      "UserRequest": {
+        "type": "object",
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "description": "The name pages show, up to 100 characters. Omit it to use the first and last names."
+          },
+          "email": {
+            "type": "string",
+            "description": "The user's email address; stored lowercase and unique."
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the account stops working. Omit it for an account that never expires."
+          },
+          "first_name": {
+            "type": "string",
+            "description": "The user's first name, up to 100 characters."
+          },
+          "last_name": {
+            "type": "string",
+            "description": "The user's last name, up to 100 characters."
+          },
+          "user_id": {
+            "type": "string",
+            "description": "The user's external id, up to 64 letters, digits, dots, dashes, or underscores; unique. Omit it for a user without one."
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "UserView": {
+        "type": "object",
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the user was created."
+          },
+          "deleted_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the user was deleted; absent unless they are deleted."
+          },
+          "display_name": {
+            "type": "string",
+            "description": "The name pages show for the user."
+          },
+          "email": {
+            "type": "string",
+            "description": "The user's email address, lowercase."
+          },
+          "expired": {
+            "type": "boolean",
+            "description": "True once the account has expired."
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the account stops working; absent when it never expires."
+          },
+          "first_name": {
+            "type": "string",
+            "description": "The user's first name; may be empty."
+          },
+          "groups": {
+            "type": "array",
+            "description": "The groups the user is a member of, by name. The user holds every role these groups carry.",
+            "items": {
+              "$ref": "#/components/schemas/GroupRef"
+            }
+          },
+          "has_code": {
+            "type": "boolean",
+            "description": "True when the user has a door code. The code itself is never shown."
+          },
+          "id": {
+            "type": "integer",
+            "description": "Names the user in the API."
+          },
+          "last_name": {
+            "type": "string",
+            "description": "The user's last name; may be empty."
+          },
+          "user_id": {
+            "type": "string",
+            "description": "The user's external id, such as an employee or student number; absent when they have none."
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "first_name",
+          "last_name",
+          "display_name",
+          "has_code",
+          "expired",
+          "created_at",
+          "groups"
         ]
       }
     },

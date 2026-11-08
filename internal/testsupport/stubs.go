@@ -19,9 +19,17 @@ var ErrUnavailable = errors.New("stub: unavailable")
 // it does not hold, as a foreign key would.
 var ErrNoSuchUser = errors.New("stub: no such user")
 
+// ErrNoSuchGroup is what the stub store reports for a membership naming a
+// group it does not hold, as a foreign key would.
+var ErrNoSuchGroup = errors.New("stub: no such group")
+
 // ErrDuplicate is what the stub store reports for a key it already holds, as
 // a unique constraint would.
 var ErrDuplicate = errors.New("stub: duplicate key")
+
+// ErrNull is what the stub store reports for a list it is given as nil,
+// which the database would hold as NULL and refuse.
+var ErrNull = errors.New("stub: null value")
 
 // ErrNotMigrated is what the stub store reports when used before Migrate,
 // as a real database without its tables would.
@@ -106,6 +114,10 @@ type Store struct {
 	migrated   bool
 	settings   map[string]connector.StoredSetting
 	users      []connector.StoredUser
+	groups     []connector.StoredGroup
+	members    []membership
+	nextGroup  int64
+	codeParams string
 	sessions   map[string]connector.StoredSession
 	tokens     []connector.StoredToken
 	nextToken  int64
@@ -118,6 +130,10 @@ type aggregate int
 const (
 	settingsAggregate aggregate = iota
 	usersAggregate
+	groupsAggregate
+	settingWrites
+	userWrites
+	groupWrites
 	sessionsAggregate
 	tokensAggregate
 )
@@ -131,10 +147,22 @@ func NewStore() *Store {
 	}
 }
 
-// Migrate marks the schema as present.
+// AdministratorsGroup is the group the schema migration seeds, carrying the
+// admin role.
+var AdministratorsGroup = connector.StoredGroup{
+	ID: 1, Slug: "administrators", Name: "Administrators", Description: "Members may do everything.",
+	Roles: []string{"admin"}, PreassignedUserIDs: []string{},
+}
+
+// Migrate marks the schema as present and, the first time, seeds the
+// administrators group as the real migration does.
 func (s *Store) Migrate(context.Context) error {
 	if s.migrateErr != nil {
 		return s.migrateErr
+	}
+	if !s.migrated {
+		s.groups = append(s.groups, cloneGroup(AdministratorsGroup))
+		s.nextGroup = AdministratorsGroup.ID
 	}
 	s.migrated = true
 	return nil
@@ -150,37 +178,23 @@ func (s *Store) Settings(context.Context) (map[string]connector.StoredSetting, e
 
 // PutSetting stores a setting value.
 func (s *Store) PutSetting(_ context.Context, key, value string, at time.Time) error {
-	if err := s.usable(settingsAggregate); err != nil {
+	if err := s.writable(settingsAggregate, settingWrites); err != nil {
 		return err
 	}
 	s.settings[key] = connector.StoredSetting{Value: value, UpdatedAt: at}
 	return nil
 }
 
-// CreateFirstUser stores u with the next id when no user exists.
-func (s *Store) CreateFirstUser(_ context.Context, u connector.StoredUser) (bool, error) {
-	if err := s.usable(usersAggregate); err != nil {
-		return false, err
+// CodeHashing stores candidate unless parameters are stored, and returns
+// the stored ones.
+func (s *Store) CodeHashing(_ context.Context, candidate string) (string, error) {
+	if err := s.writable(settingsAggregate, settingWrites); err != nil {
+		return "", err
 	}
-	if len(s.users) > 0 {
-		return false, nil
+	if s.codeParams == "" {
+		s.codeParams = candidate
 	}
-	u.ID = 1
-	u.Roles = slices.Clone(u.Roles)
-	s.users = append(s.users, u)
-	return true, nil
-}
-
-// UserByEmail returns the user stored under email.
-func (s *Store) UserByEmail(_ context.Context, email string) (connector.StoredUser, bool, error) {
-	if err := s.usable(usersAggregate); err != nil {
-		return connector.StoredUser{}, false, err
-	}
-	u := s.findUser(email)
-	if u == nil {
-		return connector.StoredUser{}, false, nil
-	}
-	return *u, true, nil
+	return s.codeParams, nil
 }
 
 // CreateSession stores a session.
@@ -207,7 +221,7 @@ func (s *Store) SessionUser(_ context.Context, tokenHash []byte) (connector.Stor
 	if !ok {
 		return connector.StoredSession{}, connector.StoredUser{}, false, nil
 	}
-	return session, *s.userByID(session.UserID), true, nil
+	return session, s.withGroups(*s.userByID(session.UserID)), true, nil
 }
 
 // DeleteSession removes the session stored under tokenHash.
@@ -259,7 +273,7 @@ func (s *Store) TokenUser(_ context.Context, tokenHash []byte) (connector.Stored
 	}
 	for _, t := range s.tokens {
 		if string(t.TokenHash) == string(tokenHash) {
-			return t, *s.userByID(t.UserID), true, nil
+			return t, s.withGroups(*s.userByID(t.UserID)), true, nil
 		}
 	}
 	return connector.StoredToken{}, connector.StoredUser{}, false, nil
@@ -279,31 +293,13 @@ func (s *Store) DeleteToken(_ context.Context, userID, id int64) (bool, error) {
 	return false, nil
 }
 
-func (s *Store) userByID(id int64) *connector.StoredUser {
-	for i := range s.users {
-		if s.users[i].ID == id {
-			return &s.users[i]
-		}
+// writable is usable for a method that changes aggregate a, whose writes
+// fail when w does.
+func (s *Store) writable(a, w aggregate) error {
+	if s.failing[w] {
+		return ErrUnavailable
 	}
-	return nil
-}
-
-func (s *Store) findUser(email string) *connector.StoredUser {
-	for i := range s.users {
-		if s.users[i].Email == email {
-			return &s.users[i]
-		}
-	}
-	return nil
-}
-
-// userByEmail is the user a test arranges by email, which must exist.
-func (s *Store) userByEmail(email string) *connector.StoredUser {
-	u := s.findUser(email)
-	if u == nil {
-		panic("stub: no user with email " + email)
-	}
-	return u
+	return s.usable(a)
 }
 
 func (s *Store) usable(a aggregate) error {
@@ -323,12 +319,17 @@ func (s *Store) SeedSetting(key, value, at string) {
 }
 
 // SeedUser stores a user with the next id, as an earlier run would have, and
-// no local password.
+// no local password, without needing the schema migrated.
 func (s *Store) SeedUser(email, displayName string) {
 	s.users = append(s.users, connector.StoredUser{
-		ID: int64(len(s.users) + 1), Email: email, DisplayName: displayName,
-		Roles: []string{}, CreatedAt: mustTime(DefaultNow),
+		ID: int64(len(s.users) + 1), Email: email, DisplayName: displayName, CreatedAt: mustTime(DefaultNow),
 	})
+}
+
+// SeedCodeHashing stores the site's door code hashing parameters, as a
+// damaged or foreign record would hold them.
+func (s *Store) SeedCodeHashing(parameters string) {
+	s.codeParams = parameters
 }
 
 // ExpireUser makes the user with email expire at an RFC 3339 time.
@@ -343,9 +344,17 @@ func (s *Store) DeleteUser(email, at string) {
 	s.userByEmail(email).DeletedAt = &deleted
 }
 
-// RevokeRoles takes every role from the user with email.
+// RevokeRoles takes every role from the user with email by ending all their
+// memberships.
 func (s *Store) RevokeRoles(email string) {
-	s.userByEmail(email).Roles = []string{}
+	id := s.userByEmail(email).ID
+	var kept []membership
+	for _, m := range s.members {
+		if m.user != id {
+			kept = append(kept, m)
+		}
+	}
+	s.members = kept
 }
 
 // RemovePassword takes the local password from the user with email.
@@ -368,6 +377,7 @@ func (s *Store) FailMigration() {
 func (s *Store) Fail() {
 	s.FailSettings()
 	s.FailUsers()
+	s.FailGroups()
 	s.FailSessions()
 	s.FailTokens()
 }
@@ -380,6 +390,30 @@ func (s *Store) FailSettings() {
 // FailUsers makes the users methods report ErrUnavailable.
 func (s *Store) FailUsers() {
 	s.failing[usersAggregate] = true
+}
+
+// FailGroups makes the group and membership methods report ErrUnavailable.
+func (s *Store) FailGroups() {
+	s.failing[groupsAggregate] = true
+}
+
+// FailSettingWrites makes the methods that change settings and site
+// parameters report ErrUnavailable, while the ones that read them still
+// work.
+func (s *Store) FailSettingWrites() {
+	s.failing[settingWrites] = true
+}
+
+// FailUserWrites makes the methods that change users report
+// ErrUnavailable, while the ones that read them still work.
+func (s *Store) FailUserWrites() {
+	s.failing[userWrites] = true
+}
+
+// FailGroupWrites makes the methods that change groups and memberships
+// report ErrUnavailable, while the ones that read them still work.
+func (s *Store) FailGroupWrites() {
+	s.failing[groupWrites] = true
 }
 
 // FailSessions makes the session methods report ErrUnavailable.

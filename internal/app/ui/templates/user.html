@@ -1,0 +1,160 @@
+{{define "content"}}
+{{$c := .Content}}{{$u := $c.User}}
+{{template "back" (link "/admin/users" "All users")}}
+<div class="mt-4 sm:flex sm:items-start sm:justify-between">
+  <div>
+    <div class="flex flex-wrap items-center gap-3">
+      <h1 class="text-2xl font-semibold tracking-tight">{{$u.DisplayName}}</h1>
+      {{template "status" $c.Row.Status}}
+      {{if $c.Self}}<span class="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">You</span>{{end}}
+    </div>
+    <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{{$u.Email}}{{with $u.UserID}} · user id <span class="font-mono">{{.}}</span>{{end}} · created {{$u.CreatedAt.Format "2 Jan 2006"}}</p>
+  </div>
+</div>
+
+{{if $c.Alert}}<div class="mt-6">{{template "alert" $c.Alert}}</div>{{end}}
+{{with $u.DeletedAt}}
+<div class="mt-6 flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200">
+  <p>Deleted on {{.Format "2 Jan 2006"}}. The user is refused everywhere; their history stays.</p>
+  <form method="post" action="/admin/users/{{$u.ID}}/restore">
+    <button type="submit" class="{{template "secondary-class"}} bg-white py-1.5 dark:bg-zinc-900">Restore user</button>
+  </form>
+</div>
+{{end}}
+
+<div class="mt-8 grid gap-8 lg:grid-cols-3">
+  <section aria-labelledby="profile-heading" class="p-6 lg:col-span-2 {{template "card-class"}}">
+    <h2 id="profile-heading" class="text-sm font-semibold">Profile</h2>
+    <form method="post" action="/admin/users/{{$u.ID}}" novalidate hx-disabled-elt="find button" class="mt-5">
+      {{template "user-fields" $c.Form}}
+      <div class="mt-6 flex justify-end">
+        <button type="submit" class="{{template "primary-class"}}">Save changes</button>
+      </div>
+    </form>
+  </section>
+
+  <div class="space-y-8">
+    <section aria-labelledby="code-heading" class="p-6 {{template "card-class"}}">
+      <h2 id="code-heading" class="text-sm font-semibold">Door code</h2>
+      <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{{if $u.HasCode}}This user has a door code. It is stored only as a hash, so it cannot be shown; set a new one to replace it.{{else}}This user has no door code yet.{{end}}</p>
+      <form method="post" action="/admin/users/{{$u.ID}}/code" novalidate hx-disabled-elt="find button" class="mt-4 space-y-4">
+        <div>
+          <label for="code" class="block text-sm font-medium">New code</label>
+          <input id="code" name="code" type="password" inputmode="numeric" autocomplete="new-password" placeholder="6 to 20 digits"
+            {{if $c.CodeError}}aria-invalid="true" aria-describedby="code-error" autofocus{{end}}
+            class="{{template "input-class"}} font-mono tracking-widest">
+          {{if $c.CodeError}}<p id="code-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$c.CodeError}}</p>{{end}}
+        </div>
+        <button type="submit" class="w-full {{template "primary-class"}}">Set code</button>
+      </form>
+      {{if $u.HasCode}}
+      <form method="post" action="/admin/users/{{$u.ID}}/code/clear" class="mt-3" hx-confirm="Remove {{$u.DisplayName}}’s door code? It stops opening doors at once.">
+        <button type="submit" class="w-full {{template "danger-class"}} py-2">Remove code</button>
+      </form>
+      {{end}}
+    </section>
+
+    <section aria-labelledby="groups-heading" class="overflow-hidden {{template "card-class"}}">
+      <div class="px-6 pt-6">
+        <h2 id="groups-heading" class="text-sm font-semibold">Groups</h2>
+        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Change membership from a group’s page.</p>
+      </div>
+      <table aria-label="Groups" class="mt-4 min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+        <thead class="{{template "table-head-class"}}">
+          <tr><th scope="col" class="px-6 py-2">Group</th><th scope="col" class="px-6 py-2">Roles</th></tr>
+        </thead>
+        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+          {{range $c.Row.Groups}}
+          <tr>
+            <td class="px-6 py-3 whitespace-nowrap">{{if $.Viewer.Has "manage-groups"}}<a href="/admin/groups/{{.ID}}" class="{{template "link-class"}}">{{.Name}}</a>{{else}}{{.Name}}{{end}}</td>
+            <td class="px-6 py-3">{{template "roles" .Roles}}</td>
+          </tr>
+          {{else}}
+          <tr><td colspan="2" class="px-6 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">Not a member of any group.</td></tr>
+          {{end}}
+        </tbody>
+      </table>
+    </section>
+  </div>
+</div>
+
+{{if $c.ShowTokens}}
+<section aria-labelledby="tokens-heading" class="mt-8">
+  <h2 id="tokens-heading" class="text-lg font-semibold tracking-tight">API tokens</h2>
+  <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">A token acts as {{$u.DisplayName}}, with their roles. Give it to the script that needs it.</p>
+  {{with $c.Created}}
+  <div class="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-900/60 dark:bg-emerald-950/40">
+    <p role="status" class="text-sm text-emerald-900 dark:text-emerald-100"><span class="font-semibold">Token “{{.Name}}” created.</span> Copy it now: it is shown only this once and cannot be recovered.</p>
+    <label for="secret" class="sr-only">New token</label>
+    <input id="secret" name="secret" type="text" readonly value="{{.Secret}}" autocomplete="off" spellcheck="false"
+      class="mt-4 block w-full rounded-lg border-0 bg-white px-3 py-2 font-mono text-sm shadow-xs ring-1 ring-emerald-300 ring-inset focus:ring-2 focus:ring-emerald-600 focus:outline-none dark:bg-zinc-900 dark:ring-emerald-800">
+  </div>
+  {{end}}
+  <div class="mt-6 grid gap-8 lg:grid-cols-3">
+    <form method="post" action="/admin/users/{{$u.ID}}/tokens" novalidate hx-disabled-elt="find button" class="space-y-5 p-5 {{template "card-class"}}">
+      <div>
+        <label for="name" class="block text-sm font-medium">Name</label>
+        <input id="name" name="name" type="text" maxlength="{{$c.MaxNameLength}}" value="{{$c.TokenForm.Name}}" placeholder="Door sync"
+          {{if $c.TokenForm.NameError}}aria-invalid="true" aria-describedby="name-error"{{end}}
+          class="{{template "input-class"}}">
+        {{if $c.TokenForm.NameError}}<p id="name-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$c.TokenForm.NameError}}</p>{{end}}
+      </div>
+      <div>
+        <label for="expires_in_days" class="block text-sm font-medium">Expires after</label>
+        <select id="expires_in_days" name="expires_in_days"
+          {{if $c.TokenForm.ExpiryError}}aria-invalid="true" aria-describedby="expiry-error"{{end}}
+          class="{{template "input-class"}}">
+          {{range $c.Choices}}<option value="{{.Days}}"{{if eq .Days $c.TokenForm.Expiry}} selected{{end}}>{{.Label}}</option>{{end}}
+        </select>
+        {{if $c.TokenForm.ExpiryError}}<p id="expiry-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$c.TokenForm.ExpiryError}}</p>{{end}}
+      </div>
+      <button type="submit" class="w-full {{template "primary-class"}}">Create token</button>
+    </form>
+    <div class="overflow-hidden lg:col-span-2 {{template "card-class"}}">
+      <div class="overflow-x-auto">
+        <table aria-label="API tokens" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+          <thead class="{{template "table-head-class"}}">
+            <tr>
+              <th scope="col" class="px-4 py-3">Name</th>
+              <th scope="col" class="px-4 py-3">Created</th>
+              <th scope="col" class="px-4 py-3">Expires</th>
+              <th scope="col" class="px-4 py-3"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {{range $c.Tokens}}
+            <tr>
+              <td class="px-4 py-3 font-medium">{{.Name}}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-zinc-600 dark:text-zinc-400">{{.CreatedAt.UTC.Format "2 Jan 2006"}}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-zinc-600 dark:text-zinc-400">{{if .Expired}}Expired {{.ExpiresAt.UTC.Format "2 Jan 2006"}}{{else if .ExpiresAt}}{{.ExpiresAt.UTC.Format "2 Jan 2006"}}{{else}}Never{{end}}</td>
+              <td class="px-4 py-3 text-right">
+                <form method="post" action="/admin/users/{{$u.ID}}/tokens/{{.ID}}/revoke" hx-confirm="Revoke “{{.Name}}”? Anything using it is refused at once. This cannot be undone.">
+                  <button type="submit" class="{{template "danger-class"}}">Revoke</button>
+                </form>
+              </td>
+            </tr>
+            {{else}}
+            <tr><td colspan="4" class="px-4 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">{{$u.DisplayName}} has no API tokens.</td></tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+{{end}}
+
+{{if $c.Self}}
+<p role="note" class="mt-8 rounded-xl border border-dashed border-zinc-300 p-6 text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">This is your own account. You cannot delete it, and you cannot remove your own admin role.</p>
+{{else if not $u.DeletedAt}}
+<section aria-labelledby="danger-heading" class="mt-8 rounded-xl border border-red-200 p-6 dark:border-red-900/60">
+  <h2 id="danger-heading" class="text-sm font-semibold text-red-700 dark:text-red-300">Delete user</h2>
+  <div class="mt-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <p class="text-sm text-zinc-600 dark:text-zinc-400">A deleted user is refused at every door and cannot sign in. Their history stays, and you can restore them later.</p>
+    <form method="post" action="/admin/users/{{$u.ID}}/delete" hx-confirm="Delete {{$u.DisplayName}}? They are refused at every door at once.">
+      <button type="submit" class="{{template "danger-class"}} py-2">Delete user</button>
+    </form>
+  </div>
+</section>
+{{end}}
+{{end}}

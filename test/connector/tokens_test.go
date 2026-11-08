@@ -91,8 +91,7 @@ func TestStoreReturnsATokenWithItsUser(t *testing.T) {
 
 			wantToken := token("two", nil)
 			wantToken.ID = 2
-			wantUser := storedUser("admin@example.com")
-			wantUser.ID = 1
+			wantUser := asFirst(storedUser("admin@example.com"), adminGroups)
 			if diff := cmp.Diff([]any{wantToken, wantUser, true}, []any{gotToken, gotUser, found}); diff != "" {
 				t.Errorf("token, user, found (-want +got):\n%s", diff)
 			}

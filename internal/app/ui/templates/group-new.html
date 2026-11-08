@@ -1,0 +1,13 @@
+{{define "content"}}
+{{template "back" (link "/admin/groups" "All groups")}}
+<h1 class="mt-4 text-2xl font-semibold tracking-tight">New group</h1>
+<p class="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">You can give a group only roles you hold yourself. Add members once it exists.</p>
+{{if .Content.Alert}}<div class="mt-6 max-w-3xl">{{template "alert" .Content.Alert}}</div>{{end}}
+<form method="post" action="/admin/groups" novalidate hx-disabled-elt="find button" class="mt-8 max-w-3xl p-6 {{template "card-class"}}">
+  {{template "group-fields" .Content}}
+  <div class="mt-8 flex justify-end gap-3">
+    <a href="/admin/groups" class="{{template "secondary-class"}}">Cancel</a>
+    <button type="submit" class="{{template "primary-class"}}">Create group</button>
+  </div>
+</form>
+{{end}}

@@ -27,7 +27,19 @@ func TestServedOpenAPIDocumentIsTheGeneratedOne(t *testing.T) {
 func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 	got := testsupport.OpenAPIOperations(openAPIDocument(t))
 
+	groupBody := `{"slug":"night-staff","name":"Night staff","description":"Security and cleaning crews.",` +
+		`"roles":["view-logs"],"preassigned_user_ids":["100234","100877"]}`
+	userBody := `{"email":"ann.smith@example.com","user_id":"100234","first_name":"Ann","last_name":"Smith",` +
+		`"expires_at":"2030-06-30T00:00:00Z"}`
 	want := []testsupport.APIOperation{
+		{Method: "GET", Target: "/api/v1/groups", ID: "listGroups", Statuses: []int{200, 401, 403, 500}},
+		{Method: "POST", Target: "/api/v1/groups", ID: "createGroup", Body: groupBody, Statuses: []int{201, 400, 401, 403, 500}},
+		{Method: "DELETE", Target: "/api/v1/groups/1", ID: "deleteGroup", Statuses: []int{204, 401, 403, 404, 409, 500}},
+		{Method: "GET", Target: "/api/v1/groups/1", ID: "getGroup", Statuses: []int{200, 401, 403, 404, 500}},
+		{Method: "PUT", Target: "/api/v1/groups/1", ID: "updateGroup", Body: groupBody, Statuses: []int{200, 400, 401, 403, 404, 409, 500}},
+		{Method: "GET", Target: "/api/v1/groups/1/members", ID: "listGroupMembers", Statuses: []int{200, 401, 403, 404, 500}},
+		{Method: "DELETE", Target: "/api/v1/groups/1/members/1", ID: "removeGroupMember", Statuses: []int{204, 401, 403, 404, 409, 500}},
+		{Method: "PUT", Target: "/api/v1/groups/1/members/1", ID: "addGroupMember", Statuses: []int{204, 401, 403, 404, 500}},
 		{Method: "GET", Target: "/api/v1/openapi.json", ID: "getOpenAPI", Statuses: []int{200}},
 		{Method: "GET", Target: "/api/v1/settings", ID: "listSettings", Statuses: []int{200, 401, 403, 500}},
 		{Method: "GET", Target: "/api/v1/settings/site_name", ID: "getSetting", Statuses: []int{200, 401, 403, 404, 500}},
@@ -37,6 +49,19 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 		{Method: "POST", Target: "/api/v1/tokens", ID: "createToken", Body: `{"name":"deploy script","expires_in_days":90}`,
 			Statuses: []int{201, 400, 401, 500}},
 		{Method: "DELETE", Target: "/api/v1/tokens/1", ID: "revokeToken", Statuses: []int{204, 401, 404, 500}},
+		{Method: "GET", Target: "/api/v1/users", ID: "listUsers", Statuses: []int{200, 400, 401, 403, 500}},
+		{Method: "POST", Target: "/api/v1/users", ID: "createUser", Body: userBody, Statuses: []int{201, 400, 401, 403, 500}},
+		{Method: "DELETE", Target: "/api/v1/users/1", ID: "deleteUser", Statuses: []int{204, 401, 403, 404, 409, 500}},
+		{Method: "GET", Target: "/api/v1/users/1", ID: "getUser", Statuses: []int{200, 401, 403, 404, 500}},
+		{Method: "PUT", Target: "/api/v1/users/1", ID: "updateUser", Body: userBody, Statuses: []int{200, 400, 401, 403, 404, 500}},
+		{Method: "DELETE", Target: "/api/v1/users/1/code", ID: "clearUserCode", Statuses: []int{204, 401, 403, 404, 500}},
+		{Method: "PUT", Target: "/api/v1/users/1/code", ID: "setUserCode", Body: `{"code":"73914862"}`,
+			Statuses: []int{204, 400, 401, 403, 404, 500}},
+		{Method: "POST", Target: "/api/v1/users/1/restore", ID: "restoreUser", Statuses: []int{204, 401, 403, 404, 500}},
+		{Method: "GET", Target: "/api/v1/users/1/tokens", ID: "listUserTokens", Statuses: []int{200, 401, 403, 404, 500}},
+		{Method: "POST", Target: "/api/v1/users/1/tokens", ID: "createUserToken", Body: `{"name":"door sync","expires_in_days":30}`,
+			Statuses: []int{201, 400, 401, 403, 404, 500}},
+		{Method: "DELETE", Target: "/api/v1/users/1/tokens/1", ID: "revokeUserToken", Statuses: []int{204, 401, 403, 404, 500}},
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("operations (-want +got):\n%s", diff)

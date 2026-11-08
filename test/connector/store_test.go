@@ -110,19 +110,35 @@ func TestStorePutReplacesTheEarlierValue(t *testing.T) {
 
 func storedUser(email string) connector.StoredUser {
 	hash := "$argon2id$v=19$m=8,t=2,p=1$c2FsdA$a2V5"
+	code := "$argon2id$v=19$m=8,t=2,p=1$c2FsdA$Y29kZQ:" + email
+	userID := "id-" + email
 	expires := time.Date(2031, 1, 5, 9, 0, 0, 0, time.UTC)
 	return connector.StoredUser{
 		Email:        email,
+		UserID:       &userID,
+		FirstName:    "Ada",
+		LastName:     "Admin",
 		DisplayName:  "Administrator",
 		PasswordHash: &hash,
-		Roles:        []string{"admin"},
+		CodeHash:     &code,
 		ExpiresAt:    &expires,
 		CreatedAt:    time.Date(2026, 1, 5, 9, 0, 0, 123456000, time.UTC),
 	}
 }
 
-func TestStoreCreatesTheFirstUserWithAnID(t *testing.T) {
-	bare := connector.StoredUser{Email: "bare@example.com", DisplayName: "Bare", Roles: []string{},
+// adminGroups is what a user in only the seeded administrators group lists
+// as their groups.
+var adminGroups = []connector.UserGroup{{ID: 1, Slug: "administrators", Name: "Administrators", Roles: []string{"admin"}}}
+
+// asFirst is u as the store returns the first user, a member of groups.
+func asFirst(u connector.StoredUser, groups []connector.UserGroup) connector.StoredUser {
+	u.ID = 1
+	u.Groups = groups
+	return u
+}
+
+func TestStoreCreatesTheFirstUserWithAnIDInTheNamedGroup(t *testing.T) {
+	bare := connector.StoredUser{Email: "bare@example.com", DisplayName: "Bare",
 		CreatedAt: time.Date(2026, 1, 5, 9, 0, 0, 0, time.UTC)}
 	deletedAt := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
 	deleted := storedUser("gone@example.com")
@@ -138,7 +154,7 @@ func TestStoreCreatesTheFirstUserWithAnID(t *testing.T) {
 				ctx := context.Background()
 				store := migrated(t, impl)
 
-				created, err := store.CreateFirstUser(ctx, u)
+				created, err := store.CreateFirstUser(ctx, u, "administrators")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -147,8 +163,7 @@ func TestStoreCreatesTheFirstUserWithAnID(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				want := u
-				want.ID = 1
+				want := asFirst(u, adminGroups)
 				if diff := cmp.Diff([]any{true, true, want}, []any{created, found, got}); diff != "" {
 					t.Errorf("created, found, user (-want +got):\n%s", diff)
 				}
@@ -162,11 +177,11 @@ func TestStoreCreatesNoSecondFirstUser(t *testing.T) {
 		t.Run(impl.name, func(t *testing.T) {
 			ctx := context.Background()
 			store := migrated(t, impl)
-			if _, err := store.CreateFirstUser(ctx, storedUser("first@example.com")); err != nil {
+			if _, err := store.CreateFirstUser(ctx, storedUser("first@example.com"), "administrators"); err != nil {
 				t.Fatal(err)
 			}
 
-			created, err := store.CreateFirstUser(ctx, storedUser("second@example.com"))
+			created, err := store.CreateFirstUser(ctx, storedUser("second@example.com"), "administrators")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -187,7 +202,7 @@ func TestStoreFindsNoUserForAnUnknownEmail(t *testing.T) {
 		t.Run(impl.name, func(t *testing.T) {
 			ctx := context.Background()
 			store := migrated(t, impl)
-			if _, err := store.CreateFirstUser(ctx, storedUser("admin@example.com")); err != nil {
+			if _, err := store.CreateFirstUser(ctx, storedUser("admin@example.com"), "administrators"); err != nil {
 				t.Fatal(err)
 			}
 
@@ -209,11 +224,12 @@ func session(token string) connector.StoredSession {
 	}
 }
 
-// withAdmin returns a migrated store holding one user, whose id is 1.
+// withAdmin returns a migrated store holding one user, whose id is 1, in
+// the administrators group.
 func withAdmin(t *testing.T, impl storeImpl) connector.Store {
 	t.Helper()
 	store := migrated(t, impl)
-	if _, err := store.CreateFirstUser(context.Background(), storedUser("admin@example.com")); err != nil {
+	if _, err := store.CreateFirstUser(context.Background(), storedUser("admin@example.com"), "administrators"); err != nil {
 		t.Fatal(err)
 	}
 	return store
@@ -236,8 +252,7 @@ func TestStoreReturnsASessionWithItsUser(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			wantUser := storedUser("admin@example.com")
-			wantUser.ID = 1
+			wantUser := asFirst(storedUser("admin@example.com"), adminGroups)
 			if diff := cmp.Diff([]any{session("two"), wantUser, true}, []any{gotSession, gotUser, found}); diff != "" {
 				t.Errorf("session, user, found (-want +got):\n%s", diff)
 			}

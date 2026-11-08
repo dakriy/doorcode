@@ -16,10 +16,21 @@ const (
 // flashes are the one-time messages a redirect can carry. The cookie holds
 // only the key, so nobody can make the site display text of their choosing.
 var flashes = map[string]string{
-	"signed-in":     "You are signed in.",
-	"signed-out":    "You have been signed out.",
-	"token-revoked": "The token has been revoked. Anything still using it is refused from now on.",
-	"token-gone":    "That token had already been revoked.",
+	"signed-in":      "You are signed in.",
+	"signed-out":     "You have been signed out.",
+	"token-revoked":  "The token has been revoked. Anything still using it is refused from now on.",
+	"token-gone":     "That token had already been revoked.",
+	"user-created":   "The user has been created.",
+	"user-saved":     "The user's changes have been saved.",
+	"user-deleted":   "The user has been deleted. They are refused everywhere until restored.",
+	"user-restored":  "The user has been restored.",
+	"code-set":       "The door code has been set. It is stored only as a hash and cannot be shown.",
+	"code-cleared":   "The door code has been removed.",
+	"group-created":  "The group has been created.",
+	"group-saved":    "The group's changes have been saved.",
+	"group-deleted":  "The group has been deleted.",
+	"member-added":   "The member has been added.",
+	"member-removed": "The member has been removed.",
 }
 
 // signInForm is the sign-in page's content.

@@ -23,13 +23,13 @@ type Token struct {
 	Expired   bool
 }
 
-// CreateToken issues owner a token called name that expires after days, or
+// CreateToken issues the user whose id is ownerID a token called name that expires after days, or
 // never when days is nil. It returns the token and its secret, which is
 // shown once and kept only as a hash.
-func (s Service) CreateToken(ctx context.Context, owner User, name string, days *int) (Token, string, error) {
+func (s Service) CreateToken(ctx context.Context, ownerID int64, name string, days *int) (Token, string, error) {
 	now := s.Clock.Now()
 	secret := apiTokenPrefix + tokenEncoding.EncodeToString(s.Entropy.Bytes(apiTokenBytes))
-	stored := connector.StoredToken{UserID: owner.ID, Name: name, TokenHash: tokenHash(secret), CreatedAt: now}
+	stored := connector.StoredToken{UserID: ownerID, Name: name, TokenHash: tokenHash(secret), CreatedAt: now}
 	if days != nil {
 		expires := now.AddDate(0, 0, *days)
 		stored.ExpiresAt = &expires
@@ -42,9 +42,9 @@ func (s Service) CreateToken(ctx context.Context, owner User, name string, days 
 	return tokenOf(stored, now), secret, nil
 }
 
-// Tokens returns owner's tokens, oldest first.
-func (s Service) Tokens(ctx context.Context, owner User) ([]Token, error) {
-	stored, err := s.Store.UserTokens(ctx, owner.ID)
+// Tokens returns the tokens of the user whose id is ownerID, oldest first.
+func (s Service) Tokens(ctx context.Context, ownerID int64) ([]Token, error) {
+	stored, err := s.Store.UserTokens(ctx, ownerID)
 	if err != nil {
 		return nil, err
 	}
@@ -56,10 +56,10 @@ func (s Service) Tokens(ctx context.Context, owner User) ([]Token, error) {
 	return tokens, nil
 }
 
-// RevokeToken removes owner's token with id, and reports whether owner had
-// one.
-func (s Service) RevokeToken(ctx context.Context, owner User, id int64) (bool, error) {
-	return s.Store.DeleteToken(ctx, owner.ID, id)
+// RevokeToken removes the token with id of the user whose id is ownerID,
+// and reports whether they had one.
+func (s Service) RevokeToken(ctx context.Context, ownerID, id int64) (bool, error) {
+	return s.Store.DeleteToken(ctx, ownerID, id)
 }
 
 // AuthenticateToken returns the user a personal API token secret belongs
