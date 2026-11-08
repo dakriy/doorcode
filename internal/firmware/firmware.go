@@ -205,11 +205,21 @@ func (s Service) SetDefault(ctx context.Context, id *int64) error {
 	if err := s.exists(ctx, id); err != nil {
 		return err
 	}
-	if _, err := s.Store.SetDefaultFirmware(ctx, id); err != nil {
+	if err := s.storeDefault(ctx, id); err != nil {
 		return err
 	}
 	s.Changed()
 	return nil
+}
+
+// storeDefault stores the firmware whose id is id as the default, nil
+// clearing it.
+func (s Service) storeDefault(ctx context.Context, id *int64) error {
+	if id == nil {
+		return s.Store.ClearDefaultFirmware(ctx)
+	}
+	_, err := s.Store.SetDefaultFirmware(ctx, *id)
+	return err
 }
 
 // SetOverride makes the firmware whose id is id the one the door whose id

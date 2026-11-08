@@ -88,12 +88,8 @@ func (s Service) Plan(ctx context.Context) (Plan, error) {
 	if err != nil {
 		return Plan{}, err
 	}
-	var fallback *connector.StoredFirmware
-	chosen := slices.IndexFunc(all, func(f connector.StoredFirmware) bool { return f.Default })
-	if chosen >= 0 {
-		fallback = &all[chosen]
-	}
 	plan := Plan{Firmware: all}
+	fallback := plan.Default()
 	for _, d := range doors {
 		df := DoorFirmware{Door: d, Target: fallback}
 		latest := slices.IndexFunc(updates, func(u connector.StoredUpdate) bool { return u.DoorID == d.ID })
@@ -109,6 +105,16 @@ func (s Service) Plan(ctx context.Context) (Plan, error) {
 	}
 	slices.SortFunc(plan.Doors, func(a, b DoorFirmware) int { return cmp.Compare(a.Door.ID, b.Door.ID) })
 	return plan, nil
+}
+
+// Default is the site's default firmware, nil when there is none.
+func (p Plan) Default() *connector.StoredFirmware {
+	for i := range p.Firmware {
+		if p.Firmware[i].Default {
+			return &p.Firmware[i]
+		}
+	}
+	return nil
 }
 
 // status is df's status in the rollout.
@@ -286,8 +292,12 @@ func (s Service) Acked(ctx context.Context, doorID int64, payload []byte) error 
 		return err
 	}
 	u, err := s.updating(ctx, doorID)
-	if err != nil || u == nil || u.CommandID != m.ID || m.Result != protocol.AckFailed {
+	if err != nil || u == nil {
 		return err
+	}
+	failed := u.CommandID == m.ID && m.Result == protocol.AckFailed
+	if !failed {
+		return nil
 	}
 	why := " The door could not install it."
 	if m.Detail != "" {
@@ -349,8 +359,13 @@ func (s Service) Download(ctx context.Context, doorID int64, version, token stri
 	if err != nil {
 		return nil, err
 	}
+	if u == nil {
+		return nil, ErrNotAllowed
+	}
 	hash := sha256.Sum256([]byte(token))
-	if u == nil || u.Version != version || !s.Clock.Now().Before(u.ExpiresAt) || subtle.ConstantTimeCompare(hash[:], u.TokenHash) != 1 {
+	fits := u.Version == version && subtle.ConstantTimeCompare(hash[:], u.TokenHash) == 1
+	live := s.Clock.Now().Before(u.ExpiresAt)
+	if !fits || !live {
 		return nil, ErrNotAllowed
 	}
 	all, err := s.Store.Firmwares(ctx)

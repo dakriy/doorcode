@@ -60,19 +60,24 @@ func (s *Store) FirmwareImage(ctx context.Context, id int64) ([]byte, bool, erro
 	return found(image, err)
 }
 
-// SetDefaultFirmware makes the firmware with id the only default one, or
-// none the default when id is nil.
-func (s *Store) SetDefaultFirmware(ctx context.Context, id *int64) (bool, error) {
+// SetDefaultFirmware makes the firmware with id the only default one.
+func (s *Store) SetDefaultFirmware(ctx context.Context, id int64) (bool, error) {
 	var held bool
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `update firmware set is_default = false where is_default`); err != nil {
 			return err
 		}
 		tag, err := tx.Exec(ctx, `update firmware set is_default = true where id = $1`, id)
-		held = id == nil || tag.RowsAffected() == 1
+		held = tag.RowsAffected() == 1
 		return err
 	})
 	return held, err
+}
+
+// ClearDefaultFirmware makes no firmware the default.
+func (s *Store) ClearDefaultFirmware(ctx context.Context) error {
+	_, err := s.pool.Exec(ctx, `update firmware set is_default = false where is_default`)
+	return err
 }
 
 // DeleteFirmware removes the firmware with id; the foreign key refuses

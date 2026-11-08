@@ -670,7 +670,8 @@ type EventsStore interface {
 // uploaded it when. UploaderName is the uploader's display name, which the
 // store fills when it returns firmware and ignores when it stores it.
 // Default marks the site's default firmware, which the store sets only
-// through SetDefaultFirmware and ignores when it stores firmware.
+// through SetDefaultFirmware and ClearDefaultFirmware and ignores when it
+// stores firmware.
 type StoredFirmware struct {
 	ID           int64
 	Version      string
@@ -719,9 +720,10 @@ type FirmwareStore interface {
 	// whether there is one.
 	FirmwareImage(ctx context.Context, id int64) ([]byte, bool, error)
 	// SetDefaultFirmware makes the firmware whose id is id the site's
-	// default, and no other, nil leaving the site without one, and
-	// reports whether there is such firmware (always, for nil).
-	SetDefaultFirmware(ctx context.Context, id *int64) (bool, error)
+	// default, and no other, and reports whether there is such firmware.
+	SetDefaultFirmware(ctx context.Context, id int64) (bool, error)
+	// ClearDefaultFirmware leaves the site without default firmware.
+	ClearDefaultFirmware(ctx context.Context) error
 	// DeleteFirmware removes the firmware whose id is id, and reports
 	// whether there was one. It refuses firmware a door runs instead of
 	// the default.

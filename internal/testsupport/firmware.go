@@ -82,19 +82,29 @@ func (s *Store) FirmwareImage(_ context.Context, id int64) ([]byte, bool, error)
 	return slices.Clone(held.image), true, nil
 }
 
-// SetDefaultFirmware makes the firmware with id the only default one, or
-// none the default when id is nil.
-func (s *Store) SetDefaultFirmware(_ context.Context, id *int64) (bool, error) {
+// SetDefaultFirmware makes the firmware with id the only default one.
+func (s *Store) SetDefaultFirmware(_ context.Context, id int64) (bool, error) {
 	if err := s.writable(firmwareAggregate, firmwareWrites); err != nil {
 		return false, err
 	}
-	if id != nil && s.firmwareByID(*id) == nil {
+	if s.firmwareByID(id) == nil {
 		return false, nil
 	}
 	for i := range s.firmware {
-		s.firmware[i].Default = id != nil && s.firmware[i].ID == *id
+		s.firmware[i].Default = s.firmware[i].ID == id
 	}
 	return true, nil
+}
+
+// ClearDefaultFirmware makes no firmware the default.
+func (s *Store) ClearDefaultFirmware(context.Context) error {
+	if err := s.writable(firmwareAggregate, firmwareWrites); err != nil {
+		return err
+	}
+	for i := range s.firmware {
+		s.firmware[i].Default = false
+	}
+	return nil
 }
 
 // DeleteFirmware removes the firmware with id, refusing firmware a door

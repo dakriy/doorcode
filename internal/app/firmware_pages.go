@@ -169,9 +169,9 @@ func firmwareOptions(all []connector.StoredFirmware, none string, chosen *int64)
 	return options
 }
 
-// defaultOf is the id of the default firmware among all, nil when none is.
-func defaultOf(all []connector.StoredFirmware) *int64 {
-	if f := firmwareDefault(all); f != nil {
+// defaultOf is the id of plan's default firmware, nil when there is none.
+func defaultOf(plan firmware.Plan) *int64 {
+	if f := plan.Default(); f != nil {
 		return &f.ID
 	}
 	return nil
@@ -222,15 +222,15 @@ func (a *App) showFirmware(w http.ResponseWriter, r *http.Request, status int, v
 		window = *entered
 	}
 	content := firmwareContent{
-		Defaults: firmwareOptions(plan.Firmware, "No default", defaultOf(plan.Firmware)), Upload: upload, Errors: errs, Window: window,
+		Defaults: firmwareOptions(plan.Firmware, "No default", defaultOf(plan)), Upload: upload, Errors: errs, Window: window,
 		MaxMiB: firmware.MaxMiB, NoAddress: current.PublicURL == "", Versions: []firmwareRow{},
 	}
 	zone := current.Zone
-	running, targeting := counts(plan)
 	for _, f := range plan.Firmware {
+		running, targeting := counts(plan, f.Version)
 		content.Versions = append(content.Versions, firmwareRow{
 			ID: f.ID, Version: f.Version, Uploader: f.UploaderName, Uploaded: f.UploadedAt.In(zone).Format(eventLayout),
-			Running: running[f.Version], Targeting: targeting[f.Version], Default: f.Default,
+			Running: running, Targeting: targeting, Default: f.Default,
 		})
 	}
 	for _, g := range rolloutGroups {
@@ -334,8 +334,8 @@ func (a *App) showFirmwareVersion(w http.ResponseWriter, r *http.Request, status
 		Firmware: f, Uploaded: f.UploadedAt.In(zone).Format(eventLayout), Size: strconv.Itoa(f.Size) + " bytes", Alert: alert, Doors: []rolloutRow{},
 	}
 	for _, df := range plan.Doors {
-		runs := df.Door.Controller != nil && df.Door.Controller.FirmwareVersion == f.Version
-		if df.Door.DeletedAt == nil && (runs || versionText(df.Target, "") == f.Version) {
+		runs, targets := concerns(df, f.Version)
+		if runs || targets {
 			row := rolloutRow{DoorID: df.Door.ID, Door: df.Door.Name, Running: notReported, Target: versionText(df.Target, "None"), Update: statusLabels[df.Status]}
 			if df.Door.Controller != nil {
 				row.Running = firmwareText(df.Door.Controller.FirmwareVersion)
@@ -391,7 +391,7 @@ func (a *App) firmwareCard(ctx context.Context, viewer auth.User, d connector.St
 		return nil, err
 	}
 	df := plan.Doors[slices.IndexFunc(plan.Doors, func(df firmware.DoorFirmware) bool { return df.Door.ID == d.ID })]
-	none := "Follow the default (" + versionText(firmwareDefault(plan.Firmware), "none") + ")"
+	none := "Follow the default (" + versionText(plan.Default(), "none") + ")"
 	card := &doorFirmwareCard{
 		Running: firmwareText(d.Controller.FirmwareVersion), Target: versionText(df.Target, "None"), Status: statusLabels[df.Status],
 		LastUpdate: updateText(df.Update, zone), Options: firmwareOptions(plan.Firmware, none, d.FirmwareID),
@@ -402,16 +402,6 @@ func (a *App) firmwareCard(ctx context.Context, viewer auth.User, d connector.St
 		card.Note = "The door can be updated once its controller is connected."
 	}
 	return card, nil
-}
-
-// firmwareDefault is the default firmware among all, nil when none is.
-func firmwareDefault(all []connector.StoredFirmware) *connector.StoredFirmware {
-	for i := range all {
-		if all[i].Default {
-			return &all[i]
-		}
-	}
-	return nil
 }
 
 // firmwareRefusals maps each refusal of a firmware change made from a

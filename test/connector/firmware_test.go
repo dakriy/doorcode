@@ -100,8 +100,7 @@ func TestStoreReportsFirmwareItDoesNotHold(t *testing.T) {
 
 			_, found, err := store.Firmware(context.Background(), 9)
 			_, imageFound, imageErr := store.FirmwareImage(context.Background(), 9)
-			nine := int64(9)
-			defaultFound, defaultErr := store.SetDefaultFirmware(context.Background(), &nine)
+			defaultFound, defaultErr := store.SetDefaultFirmware(context.Background(), 9)
 			deleted, deleteErr := store.DeleteFirmware(context.Background(), 9)
 
 			for _, e := range []error{err, imageErr, defaultErr, deleteErr} {
@@ -120,18 +119,24 @@ func TestStoreKeepsOneDefaultFirmware(t *testing.T) {
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {
 			store := firmwareWorld(t, impl)
-			first, second := int64(1), int64(2)
-
-			var defaults [][]bool
-			for _, id := range []*int64{&first, &second, nil} {
-				if found, err := store.SetDefaultFirmware(context.Background(), id); err != nil || !found {
-					t.Fatalf("set default %v: found %v, error %v", id, found, err)
-				}
+			defaults := func() []bool {
 				all := mustFirmwares(t, store)
-				defaults = append(defaults, []bool{all[0].Default, all[1].Default})
+				return []bool{all[0].Default, all[1].Default}
 			}
 
-			if diff := cmp.Diff([][]bool{{false, true}, {true, false}, {false, false}}, defaults); diff != "" {
+			var got [][]bool
+			for _, id := range []int64{1, 2} {
+				if found, err := store.SetDefaultFirmware(context.Background(), id); err != nil || !found {
+					t.Fatalf("set default %d: found %v, error %v", id, found, err)
+				}
+				got = append(got, defaults())
+			}
+			if err := store.ClearDefaultFirmware(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			got = append(got, defaults())
+
+			if diff := cmp.Diff([][]bool{{false, true}, {true, false}, {false, false}}, got); diff != "" {
 				t.Errorf("1.5.0 and 1.4.3 default after choosing 1.4.3, 1.5.0, none (-want +got):\n%s", diff)
 			}
 		})

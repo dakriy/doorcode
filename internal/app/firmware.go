@@ -198,29 +198,37 @@ func (a *App) firmwareError(w http.ResponseWriter, err error) {
 	a.refuse(w, err, firmwareStatuses)
 }
 
-// counts is how many doors run and should run each version of plan.
-func counts(plan firmware.Plan) (running, targeting map[string]int) {
-	running, targeting = map[string]int{}, map[string]int{}
+// concerns reports whether df's door, unless it is deleted, runs version
+// and whether it should.
+func concerns(df firmware.DoorFirmware, version string) (runs, targets bool) {
+	if df.Door.DeletedAt != nil {
+		return false, false
+	}
+	c := df.Door.Controller
+	return c != nil && c.FirmwareVersion == version, df.Target != nil && df.Target.Version == version
+}
+
+// counts is how many doors run version and how many should, as plan
+// stands.
+func counts(plan firmware.Plan, version string) (running, targeting int) {
 	for _, df := range plan.Doors {
-		if df.Door.DeletedAt != nil {
-			continue
+		runs, targets := concerns(df, version)
+		if runs {
+			running++
 		}
-		if c := df.Door.Controller; c != nil {
-			running[c.FirmwareVersion]++
-		}
-		if df.Target != nil {
-			targeting[df.Target.Version]++
+		if targets {
+			targeting++
 		}
 	}
 	return running, targeting
 }
 
 func viewOfFirmware(f connector.StoredFirmware, plan firmware.Plan) firmwareView {
-	running, targeting := counts(plan)
+	running, targeting := counts(plan, f.Version)
 	return firmwareView{
 		ID: f.ID, Version: f.Version, Notes: f.Notes, SHA256: f.SHA256, Size: f.Size,
 		UploadedBy: nameRef{ID: f.UploadedBy, Name: f.UploaderName}, UploadedAt: f.UploadedAt.UTC(), Default: f.Default,
-		Running: running[f.Version], Targeting: targeting[f.Version],
+		Running: running, Targeting: targeting,
 	}
 }
 
