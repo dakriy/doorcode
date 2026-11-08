@@ -1,2 +1,8 @@
 /build/
 /mutation.json
+
+# Local-only notes (never committed)
+/notes/
+
+# style-drive working state
+/HANDOFF.md
