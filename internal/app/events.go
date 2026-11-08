@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
-	"strconv"
 	"time"
 
 	"github.com/dakriy/doorcode/internal/auth"
@@ -144,10 +143,4 @@ func (a *App) openDoorNow(w http.ResponseWriter, r *http.Request, caller auth.Us
 		return
 	}
 	writeJSON(w, http.StatusOK, viewOfEvent(e))
-}
-
-// eventsLink is the events page filtered by name, the query parameter,
-// set to id.
-func eventsLink(name string, id int64) string {
-	return "/admin/events?" + name + "=" + strconv.FormatInt(id, 10)
 }

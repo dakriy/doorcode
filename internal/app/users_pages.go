@@ -255,7 +255,7 @@ func (a *App) renderUser(w http.ResponseWriter, r *http.Request, status int, vie
 		return
 	}
 	content.Access = access
-	content.Events, err = a.recent(r.Context(), viewer, connector.EventQuery{UserID: u.ID}, eventsLink("user", u.ID), content.zone)
+	content.Events, err = a.recent(r.Context(), viewer, connector.EventQuery{UserID: u.ID}, content.zone)
 	if err != nil {
 		a.pageError(w, err)
 		return

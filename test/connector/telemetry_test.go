@@ -37,16 +37,31 @@ func telemetryWorld(t *testing.T, impl storeImpl) connector.Store {
 	return store
 }
 
+// samplesRead reads samples taken from from up to to.
+type samplesRead func(store connector.Store, from, to time.Time) ([]connector.StoredSample, error)
+
+// samplesOf reads the samples of the door whose id is door.
+func samplesOf(door int64) samplesRead {
+	return func(store connector.Store, from, to time.Time) ([]connector.StoredSample, error) {
+		return store.Samples(context.Background(), door, from, to)
+	}
+}
+
+// everySample reads the samples of every door.
+func everySample(store connector.Store, from, to time.Time) ([]connector.StoredSample, error) {
+	return store.AllSamples(context.Background(), from, to)
+}
+
 func TestStoreListsTheSamplesOfARangeByDoorAndTime(t *testing.T) {
 	cases := map[string]struct {
-		door     int64
+		read     samplesRead
 		from, to int
 		want     []connector.StoredSample
 	}{
-		"every door": {0, 0, 60, []connector.StoredSample{sampleAt(1, 0, -60), sampleAt(1, 59, -61), sampleAt(2, 30, -70)}},
-		"one door":   {1, 0, 61, []connector.StoredSample{sampleAt(1, 0, -60), sampleAt(1, 59, -61), sampleAt(1, 60, -62)}},
-		"a range":    {1, 1, 60, []connector.StoredSample{sampleAt(1, 59, -61)}},
-		"none":       {2, 31, 90, []connector.StoredSample{}},
+		"every door": {everySample, 0, 60, []connector.StoredSample{sampleAt(1, 0, -60), sampleAt(1, 59, -61), sampleAt(2, 30, -70)}},
+		"one door":   {samplesOf(1), 0, 61, []connector.StoredSample{sampleAt(1, 0, -60), sampleAt(1, 59, -61), sampleAt(1, 60, -62)}},
+		"a range":    {samplesOf(1), 1, 60, []connector.StoredSample{sampleAt(1, 59, -61)}},
+		"none":       {samplesOf(2), 31, 90, []connector.StoredSample{}},
 	}
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {
@@ -54,7 +69,7 @@ func TestStoreListsTheSamplesOfARangeByDoorAndTime(t *testing.T) {
 			for name, c := range cases {
 				t.Run(name, func(t *testing.T) {
 					from, to := telemetryStart.Add(time.Duration(c.from)*time.Minute), telemetryStart.Add(time.Duration(c.to)*time.Minute)
-					got, err := store.Samples(context.Background(), c.door, from, to)
+					got, err := c.read(store, from, to)
 
 					if diff := cmp.Diff([]any{c.want, nil}, []any{nonNil(got), err}); diff != "" {
 						t.Errorf("samples, error (-want +got):\n%s", diff)
@@ -94,7 +109,7 @@ func TestStoreRemovesTheSamplesBeforeATime(t *testing.T) {
 			ctx := context.Background()
 
 			removed, err := store.DeleteSamplesBefore(ctx, telemetryStart.Add(59*time.Minute))
-			left, _ := store.Samples(ctx, 0, telemetryStart, telemetryStart.Add(2*time.Hour))
+			left, _ := store.AllSamples(ctx, telemetryStart, telemetryStart.Add(2*time.Hour))
 
 			want := []any{2, nil, []connector.StoredSample{sampleAt(1, 59, -61), sampleAt(1, 60, -62)}}
 			if diff := cmp.Diff(want, []any{removed, err, left}); diff != "" {

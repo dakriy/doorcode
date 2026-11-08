@@ -52,10 +52,11 @@ func (k *keypad) at(at string) {
 	k.f.ClockStub.Set(at)
 }
 
-// state is Lobby's state as the API shows it.
-func (k *keypad) state() any {
+// state is what the API shows of Lobby's state at the JSON pointer
+// pointer, all of it for the empty pointer.
+func (k *keypad) state(pointer string) any {
 	k.t.Helper()
-	return testsupport.JSONAt(send(k.t, k.b, "GET", "/api/v1/doors/1/state", "", 200).Body, "")
+	return testsupport.JSONAt(send(k.t, k.b, "GET", "/api/v1/doors/1/state", "", 200).Body, pointer)
 }
 
 func TestADoorOpenedWithNothingUnlockingItIsLoggedAsForcedOpen(t *testing.T) {
@@ -119,7 +120,7 @@ func TestADoorOpenedWithinTheStrikeWindowOfAnUnlockIsNotForced(t *testing.T) {
 
 			k.says("opened")
 
-			got := []any{testsupport.JSONAt(send(t, k.b, "GET", "/api/v1/doors/1/state", "", 200).Body, "/door"), k.reasons()}
+			got := []any{k.state("/door"), k.reasons()}
 			if diff := cmp.Diff([]any{"open", c.want}, got); diff != "" {
 				t.Errorf("door, reasons (-want +got):\n%s", diff)
 			}
@@ -214,12 +215,6 @@ func TestAHeldOpenAlarmSaysForHowLong(t *testing.T) {
 	}
 }
 
-// unresponsive is whether Lobby is unresponsive as the API shows it.
-func (k *keypad) unresponsive() any {
-	k.t.Helper()
-	return testsupport.JSONAt(send(k.t, k.b, "GET", "/api/v1/doors/1/state", "", 200).Body, "/unresponsive")
-}
-
 func TestADoorNotHeardFromForTheUnresponsivePeriodIsMarkedUnresponsive(t *testing.T) {
 	t.Parallel()
 	cases := map[string]struct {
@@ -246,7 +241,7 @@ func TestADoorNotHeardFromForTheUnresponsivePeriodIsMarkedUnresponsive(t *testin
 
 			run(t, k.a)
 
-			if diff := cmp.Diff(c.want, k.unresponsive()); diff != "" {
+			if diff := cmp.Diff(c.want, k.state("/unresponsive")); diff != "" {
 				t.Errorf("unresponsive (-want +got):\n%s", diff)
 			}
 		})
@@ -268,12 +263,12 @@ func TestAnUnresponsiveDoorIsResponsiveAgainOnItsNextContact(t *testing.T) {
 			k := keypadSite(t, testsupport.NewFactory())
 			k.at("2026-01-05T09:05:00Z")
 			run(t, k.a)
-			marked := k.unresponsive()
+			marked := k.state("/unresponsive")
 			k.at("2026-01-05T09:05:30Z")
 
 			contact(k)
 
-			if diff := cmp.Diff([]any{true, false}, []any{marked, k.unresponsive()}); diff != "" {
+			if diff := cmp.Diff([]any{true, false}, []any{marked, k.state("/unresponsive")}); diff != "" {
 				t.Errorf("marked, after contact (-want +got):\n%s", diff)
 			}
 		})
@@ -288,7 +283,7 @@ func TestADeletedDoorKeepsTheStateItHadWhenItWasDeleted(t *testing.T) {
 
 	run(t, k.a)
 
-	if diff := cmp.Diff(false, k.unresponsive()); diff != "" {
+	if diff := cmp.Diff(false, k.state("/unresponsive")); diff != "" {
 		t.Errorf("unresponsive (-want +got):\n%s", diff)
 	}
 }

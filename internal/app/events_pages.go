@@ -87,14 +87,15 @@ type recentLog struct {
 	OfUser bool
 }
 
-// recent is the newest events q selects, which the events page lists at
-// link, for a door's or a user's page, when viewer may read the log, and
-// nil otherwise.
-func (a *App) recent(ctx context.Context, viewer auth.User, q connector.EventQuery, link string, zone *time.Location) (*recentLog, error) {
+// recent is the newest events q selects, with a link to the events page
+// filtered as q is, for a door's or a user's page, when viewer may read
+// the log, and nil otherwise.
+func (a *App) recent(ctx context.Context, viewer auth.User, q connector.EventQuery, zone *time.Location) (*recentLog, error) {
 	if !viewer.Has(auth.RoleViewLogs) {
 		return nil, nil
 	}
 	found, err := a.events.Find(ctx, event.Query{EventQuery: q, Page: 1, PerPage: recentEvents})
+	link := eventFilters{EventQuery: q}.link(0)
 	return &recentLog{Rows: rowsOfEvents(found.Events, zone), Link: link, OfUser: q.UserID != 0}, err
 }
 

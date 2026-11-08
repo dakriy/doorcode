@@ -99,8 +99,7 @@ func (a *App) stateOf(r *http.Request, viewer auth.User, d connector.StoredDoor,
 	}
 	frame := chartFrame{from: from, to: to, zone: zone, label: chosen.Label}
 	view.Charts = []chartView{frame.chart("Signal", "dBm", signal), frame.chart("Latency", "ms", latency)}
-	alarms := connector.EventQuery{DoorID: d.ID, Type: event.Alarm}
-	view.Alarms, err = a.recent(r.Context(), viewer, alarms, "/admin/events?door="+strconv.FormatInt(d.ID, 10)+"&type="+event.Alarm, zone)
+	view.Alarms, err = a.recent(r.Context(), viewer, connector.EventQuery{DoorID: d.ID, Type: event.Alarm}, zone)
 	return &view, err
 }
 

@@ -33,7 +33,7 @@ func TestATelemetryReportBecomesTheDoorsState(t *testing.T) {
 		"unresponsive":false,"firmware_version":"1.5.0","last_seen_at":"2026-01-05T09:00:30Z",
 		"telemetry":{"at":"2026-01-05T09:00:30Z","signal":-70,"latency_ms":40,"uptime_s":3720,"free_bytes":120832,
 		"firmware_version":"1.5.0","reconnects":2,"door_open":true,"opens":1}}`)
-	if diff := cmp.Diff(want, k.state()); diff != "" {
+	if diff := cmp.Diff(want, k.state("")); diff != "" {
 		t.Errorf("state (-want +got):\n%s", diff)
 	}
 }
@@ -46,7 +46,7 @@ func TestADoorStaysOpenSinceItOpenedWhileItReportsItOpen(t *testing.T) {
 
 	k.report(map[string]any{"door_open": true})
 
-	got := []any{testsupport.JSONAt(send(t, k.b, "GET", "/api/v1/doors/1/state", "", 200).Body, "/opened_at"), k.reasons()}
+	got := []any{k.state("/opened_at"), k.reasons()}
 	if diff := cmp.Diff([]any{"2026-01-05T09:00:00Z", []any{"forced open"}}, got); diff != "" {
 		t.Errorf("opened at, reasons (-want +got):\n%s", diff)
 	}

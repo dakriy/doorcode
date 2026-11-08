@@ -34,11 +34,23 @@ func (s *Store) AddSample(ctx context.Context, sample connector.StoredSample) er
 	return err
 }
 
-// Samples returns the samples of the door with doorID, or of every door
-// when it is zero, taken from from up to to, by door and then by time.
+// Samples returns the samples of the door with doorID taken from from up
+// to to, oldest first.
 func (s *Store) Samples(ctx context.Context, doorID int64, from, to time.Time) ([]connector.StoredSample, error) {
-	rows, err := s.pool.Query(ctx, `select `+sampleColumns+` from telemetry_samples
-		where ($1::bigint = 0 or door_id = $1) and at >= $2 and at < $3 order by door_id, at`, doorID, from, to)
+	return s.samples(ctx, `select `+sampleColumns+` from telemetry_samples
+		where door_id = $1 and at >= $2 and at < $3 order by at`, doorID, from, to)
+}
+
+// AllSamples returns the samples of every door taken from from up to to,
+// by door and then by time.
+func (s *Store) AllSamples(ctx context.Context, from, to time.Time) ([]connector.StoredSample, error) {
+	return s.samples(ctx, `select `+sampleColumns+` from telemetry_samples
+		where at >= $1 and at < $2 order by door_id, at`, from, to)
+}
+
+// samples returns the samples query selects with args.
+func (s *Store) samples(ctx context.Context, query string, args ...any) ([]connector.StoredSample, error) {
+	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

@@ -27,7 +27,7 @@ func (s Service) rollUp(ctx context.Context) error {
 	if !from.Before(to) {
 		return nil
 	}
-	samples, err := s.Store.Samples(ctx, 0, from, to)
+	samples, err := s.Store.AllSamples(ctx, from, to)
 	if err != nil {
 		return err
 	}

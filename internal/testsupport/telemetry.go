@@ -21,15 +21,29 @@ func (s *Store) AddSample(_ context.Context, sample connector.StoredSample) erro
 	return nil
 }
 
-// Samples returns the samples of the door with doorID, or of every door
-// when it is zero, taken from from up to to, by door and then by time.
+// Samples returns the samples of the door with doorID taken from from up
+// to to, oldest first.
 func (s *Store) Samples(_ context.Context, doorID int64, from, to time.Time) ([]connector.StoredSample, error) {
+	return s.samplesWhere(func(sample connector.StoredSample) bool {
+		return sample.DoorID == doorID && between(sample.At, from, to)
+	})
+}
+
+// AllSamples returns the samples of every door taken from from up to to,
+// by door and then by time.
+func (s *Store) AllSamples(_ context.Context, from, to time.Time) ([]connector.StoredSample, error) {
+	return s.samplesWhere(func(sample connector.StoredSample) bool { return between(sample.At, from, to) })
+}
+
+// samplesWhere returns the samples keep keeps, by door and then by
+// time.
+func (s *Store) samplesWhere(keep func(connector.StoredSample) bool) ([]connector.StoredSample, error) {
 	if err := s.writable(telemetryAggregate, sampleReads); err != nil {
 		return nil, err
 	}
 	kept := []connector.StoredSample{}
 	for _, sample := range s.samples {
-		if (doorID == 0 || sample.DoorID == doorID) && between(sample.At, from, to) {
+		if keep(sample) {
 			kept = append(kept, sample)
 		}
 	}
@@ -141,7 +155,7 @@ func (s *Store) FailTelemetry() {
 	s.failing[telemetryAggregate] = true
 }
 
-// FailSampleReads makes Samples report ErrUnavailable, while the rest of
+// FailSampleReads makes Samples and AllSamples report ErrUnavailable, while the rest of
 // the telemetry history still works.
 func (s *Store) FailSampleReads() {
 	s.failing[sampleReads] = true

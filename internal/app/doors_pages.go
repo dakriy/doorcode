@@ -315,7 +315,7 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 		a.pageError(w, err)
 		return
 	}
-	events, err := a.recent(r.Context(), viewer, connector.EventQuery{DoorID: d.ID}, eventsLink("door", d.ID), zone)
+	events, err := a.recent(r.Context(), viewer, connector.EventQuery{DoorID: d.ID}, zone)
 	if err != nil {
 		a.pageError(w, err)
 		return

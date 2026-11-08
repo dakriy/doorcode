@@ -351,10 +351,12 @@ type StoredRollup struct {
 type TelemetryStore interface {
 	// AddSample stores s.
 	AddSample(ctx context.Context, s StoredSample) error
-	// Samples returns the samples of the door whose id is doorID, or of
-	// every door when doorID is zero, taken at or after from and before
-	// to, ordered by door id and then by time.
+	// Samples returns the samples of the door whose id is doorID taken
+	// at or after from and before to, oldest first.
 	Samples(ctx context.Context, doorID int64, from, to time.Time) ([]StoredSample, error)
+	// AllSamples returns the samples of every door taken at or after from
+	// and before to, ordered by door id and then by time.
+	AllSamples(ctx context.Context, from, to time.Time) ([]StoredSample, error)
 	// FirstSampleSince returns when the earliest sample taken at or after
 	// since was taken, and whether there is one.
 	FirstSampleSince(ctx context.Context, since time.Time) (time.Time, bool, error)
