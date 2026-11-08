@@ -105,11 +105,11 @@ func (s Service) Update(ctx context.Context, key, value string) (Setting, error)
 	if _, set := s.Env.Lookup(envVar); set {
 		return Setting{}, fmt.Errorf("%w: %s is set by environment variable %s", ErrReadOnly, key, envVar)
 	}
-	now := s.Clock.Now()
-	if err := s.Store.PutSetting(ctx, def.key, value, now); err != nil {
+	row := connector.StoredSetting{Value: value, UpdatedAt: s.Clock.Now()}
+	if err := s.Store.PutSetting(ctx, def.key, row.Value, row.UpdatedAt); err != nil {
 		return Setting{}, err
 	}
-	return Setting{Key: def.key, Value: value, Source: SourceDatabase, EnvVar: envVar, UpdatedAt: now}, nil
+	return fromStore(def, row), nil
 }
 
 func (s Service) resolve(def definition, stored map[string]connector.StoredSetting) Setting {
@@ -118,9 +118,14 @@ func (s Service) resolve(def definition, stored map[string]connector.StoredSetti
 		return Setting{Key: def.key, Value: value, Source: SourceEnvironment, EnvVar: envVar}
 	}
 	if row, found := stored[def.key]; found {
-		return Setting{Key: def.key, Value: row.Value, Source: SourceDatabase, EnvVar: envVar, UpdatedAt: row.UpdatedAt}
+		return fromStore(def, row)
 	}
 	return Setting{Key: def.key, Value: def.fallback, Source: SourceDefault, EnvVar: envVar}
+}
+
+// fromStore is the setting as an administrator saved it.
+func fromStore(def definition, row connector.StoredSetting) Setting {
+	return Setting{Key: def.key, Value: row.Value, Source: SourceDatabase, EnvVar: envVarFor(def.key), UpdatedAt: row.UpdatedAt}
 }
 
 func lookup(key string) (definition, error) {
