@@ -1,0 +1,25 @@
+/* Input for the Tailwind standalone CLI. `make ui` builds static/app.css
+   from this file and the templates; the built file is committed. */
+@import "tailwindcss" source(none);
+
+@source "./templates";
+
+/* The brand color. A later theme setting overrides these variables. */
+@theme {
+  --color-brand-50: oklch(0.962 0.018 272.3);
+  --color-brand-100: oklch(0.93 0.034 272.8);
+  --color-brand-200: oklch(0.87 0.065 274);
+  --color-brand-300: oklch(0.785 0.115 274.7);
+  --color-brand-400: oklch(0.673 0.182 276.9);
+  --color-brand-500: oklch(0.585 0.233 277.1);
+  --color-brand-600: oklch(0.511 0.262 276.97);
+  --color-brand-700: oklch(0.457 0.24 277.02);
+  --color-brand-800: oklch(0.398 0.195 277.37);
+  --color-brand-900: oklch(0.359 0.144 278.7);
+  --color-brand-950: oklch(0.257 0.09 281.29);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+@layer base {
+  :root { color-scheme: light dark; }
+}

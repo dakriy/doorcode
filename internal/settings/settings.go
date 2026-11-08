@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,6 +17,9 @@ import (
 
 // ErrUnknown reports a key that names no setting.
 var ErrUnknown = errors.New("unknown setting")
+
+// ErrInvalid reports a value the setting does not accept.
+var ErrInvalid = errors.New("invalid value")
 
 // ErrReadOnly reports an update to a setting the environment provides.
 var ErrReadOnly = errors.New("setting is read-only")
@@ -33,15 +37,50 @@ const (
 // envPrefix starts the name of every variable that overrides a setting.
 const envPrefix = "DOORCODE_"
 
+// The keys of the settings the application reads.
+const (
+	keySiteName            = "site_name"
+	keyAdminEmail          = "admin_email"
+	keyPasswordHashMemory  = "password_hash_memory_kib"
+	minPasswordHashMemory  = 8
+	maxPasswordHashMemory  = 1048576 // 1 GiB
+	passwordHashMemoryHint = "must be a whole number of KiB from 8 to 1048576"
+)
+
 type definition struct {
 	key      string
 	fallback string
+	// validate rejects a value the setting cannot take; nil accepts any.
+	validate func(value string) error
 }
 
 // definitions is every setting the site has, in display order.
 var definitions = []definition{
-	{key: "site_name", fallback: "doorcode"},
+	{key: keySiteName, fallback: "doorcode"},
 	{key: "site_timezone", fallback: "UTC"},
+	{key: keyAdminEmail, fallback: "admin@example.com"},
+	{key: keyPasswordHashMemory, fallback: "19456", validate: func(value string) error {
+		_, err := passwordHashMemory(value)
+		return err
+	}},
+}
+
+// Current is the settings the application acts on, parsed.
+type Current struct {
+	SiteName string
+	// AdminEmail is the email of the administrator created on first start.
+	AdminEmail string
+	// PasswordHashMemoryKiB is the memory cost of hashing a new password.
+	PasswordHashMemoryKiB uint32
+}
+
+// passwordHashMemory parses a password hashing memory cost in KiB.
+func passwordHashMemory(value string) (uint32, error) {
+	n, err := strconv.ParseUint(value, 10, 32)
+	if err != nil || n < minPasswordHashMemory || n > maxPasswordHashMemory {
+		return 0, errors.New(passwordHashMemoryHint)
+	}
+	return uint32(n), nil
 }
 
 // Setting is a resolved setting.
@@ -82,6 +121,27 @@ func (s Service) List(ctx context.Context) ([]Setting, error) {
 	return resolved, nil
 }
 
+// Current resolves and parses the settings the application acts on.
+func (s Service) Current(ctx context.Context) (Current, error) {
+	all, err := s.List(ctx)
+	if err != nil {
+		return Current{}, err
+	}
+	values := map[string]string{}
+	for _, setting := range all {
+		values[setting.Key] = setting.Value
+	}
+	memory, err := passwordHashMemory(values[keyPasswordHashMemory])
+	if err != nil {
+		return Current{}, fmt.Errorf("%w for %s: %w", ErrInvalid, keyPasswordHashMemory, err)
+	}
+	return Current{
+		SiteName:              values[keySiteName],
+		AdminEmail:            values[keyAdminEmail],
+		PasswordHashMemoryKiB: memory,
+	}, nil
+}
+
 // Get returns the setting named key.
 func (s Service) Get(ctx context.Context, key string) (Setting, error) {
 	def, err := lookup(key)
@@ -104,6 +164,11 @@ func (s Service) Update(ctx context.Context, key, value string) (Setting, error)
 	envVar := envVarFor(def.key)
 	if _, set := s.Env.Lookup(envVar); set {
 		return Setting{}, fmt.Errorf("%w: %s is set by environment variable %s", ErrReadOnly, key, envVar)
+	}
+	if def.validate != nil {
+		if err := def.validate(value); err != nil {
+			return Setting{}, fmt.Errorf("%w for %s: %w", ErrInvalid, key, err)
+		}
 	}
 	row := connector.StoredSetting{Value: value, UpdatedAt: s.Clock.Now()}
 	if err := s.Store.PutSetting(ctx, def.key, row.Value, row.UpdatedAt); err != nil {

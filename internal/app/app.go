@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/settings"
 )
@@ -17,11 +18,13 @@ type App struct {
 	log      connector.Log
 	entropy  connector.Entropy
 	settings settings.Service
-	mux      *http.ServeMux
+	auth     auth.Service
+	handler  http.Handler
 }
 
-// New brings the store's schema up to date and returns the application. It
-// takes every connector from f and constructs none itself.
+// New brings the store's schema up to date, creates the first administrator
+// when there is no user yet, and returns the application. It takes every
+// connector from f and constructs none itself.
 func New(ctx context.Context, f connector.Factory) (*App, error) {
 	store := f.Store()
 	log := f.Log()
@@ -30,22 +33,38 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 	}
 	log.Info("schema migrated")
 
+	clock := f.Clock()
+	entropy := f.Entropy()
+	s := settings.Service{Store: store, Env: f.Environment(), Clock: clock}
 	a := &App{
 		log:      log,
-		entropy:  f.Entropy(),
-		settings: settings.Service{Store: store, Env: f.Environment(), Clock: f.Clock()},
-		mux:      http.NewServeMux(),
+		entropy:  entropy,
+		settings: s,
+		auth:     auth.Service{Store: store, Settings: s, Clock: clock, Entropy: entropy, Log: log},
 	}
-	a.mux.HandleFunc("GET /healthz", healthz)
-	a.mux.HandleFunc("GET /api/v1/settings", a.listSettings)
-	a.mux.HandleFunc("GET /api/v1/settings/{key}", a.getSetting)
-	a.mux.HandleFunc("PUT /api/v1/settings/{key}", a.updateSetting)
+	if err := a.auth.CreateFirstAdmin(ctx); err != nil {
+		return nil, fmt.Errorf("create first administrator: %w", err)
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", healthz)
+	mux.HandleFunc("GET /static/app.css", serveAsset(appCSS, "text/css; charset=utf-8"))
+	mux.HandleFunc("GET /static/htmx.min.js", serveAsset(htmxJS, "text/javascript; charset=utf-8"))
+	mux.HandleFunc("GET /sign-in", a.signInPage)
+	mux.HandleFunc("POST /sign-in", a.signIn)
+	mux.HandleFunc("POST /sign-out", a.signOut)
+	mux.HandleFunc("GET /{$}", a.signedIn(a.home))
+	mux.HandleFunc("GET /admin/settings", a.admin(a.settingsPage))
+	mux.HandleFunc("GET /api/v1/settings", a.adminAPI(a.listSettings))
+	mux.HandleFunc("GET /api/v1/settings/{key}", a.adminAPI(a.getSetting))
+	mux.HandleFunc("PUT /api/v1/settings/{key}", a.adminAPI(a.updateSetting))
+	a.handler = http.NewCrossOriginProtection().Handler(mux)
 	return a, nil
 }
 
 // Handler returns the application's HTTP handler.
 func (a *App) Handler() http.Handler {
-	return a.mux
+	return a.handler
 }
 
 func healthz(w http.ResponseWriter, _ *http.Request) {

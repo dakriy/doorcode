@@ -1,0 +1,35 @@
+{{define "content"}}
+<div class="sm:flex sm:items-end sm:justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">Settings</h1>
+    <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Every setting can be overridden by its environment variable. A value the environment provides is read-only here.</p>
+  </div>
+</div>
+<div class="mt-8 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+      <thead class="bg-zinc-50 text-left text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:bg-zinc-900/60 dark:text-zinc-400">
+        <tr>
+          <th scope="col" class="px-4 py-3">Setting</th>
+          <th scope="col" class="px-4 py-3">Value</th>
+          <th scope="col" class="px-4 py-3">Source</th>
+          <th scope="col" class="px-4 py-3">Environment variable</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {{range .Content}}
+        <tr>
+          <td class="px-4 py-3 font-medium whitespace-nowrap">{{.Key}}</td>
+          <td class="px-4 py-3 font-mono text-xs break-all">{{.Value}}</td>
+          <td class="px-4 py-3 whitespace-nowrap">
+            {{if .ReadOnly}}<span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-600/20 ring-inset dark:bg-amber-950 dark:text-amber-300 dark:ring-amber-400/20"><svg class="size-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z" clip-rule="evenodd"/></svg>{{.Source}}, read-only</span>
+            {{else}}<span class="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">{{.Source}}</span>{{end}}
+          </td>
+          <td class="px-4 py-3 font-mono text-xs whitespace-nowrap text-zinc-500 dark:text-zinc-400">{{.EnvVar}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}

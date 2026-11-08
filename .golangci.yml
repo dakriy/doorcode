@@ -80,6 +80,8 @@ linters:
               desc: "effect package (writes to stderr/syslog): put it behind a connector"
             - pkg: github.com/google/uuid
               desc: "identifier generation: put it behind a connector"
+            - pkg: golang.org/x/crypto/bcrypt
+              desc: "draws its salt from crypto/rand; hash passwords with internal/auth (argon2id salted from Entropy)"
             - pkg: github.com/jackc/pgx
               desc: "effect package (database): put it behind a connector"
             - pkg: github.com/jackc/tern

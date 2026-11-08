@@ -86,6 +86,10 @@ func (a *App) settingError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
+	if errors.Is(err, settings.ErrInvalid) {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	if errors.Is(err, settings.ErrReadOnly) {
 		writeError(w, http.StatusConflict, err.Error())
 		return

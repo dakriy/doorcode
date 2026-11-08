@@ -4,7 +4,7 @@ LINT = $(GO) tool golangci-lint
 # Runtime budget for everything verify-fast runs as tests, in seconds.
 FAST_BUDGET_SECONDS ?= 10
 
-.PHONY: verify-fast verify-mutation verify-integration verify-all fmt
+.PHONY: verify-fast verify-mutation verify-integration verify-all fmt ui
 
 verify-fast:
 	$(GO) build ./...
@@ -32,3 +32,7 @@ verify-all:
 
 fmt:
 	$(LINT) fmt
+
+# Vendors htmx and rebuilds the stylesheet with the pinned Tailwind CLI.
+ui:
+	sh scripts/vendor-ui.sh

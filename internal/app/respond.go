@@ -1,11 +1,8 @@
 package app
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"net/http"
-
-	"github.com/dakriy/doorcode/internal/connector"
 )
 
 // requestIDBytes is how much entropy names one failed request.
@@ -29,9 +26,6 @@ func writeError(w http.ResponseWriter, status int, message string) {
 // internalError logs err under a fresh request id and tells the client only
 // the id, so an operator can find the cause in the log.
 func (a *App) internalError(w http.ResponseWriter, err error) {
-	id := hex.EncodeToString(a.entropy.Bytes(requestIDBytes))
-	a.log.Error("request failed",
-		connector.Field{Key: "request_id", Value: id},
-		connector.Field{Key: "error", Value: err.Error()})
+	id := a.logFailure(err)
 	writeJSON(w, http.StatusInternalServerError, errorBody{Error: "internal error", RequestID: id})
 }
