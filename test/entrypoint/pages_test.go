@@ -18,6 +18,62 @@ func TestHomeAsksForSignIn(t *testing.T) {
 	}
 }
 
+// settingsNote is what the settings page says about door defaults.
+var settingsNote = []string{"Settings starting with door_ are the defaults every door is configured with; a door's own page overrides " +
+	"them for that door. Doors receive a changed default as soon as it is saved. A changed enrollment username or password takes " +
+	"effect when the server next starts."}
+
+// shownSetting is a setting as the settings page shows it.
+type shownSetting struct {
+	key, value, source string
+}
+
+// defaultSettings is every setting the settings page shows on a site
+// where nothing is stored and the environment sets only the password
+// hashing cost, in order.
+var defaultSettings = []shownSetting{
+	{"site_name", "doorcode", "default"}, {"site_timezone", "UTC", "default"}, {"admin_email", "admin@example.com", "default"},
+	{"password_hash_memory_kib", "8", "environment, read-only"},
+	{"enrollment_username", "doorcode-enroll", "default"}, {"enrollment_password", "", "default"},
+	{"door_credential_grace_hours", "24", "default"},
+	{"door_strike_pulse_ms", "3000", "default"}, {"door_keypad_idle_clear_ms", "10000", "default"},
+	{"door_min_code_length", "4", "default"}, {"door_max_code_length", "32", "default"}, {"door_submit_key", "#", "default"},
+	{"door_reply_timeout_ms", "3000", "default"}, {"door_telemetry_interval_s", "60", "default"},
+	{"door_timeline_refresh_hours", "6", "default"}, {"door_credential_rotation_days", "30", "default"},
+	{"door_rate_limit_per_minute", "30", "default"}, {"door_rate_limit_burst", "10", "default"},
+	{"door_ntp_server", "pool.ntp.org", "default"}, {"door_log_level", "info", "default"},
+}
+
+// settingsPage is the settings page showing shown, where changed replaces
+// the value and source of the settings it names, entered the value an
+// input holds, and refused what is wrong with a value; a read-only
+// setting shows its value in place of an input.
+func settingsPage(shown []shownSetting, changed map[string]shownSetting, entered, refused map[string]string) testsupport.Page {
+	page := testsupport.Page{
+		Title: "Settings · doorcode", Heading: "Settings", Notes: settingsNote, Values: map[string]string{},
+		Nav:    []string{"Home", "Users", "Groups", "Schedules", "Doors", "Zones", "Settings (current)", "API tokens", "API docs"},
+		Tables: map[string][][]string{"Settings": {{"Setting", "Value", "Source", "Environment variable"}}},
+	}
+	for _, s := range shown {
+		if c, ok := changed[s.key]; ok {
+			s = c
+		}
+		cell := refused[s.key]
+		if s.source == "environment, read-only" {
+			cell = s.value
+		} else if value, ok := entered[s.key]; ok {
+			page.Values[s.key] = value
+		} else {
+			page.Values[s.key] = s.value
+		}
+		page.Tables["Settings"] = append(page.Tables["Settings"], []string{s.key, cell, s.source, "DOORCODE_" + upper(s.key)})
+	}
+	if refused != nil {
+		page.FieldErrors = refused
+	}
+	return page
+}
+
 func TestAdministratorReachesTheSettingsPage(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
@@ -27,27 +83,10 @@ func TestAdministratorReachesTheSettingsPage(t *testing.T) {
 
 	got := b.Get("/admin/settings")
 
-	want := testsupport.Page{
-		Title:   "Settings · North Campus",
-		Heading: "Settings",
-		Nav:     []string{"Home", "Users", "Groups", "Schedules", "Doors", "Zones", "Settings (current)", "API tokens", "API docs"},
-		Table: [][]string{
-			{"Setting", "Value", "Source", "Environment variable"},
-			{"site_name", "North Campus", "database", "DOORCODE_SITE_NAME"},
-			{"site_timezone", "UTC", "default", "DOORCODE_SITE_TIMEZONE"},
-			{"admin_email", "admin@example.com", "default", "DOORCODE_ADMIN_EMAIL"},
-			{"password_hash_memory_kib", "8", "environment, read-only", "DOORCODE_PASSWORD_HASH_MEMORY_KIB"},
-			{"enrollment_username", "doorcode-enroll", "default", "DOORCODE_ENROLLMENT_USERNAME"},
-			{"enrollment_password", "", "default", "DOORCODE_ENROLLMENT_PASSWORD"},
-			{"door_credential_rotation_days", "30", "default", "DOORCODE_DOOR_CREDENTIAL_ROTATION_DAYS"},
-			{"door_credential_grace_hours", "24", "default", "DOORCODE_DOOR_CREDENTIAL_GRACE_HOURS"},
-		},
-	}
-	if diff := cmp.Diff(want, pageOf(got)); diff != "" {
-		t.Errorf("page (-want +got):\n%s", diff)
-	}
-	if diff := cmp.Diff(200, got.Status); diff != "" {
-		t.Errorf("status (-want +got):\n%s", diff)
+	want := settingsPage(defaultSettings, map[string]shownSetting{"site_name": {"site_name", "North Campus", "database"}}, nil, nil)
+	want.Title = "Settings · North Campus"
+	if diff := cmp.Diff([]any{200, want}, []any{got.Status, pageOf(got)}); diff != "" {
+		t.Errorf("status, page (-want +got):\n%s", diff)
 	}
 }
 

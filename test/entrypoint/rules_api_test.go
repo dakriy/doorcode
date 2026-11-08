@@ -12,7 +12,12 @@ import (
 // Annex, and Attic (3) in no zone, and the groups Staff (2) and Guests (3).
 func ruleSite(t *testing.T, f *testsupport.Factory) *testsupport.Browser {
 	t.Helper()
-	b := doorSite(t, f)
+	return furnishRuleSite(t, doorSite(t, f))
+}
+
+// furnishRuleSite gives b's doorSite what ruleSite has, and returns b.
+func furnishRuleSite(t *testing.T, b *testsupport.Browser) *testsupport.Browser {
+	t.Helper()
 	createDoor(t, b, `{"name":"Lobby","zone_ids":[1]}`)
 	createDoor(t, b, `{"name":"Dock","zone_ids":[2]}`)
 	createDoor(t, b, `{"name":"Attic"}`)

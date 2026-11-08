@@ -3,12 +3,10 @@ package app
 import (
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/openapi"
-	"github.com/dakriy/doorcode/internal/rule"
 )
 
 type spanView struct {
@@ -37,10 +35,6 @@ type userAccessView struct {
 	Doors    []doorAccessView `json:"doors" doc:"Each door that is not deleted which an access rule naming one of the user's groups reaches, by name."`
 }
 
-type affectedView struct {
-	DoorIDs []int64 `json:"door_ids" doc:"The ids of the doors, ascending, that are not deleted whose timeline or access depends on what the query names."`
-}
-
 func dayParams(first openapi.Param) []openapi.Param {
 	return []openapi.Param{
 		first,
@@ -52,10 +46,6 @@ func dayParams(first openapi.Param) []openapi.Param {
 var badDays = openapi.Response{Status: http.StatusBadRequest, Description: "from or to is not a date, or the range is backwards or too long.", Body: errorBody{}}
 
 func (a *App) timelineRoutes() []route {
-	var affectedParams []openapi.Param
-	for _, kind := range rule.Kinds {
-		affectedParams = append(affectedParams, openapi.Param{Name: kind, In: "query", Description: "The id of the " + kind + " to trace; give exactly one of the parameters.", Example: int64(1)})
-	}
 	return []route{
 		apiRoute(http.MethodGet, "/doors/{id}/timeline", holding(auth.RoleManageDoors), a.getTimeline, apiDoc{
 			id: "getDoorTimeline", summary: "Read when a door is open or locked", tag: "doors", params: dayParams(doorIDParam),
@@ -66,13 +56,6 @@ func (a *App) timelineRoutes() []route {
 			responses: []openapi.Response{
 				{Status: http.StatusOK, Description: "The doors the user's groups let them enter, and when.", Body: userAccessView{}}, badDays,
 				{Status: http.StatusNotFound, Description: "No user has this id.", Body: errorBody{}},
-			},
-		}),
-		apiRoute(http.MethodGet, "/affected-doors", holding(auth.RoleManageDoors), a.listAffectedDoors, apiDoc{
-			id: "listAffectedDoors", summary: "List the doors a change to something would affect", tag: "doors", params: affectedParams,
-			responses: []openapi.Response{
-				{Status: http.StatusOK, Description: "The doors whose timeline or access depends on it as things stand. A change that moves doors in or out, such as a zone's doors, also affects those listed before it; an id that names nothing affects no door.", Body: affectedView{}},
-				{Status: http.StatusBadRequest, Description: "Not exactly one parameter is given, or it is not an id.", Body: errorBody{}},
 			},
 		}),
 	}
@@ -122,37 +105,4 @@ func (a *App) getUserAccess(w http.ResponseWriter, r *http.Request, _ auth.User)
 		views = append(views, view)
 	}
 	writeJSON(w, http.StatusOK, userAccessView{TimeZone: days.zone.String(), From: days.firstText(), To: days.lastText(), Doors: views})
-}
-
-func (a *App) listAffectedDoors(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	subject, ok := affectedSubject(r)
-	if !ok {
-		writeError(w, http.StatusBadRequest, "give exactly one of "+strings.Join(rule.Kinds, ", ")+" as an id")
-		return
-	}
-	ids, err := a.rules.Affected(r.Context(), subject)
-	if err != nil {
-		a.internalError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, affectedView{DoorIDs: ids})
-}
-
-// affectedSubject reads what an affected doors request names, and whether
-// it names exactly one thing by id.
-func affectedSubject(r *http.Request) (rule.Subject, bool) {
-	var given []rule.Subject
-	for _, kind := range rule.Kinds {
-		id, ok := queryID(r, kind)
-		if !ok {
-			return rule.Subject{}, false
-		}
-		if id != 0 {
-			given = append(given, rule.Subject{Kind: kind, ID: id})
-		}
-	}
-	if len(given) != 1 {
-		return rule.Subject{}, false
-	}
-	return given[0], true
 }

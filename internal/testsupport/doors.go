@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"errors"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -63,7 +64,7 @@ func (s *Store) CreateDoor(_ context.Context, d connector.StoredDoor) (int64, er
 	}
 	s.nextDoor++
 	d.ID = s.nextDoor
-	d.PrimaryPictureID, d.Controller = nil, nil
+	d.PrimaryPictureID, d.Controller, d.Config = nil, nil, map[string]string{}
 	s.placeDoor(d.ID, d.ZoneIDs)
 	d.OpenScheduleIDs, d.ZoneIDs = slices.Clone(d.OpenScheduleIDs), nil
 	s.doors = append(s.doors, d)
@@ -109,6 +110,23 @@ func (s *Store) SetController(_ context.Context, id int64, c *connector.StoredCo
 		c = &copied
 	}
 	held.Controller = c
+	return true, nil
+}
+
+// SetDoorConfig stores config as the configuration overrides of the door
+// with id, refusing a nil one as the column's constraint would.
+func (s *Store) SetDoorConfig(_ context.Context, id int64, config map[string]string) (bool, error) {
+	if err := s.writable(doorsAggregate, doorWrites); err != nil {
+		return false, err
+	}
+	if config == nil {
+		return false, ErrNull
+	}
+	held := s.doorByID(id)
+	if held == nil {
+		return false, nil
+	}
+	held.Config = maps.Clone(config)
 	return true, nil
 }
 
@@ -166,6 +184,7 @@ func (s *Store) cloneDoor(d connector.StoredDoor) connector.StoredDoor {
 		c := *d.Controller
 		d.Controller = &c
 	}
+	d.Config = maps.Clone(d.Config)
 	d.ZoneIDs = []int64{}
 	for _, p := range s.zoneDoors {
 		if p.door == d.ID {

@@ -16,14 +16,42 @@ const hashMemoryJSON = `{"key":"password_hash_memory_kib","value":"8","source":"
 	`"env_var":"DOORCODE_PASSWORD_HASH_MEMORY_KIB"}`
 
 // brokerSettingsJSON is how the settings API shows the broker settings
-// when nothing sets them.
-const brokerSettingsJSON = `{"key":"enrollment_username","value":"doorcode-enroll","source":"default","read_only":false,` +
+// and the door configuration defaults when nothing sets them.
+var brokerSettingsJSON = `{"key":"enrollment_username","value":"doorcode-enroll","source":"default","read_only":false,` +
 	`"env_var":"DOORCODE_ENROLLMENT_USERNAME"},` +
 	`{"key":"enrollment_password","value":"","source":"default","read_only":false,"env_var":"DOORCODE_ENROLLMENT_PASSWORD"},` +
-	`{"key":"door_credential_rotation_days","value":"30","source":"default","read_only":false,` +
-	`"env_var":"DOORCODE_DOOR_CREDENTIAL_ROTATION_DAYS"},` +
 	`{"key":"door_credential_grace_hours","value":"24","source":"default","read_only":false,` +
-	`"env_var":"DOORCODE_DOOR_CREDENTIAL_GRACE_HOURS"}`
+	`"env_var":"DOORCODE_DOOR_CREDENTIAL_GRACE_HOURS"},` +
+	defaultSetting("door_strike_pulse_ms", "3000") + `,` +
+	defaultSetting("door_keypad_idle_clear_ms", "10000") + `,` +
+	defaultSetting("door_min_code_length", "4") + `,` +
+	defaultSetting("door_max_code_length", "32") + `,` +
+	defaultSetting("door_submit_key", "#") + `,` +
+	defaultSetting("door_reply_timeout_ms", "3000") + `,` +
+	defaultSetting("door_telemetry_interval_s", "60") + `,` +
+	defaultSetting("door_timeline_refresh_hours", "6") + `,` +
+	defaultSetting("door_credential_rotation_days", "30") + `,` +
+	defaultSetting("door_rate_limit_per_minute", "30") + `,` +
+	defaultSetting("door_rate_limit_burst", "10") + `,` +
+	defaultSetting("door_ntp_server", "pool.ntp.org") + `,` +
+	defaultSetting("door_log_level", "info")
+
+// defaultSetting is how the settings API shows the setting named key
+// holding its default value.
+func defaultSetting(key, value string) string {
+	return `{"key":"` + key + `","value":"` + value + `","source":"default","read_only":false,"env_var":"DOORCODE_` + upper(key) + `"}`
+}
+
+// upper is s with its ASCII letters upper-cased.
+func upper(s string) string {
+	out := []byte(s)
+	for i, c := range out {
+		if 'a' <= c && c <= 'z' {
+			out[i] = c - 'a' + 'A'
+		}
+	}
+	return string(out)
+}
 
 func TestSettingsListShowsDefaultsAndTheEnvironmentWhenNothingIsStored(t *testing.T) {
 	t.Parallel()

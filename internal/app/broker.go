@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -17,9 +18,9 @@ import (
 // sweepEvery is how often Run does the periodic work.
 const sweepEvery = time.Minute
 
-// errNoEnrollmentPassword refuses to serve the controllers without the
-// password they enroll with.
-var errNoEnrollmentPassword = errors.New("the enrollment_password setting is empty; set it to the password controllers enroll with")
+// enrollmentPasswordBytes is how much entropy a generated enrollment
+// password holds.
+const enrollmentPasswordBytes = 18
 
 // Run serves the door controllers: it lets them enroll with the enrollment
 // credentials, handles every message they publish as the broker delivers
@@ -52,14 +53,21 @@ func (a *App) Run(ctx context.Context) error {
 }
 
 // prepareEnrollment makes the broker accept the enrollment credentials the
-// settings give.
+// settings give. Without a password it generates one, stores it as the
+// setting, and logs it, so the operator can give it to the controllers.
 func (a *App) prepareEnrollment(ctx context.Context) error {
 	username, password, err := a.settings.Enrollment(ctx)
 	if err != nil {
 		return err
 	}
 	if password == "" {
-		return errNoEnrollmentPassword
+		password = base64.RawURLEncoding.EncodeToString(a.entropy.Bytes(enrollmentPasswordBytes))
+		if err := a.settings.SetEnrollmentPassword(ctx, password); err != nil {
+			return fmt.Errorf("store the generated enrollment password: %w", err)
+		}
+		a.log.Info("generated the enrollment password; controllers enroll with these credentials, and the enrollment_password setting changes the password",
+			connector.Field{Key: "username", Value: username},
+			connector.Field{Key: "password", Value: password})
 	}
 	if err := a.controllers.PrepareEnrollment(ctx, username, password); err != nil {
 		return fmt.Errorf("create the enrollment client: %w", err)
@@ -91,12 +99,23 @@ func (a *App) sweepIfDue(ctx context.Context) {
 	}
 }
 
+// sweep does the periodic work: it rotates and revokes door credentials,
+// sends doors their timelines again when they are due, and removes the
+// sessions that have expired. A part that fails does not stop the others.
 func (a *App) sweep(ctx context.Context) error {
+	defaults, err := a.settings.DoorDefaults(ctx)
+	if err != nil {
+		return err
+	}
 	current, err := a.settings.Current(ctx)
 	if err != nil {
 		return err
 	}
-	return a.controllers.Sweep(ctx, current.RotateAfter, current.Grace)
+	return errors.Join(
+		a.controllers.Sweep(ctx, current.Grace, defaults),
+		a.pushes.Refresh(ctx),
+		a.auth.PurgeSessions(ctx),
+	)
 }
 
 // hub tells every page watching live updates that something changed.

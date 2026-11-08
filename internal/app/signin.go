@@ -37,6 +37,8 @@ var flashes = map[string]string{
 	"schedule-deleted":    "The schedule has been deleted.",
 	"door-created":        "The door has been created. Its controller can enroll once it is connected.",
 	"door-saved":          "The door's changes have been saved.",
+	"door-config-saved":   "The door's configuration has been saved and sent to its controller.",
+	"settings-saved":      "The settings have been saved. Doors receive changed configuration defaults right away.",
 	"controller-approved": "The controller has been approved. Its credentials are on their way, and it connects as this door once it has them.",
 	"credentials-rotated": "New credentials are on their way to the controller. The old ones work until it connects with the new ones or the grace period passes.",
 	"credentials-revoked": "The controller's credentials have been revoked and it has been disconnected. It connects again only by enrolling and being approved.",

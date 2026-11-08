@@ -81,6 +81,9 @@ type Schema struct {
 	Items       *Schema           `json:"items,omitempty"`
 	Properties  map[string]Schema `json:"properties,omitempty"`
 	Required    []string          `json:"required,omitempty"`
+	// AdditionalProperties is the schema of every value of an object
+	// whose keys are not fixed.
+	AdditionalProperties *Schema `json:"additionalProperties,omitempty"`
 }
 
 type document struct {
@@ -255,6 +258,9 @@ func (g generator) schema(t reflect.Type) Schema {
 	case reflect.Slice:
 		items := g.schema(t.Elem())
 		return Schema{Type: "array", Items: &items}
+	case reflect.Map:
+		values := g.schema(t.Elem())
+		return Schema{Type: "object", AdditionalProperties: &values}
 	case reflect.Struct:
 		return g.ref(t)
 	}

@@ -10,14 +10,15 @@ import (
 )
 
 // doorColumns lists the doors columns, the ids of each door's open
-// schedules and zones, and its controller's columns, all null without
-// one, in the order doorFields reads them, from doorTables.
+// schedules and zones, its controller's columns, all null without one, and
+// its configuration overrides, in the order doorFields reads them, from
+// doorTables.
 const (
 	doorColumns = `doors.id, doors.name, doors.location, doors.notes, doors.public, doors.primary_picture_id, doors.deleted_at,
 	doors.created_at,
 	array(select schedule_id from door_open_schedules where door_id = doors.id order by schedule_id),
 	array(select zone_id from zone_doors where door_id = doors.id order by zone_id),
-	c.hardware_id, c.firmware_version, c.signal, c.online, c.last_seen_at`
+	c.hardware_id, c.firmware_version, c.signal, c.online, c.last_seen_at, doors.config`
 	doorTables = `doors left join door_controllers c on c.door_id = doors.id`
 )
 
@@ -36,7 +37,7 @@ type scannedDoor struct {
 func doorFields(d *scannedDoor) []any {
 	c := &d.controller
 	return []any{&d.ID, &d.Name, &d.Location, &d.Notes, &d.Public, &d.PrimaryPictureID, &d.DeletedAt, &d.CreatedAt,
-		&d.OpenScheduleIDs, &d.ZoneIDs, &c.hardwareID, &c.firmwareVersion, &c.signal, &c.online, &c.lastSeenAt}
+		&d.OpenScheduleIDs, &d.ZoneIDs, &c.hardwareID, &c.firmwareVersion, &c.signal, &c.online, &c.lastSeenAt, &d.Config}
 }
 
 // door is the door, with its controller when the row has one.
@@ -84,6 +85,13 @@ func (s *Store) SetController(ctx context.Context, id int64, c *connector.Stored
 		return replaceController(ctx, tx, id, c)
 	})
 	return updated, err
+}
+
+// SetDoorConfig stores config as the configuration overrides of the door
+// with id.
+func (s *Store) SetDoorConfig(ctx context.Context, id int64, config map[string]string) (bool, error) {
+	tag, err := s.pool.Exec(ctx, `update doors set config = $2 where id = $1`, id, config)
+	return tag.RowsAffected() == 1, err
 }
 
 // replaceController makes c the controller of the door with id within tx.

@@ -213,3 +213,60 @@ func TestBrokerRefusesToDeleteAClientItDoesNotHave(t *testing.T) {
 		})
 	}
 }
+
+// sharedClient creates a client of s allowed to publish to prefix
+// enroll/%c and to subscribe to prefix enroll/%c/credentials, removed when
+// the test ends, and returns its username; its password is secret.
+func sharedClient(t *testing.T, s brokerSession) string {
+	t.Helper()
+	ctx := context.Background()
+	username := "test-" + unique()
+	err := s.app.CreateClient(ctx, connector.BrokerClient{
+		Username: username, Password: "secret", Publish: []string{s.prefix + "enroll/%c"}, Subscribe: []string{s.prefix + "enroll/%c/credentials"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = s.app.DeleteClient(ctx, username) })
+	return username
+}
+
+// publishCredentials publishes, as the application, the credentials of
+// each of hwids on its credentials topic below s's prefix.
+func publishCredentials(t *testing.T, s brokerSession, hwids ...string) {
+	t.Helper()
+	for _, hwid := range hwids {
+		m := connector.Message{Topic: s.prefix + "enroll/" + hwid + "/credentials", Payload: []byte("for " + hwid)}
+		if err := s.app.Publish(context.Background(), m); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestBrokerConfinesEachConnectionOfASharedClientToTopicsNamingItsClientID(t *testing.T) {
+	for _, impl := range brokerImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			s := impl.open(t)
+			username := sharedClient(t, s)
+			next := s.inbound(t, []string{s.prefix + "enroll/+"})
+			mine, theirs := "A1-"+unique(), "B2-"+unique()
+			controller, err := s.connectAs(t, mine, username, "secret")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			refusedTheirs := controller.Subscribe(t, s.prefix+"enroll/"+theirs+"/credentials") != nil
+			refusedEvery := controller.Subscribe(t, s.prefix+"enroll/+/credentials") != nil
+			acceptedMine := controller.Subscribe(t, s.prefix+"enroll/"+mine+"/credentials") == nil
+			controller.Publish(t, s.prefix+"enroll/"+theirs, []byte("as them"), false)
+			controller.Publish(t, s.prefix+"enroll/"+mine, []byte("as me"), false)
+			publishCredentials(t, s, theirs, mine)
+
+			want := []any{true, true, true, s.prefix + "enroll/" + mine, "for " + mine}
+			got := []any{refusedTheirs, refusedEvery, acceptedMine, next(t).Topic, string(controller.Next(t).Payload)}
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Errorf("refused theirs, refused every, accepted mine, announcement delivered, credentials received (-want +got):\n%s", diff)
+			}
+		})
+	}
+}

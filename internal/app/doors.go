@@ -249,7 +249,7 @@ func (a *App) getDoor(w http.ResponseWriter, r *http.Request, _ auth.User) {
 
 func (a *App) updateDoor(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	if f, ok := readDoor(w, r); ok {
-		d, err := a.doors.Update(r.Context(), pathID(r, "id"), f)
+		d, err := a.changeDoor(r.Context(), pathID(r, "id"), f)
 		a.writeDoor(w, r, http.StatusOK, d, err)
 	}
 }
@@ -265,7 +265,7 @@ func (a *App) doorDone(w http.ResponseWriter, err error) {
 }
 
 func (a *App) deleteDoor(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	a.doorDone(w, a.doors.Delete(r.Context(), pathID(r, "id")))
+	a.doorDone(w, a.controllers.Delete(r.Context(), pathID(r, "id")))
 }
 
 func (a *App) restoreDoor(w http.ResponseWriter, r *http.Request, _ auth.User) {

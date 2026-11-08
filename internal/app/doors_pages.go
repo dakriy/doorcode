@@ -155,9 +155,11 @@ func doorsURL(q door.Query, page int) string {
 	return "/admin/doors?" + values.Encode()
 }
 
-// doorForm is the door form, as entered, with what is wrong with it.
+// doorForm is the door's forms, as entered, with what is wrong with them.
+// Config is the configuration overrides entered, nil for the door's own.
 type doorForm struct {
 	door.Fields
+	Config map[string]string
 	Errors map[string]string
 }
 
@@ -237,6 +239,8 @@ type doorContent struct {
 	// and Credentials the credentials its controllers were issued.
 	Controller  *controllerRow
 	Credentials []credentialRow
+	// Config is each field of the door's configuration.
+	Config []configRow
 	// Alert is a refusal to show above everything else.
 	Alert          string
 	MaxPictureMB   int
@@ -294,11 +298,17 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 		a.pageError(w, err)
 		return
 	}
+	_, defaults, err := a.effectiveConfig(r.Context(), d.StoredDoor)
+	if err != nil {
+		a.pageError(w, err)
+		return
+	}
 	content := doorContent{
 		Door: d.StoredDoor, Row: n.rowOfDoor(d.StoredDoor), Form: form, Alert: alert,
 		Entrants: []entrantRow{}, Overrides: []overrideRow{},
 		Schedules: scheduleChoices(n.schedules, form.OpenScheduleIDs), Zones: zoneChoices(n.zones, form.ZoneIDs),
 		Controller: rowOfController(d.Controller, zone), Credentials: credentialRows(creds, zone),
+		Config:       configRows(d.StoredDoor, defaults, form.Config),
 		MaxPictureMB: picture.Megabytes(), MaxPictureSide: picture.MaxSide,
 	}
 	for i, p := range d.pictures {
@@ -336,7 +346,7 @@ func (a *App) doorSaver(read func(r *http.Request, f door.Fields) door.Fields, f
 			return
 		}
 		f := read(r, door.FieldsOf(d.StoredDoor))
-		_, err := a.doors.Update(r.Context(), d.ID, f)
+		_, err := a.changeDoor(r.Context(), d.ID, f)
 		if errs, rejected := fieldErrors(err); rejected {
 			a.showDoor(w, r, http.StatusUnprocessableEntity, viewer, d, doorForm{Fields: f, Errors: errs}, "")
 			return
@@ -347,7 +357,7 @@ func (a *App) doorSaver(read func(r *http.Request, f door.Fields) door.Fields, f
 
 func (a *App) deleteDoorFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	if d, ok := a.pageDoor(w, r, viewer); ok {
-		a.changed(w, r, a.doors.Delete(r.Context(), d.ID), doorPath(d.ID), "door-deleted")
+		a.changed(w, r, a.controllers.Delete(r.Context(), d.ID), doorPath(d.ID), "door-deleted")
 	}
 }
 

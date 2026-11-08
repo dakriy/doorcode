@@ -49,7 +49,7 @@ var enrollWill = testsupport.CBOR(map[string]any{"v": 1, "online": false})
 func announce(t *testing.T, f *testsupport.Factory, hwid string) *testsupport.Connection {
 	t.Helper()
 	topic := "doorcode/enroll/" + hwid
-	conn, err := f.BrokerStub.Connect(enrollUser, enrollPassword, topic, enrollWill)
+	conn, err := f.BrokerStub.Connect(hwid, enrollUser, enrollPassword, topic, enrollWill)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +102,7 @@ func onlineAs(username string, online bool) []byte {
 func connectAs(t *testing.T, f *testsupport.Factory, creds doorCredentials) *testsupport.Connection {
 	t.Helper()
 	online := "doorcode/doors/" + creds.door + "/online"
-	conn, err := f.BrokerStub.Connect(creds.username, creds.token, online, onlineAs(creds.username, false))
+	conn, err := f.BrokerStub.Connect("door-"+creds.door, creds.username, creds.token, online, onlineAs(creds.username, false))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,10 +205,31 @@ func TestStartingLetsControllersEnrollWithTheEnrollmentCredentialsOnly(t *testin
 
 	want := []testsupport.BrokerClient{{
 		Username: "enroll", Password: "second",
-		Publish: []string{"doorcode/enroll/+"}, Subscribe: []string{"doorcode/enroll/+/credentials"},
+		Publish: []string{"doorcode/enroll/%c"}, Subscribe: []string{"doorcode/enroll/%c/credentials"},
 	}}
 	if diff := cmp.Diff(want, f.BrokerStub.Clients()); diff != "" {
 		t.Errorf("clients (-want +got):\n%s", diff)
+	}
+}
+
+func TestEnrollingControllerMayUseOnlyTheTopicsOfItsOwnHardwareID(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	a, b := brokerSite(t, f)
+	conn := announce(t, f, "A1")
+
+	theirs := conn.Subscribe("doorcode/enroll/B2/credentials")
+	every := conn.Subscribe("doorcode/enroll/+/credentials")
+	if err := conn.Publish("doorcode/enroll/B2", announcement, true); err != nil {
+		t.Fatal(err)
+	}
+	run(t, a)
+
+	want := []any{"stub: subscription denied", "stub: subscription denied",
+		`{"enrollments":[{"hardware_id":"A1","firmware_version":"1.4.2","signal":-61,"waiting_since":"2026-01-05T09:00:00Z"}]}` + "\n"}
+	got := []any{testsupport.ErrorText(theirs), testsupport.ErrorText(every), b.Get("/api/v1/enrollments").Body}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("their credentials, every credentials, waiting (-want +got):\n%s", diff)
 	}
 }
 
@@ -245,7 +266,7 @@ func TestApprovedControllerMayUseOnlyItsDoorsTopics(t *testing.T) {
 
 	want := []testsupport.BrokerClient{
 		{Username: firstUsername, Password: firstToken, Publish: []string{"doorcode/doors/1/#"}, Subscribe: []string{"doorcode/doors/1/#"}},
-		{Username: enrollUser, Password: enrollPassword, Publish: []string{"doorcode/enroll/+"}, Subscribe: []string{"doorcode/enroll/+/credentials"}},
+		{Username: enrollUser, Password: enrollPassword, Publish: []string{"doorcode/enroll/%c"}, Subscribe: []string{"doorcode/enroll/%c/credentials"}},
 	}
 	if diff := cmp.Diff(want, f.BrokerStub.Clients()); diff != "" {
 		t.Errorf("clients (-want +got):\n%s", diff)

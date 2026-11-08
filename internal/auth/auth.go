@@ -216,6 +216,13 @@ func (s Service) SignOut(ctx context.Context, token string) error {
 	return s.Store.DeleteSession(ctx, tokenHash(token))
 }
 
+// PurgeSessions removes the sessions that have expired, which no longer
+// sign anyone in.
+func (s Service) PurgeSessions(ctx context.Context) error {
+	_, err := s.Store.DeleteExpiredSessions(ctx, s.Clock.Now())
+	return err
+}
+
 // accountEnded reports whether u's account is deleted or has expired by now.
 func accountEnded(u connector.StoredUser, now time.Time) bool {
 	return u.DeletedAt != nil || reached(u.ExpiresAt, now)

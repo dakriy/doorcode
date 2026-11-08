@@ -16,11 +16,8 @@ const (
 	OfRule     = "rule"
 )
 
-// Kinds is every kind Affected traces, in the order the API lists them.
-var Kinds = []string{OfSchedule, OfOverride, OfZone, OfGroup, OfRule}
-
 // Subject is one schedule, override, zone, group, or access rule: Kind is
-// one of Kinds and ID its id.
+// one of the kinds above and ID its id.
 type Subject struct {
 	Kind string
 	ID   int64

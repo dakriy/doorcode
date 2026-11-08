@@ -441,127 +441,6 @@
         }
       }
     },
-    "/affected-doors": {
-      "get": {
-        "operationId": "listAffectedDoors",
-        "summary": "List the doors a change to something would affect",
-        "tags": [
-          "doors"
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "basicAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "schedule",
-            "in": "query",
-            "required": false,
-            "description": "The id of the schedule to trace; give exactly one of the parameters.",
-            "schema": {
-              "type": "integer"
-            },
-            "example": 1
-          },
-          {
-            "name": "override",
-            "in": "query",
-            "required": false,
-            "description": "The id of the override to trace; give exactly one of the parameters.",
-            "schema": {
-              "type": "integer"
-            },
-            "example": 1
-          },
-          {
-            "name": "zone",
-            "in": "query",
-            "required": false,
-            "description": "The id of the zone to trace; give exactly one of the parameters.",
-            "schema": {
-              "type": "integer"
-            },
-            "example": 1
-          },
-          {
-            "name": "group",
-            "in": "query",
-            "required": false,
-            "description": "The id of the group to trace; give exactly one of the parameters.",
-            "schema": {
-              "type": "integer"
-            },
-            "example": 1
-          },
-          {
-            "name": "rule",
-            "in": "query",
-            "required": false,
-            "description": "The id of the rule to trace; give exactly one of the parameters.",
-            "schema": {
-              "type": "integer"
-            },
-            "example": 1
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The doors whose timeline or access depends on it as things stand. A change that moves doors in or out, such as a zone's doors, also affects those listed before it; an id that names nothing affects no door.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AffectedView"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Not exactly one parameter is given, or it is not an id.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid API token was sent.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The caller does not hold the manage-doors role.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "The server failed; the body names a request id to give an administrator.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/doors": {
       "get": {
         "operationId": "listDoors",
@@ -985,6 +864,192 @@
           },
           "400": {
             "description": "The body is not a JSON door, or a field is wrong; the error says which.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/doors/{id}/config": {
+      "get": {
+        "operationId": "getDoorConfig",
+        "summary": "Read a door's configuration",
+        "tags": [
+          "doors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The door's configuration.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoorConfigBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateDoorConfig",
+        "summary": "Replace a door's configuration overrides",
+        "tags": [
+          "doors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DoorConfigRequest"
+              },
+              "example": {
+                "overrides": {
+                  "log_level": "debug",
+                  "strike_pulse_ms": "5000"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The door's configuration, which is on its way to its controller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoorConfigBody"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON object with an object of overrides, or an override names no field or has a value the field does not take; the error says which.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6021,21 +6086,6 @@
   },
   "components": {
     "schemas": {
-      "AffectedView": {
-        "type": "object",
-        "properties": {
-          "door_ids": {
-            "type": "array",
-            "description": "The ids of the doors, ascending, that are not deleted whose timeline or access depends on what the query names.",
-            "items": {
-              "type": "integer"
-            }
-          }
-        },
-        "required": [
-          "door_ids"
-        ]
-      },
       "ApprovalRequest": {
         "type": "object",
         "properties": {
@@ -6190,6 +6240,113 @@
           "door",
           "rule_ids",
           "works"
+        ]
+      },
+      "DoorConfigBody": {
+        "type": "object",
+        "properties": {
+          "effective": {
+            "$ref": "#/components/schemas/DoorConfigView",
+            "description": "The configuration the door runs with: its overrides, and the site's defaults for the rest."
+          },
+          "overrides": {
+            "type": "object",
+            "description": "The door's own values, each keyed by the name of the field of effective it overrides.",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "effective",
+          "overrides"
+        ]
+      },
+      "DoorConfigRequest": {
+        "type": "object",
+        "properties": {
+          "overrides": {
+            "type": "object",
+            "description": "The door's own values, each keyed by the name of a field of the effective configuration; the site's defaults apply to the fields left out. They replace the overrides the door had.",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "overrides"
+        ]
+      },
+      "DoorConfigView": {
+        "type": "object",
+        "properties": {
+          "credential_rotation_days": {
+            "type": "integer",
+            "description": "How many days the door's broker credentials work before the server issues new ones."
+          },
+          "keypad_idle_clear_ms": {
+            "type": "integer",
+            "description": "How long a half-typed code waits for the next key before the keypad clears it, in milliseconds."
+          },
+          "log_level": {
+            "type": "string",
+            "description": "How much the door logs: error, warn, info, or debug."
+          },
+          "max_code_length": {
+            "type": "integer",
+            "description": "The most digits the keypad sends as a code."
+          },
+          "min_code_length": {
+            "type": "integer",
+            "description": "The fewest digits the keypad sends as a code."
+          },
+          "ntp_server": {
+            "type": "string",
+            "description": "The time server the door sets its clock from."
+          },
+          "rate_limit_burst": {
+            "type": "integer",
+            "description": "How many codes the server checks for the door in a burst."
+          },
+          "rate_limit_per_minute": {
+            "type": "integer",
+            "description": "How many codes a minute the server checks for the door."
+          },
+          "reply_timeout_ms": {
+            "type": "integer",
+            "description": "How long the door waits for the server's answer to a code, in milliseconds."
+          },
+          "strike_pulse_ms": {
+            "type": "integer",
+            "description": "How long the strike is released for an entry, in milliseconds."
+          },
+          "submit_key": {
+            "type": "string",
+            "description": "The key that ends a code: #, A, B, C, or D."
+          },
+          "telemetry_interval_s": {
+            "type": "integer",
+            "description": "How often the door reports its telemetry, in seconds."
+          },
+          "timeline_refresh_hours": {
+            "type": "integer",
+            "description": "How often the server sends the door its timeline when nothing changed it, in hours."
+          }
+        },
+        "required": [
+          "strike_pulse_ms",
+          "keypad_idle_clear_ms",
+          "min_code_length",
+          "max_code_length",
+          "submit_key",
+          "reply_timeout_ms",
+          "telemetry_interval_s",
+          "timeline_refresh_hours",
+          "credential_rotation_days",
+          "rate_limit_per_minute",
+          "rate_limit_burst",
+          "ntp_server",
+          "log_level"
         ]
       },
       "DoorList": {

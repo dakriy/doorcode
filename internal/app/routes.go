@@ -75,6 +75,7 @@ func (a *App) routes() []route {
 	table = append(table, a.doorRoutes()...)
 	table = append(table, a.pictureRoutes()...)
 	table = append(table, a.doorPageRoutes()...)
+	table = append(table, a.doorConfigRoutes()...)
 	table = append(table, a.zoneRoutes()...)
 	table = append(table, a.zonePageRoutes()...)
 	table = append(table, a.ruleRoutes()...)

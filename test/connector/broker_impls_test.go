@@ -47,8 +47,10 @@ type brokerSession struct {
 	// inbound subscribes the application to filters and returns what
 	// gives the next message delivered on them.
 	inbound func(t *testing.T, filters []string) func(t *testing.T) connector.Message
-	// connect connects as a controller.
-	connect func(t *testing.T, username, password string) (peer, error)
+	// connect connects as a controller with a client id of its own, and
+	// connectAs with clientID.
+	connect   func(t *testing.T, username, password string) (peer, error)
+	connectAs func(t *testing.T, clientID, username, password string) (peer, error)
 }
 
 type brokerImpl struct {
@@ -63,7 +65,7 @@ var brokerImpls = []brokerImpl{
 
 func openStubBroker(*testing.T) brokerSession {
 	b := testsupport.NewBroker()
-	return brokerSession{
+	s := brokerSession{
 		app:    b,
 		prefix: "doorcode/test/",
 		// The stub hands the application what was delivered since it last
@@ -92,14 +94,24 @@ func openStubBroker(*testing.T) brokerSession {
 				return m
 			}
 		},
-		connect: func(_ *testing.T, username, password string) (peer, error) {
-			conn, err := b.Connect(username, password, "", nil)
-			if err != nil {
-				return nil, err
-			}
-			return &stubPeer{conn: conn}, nil
-		},
 	}
+	s.connectAs = func(_ *testing.T, clientID, username, password string) (peer, error) {
+		conn, err := b.Connect(clientID, username, password, "", nil)
+		if err != nil {
+			return nil, err
+		}
+		return &stubPeer{conn: conn}, nil
+	}
+	return withConnect(s)
+}
+
+// withConnect is s connecting as a controller with a client id of its own
+// through its connectAs.
+func withConnect(s brokerSession) brokerSession {
+	s.connect = func(t *testing.T, username, password string) (peer, error) {
+		return s.connectAs(t, "door-"+unique(), username, password)
+	}
+	return s
 }
 
 type stubPeer struct {
@@ -146,12 +158,12 @@ func brokerURL(t *testing.T) string {
 func openBroker(t *testing.T) brokerSession {
 	t.Helper()
 	raw := brokerURL(t)
-	b, err := dynsec.Open(context.Background(), raw, "doorcode-test-"+unique())
+	b, err := dynsec.Open(context.Background(), raw, "doorcode-test-"+unique(), brokerWait)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(b.Close)
-	return brokerSession{
+	return withConnect(brokerSession{
 		app:    b,
 		prefix: "doorcode/test-" + unique() + "/",
 		inbound: func(t *testing.T, filters []string) func(t *testing.T) connector.Message {
@@ -169,10 +181,10 @@ func openBroker(t *testing.T) brokerSession {
 				}
 			}
 		},
-		connect: func(t *testing.T, username, password string) (peer, error) {
-			return connectPeer(t, raw, username, password)
+		connectAs: func(t *testing.T, clientID, username, password string) (peer, error) {
+			return connectPeer(t, raw, clientID, username, password)
 		},
-	}
+	})
 }
 
 // mqttPeer is a controller connected to the test broker.
@@ -182,11 +194,11 @@ type mqttPeer struct {
 	lost     chan struct{}
 }
 
-func connectPeer(t *testing.T, raw, username, password string) (peer, error) {
+func connectPeer(t *testing.T, raw, clientID, username, password string) (peer, error) {
 	t.Helper()
 	p := &mqttPeer{received: make(chan connector.Message, 64), lost: make(chan struct{})}
 	u := mustParseURL(t, raw)
-	opts := mqtt.NewClientOptions().AddBroker(u.Scheme + "://" + u.Host).SetClientID("door-" + unique()).
+	opts := mqtt.NewClientOptions().AddBroker(u.Scheme + "://" + u.Host).SetClientID(clientID).
 		SetUsername(username).SetPassword(password).SetAutoReconnect(false).
 		SetDefaultPublishHandler(func(_ mqtt.Client, m mqtt.Message) {
 			p.received <- connector.Message{Topic: m.Topic(), Payload: m.Payload(), Retained: m.Retained()}

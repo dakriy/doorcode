@@ -14,6 +14,7 @@ import (
 
 	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/settings"
 )
 
 var (
@@ -244,3 +245,20 @@ func nameProblem(name string) string {
 func zoneID(z connector.StoredZone) int64 { return z.ID }
 
 func doorID(d connector.StoredDoor) int64 { return d.ID }
+
+// Configure makes overrides, each keyed by the name of the field it
+// overrides, the configuration overrides of the door whose id is id, and
+// returns the door as it is now.
+func (s Service) Configure(ctx context.Context, id int64, overrides map[string]string) (connector.StoredDoor, error) {
+	if _, err := s.Door(ctx, id); err != nil {
+		return connector.StoredDoor{}, err
+	}
+	if err := settings.CheckOverrides(overrides); err != nil {
+		return connector.StoredDoor{}, err
+	}
+	// Doors are never removed, so the door just read is there to update.
+	if _, err := s.Store.SetDoorConfig(ctx, id, overrides); err != nil {
+		return connector.StoredDoor{}, err
+	}
+	return s.Door(ctx, id)
+}

@@ -303,6 +303,46 @@ func TestStoreDeletesOnlyTheNamedSession(t *testing.T) {
 	}
 }
 
+// sessionsLasting stores a session under each token of lasting, lasting
+// that many hours from when session's sessions are created.
+func sessionsLasting(t *testing.T, store connector.Store, lasting map[string]int) {
+	t.Helper()
+	for token, hours := range lasting {
+		s := session(token)
+		s.ExpiresAt = s.CreatedAt.Add(time.Duration(hours) * time.Hour)
+		if err := store.CreateSession(context.Background(), s); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// sessionsFound is each of tokens store holds a session under.
+func sessionsFound(store connector.Store, tokens ...string) []string {
+	var found []string
+	for _, token := range tokens {
+		if _, _, ok, _ := store.SessionUser(context.Background(), []byte(token)); ok {
+			found = append(found, token)
+		}
+	}
+	return found
+}
+
+func TestStoreDeletesTheSessionsThatHaveExpired(t *testing.T) {
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			store := withAdmin(t, impl)
+			sessionsLasting(t, store, map[string]int{"expired": 11, "expiring": 12, "live": 13})
+
+			removed, err := store.DeleteExpiredSessions(context.Background(), time.Date(2026, 1, 5, 21, 0, 0, 0, time.UTC))
+			kept := sessionsFound(store, "expired", "expiring", "live")
+
+			if diff := cmp.Diff([]any{2, "<nil>", []string{"live"}}, []any{removed, testsupport.ErrorText(err), kept}); diff != "" {
+				t.Errorf("removed, error, kept (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestStoreRefusesASessionForAnUnknownUser(t *testing.T) {
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {

@@ -46,12 +46,14 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 		{Method: "DELETE", Target: "/api/v1/access-rules/1", ID: "deleteAccessRule", Statuses: []int{204, 401, 403, 404, 500}},
 		{Method: "GET", Target: "/api/v1/access-rules/1", ID: "getAccessRule", Statuses: []int{200, 401, 403, 404, 500}},
 		{Method: "PUT", Target: "/api/v1/access-rules/1", ID: "updateAccessRule", Body: ruleBody, Statuses: []int{200, 400, 401, 403, 404, 500}},
-		{Method: "GET", Target: "/api/v1/affected-doors", ID: "listAffectedDoors", Statuses: []int{200, 400, 401, 403, 500}},
 		{Method: "GET", Target: "/api/v1/doors", ID: "listDoors", Statuses: []int{200, 400, 401, 403, 500}},
 		{Method: "POST", Target: "/api/v1/doors", ID: "createDoor", Body: doorBody, Statuses: []int{201, 400, 401, 403, 500}},
 		{Method: "DELETE", Target: "/api/v1/doors/1", ID: "deleteDoor", Statuses: []int{204, 401, 403, 404, 500}},
 		{Method: "GET", Target: "/api/v1/doors/1", ID: "getDoor", Statuses: []int{200, 401, 403, 404, 500}},
 		{Method: "PUT", Target: "/api/v1/doors/1", ID: "updateDoor", Body: doorBody, Statuses: []int{200, 400, 401, 403, 404, 500}},
+		{Method: "GET", Target: "/api/v1/doors/1/config", ID: "getDoorConfig", Statuses: []int{200, 401, 403, 404, 500}},
+		{Method: "PUT", Target: "/api/v1/doors/1/config", ID: "updateDoorConfig", Body: `{"overrides":{"log_level":"debug","strike_pulse_ms":"5000"}}`,
+			Statuses: []int{200, 400, 401, 403, 404, 500}},
 		{Method: "GET", Target: "/api/v1/doors/1/credentials", ID: "listDoorCredentials", Statuses: []int{200, 401, 403, 404, 500}},
 		{Method: "POST", Target: "/api/v1/doors/1/credentials/revoke", ID: "revokeDoorCredentials", Statuses: []int{204, 401, 403, 404, 500}},
 		{Method: "POST", Target: "/api/v1/doors/1/credentials/rotate", ID: "rotateDoorCredentials", Statuses: []int{204, 401, 403, 404, 409, 500}},
@@ -149,7 +151,7 @@ func TestOpenAPIDescribesTheAPIAndHowToAuthenticate(t *testing.T) {
 func TestOpenAPIDerivesBodySchemasFromTheWireTypes(t *testing.T) {
 	t.Parallel()
 	doc := openAPIDocument(t)
-	schemas := []string{"TokenView", "CreatedToken", "TokenRequest", "SettingList"}
+	schemas := []string{"TokenView", "CreatedToken", "TokenRequest", "SettingList", "DoorConfigRequest"}
 
 	var got []any
 	for _, name := range schemas {
@@ -171,7 +173,10 @@ func TestOpenAPIDerivesBodySchemasFromTheWireTypes(t *testing.T) {
 			"expires_in_days": {"type": "integer", "description": "Days until the token expires, from 1 to 3650. Omit it for a token that never expires."}}},
 		{"type": "object", "required": ["settings"], "properties": {
 			"settings": {"type": "array", "items": {"$ref": "#/components/schemas/SettingView"},
-				"description": "Every setting, in display order."}}}
+				"description": "Every setting, in display order."}}},
+		{"type": "object", "required": ["overrides"], "properties": {
+			"overrides": {"type": "object", "additionalProperties": {"type": "string"},
+				"description": "The door's own values, each keyed by the name of a field of the effective configuration; the site's defaults apply to the fields left out. They replace the overrides the door had."}}}
 	]`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("schemas (-want +got):\n%s", diff)

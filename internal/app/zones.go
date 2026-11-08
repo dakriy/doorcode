@@ -123,11 +123,11 @@ func (a *App) getZone(w http.ResponseWriter, r *http.Request, _ auth.User) {
 
 func (a *App) updateZone(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	if f, ok := readZone(w, r); ok {
-		z, err := a.doors.UpdateZone(r.Context(), pathID(r, "id"), f)
+		z, err := a.changeZone(r.Context(), pathID(r, "id"), f)
 		a.writeZone(w, r, http.StatusOK, z, err)
 	}
 }
 
 func (a *App) deleteZone(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	a.doorDone(w, a.doors.DeleteZone(r.Context(), pathID(r, "id")))
+	a.doorDone(w, a.removeZone(r.Context(), pathID(r, "id")))
 }

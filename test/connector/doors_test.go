@@ -71,7 +71,7 @@ func TestStoreCreatesADoorWithItsSchedulesAndZones(t *testing.T) {
 			got := mustDoor(t, store, id)
 
 			want := d
-			want.ID = 1
+			want.ID, want.Config = 1, map[string]string{}
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("door (-want +got):\n%s", diff)
 			}
@@ -122,7 +122,7 @@ func TestStoreUpdatesADoorReplacingItsSchedulesAndZones(t *testing.T) {
 			got := mustDoor(t, store, id)
 
 			want := changed
-			want.CreatedAt = doorCreated
+			want.CreatedAt, want.Config = doorCreated, map[string]string{}
 			if diff := cmp.Diff([]any{true, nil, want}, []any{updated, err, got}); diff != "" {
 				t.Errorf("updated, error, door (-want +got):\n%s", diff)
 			}

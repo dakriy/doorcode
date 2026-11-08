@@ -34,7 +34,12 @@ const frontDoorJSON = `{"id":1,"name":"Front door","location":"","notes":"","pub
 // Annex (2).
 func doorSite(t *testing.T, f *testsupport.Factory) *testsupport.Browser {
 	t.Helper()
-	b := signedInAdmin(t, f)
+	return furnishDoorSite(t, signedInAdmin(t, f))
+}
+
+// furnishDoorSite gives b's site what doorSite has, and returns b.
+func furnishDoorSite(t *testing.T, b *testsupport.Browser) *testsupport.Browser {
+	t.Helper()
 	createSchedule(t, b, `{"name":"Weekdays","windows":[{"days":["mon","tue","wed","thu","fri"],"start":"08:00","end":"18:00"}]}`)
 	createSchedule(t, b, `{"name":"Nights","windows":[{"days":["mon"],"start":"22:00","end":"06:00"}]}`)
 	createZone(t, b, `{"name":"North"}`)

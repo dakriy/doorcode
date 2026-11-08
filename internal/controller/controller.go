@@ -20,6 +20,8 @@ import (
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/protocol"
+	"github.com/dakriy/doorcode/internal/push"
+	"github.com/dakriy/doorcode/internal/settings"
 )
 
 var (
@@ -59,6 +61,8 @@ type Service struct {
 	Clock   connector.Clock
 	Entropy connector.Entropy
 	Pending *Pending
+	// Push sends a door that connects its configuration and timeline.
+	Push push.Service
 	// Changed is called whenever what a door's status or the pending
 	// enrollments show has changed.
 	Changed func()
@@ -179,13 +183,17 @@ func (s Service) online(ctx context.Context, doorID int64, payload []byte) error
 	}
 	c := *d.Controller
 	c.Online, c.LastSeenAt = m.Online, s.Clock.Now()
-	if m.Online {
-		c.FirmwareVersion, c.Signal = m.FirmwareVersion, m.Signal
-		if err := s.used(ctx, creds, i); err != nil {
-			return err
-		}
+	if !m.Online {
+		return s.setController(ctx, doorID, &c)
 	}
-	return s.setController(ctx, doorID, &c)
+	c.FirmwareVersion, c.Signal = m.FirmwareVersion, m.Signal
+	if err := s.used(ctx, creds, i); err != nil {
+		return err
+	}
+	if err := s.setController(ctx, doorID, &c); err != nil {
+		return err
+	}
+	return s.Push.Connected(ctx, doorID)
 }
 
 // used records that the controller connected with creds[i], when i names
@@ -234,15 +242,17 @@ func (s Service) setController(ctx context.Context, id int64, c *connector.Store
 }
 
 // PrepareEnrollment makes username and password the shared credentials
-// controllers enroll with, allowed only to announce themselves and to
-// receive their credentials, replacing any the broker has under username.
+// controllers enroll with, replacing any the broker has under username. A
+// controller connecting with them must use its hardware id as its client
+// id, and may only announce itself on its own enroll topic and receive its
+// own credentials.
 func (s Service) PrepareEnrollment(ctx context.Context, username, password string) error {
 	// The broker refuses to delete a client it does not have, as it will
 	// on a first start; creating it says whether it is there now.
 	_ = s.Broker.DeleteClient(ctx, username)
 	return s.Broker.CreateClient(ctx, connector.BrokerClient{
 		Username: username, Password: password,
-		Publish: []string{protocol.EnrollFilter}, Subscribe: []string{protocol.CredentialsFilter},
+		Publish: []string{protocol.EnrollOwnFilter}, Subscribe: []string{protocol.CredentialsOwnFilter},
 	})
 }
 
@@ -380,14 +390,36 @@ func (s Service) Revoke(ctx context.Context, id int64) error {
 	return s.setController(ctx, id, &c)
 }
 
+// Delete deletes the door whose id is id and stops its credentials
+// working, which disconnects its controller.
+func (s Service) Delete(ctx context.Context, id int64) error {
+	if err := s.Doors.Delete(ctx, id); err != nil {
+		return err
+	}
+	return s.Revoke(ctx, id)
+}
+
 // Sweep does what time makes due: a door whose newest credentials were
-// issued rotateAfter ago or longer gets new ones when its controller is
-// connected, and the older credentials of a door stop working once its
-// newest were issued grace ago.
-func (s Service) Sweep(ctx context.Context, rotateAfter, grace time.Duration) error {
+// issued its credential rotation interval ago or longer, by defaults and
+// its own overrides, gets new ones when its controller is connected, and
+// the older credentials of a door stop working once its newest were
+// issued grace ago.
+func (s Service) Sweep(ctx context.Context, grace time.Duration, defaults settings.DoorDefaults) error {
 	live, err := s.Store.LiveCredentials(ctx)
 	if err != nil {
 		return err
+	}
+	all, err := s.Store.Doors(ctx)
+	if err != nil {
+		return err
+	}
+	rotateAfter := map[int64]time.Duration{}
+	for _, d := range all {
+		config, err := defaults.For(d.Config)
+		if err != nil {
+			return err
+		}
+		rotateAfter[d.ID] = config.RotateAfter()
 	}
 	byDoor := map[int64][]connector.StoredCredential{}
 	var doors []int64
@@ -398,7 +430,7 @@ func (s Service) Sweep(ctx context.Context, rotateAfter, grace time.Duration) er
 		byDoor[c.DoorID] = append(byDoor[c.DoorID], c)
 	}
 	for _, id := range doors {
-		if err := s.sweepDoor(ctx, byDoor[id], rotateAfter, grace); err != nil {
+		if err := s.sweepDoor(ctx, byDoor[id], rotateAfter[id], grace); err != nil {
 			return err
 		}
 	}

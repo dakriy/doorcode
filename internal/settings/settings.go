@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
 )
 
@@ -49,9 +50,6 @@ const (
 	passwordHashMemoryHint = "must be a whole number of KiB from 8 to 1048576"
 	keyEnrollmentUsername  = "enrollment_username"
 	keyEnrollmentPassword  = "enrollment_password"
-	keyRotationDays        = "door_credential_rotation_days"
-	maxRotationDays        = 3650
-	rotationDaysHint       = "must be a whole number of days from 1 to 3650"
 	keyGraceHours          = "door_credential_grace_hours"
 	maxGraceHours          = 8760
 	graceHoursHint         = "must be a whole number of hours from 1 to 8760"
@@ -64,8 +62,9 @@ type definition struct {
 	validate func(s Service, value string) error
 }
 
-// definitions is every setting the site has, in display order.
-var definitions = []definition{
+// siteDefinitions is every setting that is not a door configuration
+// default, in display order.
+var siteDefinitions = []definition{
 	{key: keySiteName, fallback: "doorcode"},
 	{key: keySiteTimezone, fallback: "UTC", validate: func(s Service, value string) error {
 		_, err := s.siteZone(value)
@@ -75,9 +74,12 @@ var definitions = []definition{
 	{key: keyPasswordHashMemory, fallback: "19456", validate: accepting(passwordHashMemory)},
 	{key: keyEnrollmentUsername, fallback: "doorcode-enroll"},
 	{key: keyEnrollmentPassword, fallback: ""},
-	{key: keyRotationDays, fallback: "30", validate: accepting(rotationInterval)},
 	{key: keyGraceHours, fallback: "24", validate: accepting(graceHours)},
 }
+
+// definitions is every setting the site has, in display order: the
+// site's own, then the door configuration defaults.
+var definitions = append(siteDefinitions, doorDefinitions()...)
 
 // Current is the settings the application acts on, parsed.
 type Current struct {
@@ -89,10 +91,9 @@ type Current struct {
 	// Zone is the site timezone: weekly schedule windows and dates typed on
 	// pages are in it.
 	Zone *time.Location
-	// RotateAfter is how long a door's credentials work before the server
-	// issues new ones, and Grace how long the old ones keep working after.
-	RotateAfter time.Duration
-	Grace       time.Duration
+	// Grace is how long a door's old credentials keep working after the
+	// server issues new ones.
+	Grace time.Duration
 }
 
 // siteZone loads the site timezone a value names. The empty name and
@@ -122,12 +123,6 @@ func wholeNumber(value string, lowest, highest int, hint string) (int, error) {
 func passwordHashMemory(value string) (uint32, error) {
 	n, err := wholeNumber(value, minPasswordHashMemory, maxPasswordHashMemory, passwordHashMemoryHint)
 	return uint32(n), err
-}
-
-// rotationInterval parses a credential rotation interval in days.
-func rotationInterval(value string) (time.Duration, error) {
-	n, err := wholeNumber(value, 1, maxRotationDays, rotationDaysHint)
-	return time.Duration(n) * 24 * time.Hour, err
 }
 
 // graceHours parses a credential grace period in hours.
@@ -190,10 +185,6 @@ func (s Service) Current(ctx context.Context) (Current, error) {
 	if err != nil {
 		return Current{}, err
 	}
-	rotateAfter, err := parsed(values, keyRotationDays, rotationInterval)
-	if err != nil {
-		return Current{}, err
-	}
 	grace, err := parsed(values, keyGraceHours, graceHours)
 	if err != nil {
 		return Current{}, err
@@ -203,7 +194,6 @@ func (s Service) Current(ctx context.Context) (Current, error) {
 		AdminEmail:            values[keyAdminEmail],
 		PasswordHashMemoryKiB: memory,
 		Zone:                  zone,
-		RotateAfter:           rotateAfter,
 		Grace:                 grace,
 	}, nil
 }
@@ -214,6 +204,13 @@ func (s Service) Enrollment(ctx context.Context) (username, password string, err
 	all, err := s.List(ctx)
 	values := valuesOf(all)
 	return values[keyEnrollmentUsername], values[keyEnrollmentPassword], err
+}
+
+// SetEnrollmentPassword stores password as the one every controller
+// enrolls with.
+func (s Service) SetEnrollmentPassword(ctx context.Context, password string) error {
+	_, err := s.Update(ctx, keyEnrollmentPassword, password)
+	return err
 }
 
 // accepting is a validator that accepts the values parse accepts.
@@ -276,6 +273,52 @@ func (s Service) Update(ctx context.Context, key, value string) (Setting, error)
 		return Setting{}, err
 	}
 	return fromStore(def, row), nil
+}
+
+// UpdateAll stores each of values, keyed by setting key, that differs from
+// the setting's value now, and returns the keys of those it stored, in
+// display order. It stores none when one is refused, and reports each
+// refusal as the problem with its key. It passes over values for keys no
+// setting has and for settings the environment provides, which a form
+// does not offer.
+func (s Service) UpdateAll(ctx context.Context, values map[string]string) ([]string, error) {
+	all, err := s.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var found check.List
+	var changed []string
+	for i, def := range definitions {
+		value, given := values[def.key]
+		if !given || value == all[i].Value || all[i].ReadOnly() {
+			continue
+		}
+		found.Add(def.key, s.refusal(def, value))
+		changed = append(changed, def.key)
+	}
+	if err := found.Err(); err != nil {
+		return nil, err
+	}
+	now := s.Clock.Now()
+	for _, key := range changed {
+		if err := s.Store.PutSetting(ctx, key, values[key], now); err != nil {
+			return nil, err
+		}
+	}
+	return changed, nil
+}
+
+// refusal is why the setting def cannot take value, as a sentence; empty
+// when it can.
+func (s Service) refusal(def definition, value string) string {
+	if def.validate == nil {
+		return ""
+	}
+	if err := def.validate(s, value); err != nil {
+		text := err.Error()
+		return strings.ToUpper(text[:1]) + text[1:] + "."
+	}
+	return ""
 }
 
 func (s Service) resolve(def definition, stored map[string]connector.StoredSetting) Setting {

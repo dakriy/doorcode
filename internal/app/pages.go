@@ -291,12 +291,3 @@ func (a *App) home(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 func (a *App) apiDocsPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	a.render(w, r, http.StatusOK, apiDocsTemplate, "API documentation", &viewer, apiPrefix+"/openapi.json")
 }
-
-func (a *App) settingsPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	all, err := a.settings.List(r.Context())
-	if err != nil {
-		a.pageError(w, err)
-		return
-	}
-	a.render(w, r, http.StatusOK, settingsTemplate, "Settings", &viewer, all)
-}

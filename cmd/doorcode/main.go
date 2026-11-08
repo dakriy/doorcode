@@ -44,6 +44,10 @@ func requireEnv(name string) string {
 	return value
 }
 
+// brokerCommandTimeout is how long the broker has to answer a command
+// that manages its clients.
+const brokerCommandTimeout = 10 * time.Second
+
 func main() {
 	if err := run(context.Background()); err != nil {
 		log.Fatal(err)
@@ -56,7 +60,7 @@ func run(ctx context.Context) error {
 		return err
 	}
 	defer store.Close()
-	broker, err := dynsec.Open(ctx, requireEnv("DOORCODE_BROKER_URL"), "doorcode-server")
+	broker, err := dynsec.Open(ctx, requireEnv("DOORCODE_BROKER_URL"), "doorcode-server", brokerCommandTimeout)
 	if err != nil {
 		return err
 	}

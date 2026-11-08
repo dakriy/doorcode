@@ -188,6 +188,24 @@ func (b *Broker) Retained(topic string) (connector.Message, bool) {
 	return m, ok
 }
 
+// Topics is the topic of each message the application published after
+// its first since that ends in the level leaf, in order.
+func (b *Broker) Topics(since int, leaf string) []string {
+	out := []string{}
+	for _, m := range b.Published[since:] {
+		if strings.HasSuffix(m.Topic, "/"+leaf) {
+			out = append(out, m.Topic)
+		}
+	}
+	return out
+}
+
+// RetainedDecoded is the message the broker keeps for topic, decoded as
+// Decoded does; nil when it keeps none.
+func (b *Broker) RetainedDecoded(topic string) any {
+	return Decoded(b.retained[topic].Payload)
+}
+
 // FailPublishing makes Publish report ErrUnavailable.
 func (b *Broker) FailPublishing() { b.failing[publishing] = true }
 
@@ -200,20 +218,31 @@ func (b *Broker) FailCreating() { b.failing[creating] = true }
 // FailDeleting makes DeleteClient report ErrUnavailable.
 func (b *Broker) FailDeleting() { b.failing[deleting] = true }
 
-// Connect opens a connection as a controller would, with username,
-// password, and a last will the broker publishes, retained, on willTopic if
-// the connection drops; an empty willTopic sets none.
-func (b *Broker) Connect(username, password, willTopic string, willPayload []byte) (*Connection, error) {
+// Connect opens a connection as a controller would, with clientID,
+// username, password, and a last will the broker publishes, retained, on
+// willTopic if the connection drops; an empty willTopic sets none. The
+// connection's topics are its client's, clientID in place of each %c.
+func (b *Broker) Connect(clientID, username, password, willTopic string, willPayload []byte) (*Connection, error) {
 	client, ok := b.clients[username]
 	if !ok || client.Password != password {
 		return nil, ErrRefused
 	}
+	client.Publish, client.Subscribe = withClientID(client.Publish, clientID), withClientID(client.Subscribe, clientID)
 	c := &Connection{broker: b, client: client, open: true}
 	if willTopic != "" {
 		c.will = &connector.Message{Topic: willTopic, Payload: slices.Clone(willPayload), Retained: true}
 	}
 	b.conns = append(b.conns, c)
 	return c, nil
+}
+
+// withClientID is filters with clientID in place of each %c.
+func withClientID(filters []string, clientID string) []string {
+	var out []string
+	for _, f := range filters {
+		out = append(out, strings.ReplaceAll(f, "%c", clientID))
+	}
+	return out
 }
 
 // Connection is a controller's connection to the stub broker.

@@ -10,6 +10,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/testsupport"
 )
 
 var controllerSeen = time.Date(2026, 1, 5, 9, 30, 0, 0, time.UTC)
@@ -233,6 +234,52 @@ func TestStoreReportsACredentialThatIsNotThere(t *testing.T) {
 
 			if diff := cmp.Diff([]bool{false, false}, []bool{used, revoked}); diff != "" {
 				t.Errorf("used, revoked found (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestStoreKeepsADoorsConfigurationAcrossUpdates(t *testing.T) {
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			ctx := context.Background()
+			store := migrated(t, impl)
+			id := mustCreateDoor(t, store, plainDoor("Lobby"))
+			mustCreateDoor(t, store, plainDoor("Dock"))
+			fresh := mustDoor(t, store, id).Config
+
+			found, err := store.SetDoorConfig(ctx, id, map[string]string{"strike_pulse_ms": "500", "log_level": "debug"})
+			first := mustDoor(t, store, id).Config
+			if _, err := store.SetDoorConfig(ctx, id, map[string]string{"submit_key": "A"}); err != nil {
+				t.Fatal(err)
+			}
+			changed := mustDoor(t, store, id)
+			changed.Name = "Main lobby"
+			if _, err := store.UpdateDoor(ctx, changed); err != nil {
+				t.Fatal(err)
+			}
+			doors, listErr := store.Doors(ctx)
+			if listErr != nil {
+				t.Fatal(listErr)
+			}
+
+			want := []any{map[string]string{}, true, "<nil>", map[string]string{"strike_pulse_ms": "500", "log_level": "debug"},
+				map[string]string{"submit_key": "A"}, map[string]string{}}
+			got := []any{fresh, found, testsupport.ErrorText(err), first, doors[1].Config, doors[0].Config}
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Errorf("fresh, found, error, first, after update, other door (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestStoreReportsAConfigurationForADoorThatIsNotThere(t *testing.T) {
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			found, err := migrated(t, impl).SetDoorConfig(context.Background(), 7, map[string]string{})
+
+			if diff := cmp.Diff([]any{false, "<nil>"}, []any{found, testsupport.ErrorText(err)}); diff != "" {
+				t.Errorf("found, error (-want +got):\n%s", diff)
 			}
 		})
 	}

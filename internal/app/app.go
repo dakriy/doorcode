@@ -16,6 +16,7 @@ import (
 	"github.com/dakriy/doorcode/internal/controller"
 	"github.com/dakriy/doorcode/internal/directory"
 	"github.com/dakriy/doorcode/internal/door"
+	"github.com/dakriy/doorcode/internal/push"
 	"github.com/dakriy/doorcode/internal/rule"
 	"github.com/dakriy/doorcode/internal/schedule"
 	"github.com/dakriy/doorcode/internal/settings"
@@ -33,6 +34,8 @@ type App struct {
 	doors     door.Service
 	rules     rule.Service
 	broker    connector.Broker
+	// pushes sends doors their configuration and timelines.
+	pushes push.Service
 	// controllers enrolls door controllers and looks after them; live
 	// tells the pages watching it when what they show of them changes.
 	controllers controller.Service
@@ -77,8 +80,10 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 		broker:    f.Broker(),
 		live:      newHub(),
 	}
+	a.pushes = push.Service{Store: store, Settings: s, Broker: a.broker, Clock: clock, Sent: push.NewSent()}
 	a.controllers = controller.Service{
-		Store: store, Doors: a.doors, Broker: a.broker, Clock: clock, Entropy: entropy, Pending: controller.NewPending(), Changed: a.live.notify,
+		Store: store, Doors: a.doors, Broker: a.broker, Clock: clock, Entropy: entropy, Pending: controller.NewPending(),
+		Push: a.pushes, Changed: a.live.notify,
 	}
 	if err := a.auth.CreateFirstAdmin(ctx); err != nil {
 		return nil, fmt.Errorf("create first administrator: %w", err)

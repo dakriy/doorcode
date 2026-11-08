@@ -87,6 +87,12 @@ func (s *Store) CreateSession(ctx context.Context, session connector.StoredSessi
 	return err
 }
 
+// DeleteExpiredSessions deletes the sessions expiring at or before now.
+func (s *Store) DeleteExpiredSessions(ctx context.Context, now time.Time) (int, error) {
+	tag, err := s.pool.Exec(ctx, `delete from sessions where expires_at <= $1`, now)
+	return int(tag.RowsAffected()), err
+}
+
 // SessionUser returns the session stored under tokenHash and its user.
 func (s *Store) SessionUser(ctx context.Context, tokenHash []byte) (connector.StoredSession, connector.StoredUser, bool, error) {
 	var session connector.StoredSession

@@ -288,6 +288,26 @@ func (s *Store) DeleteSession(_ context.Context, tokenHash []byte) error {
 	return nil
 }
 
+// DeleteExpiredSessions removes the sessions expiring at or before now.
+func (s *Store) DeleteExpiredSessions(_ context.Context, now time.Time) (int, error) {
+	if err := s.usable(sessionsAggregate); err != nil {
+		return 0, err
+	}
+	removed := 0
+	for hash, session := range s.sessions {
+		if !session.ExpiresAt.After(now) {
+			delete(s.sessions, hash)
+			removed++
+		}
+	}
+	return removed, nil
+}
+
+// Sessions is how many sessions the store holds.
+func (s *Store) Sessions() int {
+	return len(s.sessions)
+}
+
 // CreateToken stores a token with the next id.
 func (s *Store) CreateToken(_ context.Context, t connector.StoredToken) (int64, error) {
 	if err := s.usable(tokensAggregate); err != nil {

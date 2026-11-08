@@ -17,7 +17,7 @@ const secondUsername = "door-1-606162636465"
 func connects(f *testsupport.Factory, creds ...doorCredentials) []bool {
 	var out []bool
 	for _, c := range creds {
-		conn, err := f.BrokerStub.Connect(c.username, c.token, "", nil)
+		conn, err := f.BrokerStub.Connect("door-"+c.door, c.username, c.token, "", nil)
 		out = append(out, err == nil)
 		if conn != nil {
 			conn.Close()

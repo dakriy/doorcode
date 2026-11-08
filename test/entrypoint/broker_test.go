@@ -20,9 +20,17 @@ func TestRunFailsToStart(t *testing.T) {
 		arrange func(f *testsupport.Factory)
 		want    string
 	}{
-		"without an enrollment password": {
-			arrange: func(f *testsupport.Factory) { delete(f.EnvStub, "DOORCODE_ENROLLMENT_PASSWORD") },
-			want:    "the enrollment_password setting is empty; set it to the password controllers enroll with",
+		"when the environment sets an empty enrollment password": {
+			arrange: func(f *testsupport.Factory) { f.EnvStub["DOORCODE_ENROLLMENT_PASSWORD"] = "" },
+			want: "store the generated enrollment password: setting is read-only: " +
+				"enrollment_password is set by environment variable DOORCODE_ENROLLMENT_PASSWORD",
+		},
+		"when a generated enrollment password cannot be stored": {
+			arrange: func(f *testsupport.Factory) {
+				delete(f.EnvStub, "DOORCODE_ENROLLMENT_PASSWORD")
+				f.StoreStub.FailSettingWrites()
+			},
+			want: "store the generated enrollment password: stub: unavailable",
 		},
 		"when settings cannot be read": {
 			arrange: func(f *testsupport.Factory) { f.StoreStub.FailSettings() },
@@ -94,11 +102,14 @@ func TestRunLogsWhenItCannotHandleAMessage(t *testing.T) {
 		arrange func(f *testsupport.Factory)
 		payload []byte
 	}{
-		"when doors cannot be read":              {func(f *testsupport.Factory) { f.StoreStub.FailDoors() }, onlineAs(firstUsername, true)},
-		"when credentials cannot be read":        {func(f *testsupport.Factory) { f.StoreStub.FailCredentials() }, onlineAs(firstUsername, true)},
-		"when the first use cannot be stored":    {func(f *testsupport.Factory) { f.StoreStub.FailCredentialWrites() }, onlineAs(secondUsername, true)},
-		"when old credentials cannot be revoked": {func(f *testsupport.Factory) { f.BrokerStub.FailDeleting() }, onlineAs(secondUsername, true)},
-		"when the state cannot be stored":        {func(f *testsupport.Factory) { f.StoreStub.FailControllerWrites() }, onlineAs(firstUsername, false)},
+		"when doors cannot be read":                           {func(f *testsupport.Factory) { f.StoreStub.FailDoors() }, onlineAs(firstUsername, true)},
+		"when credentials cannot be read":                     {func(f *testsupport.Factory) { f.StoreStub.FailCredentials() }, onlineAs(firstUsername, true)},
+		"when the first use cannot be stored":                 {func(f *testsupport.Factory) { f.StoreStub.FailCredentialWrites() }, onlineAs(secondUsername, true)},
+		"when old credentials cannot be revoked":              {func(f *testsupport.Factory) { f.BrokerStub.FailDeleting() }, onlineAs(secondUsername, true)},
+		"when the state cannot be stored":                     {func(f *testsupport.Factory) { f.StoreStub.FailControllerWrites() }, onlineAs(firstUsername, false)},
+		"when the state of a connected door cannot be stored": {func(f *testsupport.Factory) { f.StoreStub.FailControllerWrites() }, onlineAs(firstUsername, true)},
+		"when settings cannot be read":                        {func(f *testsupport.Factory) { f.StoreStub.FailSettings() }, onlineAs(firstUsername, true)},
+		"when the door's overrides cannot be read":            {func(f *testsupport.Factory) { f.StoreStub.FailOverrides() }, onlineAs(firstUsername, true)},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -117,6 +128,24 @@ func TestRunLogsWhenItCannotHandleAMessage(t *testing.T) {
 				t.Errorf("log (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestRunLogsWhenADoorThatConnectsCannotBeSentItsTimeline(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	a, _, _, _ := enrolledDoor(t, f)
+	f.StoreStub.SeedSetting("door_credential_grace_hours", "0", testsupport.DefaultNow)
+	logged := len(f.LogStub.Entries)
+	f.BrokerStub.Inject("doorcode/doors/1/online", onlineAs(firstUsername, true))
+
+	run(t, a)
+
+	want := []testsupport.LogEntry{{Level: "error", Message: "ignored a broker message", Fields: map[string]string{
+		"topic": "doorcode/doors/1/online", "error": "invalid value for door_credential_grace_hours: must be a whole number of hours from 1 to 8760",
+	}}}
+	if diff := cmp.Diff(want, logsSince(f, logged)); diff != "" {
+		t.Errorf("log (-want +got):\n%s", diff)
 	}
 }
 
@@ -141,7 +170,35 @@ func TestRunLogsWhenThePeriodicWorkFails(t *testing.T) {
 			arrange: func(_ *testing.T, f *testsupport.Factory, _ *testsupport.Browser) {
 				f.StoreStub.SeedSetting("door_credential_rotation_days", "3651", testsupport.DefaultNow)
 			},
-			at: "2026-01-05T09:01:00Z", want: "invalid value for door_credential_rotation_days: must be a whole number of days from 1 to 3650",
+			// Both the rotation and the timeline refresh need a door's
+			// configuration.
+			at: "2026-01-05T09:01:00Z", want: "invalid value for door_credential_rotation_days: must be a whole number of days from 1 to 3650\n" +
+				"invalid value for door_credential_rotation_days: must be a whole number of days from 1 to 3650",
+		},
+		"when settings cannot be read": {
+			arrange: func(_ *testing.T, f *testsupport.Factory, _ *testsupport.Browser) { f.StoreStub.FailSettings() },
+			at:      "2026-01-05T09:01:00Z", want: "stub: unavailable",
+		},
+		"when expired sessions cannot be removed": {
+			arrange: func(_ *testing.T, f *testsupport.Factory, _ *testsupport.Browser) { f.StoreStub.FailSessions() },
+			at:      "2026-01-05T09:01:00Z", want: "stub: unavailable",
+		},
+		"when schedules cannot be read": {
+			arrange: func(_ *testing.T, f *testsupport.Factory, _ *testsupport.Browser) { f.StoreStub.FailSchedules() },
+			at:      "2026-01-05T09:01:00Z", want: "stub: unavailable",
+		},
+		"when doors cannot be read": {
+			arrange: func(_ *testing.T, f *testsupport.Factory, _ *testsupport.Browser) { f.StoreStub.FailDoors() },
+			// Both the rotation and the timeline refresh read doors.
+			at: "2026-01-05T09:01:00Z", want: "stub: unavailable\nstub: unavailable",
+		},
+		"when a timeline cannot be sent": {
+			arrange: func(_ *testing.T, f *testsupport.Factory, _ *testsupport.Browser) { f.BrokerStub.FailPublishing() },
+			at:      "2026-01-05T15:00:00Z", want: "stub: unavailable",
+		},
+		"when a door's overrides cannot be read": {
+			arrange: func(_ *testing.T, f *testsupport.Factory, _ *testsupport.Browser) { f.StoreStub.FailOverrides() },
+			at:      "2026-01-05T15:00:00Z", want: "stub: unavailable",
 		},
 		"when new credentials cannot be created": {
 			arrange: func(_ *testing.T, f *testsupport.Factory, _ *testsupport.Browser) { f.BrokerStub.FailCreating() },
@@ -195,6 +252,30 @@ func TestPeriodicWorkRunsAtMostOnceAMinute(t *testing.T) {
 func runFails(t *testing.T, a *app.App) string {
 	t.Helper()
 	return testsupport.ErrorText(a.Run(t.Context()))
+}
+
+func TestFirstRunWithoutAnEnrollmentPasswordGeneratesOneAndLogsIt(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	a := start(t, f)
+	logged := len(f.LogStub.Entries)
+
+	run(t, a)
+	run(t, start(t, f))
+	_, refused := f.BrokerStub.Connect("A1", enrollUser, "", "", nil)
+	_, accepted := f.BrokerStub.Connect("A1", enrollUser, "IiMkJSYnKCkqKywtLi8wMTIz", "", nil)
+
+	want := []any{
+		[]testsupport.LogEntry{{Level: "info", Message: "generated the enrollment password; controllers enroll with these credentials, " +
+			"and the enrollment_password setting changes the password",
+			Fields: map[string]string{"username": enrollUser, "password": "IiMkJSYnKCkqKywtLi8wMTIz"}},
+			{Level: "info", Message: "schema migrated"}},
+		"stub: not authorized", "<nil>",
+	}
+	got := []any{logsSince(f, logged), testsupport.ErrorText(refused), testsupport.ErrorText(accepted)}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("log of both starts, empty password, generated password (-want +got):\n%s", diff)
+	}
 }
 
 func TestEnrollmentPasswordSavedInTheSettingsLetsRunStart(t *testing.T) {

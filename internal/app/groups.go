@@ -145,7 +145,7 @@ func (a *App) updateGroup(w http.ResponseWriter, r *http.Request, caller auth.Us
 }
 
 func (a *App) deleteGroup(w http.ResponseWriter, r *http.Request, caller auth.User) {
-	a.noContent(w, a.directory.DeleteGroup(r.Context(), caller, pathID(r, "id")))
+	a.noContent(w, a.removeGroup(r.Context(), caller, pathID(r, "id")))
 }
 
 func (a *App) listMembers(w http.ResponseWriter, r *http.Request, _ auth.User) {

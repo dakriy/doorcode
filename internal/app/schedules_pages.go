@@ -212,7 +212,7 @@ func (a *App) saveScheduleFromForm(w http.ResponseWriter, r *http.Request, viewe
 		a.renderSchedule(w, r, http.StatusOK, viewer, content)
 		return
 	}
-	_, err := a.schedules.Update(r.Context(), content.Schedule.ID, form.Fields)
+	_, err := a.changeSchedule(r.Context(), content.Schedule.ID, form.Fields)
 	if form, rejected := form.rejected(err); rejected {
 		content.Form = form
 		a.renderSchedule(w, r, http.StatusUnprocessableEntity, viewer, content)

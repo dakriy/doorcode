@@ -218,6 +218,21 @@ Payloads are CBOR maps with a `v` protocol version field. Topic prefix
 The broker is Mosquitto with its dynamic-security plugin; the server manages
 clients and ACLs over `$CONTROL`. All connections use TLS.
 
+Every controller enrolls with the same shared username and password, and
+must connect with its hardware id as its MQTT client id. The shared
+client's ACLs use the plugin's `%c` substitution: a connection may publish
+only `doorcode/enroll/%c` and subscribe only to
+`doorcode/enroll/%c/credentials`, so a controller can neither announce
+itself as another nor read another's credentials. When the enrollment
+password setting is empty on first start, the server generates one, stores
+it, and logs it.
+
+The server publishes a door's config and timeline retained to every door a
+controller is enrolled as that is not deleted, connected or not, so a
+controller that reconnects finds them current before the server notices it.
+The timeline holds `from` and `to` and the spans between them, each a
+`start` and `end` in Unix seconds and a `state` of `open` or `locked`.
+
 ## 10. Identity and sign-in
 
 Local sign-in with email and password is always available to accounts that

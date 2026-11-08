@@ -131,7 +131,7 @@ func (a *App) createRuleFromForm(w http.ResponseWriter, r *http.Request, viewer 
 		return
 	}
 	f := readRuleForm(r, g.ID)
-	_, err := a.rules.Create(r.Context(), f)
+	_, err := a.newRule(r.Context(), f)
 	if errs, rejected := fieldErrors(err); rejected {
 		a.showRule(w, r, http.StatusUnprocessableEntity, viewer, g, connector.StoredRule{}, f, errs)
 		return
@@ -151,7 +151,7 @@ func (a *App) saveRuleFromForm(w http.ResponseWriter, r *http.Request, viewer au
 		return
 	}
 	f := readRuleForm(r, g.ID)
-	_, err := a.rules.Update(r.Context(), stored.ID, f)
+	_, err := a.changeRule(r.Context(), stored.ID, f)
 	if errs, rejected := fieldErrors(err); rejected {
 		a.showRule(w, r, http.StatusUnprocessableEntity, viewer, g, stored, f, errs)
 		return
@@ -161,7 +161,7 @@ func (a *App) saveRuleFromForm(w http.ResponseWriter, r *http.Request, viewer au
 
 func (a *App) deleteRuleFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	if g, stored, ok := a.pageRule(w, r, viewer); ok {
-		a.changed(w, r, a.rules.Delete(r.Context(), stored.ID), groupPath(g.ID), "rule-deleted")
+		a.changed(w, r, a.removeRule(r.Context(), stored.ID), groupPath(g.ID), "rule-deleted")
 	}
 }
 

@@ -120,7 +120,7 @@ func readOverride(w http.ResponseWriter, r *http.Request) (door.OverrideFields, 
 
 func (a *App) createOverride(w http.ResponseWriter, r *http.Request, caller auth.User) {
 	if f, ok := readOverride(w, r); ok {
-		o, err := a.doors.CreateOverride(r.Context(), pathID(r, "id"), caller.ID, f)
+		o, err := a.newOverride(r.Context(), pathID(r, "id"), caller.ID, f)
 		a.writeOverride(w, http.StatusCreated, o, err)
 	}
 }
@@ -132,16 +132,16 @@ func (a *App) getOverride(w http.ResponseWriter, r *http.Request, _ auth.User) {
 
 func (a *App) updateOverride(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	if f, ok := readOverride(w, r); ok {
-		o, err := a.doors.UpdateOverride(r.Context(), pathID(r, "id"), pathID(r, "override"), f)
+		o, err := a.changeOverride(r.Context(), pathID(r, "id"), pathID(r, "override"), f)
 		a.writeOverride(w, http.StatusOK, o, err)
 	}
 }
 
 func (a *App) cancelOverride(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	o, err := a.doors.CancelOverride(r.Context(), pathID(r, "id"), pathID(r, "override"))
+	o, err := a.endOverride(r.Context(), pathID(r, "id"), pathID(r, "override"))
 	a.writeOverride(w, http.StatusOK, o, err)
 }
 
 func (a *App) deleteOverride(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	a.doorDone(w, a.doors.DeleteOverride(r.Context(), pathID(r, "id"), pathID(r, "override")))
+	a.doorDone(w, a.removeOverride(r.Context(), pathID(r, "id"), pathID(r, "override")))
 }

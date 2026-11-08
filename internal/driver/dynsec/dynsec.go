@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strconv"
 	"sync"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 
@@ -25,16 +26,34 @@ const (
 
 // Broker is two connections to one broker as its administrator: one
 // carries the application's messages, the other the plugin's commands and
-// answers, so neither waits behind the other.
+// answers, so neither waits behind the other. Commands go one list at a
+// time, each waiting at most commandTimeout for its answer, which the
+// answer handler hands to waiter.
 type Broker struct {
-	messages  mqtt.Client
-	control   mqtt.Client
-	answers   chan []byte
-	commandMu sync.Mutex
-	sequence  int
-	subsMu    sync.Mutex
-	subs      []subscription
-	stop      chan struct{}
+	messages       mqtt.Client
+	control        mqtt.Client
+	commandTimeout time.Duration
+	commandMu      sync.Mutex
+	sequence       int
+	waiterMu       sync.Mutex
+	waiter         *waiter
+	subsMu         sync.Mutex
+	subs           []subscription
+	stop           chan struct{}
+}
+
+// waiter is the command list waiting for its answer: its correlation id,
+// and where its answer, or why the plugin's answer cannot be read, goes.
+type waiter struct {
+	id     string
+	answer chan answer
+}
+
+// answer is the plugin's answer to a command list, or why it cannot be
+// read.
+type answer struct {
+	response response
+	err      error
 }
 
 // subscription is a set of topic filters and the inbox their messages go
@@ -46,22 +65,28 @@ type subscription struct {
 
 // Open connects to the broker at rawURL, such as
 // mqtt://admin:secret@localhost:1883 (mqtts:// for TLS), as the client ids
-// clientID and clientID-control.
-func Open(ctx context.Context, rawURL, clientID string) (*Broker, error) {
+// clientID and clientID-control. A command to the plugin that is not
+// answered within commandTimeout fails.
+func Open(ctx context.Context, rawURL, clientID string, commandTimeout time.Duration) (*Broker, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return nil, err
 	}
-	b := &Broker{answers: make(chan []byte, 16), stop: make(chan struct{})}
+	b := &Broker{commandTimeout: commandTimeout, stop: make(chan struct{})}
 	b.messages = mqtt.NewClient(options(u, clientID).SetOnConnectHandler(b.resubscribe))
 	b.control = mqtt.NewClient(options(u, clientID+"-control").SetOnConnectHandler(b.listen))
 	if err := wait(ctx, b.messages.Connect()); err != nil {
 		return nil, err
 	}
-	if err := wait(ctx, b.control.Connect()); err != nil {
+	err = wait(ctx, b.control.Connect())
+	if err == nil {
+		err = wait(ctx, b.control.Subscribe(responseTopic, qos, b.answer))
+	}
+	if err != nil {
+		b.Close()
 		return nil, err
 	}
-	return b, wait(ctx, b.control.Subscribe(responseTopic, qos, b.answer))
+	return b, nil
 }
 
 func options(u *url.URL, clientID string) *mqtt.ClientOptions {
@@ -127,11 +152,20 @@ func (b *Broker) listen(c mqtt.Client) {
 	c.Subscribe(responseTopic, qos, b.answer)
 }
 
+// answer hands the plugin's answer to the command list waiting for it. An
+// answer to a list given up on is dropped; one that cannot be read fails
+// the list waiting, since it may be its answer.
 func (b *Broker) answer(_ mqtt.Client, m mqtt.Message) {
-	select {
-	case b.answers <- m.Payload():
-	default:
+	var r response
+	err := json.Unmarshal(m.Payload(), &r)
+	b.waiterMu.Lock()
+	defer b.waiterMu.Unlock()
+	w := b.waiter
+	if w == nil || (err == nil && !r.answers(w.id)) {
+		return
 	}
+	b.waiter = nil
+	w.answer <- answer{response: r, err: err}
 }
 
 // acl is one entry of a role's access control list.
@@ -179,47 +213,47 @@ type response struct {
 }
 
 // command sends commands to the plugin, one list at a time, and reports
-// every error it answers with.
+// every error it answers with, or that it did not answer in time.
 func (b *Broker) command(ctx context.Context, commands ...map[string]any) error {
 	b.commandMu.Lock()
 	defer b.commandMu.Unlock()
-	b.sequence++
-	id := strconv.Itoa(b.sequence)
-	for _, c := range commands {
-		c["correlationData"] = id
-	}
+	ctx, cancel := context.WithTimeout(ctx, b.commandTimeout)
+	defer cancel()
+	w := b.expect(commands)
+	defer b.giveUp(w)
 	payload, _ := json.Marshal(map[string]any{"commands": commands})
 	if err := wait(ctx, b.control.Publish(controlTopic, qos, false, payload)); err != nil {
 		return err
 	}
-	return b.answered(ctx, id)
-}
-
-// answered waits for the answer to the commands sent as id, passing over
-// answers to commands given up on, and reports its errors.
-func (b *Broker) answered(ctx context.Context, id string) error {
-	for {
-		r, err := b.nextAnswer(ctx)
-		if err != nil || r.answers(id) {
-			return errors.Join(err, r.errors())
-		}
-	}
-}
-
-// nextAnswer waits for the plugin's next answer, or for ctx to be done.
-func (b *Broker) nextAnswer(ctx context.Context) (response, error) {
 	select {
-	case raw := <-b.answers:
-		return decode(raw), nil
+	case a := <-w.answer:
+		return errors.Join(a.err, a.response.errors())
 	case <-ctx.Done():
-		return response{}, ctx.Err()
+		return ctx.Err()
 	}
 }
 
-func decode(raw []byte) response {
-	var r response
-	_ = json.Unmarshal(raw, &r)
-	return r
+// expect names commands with the next correlation id and makes them the
+// list waiting for an answer.
+func (b *Broker) expect(commands []map[string]any) *waiter {
+	b.sequence++
+	w := &waiter{id: strconv.Itoa(b.sequence), answer: make(chan answer, 1)}
+	for _, c := range commands {
+		c["correlationData"] = w.id
+	}
+	b.waiterMu.Lock()
+	defer b.waiterMu.Unlock()
+	b.waiter = w
+	return w
+}
+
+// giveUp stops w waiting, if it still is.
+func (b *Broker) giveUp(w *waiter) {
+	b.waiterMu.Lock()
+	defer b.waiterMu.Unlock()
+	if b.waiter == w {
+		b.waiter = nil
+	}
 }
 
 func (r response) answers(id string) bool {

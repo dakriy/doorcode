@@ -28,13 +28,24 @@ const (
 	EnrollFilter = "doorcode/enroll/+"
 	// OnlineFilter matches the online status of every door.
 	OnlineFilter = "doorcode/doors/+/online"
-	// CredentialsFilter matches the topics enrolling controllers receive
-	// their credentials on.
-	CredentialsFilter = "doorcode/enroll/+/credentials"
+	// EnrollOwnFilter is the one topic an enrolling controller may
+	// announce itself on: the broker puts the controller's client id,
+	// which must be its hardware id, in place of %c.
+	EnrollOwnFilter = "doorcode/enroll/%c"
+	// CredentialsOwnFilter is the one topic an enrolling controller may
+	// receive credentials on, read the same way.
+	CredentialsOwnFilter = "doorcode/enroll/%c/credentials"
 )
 
-// LeafCommand ends the topic a door receives commands on.
-const LeafCommand = "command"
+// The leaves of a door's topics the server publishes on.
+const (
+	// LeafCommand ends the topic a door receives commands on.
+	LeafCommand = "command"
+	// LeafConfig ends the topic a door receives its configuration on.
+	LeafConfig = "config"
+	// LeafTimeline ends the topic a door receives its timeline on.
+	LeafTimeline = "timeline"
+)
 
 // EnrollTopic is where the controller with hardware id hwid announces
 // itself while it enrolls.
@@ -143,6 +154,56 @@ type Command struct {
 	Command  string `cbor:"command"`
 	Username string `cbor:"username,omitempty"`
 	Token    string `cbor:"token,omitempty"`
+}
+
+// DoorConfig is how a door runs: how long it releases the strike, how
+// long a half-typed code waits, how long a code may be and what key ends
+// it, how long it waits for the server's answer, how often it reports its
+// telemetry and expects a new timeline, how often its credentials rotate,
+// how many codes a minute (and in a burst) the server checks, where it
+// gets the time, and how much it logs.
+type DoorConfig struct {
+	StrikePulseMS          int    `cbor:"strike_pulse_ms"`
+	KeypadIdleClearMS      int    `cbor:"keypad_idle_clear_ms"`
+	MinCodeLength          int    `cbor:"min_code_length"`
+	MaxCodeLength          int    `cbor:"max_code_length"`
+	SubmitKey              string `cbor:"submit_key"`
+	ReplyTimeoutMS         int    `cbor:"reply_timeout_ms"`
+	TelemetryIntervalS     int    `cbor:"telemetry_interval_s"`
+	TimelineRefreshHours   int    `cbor:"timeline_refresh_hours"`
+	CredentialRotationDays int    `cbor:"credential_rotation_days"`
+	RateLimitPerMinute     int    `cbor:"rate_limit_per_minute"`
+	RateLimitBurst         int    `cbor:"rate_limit_burst"`
+	NTPServer              string `cbor:"ntp_server"`
+	LogLevel               string `cbor:"log_level"`
+}
+
+// Config is what the server publishes, retained, on a door's config
+// topic: the configuration it runs with, the site's defaults with the
+// door's own overrides.
+type Config struct {
+	Header
+	DoorConfig
+}
+
+// Span is a time from Start up to, but not including, End, both in Unix
+// seconds, during which a door is in State: "open" (any keypress unlocks
+// it) or "locked" (no code does).
+type Span struct {
+	Start int64  `cbor:"start"`
+	End   int64  `cbor:"end"`
+	State string `cbor:"state"`
+}
+
+// Timeline is what the server publishes, retained, on a door's timeline
+// topic: the spans, in order, from From up to To (Unix seconds) during
+// which it is open or locked. Between them it is in its normal state,
+// where a code the server allows opens it.
+type Timeline struct {
+	Header
+	From  int64  `cbor:"from"`
+	To    int64  `cbor:"to"`
+	Spans []Span `cbor:"spans"`
 }
 
 // ErrVersion reports a message of another protocol version.

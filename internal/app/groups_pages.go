@@ -170,7 +170,7 @@ func (a *App) groupChanged(w http.ResponseWriter, r *http.Request, viewer auth.U
 
 func (a *App) deleteGroupFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	if content, ok := a.pageGroup(w, r, viewer); ok {
-		err := a.directory.DeleteGroup(r.Context(), viewer, content.Group.ID)
+		err := a.removeGroup(r.Context(), viewer, content.Group.ID)
 		a.groupChanged(w, r, viewer, content, err, "/admin/groups", "group-deleted")
 	}
 }

@@ -183,7 +183,7 @@ func (a *App) updateSchedule(w http.ResponseWriter, r *http.Request, _ auth.User
 	if !ok {
 		return
 	}
-	sch, err := a.schedules.Update(r.Context(), pathID(r, "id"), f)
+	sch, err := a.changeSchedule(r.Context(), pathID(r, "id"), f)
 	if err != nil {
 		a.scheduleError(w, err)
 		return

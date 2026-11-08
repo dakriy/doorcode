@@ -183,55 +183,6 @@ func TestUserAccessRefusesWhatItCannotAnswer(t *testing.T) {
 	}
 }
 
-// affected is the door ids the API lists as affected by what query names.
-func affected(t *testing.T, c *testsupport.Browser, query string) any {
-	t.Helper()
-	return testsupport.JSONAt(send(t, c, "GET", "/api/v1/affected-doors?"+query, "", 200).Body, "/door_ids")
-}
-
-func TestAffectedDoorsAreTheDoorsThatDependOnWhatChanges(t *testing.T) {
-	t.Parallel()
-	b := ruleSite(t, testsupport.NewFactory())
-	createDoor(t, b, `{"name":"Gate","open_schedule_ids":[3],"zone_ids":[2]}`)
-	createDoor(t, b, `{"name":"Shed","open_schedule_ids":[3]}`)
-	send(t, b, "DELETE", "/api/v1/doors/5", "", 204)
-	createRule(t, b, `{"group_id":2,"schedule_id":3,"door_ids":[3]}`)
-	createRule(t, b, `{"group_id":3,"schedule_id":2,"zone_ids":[1],"door_ids":[2]}`)
-	createZone(t, b, `{"name":"Empty"}`)
-	createOverride(t, b, "2", lockedToday)
-
-	got := map[string]any{}
-	for _, query := range []string{"schedule=3", "schedule=1", "override=1", "override=9", "zone=1", "zone=2", "zone=3",
-		"group=2", "group=3", "rule=2", "rule=9"} {
-		got[query] = affected(t, b, query)
-	}
-
-	want := map[string]any{
-		"schedule=3": testsupport.JSON(`[3,4]`), "schedule=1": testsupport.JSON(`[]`),
-		"override=1": testsupport.JSON(`[2]`), "override=9": testsupport.JSON(`[]`),
-		"zone=1": testsupport.JSON(`[1]`), "zone=2": testsupport.JSON(`[]`), "zone=3": testsupport.JSON(`[]`),
-		"group=2": testsupport.JSON(`[3]`), "group=3": testsupport.JSON(`[1,2]`),
-		"rule=2": testsupport.JSON(`[1,2]`), "rule=9": testsupport.JSON(`[]`),
-	}
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("affected doors (-want +got):\n%s", diff)
-	}
-}
-
-func TestAffectedDoorsNeedExactlyOneID(t *testing.T) {
-	t.Parallel()
-	for _, query := range []string{"", "schedule=1&zone=1", "rule=x", "group=0", "door=1"} {
-		t.Run(query, func(t *testing.T) {
-			got := signedInAdmin(t, testsupport.NewFactory()).Get("/api/v1/affected-doors?" + query)
-
-			want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"give exactly one of schedule, override, zone, group, rule as an id"}` + "\n"}
-			if diff := cmp.Diff(want, got); diff != "" {
-				t.Errorf("response (-want +got):\n%s", diff)
-			}
-		})
-	}
-}
-
 func TestTimelineAndAccessAnswerWithARequestIDWhenTheStoreFails(t *testing.T) {
 	t.Parallel()
 	cases := map[string]struct {
@@ -246,9 +197,6 @@ func TestTimelineAndAccessAnswerWithARequestIDWhenTheStoreFails(t *testing.T) {
 		"access's rules":         {(*testsupport.Store).FailRules, "/api/v1/users/2/access"},
 		"access's schedules":     {(*testsupport.Store).FailSchedules, "/api/v1/users/2/access"},
 		"access's overrides":     {(*testsupport.Store).FailOverrides, "/api/v1/users/2/access"},
-		"affected doors":         {(*testsupport.Store).FailDoors, "/api/v1/affected-doors?schedule=1"},
-		"affected doors' rules":  {(*testsupport.Store).FailRules, "/api/v1/affected-doors?schedule=1"},
-		"an override's door":     {(*testsupport.Store).FailOverrides, "/api/v1/affected-doors?override=1"},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

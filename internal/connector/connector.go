@@ -200,6 +200,9 @@ type SessionsStore interface {
 	SessionUser(ctx context.Context, tokenHash []byte) (StoredSession, StoredUser, bool, error)
 	// DeleteSession removes the session whose token hash is tokenHash, if any.
 	DeleteSession(ctx context.Context, tokenHash []byte) error
+	// DeleteExpiredSessions removes every session that expires at or
+	// before now, and returns how many it removed.
+	DeleteExpiredSessions(ctx context.Context, now time.Time) (int, error)
 }
 
 // StoredToken is a personal API token as the store holds it. The store keeps
@@ -294,7 +297,10 @@ type StoredController struct {
 // when that picture is deleted; it ignores the field when it stores a door.
 // A nil DeletedAt is a door that is not deleted. A nil Controller is a door
 // no controller has enrolled as; the store sets it only through
-// SetController and ignores it when it stores a door.
+// SetController and ignores it when it stores a door. Config is the door's
+// configuration overrides, each value keyed by the name of the field it
+// overrides, never nil; the store sets it only through SetDoorConfig and
+// ignores it when it stores a door.
 type StoredDoor struct {
 	ID               int64
 	Name             string
@@ -307,6 +313,7 @@ type StoredDoor struct {
 	DeletedAt        *time.Time
 	CreatedAt        time.Time
 	Controller       *StoredController
+	Config           map[string]string
 }
 
 // DoorsStore holds the doors aggregate. Doors are never removed; a deleted
@@ -330,6 +337,10 @@ type DoorsStore interface {
 	// nil detaching it, and reports whether there is such a door. Hardware
 	// ids are unique: it refuses one another door's controller has.
 	SetController(ctx context.Context, id int64, c *StoredController) (bool, error)
+	// SetDoorConfig stores config as the configuration overrides of the
+	// door whose id is id, replacing those it had, and reports whether
+	// there is such a door.
+	SetDoorConfig(ctx context.Context, id int64, config map[string]string) (bool, error)
 }
 
 // StoredCredential is one set of broker credentials issued to the
@@ -524,7 +535,9 @@ type Message struct {
 // BrokerClient is a client the broker lets connect with Username and
 // Password, allowed to publish to the topics Publish matches and to
 // subscribe to the topic filters Subscribe matches, and to nothing else.
-// Entries are MQTT topic filters.
+// Entries are MQTT topic filters, in which %c stands for the client id of
+// the connection, so one client can be shared by connections each confined
+// to their own topics.
 type BrokerClient struct {
 	Username  string
 	Password  string

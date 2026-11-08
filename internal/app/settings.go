@@ -34,6 +34,7 @@ func (a *App) settingsRoutes() []route {
 	example := "North Campus"
 	return []route{
 		pageRoute(http.MethodGet, "/admin/settings", admin, a.settingsPage),
+		pageRoute(http.MethodPost, "/admin/settings", admin, a.saveSettingsFromForm),
 		apiRoute(http.MethodGet, "/settings", admin, a.listSettings, apiDoc{
 			id: "listSettings", summary: "List every setting", tag: "settings",
 			responses: []openapi.Response{{Status: http.StatusOK, Description: "Every setting.", Body: settingList{}}},
@@ -109,6 +110,7 @@ func (a *App) updateSetting(w http.ResponseWriter, r *http.Request, _ auth.User)
 		a.settingError(w, err)
 		return
 	}
+	a.settingsChanged(r.Context(), []string{s.Key})
 	writeJSON(w, http.StatusOK, viewOf(s))
 }
 
@@ -124,4 +126,61 @@ var settingStatuses = []refusalStatus{
 // means.
 func (a *App) settingError(w http.ResponseWriter, err error) {
 	a.refuse(w, err, settingStatuses)
+}
+
+// settingsContent is the settings page's content: every setting, with
+// the value entered for it when a form was refused, and what is wrong
+// with each refused value.
+type settingsContent struct {
+	Settings []settingRow
+	Errors   map[string]string
+}
+
+// settingRow is one setting as the settings page shows it, with the value
+// its input holds.
+type settingRow struct {
+	settings.Setting
+	Entered string
+}
+
+// showSettings shows the settings page with status, its inputs holding
+// entered, or each setting's value where entered has none.
+func (a *App) showSettings(w http.ResponseWriter, r *http.Request, status int, viewer auth.User, entered map[string]string, errs map[string]string) {
+	all, err := a.settings.List(r.Context())
+	if err != nil {
+		a.pageError(w, err)
+		return
+	}
+	content := settingsContent{Errors: errs}
+	for _, s := range all {
+		value, given := entered[s.Key]
+		if !given {
+			value = s.Value
+		}
+		content.Settings = append(content.Settings, settingRow{Setting: s, Entered: value})
+	}
+	a.render(w, r, status, settingsTemplate, "Settings", &viewer, content)
+}
+
+func (a *App) settingsPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
+	a.showSettings(w, r, http.StatusOK, viewer, nil, nil)
+}
+
+// saveSettingsFromForm stores every setting the form changed, or none
+// when one is refused, and sends the doors what that changes for them.
+func (a *App) saveSettingsFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
+	_ = r.ParseForm()
+	entered := map[string]string{}
+	for key := range r.PostForm {
+		entered[key] = r.PostForm.Get(key)
+	}
+	changed, err := a.settings.UpdateAll(r.Context(), entered)
+	if errs, rejected := fieldErrors(err); rejected {
+		a.showSettings(w, r, http.StatusUnprocessableEntity, viewer, entered, errs)
+		return
+	}
+	if err == nil {
+		a.settingsChanged(r.Context(), changed)
+	}
+	a.changed(w, r, err, "/admin/settings", "settings-saved")
 }
