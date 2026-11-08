@@ -15,13 +15,16 @@ import (
 )
 
 // What an import does with a row: create a user who joins the groups
-// listed, add an existing user to the groups listed they are not in,
-// leave an existing user who is in all of them, or skip a row with
-// problems.
+// listed, update an existing user's profile from the row and add them to
+// the groups listed they are not in, leave an existing user whom the row
+// changes in no way, put a user id nobody has on the pre-assigned lists of
+// the groups listed so the person joins them on first sign-in, or skip a
+// row with problems.
 const (
 	ImportCreate    = "create"
 	ImportUpdate    = "update"
 	ImportUnchanged = "unchanged"
+	ImportPreassign = "preassign"
 	ImportSkip      = "skip"
 )
 
@@ -37,9 +40,14 @@ type ImportRow struct {
 	// pre-assigned user ids hold theirs.
 	Groups []string
 	Joins  []string
-	// Outcome is ImportCreate, ImportUpdate, ImportUnchanged, or
-	// ImportSkip, and Problems what makes a row skipped, each naming its
-	// column (empty for the row as a whole).
+	// Preassigns is the slugs of the groups listed whose pre-assigned user
+	// ids gain the row's user id, for a person who has no user yet.
+	Preassigns []string
+	// Changes is the columns whose values replace an existing user's.
+	Changes []string
+	// Outcome is ImportCreate, ImportUpdate, ImportUnchanged,
+	// ImportPreassign, or ImportSkip, and Problems what makes a row
+	// skipped, each naming its column (empty for the row as a whole).
 	Outcome  string
 	Problems check.Problems
 	// User is the user's id and Name their display name: the existing
@@ -48,8 +56,11 @@ type ImportRow struct {
 	Name string
 	// Applied is true once applying the import made the row's change.
 	Applied bool
-	profile Profile
-	joinIDs []int64
+	// profile is the new user's profile, or the existing user's as the
+	// row changes it.
+	profile      Profile
+	joinIDs      []int64
+	preassignIDs []int64
 }
 
 // Import is what importing a file does, row by row.
@@ -69,12 +80,13 @@ func (imp Import) Count(outcome string) int {
 }
 
 // importer is what planning an import has seen so far: the groups, the
-// person importing, the site timezone dates are read in, and the line
-// each user id and each new user's email was first on.
+// person importing, the site timezone dates are read in, the time it is,
+// and the line each user id and each email given to a user was first on.
 type importer struct {
 	viewer  auth.User
 	groups  []connector.StoredGroup
 	zone    *time.Location
+	now     time.Time
 	userIDs map[string]int
 	emails  map[string]int
 }
@@ -93,10 +105,12 @@ func (s Service) PreviewImport(ctx context.Context, viewer auth.User, file []byt
 
 // ApplyImport imports file on behalf of viewer as PreviewImport describes
 // it, row by row: it creates users, through the same path as CreateUser,
-// and adds existing users to groups, skipping the rows with problems. When
+// updates existing users and adds them to groups, and puts user ids on
+// groups' pre-assigned lists, skipping the rows with problems. When
 // the store fails, it returns the import so far, its rows applied until
 // then marked Applied, with the error. Applying a file again is safe: users
-// created already are found by their user id and gain only what they lack.
+// created already are found by their user id and gain only what they lack,
+// and a user id on a pre-assigned list already stays there once.
 func (s Service) ApplyImport(ctx context.Context, viewer auth.User, file []byte, zone *time.Location) (Import, error) {
 	imp, err := s.PreviewImport(ctx, viewer, file, zone)
 	if err != nil {
@@ -120,7 +134,7 @@ func (s Service) planImport(ctx context.Context, viewer auth.User, records []rec
 	if err != nil {
 		return Import{}, err
 	}
-	im := importer{viewer: viewer, groups: groups, zone: zone, userIDs: map[string]int{}, emails: map[string]int{}}
+	im := importer{viewer: viewer, groups: groups, zone: zone, now: s.Clock.Now(), userIDs: map[string]int{}, emails: map[string]int{}}
 	imp := Import{Rows: []ImportRow{}}
 	for _, rec := range records {
 		row, err := s.plan(ctx, &im, rec)
@@ -138,9 +152,11 @@ func (s Service) plan(ctx context.Context, im *importer, rec record) (ImportRow,
 		Line: rec.line, UserID: rec.values[ColumnUserID], Email: strings.ToLower(rec.values[ColumnEmail]),
 		Groups: slugsOf(rec.values[ColumnGroups]), Joins: []string{}, Outcome: ImportSkip,
 	}
+	_, expiryProblem := im.expiry(rec.values[ColumnExpiresAt])
 	problems := rec.problems
 	problems.Add(ColumnUserID, im.userIDProblem(row))
 	listed := im.listedGroups(row.Groups, &problems)
+	problems.Add(ColumnExpiresAt, expiryProblem)
 	if len(problems) > 0 {
 		row.Problems = check.Problems(problems)
 		return row, nil
@@ -150,7 +166,10 @@ func (s Service) plan(ctx context.Context, im *importer, rec record) (ImportRow,
 		return row, err
 	}
 	if found {
-		return planExisting(row, u, listed), nil
+		return s.planExisting(ctx, im, row, rec, u, listed)
+	}
+	if row.Email == "" {
+		return planPreassigned(row, listed), nil
 	}
 	return s.planNew(ctx, im, row, rec, listed)
 }
@@ -196,21 +215,121 @@ func (row *ImportRow) joining(g connector.StoredGroup) {
 	row.joinIDs = append(row.joinIDs, g.ID)
 }
 
-// planExisting is what importing row does to u, who exists: they join the
-// groups listed they are not in. A deleted user is skipped.
-func planExisting(row ImportRow, u connector.StoredUser, listed []connector.StoredGroup) ImportRow {
+// planExisting is what importing row, read from rec, does to u, who
+// exists: the row's email, names, and expiry replace theirs where given,
+// and they join the groups listed they are not in. A deleted user is
+// skipped.
+func (s Service) planExisting(ctx context.Context, im *importer, row ImportRow, rec record, u connector.StoredUser, listed []connector.StoredGroup) (ImportRow, error) {
 	row.User, row.Name = u.ID, u.DisplayName
 	if u.DeletedAt != nil {
 		row.Problems = check.Problems{{Field: ColumnUserID, Message: "This user is deleted. Restore them before importing them."}}
-		return row
+		return row, nil
 	}
+	p, changes, problems, err := s.updatedProfile(ctx, im, row, rec, u)
+	if err != nil {
+		return row, err
+	}
+	if len(problems) > 0 {
+		row.Problems = check.Problems(problems)
+		return row, nil
+	}
+	row.profile, row.Changes = p, changes
 	for _, g := range listed {
 		if !slices.ContainsFunc(u.Groups, func(m connector.UserGroup) bool { return m.ID == g.ID }) {
 			row.joining(g)
 		}
 	}
 	row.Outcome = ImportUpdate
-	if len(row.Joins) == 0 {
+	if len(row.Joins) == 0 && len(row.Changes) == 0 {
+		row.Outcome = ImportUnchanged
+	}
+	return row, nil
+}
+
+// updatedProfile is u's profile with the email, names, and expiry row,
+// read from rec, gives over it, the columns whose values that changes, and
+// what is wrong with it, checked as the user form checks it when anything
+// changes. viewer may not make their own account expire now or earlier.
+func (s Service) updatedProfile(ctx context.Context, im *importer, row ImportRow, rec record, u connector.StoredUser) (Profile, []string, check.List, error) {
+	before := Profile{
+		Email: u.Email, UserID: row.UserID, FirstName: u.FirstName, LastName: u.LastName,
+		DisplayName: u.DisplayName, ExpiresAt: u.ExpiresAt,
+	}
+	p := before
+	p.Email = cmp.Or(row.Email, u.Email)
+	p.FirstName = cmp.Or(rec.values[ColumnFirstName], u.FirstName)
+	p.LastName = cmp.Or(rec.values[ColumnLastName], u.LastName)
+	expires, _ := im.expiry(rec.values[ColumnExpiresAt])
+	if expires != nil {
+		p.ExpiresAt = expires
+	}
+	changes := changedColumns(before, p)
+	if len(changes) == 0 {
+		return p, changes, nil, nil
+	}
+	var problems check.List
+	if u.ID == im.viewer.ID && p.ExpiresAt != nil && !p.ExpiresAt.After(im.now) {
+		problems.Add(ColumnExpiresAt, "You cannot make your own account expire in the past.")
+	}
+	p, err := s.checkProfile(ctx, u.ID, p)
+	var profileProblems check.Problems
+	if errors.As(err, &profileProblems) {
+		problems = append(problems, profileProblems...)
+	} else if err != nil {
+		return p, nil, nil, err
+	}
+	if len(problems) == 0 && slices.Contains(changes, ColumnEmail) {
+		problems.Add(ColumnEmail, im.emailProblem(row))
+	}
+	return p, changes, problems, nil
+}
+
+// changedColumns names the columns whose values differ between before and
+// after, in the order the file's columns are described.
+func changedColumns(before, after Profile) []string {
+	var changes []string
+	if after.Email != before.Email {
+		changes = append(changes, ColumnEmail)
+	}
+	if after.FirstName != before.FirstName {
+		changes = append(changes, ColumnFirstName)
+	}
+	if after.LastName != before.LastName {
+		changes = append(changes, ColumnLastName)
+	}
+	if !sameTime(before.ExpiresAt, after.ExpiresAt) {
+		changes = append(changes, ColumnExpiresAt)
+	}
+	return changes
+}
+
+// sameTime reports whether a and b are both nil or the same instant.
+func sameTime(a, b *time.Time) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.Equal(*b)
+}
+
+// planPreassigned is what importing row does when nobody has its user id
+// and it gives no email, so no user can be created: the user id goes on
+// the pre-assigned list of each group listed whose list lacks it, and the
+// person joins those groups when their user is created, as on their first
+// sign-in. The names and expiry are not used.
+func planPreassigned(row ImportRow, listed []connector.StoredGroup) ImportRow {
+	if len(listed) == 0 {
+		row.Problems = check.Problems{{Field: ColumnEmail, Message: "Nobody has this user id yet. Give an email to create the user, or groups to pre-assign the user id to."}}
+		return row
+	}
+	row.Preassigns = []string{}
+	for _, g := range listed {
+		if !slices.Contains(g.PreassignedUserIDs, row.UserID) {
+			row.Preassigns = append(row.Preassigns, g.Slug)
+			row.preassignIDs = append(row.preassignIDs, g.ID)
+		}
+	}
+	row.Outcome = ImportPreassign
+	if len(row.Preassigns) == 0 {
 		row.Outcome = ImportUnchanged
 	}
 	return row
@@ -245,12 +364,7 @@ func (s Service) planNew(ctx context.Context, im *importer, row ImportRow, rec r
 // or what is wrong with it.
 func (s Service) newUser(ctx context.Context, im *importer, row ImportRow, rec record) (Profile, check.List, error) {
 	var problems check.List
-	expires, expiryProblem := im.expiry(rec.values[ColumnExpiresAt])
-	problems.Add(ColumnExpiresAt, expiryProblem)
-	if row.Email == "" {
-		problems.Add(ColumnEmail, "Nobody has this user id yet, and a new user needs an email address.")
-		return Profile{}, problems, nil
-	}
+	expires, _ := im.expiry(rec.values[ColumnExpiresAt])
 	p, err := s.checkProfile(ctx, 0, profileOf(row, rec, expires))
 	var profileProblems check.Problems
 	if errors.As(err, &profileProblems) {
@@ -287,12 +401,12 @@ func (im *importer) expiry(value string) (*time.Time, string) {
 	return &day, ""
 }
 
-// emailProblem says when row's email, which a new user is created with,
-// is on an earlier line for another new user; it remembers the line of
+// emailProblem says when row's email, which a user is created with or
+// given, is on an earlier line for another user; it remembers the line of
 // each email it is given.
 func (im *importer) emailProblem(row ImportRow) string {
 	if first, seen := im.emails[row.Email]; seen {
-		return fmt.Sprintf("This email is also on line %d for another new user.", first)
+		return fmt.Sprintf("This email is also on line %d for another user.", first)
 	}
 	im.emails[row.Email] = row.Line
 	return ""
@@ -310,7 +424,9 @@ func (s Service) applyRow(ctx context.Context, row ImportRow) (ImportRow, error)
 		u, err = s.create(ctx, row.profile, row.joinIDs)
 		row.User = u.ID
 	case ImportUpdate:
-		err = s.join(ctx, row.User, row.joinIDs)
+		err = s.update(ctx, row)
+	case ImportPreassign:
+		err = s.preassign(ctx, row.UserID, row.preassignIDs)
 	default:
 		return row, nil
 	}
@@ -323,6 +439,28 @@ func (s Service) applyRow(ctx context.Context, row ImportRow) (ImportRow, error)
 func (s Service) join(ctx context.Context, userID int64, groupIDs []int64) error {
 	for _, id := range groupIDs {
 		if err := s.Store.AddMember(ctx, id, userID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// update stores the profile of row's existing user as the row changes it,
+// when it changes it, and makes them a member of the groups they join.
+func (s Service) update(ctx context.Context, row ImportRow) error {
+	if len(row.Changes) > 0 {
+		if _, err := s.UpdateUser(ctx, row.User, row.profile); err != nil {
+			return err
+		}
+	}
+	return s.join(ctx, row.User, row.joinIDs)
+}
+
+// preassign puts userID on the pre-assigned lists of the groups whose ids
+// are groupIDs.
+func (s Service) preassign(ctx context.Context, userID string, groupIDs []int64) error {
+	for _, id := range groupIDs {
+		if err := s.Store.Preassign(ctx, id, userID); err != nil {
 			return err
 		}
 	}

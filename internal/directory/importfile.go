@@ -13,7 +13,8 @@ import (
 )
 
 // The columns of an import file. Every file has ColumnUserID and
-// ColumnGroups; the others are optional and used only to create users.
+// ColumnGroups; the others are optional, and create a user or replace an
+// existing user's values.
 const (
 	ColumnUserID    = "user_id"
 	ColumnGroups    = "groups"

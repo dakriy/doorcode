@@ -40,38 +40,87 @@ type importedContent struct {
 }
 
 // importedRow is a row of an import as its page shows it: Label says what
-// importing it does or did, and Kind how that is drawn: create, update,
-// unchanged, skip, or failed for a row the store stopped before.
+// importing it does or did, Kind how that is drawn (create, update,
+// unchanged, preassign, skip, or failed for a row the store stopped
+// before), and Details what it changes.
 type importedRow struct {
 	importRowView
-	Label string
-	Kind  string
+	Label   string
+	Kind    string
+	Details []importDetail
 }
 
-// previewLabels and appliedLabels name each outcome on the preview and on
-// the result.
+// importDetail is one change a row makes: Text, then the slugs or columns
+// it names.
+type importDetail struct {
+	Text  string
+	Names []string
+}
+
+// importWords is what an import page says of each outcome and change,
+// before or after applying.
+type importWords struct {
+	labels                               map[string]string
+	updates, joins, preassigns, noGroups string
+}
+
+// previewWords and appliedWords are what the preview and the result say.
 var (
-	previewLabels = map[string]string{
-		directory.ImportCreate: "New user", directory.ImportUpdate: "Joins groups",
-		directory.ImportUnchanged: "Nothing to change", directory.ImportSkip: "Error",
+	previewWords = importWords{
+		labels: map[string]string{
+			directory.ImportCreate: "New user", directory.ImportUpdate: "Update",
+			directory.ImportUnchanged: "Nothing to change", directory.ImportPreassign: joinsLater, directory.ImportSkip: "Error",
+		},
+		updates: "Updates", joins: "Joins", preassigns: "Adds the user id to the pre-assigned lists of", noGroups: "Joins no groups",
 	}
-	appliedLabels = map[string]string{
-		directory.ImportCreate: "Created", directory.ImportUpdate: "Added to groups",
-		directory.ImportUnchanged: "Nothing to change", directory.ImportSkip: "Skipped",
+	appliedWords = importWords{
+		labels: map[string]string{
+			directory.ImportCreate: "Created", directory.ImportUpdate: "Updated",
+			directory.ImportUnchanged: "Nothing to change", directory.ImportPreassign: joinsLater, directory.ImportSkip: "Skipped",
+		},
+		updates: "Updated", joins: "Joined", preassigns: "Added the user id to the pre-assigned lists of", noGroups: "Joined no groups",
 	}
 )
+
+// joinsLater labels a row whose person joins its groups on first sign-in.
+const joinsLater = "Joins on first sign-in"
+
+// details is what row changes, in words.
+func (words importWords) details(row importRowView) []importDetail {
+	var out []importDetail
+	if len(row.Changes) > 0 {
+		out = append(out, importDetail{Text: words.updates, Names: row.Changes})
+	}
+	if len(row.Joins) > 0 {
+		out = append(out, importDetail{Text: words.joins, Names: row.Joins})
+	}
+	if len(row.Preassigns) > 0 {
+		out = append(out, importDetail{Text: words.preassigns, Names: row.Preassigns})
+	}
+	if len(out) > 0 {
+		return out
+	}
+	if row.Outcome != directory.ImportUnchanged {
+		return []importDetail{{Text: words.noGroups}}
+	}
+	if row.User == nil {
+		return []importDetail{{Text: "Already on the pre-assigned list of every group listed"}}
+	}
+	return []importDetail{{Text: "Already in every group listed, with nothing to update"}}
+}
 
 // importedOf is the page showing report, of the import file csv.
 func importedOf(report importReport, csv string) importedContent {
 	content := importedContent{importReport: report, CSV: csv}
-	labels := previewLabels
+	words := previewWords
 	if report.Applied {
-		labels = appliedLabels
+		words = appliedWords
 	}
 	for _, row := range report.Rows {
-		shown := importedRow{importRowView: row, Label: labels[row.Outcome], Kind: row.Outcome}
-		if report.Applied && !row.Applied && (row.Outcome == directory.ImportCreate || row.Outcome == directory.ImportUpdate) {
-			shown.Label, shown.Kind = "Not applied", "failed"
+		shown := importedRow{importRowView: row, Label: words.labels[row.Outcome], Kind: row.Outcome, Details: words.details(row)}
+		changes := row.Outcome != directory.ImportUnchanged && row.Outcome != directory.ImportSkip
+		if report.Applied && !row.Applied && changes {
+			shown.Label, shown.Kind, shown.Details = "Not applied", "failed", previewWords.details(row)
 		}
 		content.Shown = append(content.Shown, shown)
 	}

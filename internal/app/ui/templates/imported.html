@@ -10,9 +10,10 @@
 
 <section aria-labelledby="totals-heading" class="mt-8">
   <h2 id="totals-heading" class="sr-only">Totals</h2>
-  <dl class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+  <dl class="grid grid-cols-2 gap-4 lg:grid-cols-5">
     <div class="p-4 {{template "card-class"}}"><dt class="text-xs font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">{{if $c.Applied}}Users created{{else}}New users{{end}}</dt><dd class="mt-1 text-2xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">{{$t.Create}}</dd></div>
-    <div class="p-4 {{template "card-class"}}"><dt class="text-xs font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">{{if $c.Applied}}Users added to groups{{else}}Join groups{{end}}</dt><dd class="mt-1 text-2xl font-semibold tabular-nums text-brand-700 dark:text-brand-300">{{$t.Update}}</dd></div>
+    <div class="p-4 {{template "card-class"}}"><dt class="text-xs font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">{{if $c.Applied}}Users updated{{else}}Updates{{end}}</dt><dd class="mt-1 text-2xl font-semibold tabular-nums text-brand-700 dark:text-brand-300">{{$t.Update}}</dd></div>
+    <div class="p-4 {{template "card-class"}}"><dt class="text-xs font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">Join on first sign-in</dt><dd class="mt-1 text-2xl font-semibold tabular-nums text-violet-700 dark:text-violet-300">{{$t.Preassign}}</dd></div>
     <div class="p-4 {{template "card-class"}}"><dt class="text-xs font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">Nothing to change</dt><dd class="mt-1 text-2xl font-semibold tabular-nums text-zinc-700 dark:text-zinc-300">{{$t.Unchanged}}</dd></div>
     <div class="p-4 {{if $t.Skip}}rounded-xl border border-red-200 bg-red-50 shadow-xs dark:border-red-900/60 dark:bg-red-950/40{{else}}{{template "card-class"}}{{end}}"><dt class="text-xs font-medium tracking-wide uppercase {{if $t.Skip}}text-red-700 dark:text-red-300{{else}}text-zinc-500 dark:text-zinc-400{{end}}">{{if $c.Applied}}Skipped{{else}}Errors, skipped{{end}}</dt><dd class="mt-1 text-2xl font-semibold tabular-nums {{if $t.Skip}}text-red-700 dark:text-red-300{{else}}text-zinc-700 dark:text-zinc-300{{end}}">{{$t.Skip}}</dd></div>
   </dl>
@@ -40,9 +41,7 @@
           <td class="px-4 py-3 text-zinc-600 dark:text-zinc-400">
             {{if .Problems}}
             <ul class="space-y-1 text-red-700 dark:text-red-300">{{range .Problems}}<li>{{with .Column}}<span class="font-mono text-xs">{{.}}:</span> {{end}}{{.Message}}</li>{{end}}</ul>
-            {{else if .Joins}}{{if .Applied}}Joined{{else}}Joins{{end}} <span class="font-mono text-xs">{{range $i, $s := .Joins}}{{if $i}}, {{end}}{{$s}}{{end}}</span>
-            {{else if eq .Outcome "unchanged"}}Already in every group listed
-            {{else if .Applied}}Joined no groups{{else}}Joins no groups{{end}}
+            {{else}}{{range .Details}}<p>{{.Text}}{{with .Names}} <span class="font-mono text-xs">{{range $i, $s := .}}{{if $i}}, {{end}}{{$s}}{{end}}</span>{{end}}</p>{{end}}{{end}}
           </td>
         </tr>
         {{end}}
@@ -52,12 +51,12 @@
 </div>
 
 {{if not $c.Applied}}
-{{if or $t.Create $t.Update}}
+{{if or $t.Create $t.Update $t.Preassign}}
 <form method="post" action="/admin/users/import/apply" hx-disabled-elt="find button"
-  hx-confirm="Apply this import? It creates {{$t.Create}} and adds {{$t.Update}} to groups{{if $t.Skip}}, skipping {{$t.Skip}} with errors{{end}}."
+  hx-confirm="Apply this import? It creates {{$t.Create}}, updates {{$t.Update}}, and pre-assigns {{$t.Preassign}} to groups{{if $t.Skip}}, skipping {{$t.Skip}} with errors{{end}}."
   class="mt-6 flex flex-col gap-4 rounded-xl border border-brand-200 bg-brand-50 p-5 sm:flex-row sm:items-center sm:justify-between dark:border-brand-900 dark:bg-brand-950/40">
   <input type="hidden" name="csv" value="{{$c.CSV}}">
-  <p class="text-sm text-brand-900 dark:text-brand-100">Applying creates {{$t.Create}} {{if eq $t.Create 1}}user{{else}}users{{end}} and adds {{$t.Update}} {{if eq $t.Update 1}}user{{else}}users{{end}} to groups.{{if $t.Skip}} The {{$t.Skip}} {{if eq $t.Skip 1}}row{{else}}rows{{end}} with errors {{if eq $t.Skip 1}}is{{else}}are{{end}} skipped.{{end}}</p>
+  <p class="text-sm text-brand-900 dark:text-brand-100">Applying creates {{$t.Create}} {{if eq $t.Create 1}}user{{else}}users{{end}}, updates {{$t.Update}}, and pre-assigns {{$t.Preassign}} {{if eq $t.Preassign 1}}user id{{else}}user ids{{end}} to groups, to be joined on first sign-in.{{if $t.Skip}} The {{$t.Skip}} {{if eq $t.Skip 1}}row{{else}}rows{{end}} with errors {{if eq $t.Skip 1}}is{{else}}are{{end}} skipped.{{end}}</p>
   <button type="submit" class="shrink-0 {{template "primary-class"}}">Apply import</button>
 </form>
 {{else}}
@@ -70,5 +69,6 @@
 {{define "import-outcome"}}{{if eq .Kind "create"}}<span class="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-600/20 ring-inset dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-400/20">{{.Label}}</span>
 {{- else if eq .Kind "update"}}<span class="inline-flex rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 ring-1 ring-brand-600/20 ring-inset dark:bg-brand-950 dark:text-brand-300 dark:ring-brand-400/20">{{.Label}}</span>
 {{- else if eq .Kind "skip"}}<span class="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800 ring-1 ring-red-600/30 ring-inset dark:bg-red-950 dark:text-red-200 dark:ring-red-400/30"><svg class="size-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>{{.Label}}</span>
+{{- else if eq .Kind "preassign"}}<span class="inline-flex rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 ring-1 ring-violet-600/20 ring-inset dark:bg-violet-950 dark:text-violet-300 dark:ring-violet-400/20">{{.Label}}</span>
 {{- else if eq .Kind "failed"}}<span class="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-600/20 ring-inset dark:bg-amber-950 dark:text-amber-300 dark:ring-amber-400/20">{{.Label}}</span>
 {{- else}}{{template "badge" .Label}}{{end}}{{end}}

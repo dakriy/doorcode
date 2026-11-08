@@ -7522,7 +7522,7 @@
         },
         "responses": {
           "200": {
-            "description": "What importing the file did, row by row: users created with no door code and no password until they sign in, existing users added to groups, and skipped rows with their problems. Importing the same file again is safe.",
+            "description": "What importing the file did, row by row: users created with no door code and no password until they sign in, existing users updated and added to groups, user ids pre-assigned to groups for people who join them on first sign-in, and skipped rows with their problems. Importing the same file again is safe.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7572,11 +7572,11 @@
             }
           },
           "500": {
-            "description": "The server failed; the body names a request id to give an administrator.",
+            "description": "The server failed; the body names a request id to give an administrator and, when it failed partway through applying the file, reports which rows were applied.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
+                  "$ref": "#/components/schemas/ImportFailure"
                 }
               }
             }
@@ -9969,6 +9969,27 @@
           "member_count"
         ]
       },
+      "ImportFailure": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "What went wrong."
+          },
+          "report": {
+            "$ref": "#/components/schemas/ImportReport",
+            "description": "What applying the file did until the server failed, each row's applied saying whether its change was made; importing the same file again finishes it. Absent when the server failed before reading the file's rows."
+          },
+          "request_id": {
+            "type": "string",
+            "description": "Names the failure in the server log."
+          }
+        },
+        "required": [
+          "error",
+          "request_id"
+        ]
+      },
       "ImportProblem": {
         "type": "object",
         "properties": {
@@ -10017,9 +10038,16 @@
             "type": "boolean",
             "description": "True when applying the import made the row's change."
           },
+          "changes": {
+            "type": "array",
+            "description": "For an existing user, the columns whose values replace theirs: email, first_name, last_name, or expires_at.",
+            "items": {
+              "type": "string"
+            }
+          },
           "email": {
             "type": "string",
-            "description": "The email the row gives, lowercase; used only to create a user."
+            "description": "The email the row gives, lowercase: a new user's, or an existing user's new one."
           },
           "groups": {
             "type": "array",
@@ -10041,7 +10069,14 @@
           },
           "outcome": {
             "type": "string",
-            "description": "create (a new user who joins the groups), update (an existing user joins the groups), unchanged (an existing user in every group already), or skip (the row has problems)."
+            "description": "create (a new user who joins the groups), update (an existing user's profile changes or they join groups), unchanged (an existing user the row changes in no way, or a user id on every listed group's pre-assigned list already), preassign (a user id nobody has, without an email, goes on the groups' pre-assigned lists, so the person joins on first sign-in), or skip (the row has problems)."
+          },
+          "preassigns": {
+            "type": "array",
+            "description": "For a user id nobody has and no email, the slugs of the groups listed whose pre-assigned user ids gain it; the person joins them on first sign-in.",
+            "items": {
+              "type": "string"
+            }
           },
           "problems": {
             "type": "array",
@@ -10075,23 +10110,28 @@
             "type": "integer",
             "description": "How many rows create a user."
           },
+          "preassign": {
+            "type": "integer",
+            "description": "How many rows pre-assign a user id nobody has to groups, which the person joins on first sign-in."
+          },
           "skip": {
             "type": "integer",
             "description": "How many rows are skipped for their problems."
           },
           "unchanged": {
             "type": "integer",
-            "description": "How many rows name a user in every group listed already."
+            "description": "How many rows change nothing."
           },
           "update": {
             "type": "integer",
-            "description": "How many rows add an existing user to groups."
+            "description": "How many rows update an existing user or add them to groups."
           }
         },
         "required": [
           "create",
           "update",
           "unchanged",
+          "preassign",
           "skip"
         ]
       },
@@ -10101,7 +10141,7 @@
           "file": {
             "type": "string",
             "format": "binary",
-            "description": "The CSV file. Its first line names the columns: user_id and groups (slugs separated by semicolons), and optionally email, first_name, last_name, and expires_at (YYYY-MM-DD in the site timezone)."
+            "description": "The CSV file. Its first line names the columns: user_id and groups (slugs separated by semicolons), and optionally email, first_name, last_name, and expires_at (YYYY-MM-DD in the site timezone). A row whose user id nobody has creates a user when it gives an email and otherwise puts the user id on the pre-assigned list of each group listed, so the person joins them on first sign-in; a row naming an existing user replaces their email, names, and expiry with the values it gives."
           }
         },
         "required": [

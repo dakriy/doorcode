@@ -348,6 +348,19 @@ func (s *Store) AddMember(_ context.Context, groupID, userID int64) error {
 	return nil
 }
 
+// Preassign appends userID to the group's pre-assigned user ids unless
+// they hold it.
+func (s *Store) Preassign(_ context.Context, groupID int64, userID string) error {
+	if err := s.writable(groupsAggregate, groupWrites); err != nil {
+		return err
+	}
+	held := s.groupByID(groupID)
+	if held != nil && !slices.Contains(held.PreassignedUserIDs, userID) {
+		held.PreassignedUserIDs = append(slices.Clone(held.PreassignedUserIDs), userID)
+	}
+	return nil
+}
+
 // RemoveMember removes the membership.
 func (s *Store) RemoveMember(_ context.Context, groupID, userID int64) (bool, error) {
 	if err := s.writable(groupsAggregate, groupWrites); err != nil {

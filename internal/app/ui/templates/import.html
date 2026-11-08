@@ -3,7 +3,7 @@
 {{template "back" (link "/admin/users" "All users")}}
 <div class="mt-4 max-w-2xl">
   <h1 class="text-2xl font-semibold tracking-tight">Import users</h1>
-  <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Add people to groups from a CSV file. You see what every row would do before anything changes: new users are created in their groups, and people who exist already join the groups they are not in yet, keeping the ones they have.</p>
+  <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Add people to groups from a CSV file. You see what every row would do before anything changes: new users are created in their groups, people who exist already join the groups they are not in yet, keeping the ones they have, and a user id nobody has, given without an email, is pre-assigned to its groups so the person joins them on first sign-in.</p>
 </div>
 
 <div class="mt-8 grid gap-8 lg:grid-cols-3">
@@ -31,9 +31,9 @@
         <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
           <tr><td class="px-4 py-2 font-mono text-xs">user_id</td><td class="px-4 py-2 text-zinc-600 dark:text-zinc-400">Required. The person's user id, such as an employee or student number.</td></tr>
           <tr><td class="px-4 py-2 font-mono text-xs">groups</td><td class="px-4 py-2 text-zinc-600 dark:text-zinc-400">Required. The slugs of the groups they join, separated by semicolons; may be empty.</td></tr>
-          <tr><td class="px-4 py-2 font-mono text-xs">email</td><td class="px-4 py-2 text-zinc-600 dark:text-zinc-400">Needed to create a user; ignored for someone who exists.</td></tr>
-          <tr><td class="px-4 py-2 font-mono text-xs">first_name, last_name</td><td class="px-4 py-2 text-zinc-600 dark:text-zinc-400">Optional names for a new user, who is otherwise called by their email.</td></tr>
-          <tr><td class="px-4 py-2 font-mono text-xs">expires_at</td><td class="px-4 py-2 text-zinc-600 dark:text-zinc-400">Optional date, like 2030-06-30, when a new user's account ends; empty for never.</td></tr>
+          <tr><td class="px-4 py-2 font-mono text-xs">email</td><td class="px-4 py-2 text-zinc-600 dark:text-zinc-400">Creates a user when nobody has the user id. Without it, the user id is pre-assigned to the groups listed and the person joins them on first sign-in. Replaces the email of someone who exists.</td></tr>
+          <tr><td class="px-4 py-2 font-mono text-xs">first_name, last_name</td><td class="px-4 py-2 text-zinc-600 dark:text-zinc-400">Optional names. A new user without them is called by their email; given for someone who exists, they replace theirs.</td></tr>
+          <tr><td class="px-4 py-2 font-mono text-xs">expires_at</td><td class="px-4 py-2 text-zinc-600 dark:text-zinc-400">Optional date, like 2030-06-30, when the account ends. Empty is never for a new user and leaves someone who exists as they are.</td></tr>
         </tbody>
       </table>
     </div>
@@ -41,7 +41,7 @@
     <pre class="mt-1 overflow-x-auto rounded-lg bg-zinc-50 p-3 font-mono text-xs text-zinc-700 ring-1 ring-zinc-200 ring-inset dark:bg-zinc-950 dark:text-zinc-300 dark:ring-zinc-800">user_id,groups,email,first_name,last_name
 100234,staff;lab,ann.smith@example.com,Ann,Smith
 100871,staff,,,</pre>
-    <p class="mt-4 text-sm text-zinc-600 dark:text-zinc-400">New users have no door code and no password: they choose a code when they first sign in. A new user whose user id is on a group's pre-assigned list joins that group too. Importing the same file twice is safe.</p>
+    <p class="mt-4 text-sm text-zinc-600 dark:text-zinc-400">New users have no door code and no password: they choose a code when they first sign in. A new user whose user id is on a group's pre-assigned list joins that group too, whether they are imported, created by an administrator, or sign in for the first time. Empty values leave someone who exists as they are. Importing the same file twice is safe.</p>
   </section>
 </div>
 {{end}}

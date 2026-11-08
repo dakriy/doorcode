@@ -183,6 +183,10 @@ type GroupsStore interface {
 	// RemoveMember ends the membership of the user whose id is userID in
 	// the group whose id is groupID, and reports whether there was one.
 	RemoveMember(ctx context.Context, groupID, userID int64) (bool, error)
+	// Preassign adds userID to the end of the pre-assigned user ids of the
+	// group whose id is groupID; adding one it holds already changes
+	// nothing, and so does naming a group there is not.
+	Preassign(ctx context.Context, groupID int64, userID string) error
 }
 
 // StoredSession is a sign-in session as the store holds it. The store keeps

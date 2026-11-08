@@ -90,3 +90,12 @@ func (s *Store) RemoveMember(ctx context.Context, groupID, userID int64) (bool, 
 	tag, err := s.pool.Exec(ctx, `delete from memberships where group_id = $1 and user_id = $2`, groupID, userID)
 	return tag.RowsAffected() == 1, err
 }
+
+// Preassign appends userID to the group's pre-assigned user ids unless
+// they hold it.
+func (s *Store) Preassign(ctx context.Context, groupID int64, userID string) error {
+	_, err := s.pool.Exec(ctx, `
+		update groups set preassigned_user_ids = array_append(preassigned_user_ids, $2)
+		where id = $1 and not ($2 = any(preassigned_user_ids))`, groupID, userID)
+	return err
+}
