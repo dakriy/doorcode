@@ -36,6 +36,7 @@ func occurrences(t *testing.T, c *testsupport.Browser, id, query string) any {
 }
 
 func TestSchedulesStartWithTheBuiltInAlwaysSchedule(t *testing.T) {
+	t.Parallel()
 	got := signedInAdmin(t, testsupport.NewFactory()).Get("/api/v1/schedules")
 
 	want := testsupport.Response{Status: 200, ContentType: jsonType, Body: `{"schedules":[` + alwaysJSON + `]}` + "\n"}
@@ -45,6 +46,7 @@ func TestSchedulesStartWithTheBuiltInAlwaysSchedule(t *testing.T) {
 }
 
 func TestCreatingAScheduleAnswersWithItTidied(t *testing.T) {
+	t.Parallel()
 	got := signedInAdmin(t, testsupport.NewFactory()).PostJSON("/api/v1/schedules", `{"name":" Night shift ",`+
 		`"starts_on":"2026-01-01","ends_on":"2026-01-01",`+
 		`"windows":[{"days":["FRI"," mon","mon"],"start":"22:00","end":"06:00"},{"days":["sun"],"start":" 7:05","end":"07:30"}],`+
@@ -59,6 +61,7 @@ func TestCreatingAScheduleAnswersWithItTidied(t *testing.T) {
 }
 
 func TestSchedulesAreListedByName(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createSchedule(t, b, `{"name":"night","windows":[{"days":["mon"],"start":"22:00","end":"06:00"}]}`)
 	createSchedule(t, b, `{"name":"Day","windows":[{"days":["mon"],"start":"09:00","end":"17:00"}]}`)
@@ -74,6 +77,7 @@ func TestSchedulesAreListedByName(t *testing.T) {
 }
 
 func TestScheduleIsReadByID(t *testing.T) {
+	t.Parallel()
 	got := signedInAdmin(t, testsupport.NewFactory()).Get("/api/v1/schedules/1")
 
 	want := testsupport.Response{Status: 200, ContentType: jsonType, Body: alwaysJSON + "\n"}
@@ -83,6 +87,7 @@ func TestScheduleIsReadByID(t *testing.T) {
 }
 
 func TestUpdatingAScheduleReplacesIt(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createSchedule(t, b, `{"name":"Night shift","starts_on":"2026-01-01","windows":[{"days":["mon"],"start":"22:00","end":"06:00"}],`+
 		`"excluded_dates":["2026-12-25"]}`)
@@ -97,6 +102,7 @@ func TestUpdatingAScheduleReplacesIt(t *testing.T) {
 }
 
 func TestScheduleFieldsAreChecked(t *testing.T) {
+	t.Parallel()
 	window := `{"days":["mon"],"start":"09:00","end":"17:00"}`
 	cases := map[string]struct {
 		body string
@@ -138,6 +144,7 @@ func TestScheduleFieldsAreChecked(t *testing.T) {
 }
 
 func TestScheduleAtTheLimitsIsAccepted(t *testing.T) {
+	t.Parallel()
 	window := `{"days":["mon"],"start":"09:00","end":"17:00"}`
 	body := `{"name":"` + repeat("x", 100) + `","windows":[` + repeat(window+",", 19) + window + `],` +
 		`"excluded_dates":[` + repeat(`"2026-12-25",`, 365) + `"2026-12-25"]}`
@@ -150,6 +157,7 @@ func TestScheduleAtTheLimitsIsAccepted(t *testing.T) {
 }
 
 func TestUpdatingAScheduleChecksItsFields(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		body string
 		want string
@@ -173,6 +181,7 @@ func TestUpdatingAScheduleChecksItsFields(t *testing.T) {
 }
 
 func TestAlwaysScheduleCannotBeChangedOrDeleted(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 
 	updated := b.PutJSON("/api/v1/schedules/1", `{"name":"Weekdays","windows":[{"days":["mon"],"start":"09:00","end":"17:00"}]}`)
@@ -187,6 +196,7 @@ func TestAlwaysScheduleCannotBeChangedOrDeleted(t *testing.T) {
 }
 
 func TestDeletingAScheduleRemovesIt(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createSchedule(t, b, `{"name":"Nights","windows":[{"days":["mon"],"start":"22:00","end":"06:00"}]}`)
 
@@ -200,6 +210,7 @@ func TestDeletingAScheduleRemovesIt(t *testing.T) {
 }
 
 func TestScheduleThatDoesNotExistIsNotFound(t *testing.T) {
+	t.Parallel()
 	cases := map[string]func(b *testsupport.Browser) testsupport.Response{
 		"read": func(b *testsupport.Browser) testsupport.Response { return b.Get("/api/v1/schedules/9") },
 		"update": func(b *testsupport.Browser) testsupport.Response {
@@ -223,6 +234,7 @@ func TestScheduleThatDoesNotExistIsNotFound(t *testing.T) {
 }
 
 func TestScheduleCrossingMidnightRunsOvernightThroughTheDaylightSavingChange(t *testing.T) {
+	t.Parallel()
 	b := inZone(t, "America/New_York")
 	createSchedule(t, b, `{"name":"Nights","windows":[{"days":["fri","sat"],"start":"22:00","end":"06:00"}]}`)
 
@@ -237,6 +249,7 @@ func TestScheduleCrossingMidnightRunsOvernightThroughTheDaylightSavingChange(t *
 }
 
 func TestExcludedDateDropsTheWindowsThatOpenOnIt(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createSchedule(t, b, `{"name":"Office","windows":[{"days":["mon","tue","wed","thu","fri"],"start":"09:00","end":"17:00"},`+
 		`{"days":["tue"],"start":"22:00","end":"02:00"}],"excluded_dates":["2026-11-11"]}`)
@@ -255,6 +268,7 @@ func TestExcludedDateDropsTheWindowsThatOpenOnIt(t *testing.T) {
 }
 
 func TestEffectiveRangeLimitsTheDaysWindowsOpenOn(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createSchedule(t, b, `{"name":"Visit","starts_on":"2026-11-10","ends_on":"2026-11-12",`+
 		`"windows":[{"days":["mon","tue","wed","thu","fri","sat","sun"],"start":"23:00","end":"01:00"}]}`)
@@ -271,6 +285,7 @@ func TestEffectiveRangeLimitsTheDaysWindowsOpenOn(t *testing.T) {
 }
 
 func TestAlwaysIsOneOccurrenceThroughTheDaylightSavingChange(t *testing.T) {
+	t.Parallel()
 	b := inZone(t, "America/New_York")
 
 	got := occurrences(t, b, "1", "from=2026-10-31&to=2026-11-01")
@@ -283,6 +298,7 @@ func TestAlwaysIsOneOccurrenceThroughTheDaylightSavingChange(t *testing.T) {
 }
 
 func TestTouchingAndOverlappingWindowsAreJoined(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createSchedule(t, b, `{"name":"Split","windows":[{"days":["mon"],"start":"12:00","end":"15:00"},`+
 		`{"days":["mon"],"start":"09:00","end":"12:00"},{"days":["mon"],"start":"10:00","end":"11:00"},`+
@@ -299,6 +315,7 @@ func TestTouchingAndOverlappingWindowsAreJoined(t *testing.T) {
 }
 
 func TestOccurrencesRunningPastTheRangeAreCutAtIt(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createSchedule(t, b, `{"name":"Late","windows":[{"days":["fri"],"start":"22:00","end":"06:00"},`+
 		`{"days":["sat"],"start":"23:00","end":"01:00"}]}`)
@@ -314,6 +331,7 @@ func TestOccurrencesRunningPastTheRangeAreCutAtIt(t *testing.T) {
 }
 
 func TestOccurrencesCoverTheCurrentWeekInTheSiteTimezoneByDefault(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		zone, now, query string
 		want             []any
@@ -340,6 +358,7 @@ func TestOccurrencesCoverTheCurrentWeekInTheSiteTimezoneByDefault(t *testing.T) 
 }
 
 func TestOccurrencesAcceptOneDayToAYear(t *testing.T) {
+	t.Parallel()
 	queries := map[string]int{
 		"one day":           200,
 		"a year":            200,
@@ -368,6 +387,7 @@ func TestOccurrencesAcceptOneDayToAYear(t *testing.T) {
 }
 
 func TestOccurrencesOutsideTheirRangeSayWhatIsAccepted(t *testing.T) {
+	t.Parallel()
 	got := signedInAdmin(t, testsupport.NewFactory()).Get("/api/v1/schedules/1/occurrences?from=2026-03-02&to=2026-03-01")
 
 	want := testsupport.Response{Status: 400, ContentType: jsonType,
@@ -378,6 +398,7 @@ func TestOccurrencesOutsideTheirRangeSayWhatIsAccepted(t *testing.T) {
 }
 
 func TestSchedulesAPIStoreFailureAnswersWithARequestID(t *testing.T) {
+	t.Parallel()
 	body := `{"name":"Nights","windows":[{"days":["mon"],"start":"22:00","end":"06:00"}]}`
 	other := `{"name":"Days","windows":[{"days":["mon"],"start":"09:00","end":"17:00"}]}`
 	cases := map[string]struct {
@@ -415,6 +436,7 @@ func TestSchedulesAPIStoreFailureAnswersWithARequestID(t *testing.T) {
 }
 
 func TestSchedulesAPIRefusesAUserWithoutTheRole(t *testing.T) {
+	t.Parallel()
 	_, b := adminHolding(t, testsupport.NewFactory(), `["manage-doors"]`)
 
 	got := b.Get("/api/v1/schedules")
@@ -426,6 +448,7 @@ func TestSchedulesAPIRefusesAUserWithoutTheRole(t *testing.T) {
 }
 
 func TestDeletingAScheduleADoorIsInOpenModeDuringIsRefused(t *testing.T) {
+	t.Parallel()
 	b := doorSite(t, testsupport.NewFactory())
 	createDoor(t, b, `{"name":"Lobby","open_schedule_ids":[2]}`)
 	createDoor(t, b, `{"name":"Atrium","open_schedule_ids":[2,3]}`)
@@ -440,6 +463,7 @@ func TestDeletingAScheduleADoorIsInOpenModeDuringIsRefused(t *testing.T) {
 }
 
 func TestDeletingAScheduleTakesItOffDeletedDoors(t *testing.T) {
+	t.Parallel()
 	b := doorSite(t, testsupport.NewFactory())
 	createDoor(t, b, `{"name":"Lobby","open_schedule_ids":[2,3]}`)
 	send(t, b, "DELETE", "/api/v1/doors/1", "", 204)
@@ -453,6 +477,7 @@ func TestDeletingAScheduleTakesItOffDeletedDoors(t *testing.T) {
 }
 
 func TestDeletingAScheduleAnswersWithARequestIDWhenDoorsCannotBeRead(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	b := doorSite(t, f)
 	f.StoreStub.FailDoors()

@@ -19,6 +19,7 @@ func zonedDoors(t *testing.T, f *testsupport.Factory) *testsupport.Browser {
 }
 
 func TestCreatingAZoneAnswersWithItTidied(t *testing.T) {
+	t.Parallel()
 	b := zonedDoors(t, testsupport.NewFactory())
 
 	got := b.PostJSON("/api/v1/zones", `{"name":" Ground floor ","description":" Lobby level. ","door_ids":[1,2,1]}`)
@@ -31,6 +32,7 @@ func TestCreatingAZoneAnswersWithItTidied(t *testing.T) {
 }
 
 func TestZonesAreListedByNameAndNamedOnTheirDoors(t *testing.T) {
+	t.Parallel()
 	b := zonedDoors(t, testsupport.NewFactory())
 	createZone(t, b, `{"name":"west","door_ids":[1]}`)
 	createZone(t, b, `{"name":"East","door_ids":[1,2]}`)
@@ -49,6 +51,7 @@ func TestZonesAreListedByNameAndNamedOnTheirDoors(t *testing.T) {
 }
 
 func TestUpdatingAZoneReplacesItsDoors(t *testing.T) {
+	t.Parallel()
 	b := zonedDoors(t, testsupport.NewFactory())
 	createZone(t, b, `{"name":"East","description":"Old","door_ids":[1]}`)
 
@@ -62,6 +65,7 @@ func TestUpdatingAZoneReplacesItsDoors(t *testing.T) {
 }
 
 func TestDeletingAZoneKeepsItsDoors(t *testing.T) {
+	t.Parallel()
 	b := zonedDoors(t, testsupport.NewFactory())
 	createZone(t, b, `{"name":"East","door_ids":[1]}`)
 
@@ -76,6 +80,7 @@ func TestDeletingAZoneKeepsItsDoors(t *testing.T) {
 }
 
 func TestZoneFieldsAreChecked(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		body string
 		want string
@@ -103,6 +108,7 @@ func TestZoneFieldsAreChecked(t *testing.T) {
 }
 
 func TestZoneAtTheLimitsIsAcceptedAndKeepsItsOwnName(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createZone(t, b, `{"name":"`+repeat("x", 100)+`","description":"`+repeat("y", 500)+`"}`)
 
@@ -114,6 +120,7 @@ func TestZoneAtTheLimitsIsAcceptedAndKeepsItsOwnName(t *testing.T) {
 }
 
 func TestChangingAZoneThatIsNotThereIsRefused(t *testing.T) {
+	t.Parallel()
 	cases := map[string]func(b *testsupport.Browser) testsupport.Response{
 		"read":   func(b *testsupport.Browser) testsupport.Response { return b.Get("/api/v1/zones/9") },
 		"update": func(b *testsupport.Browser) testsupport.Response { return b.PutJSON("/api/v1/zones/9", `{"name":""}`) },
@@ -132,6 +139,7 @@ func TestChangingAZoneThatIsNotThereIsRefused(t *testing.T) {
 }
 
 func TestUpdatingAZoneChecksItsFields(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		body string
 		want string
@@ -156,6 +164,7 @@ func TestUpdatingAZoneChecksItsFields(t *testing.T) {
 }
 
 func TestZonesAnswerWithARequestIDWhenTheStoreFails(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		fail   func(s *testsupport.Store)
 		method string

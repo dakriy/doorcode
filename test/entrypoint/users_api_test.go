@@ -13,6 +13,7 @@ const annJSON = `{"id":2,"email":"ann@example.com","user_id":"100234","first_nam
 	`"display_name":"Ann Smith","has_code":false,"expired":false,"created_at":"2026-01-05T09:00:00Z","groups":[]}`
 
 func TestCreatingAUserAnswersWithTheUser(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 
 	got := b.PostJSON("/api/v1/users", ann)
@@ -24,6 +25,7 @@ func TestCreatingAUserAnswersWithTheUser(t *testing.T) {
 }
 
 func TestCreatedUserIsTidied(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 
 	got := b.PostJSON("/api/v1/users", `{"email":"  Bo@Example.COM ","first_name":" Bo ","user_id":" 7 ",`+
@@ -38,6 +40,7 @@ func TestCreatedUserIsTidied(t *testing.T) {
 }
 
 func TestUserRequestIsChecked(t *testing.T) {
+	t.Parallel()
 	long := repeat("x", 101)
 	cases := map[string]struct {
 		body string
@@ -73,6 +76,7 @@ func TestUserRequestIsChecked(t *testing.T) {
 }
 
 func TestUserRequestAcceptsTheEdgesOfItsRanges(t *testing.T) {
+	t.Parallel()
 	bodies := map[string]string{
 		"254 character email":      `{"email":"` + repeat("a", 242) + `@example.com","display_name":"A"}`,
 		"64 character user id":     `{"email":"a@example.com","display_name":"A","user_id":"` + repeat("9", 64) + `"}`,
@@ -109,6 +113,7 @@ func fiveUsers(t *testing.T, f *testsupport.Factory) *testsupport.Browser {
 }
 
 func TestUserListIsPagedAndOrderedByName(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		query string
 		want  string
@@ -149,6 +154,7 @@ func TestUserListIsPagedAndOrderedByName(t *testing.T) {
 }
 
 func TestUserListQueryIsChecked(t *testing.T) {
+	t.Parallel()
 	for _, query := range []string{"?page=0", "?page=x", "?page=1000001", "?per_page=0", "?per_page=201", "?show=all"} {
 		t.Run(query, func(t *testing.T) {
 			got := signedInAdmin(t, testsupport.NewFactory()).Get("/api/v1/users" + query)
@@ -163,6 +169,7 @@ func TestUserListQueryIsChecked(t *testing.T) {
 }
 
 func TestUserListAcceptsTheLastPage(t *testing.T) {
+	t.Parallel()
 	got := signedInAdmin(t, testsupport.NewFactory()).Get("/api/v1/users?page=1000000")
 
 	want := testsupport.JSON(`{"users":[],"total":1,"page":1000000,"per_page":25}`)
@@ -172,6 +179,7 @@ func TestUserListAcceptsTheLastPage(t *testing.T) {
 }
 
 func TestReadingAUser(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createUser(t, b, ann)
 
@@ -184,6 +192,7 @@ func TestReadingAUser(t *testing.T) {
 }
 
 func TestUserThatDoesNotExistIsNotFound(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct{ method, target, body string }{
 		"read":         {method: "GET", target: "/api/v1/users/9"},
 		"read by name": {method: "GET", target: "/api/v1/users/ann"},
@@ -210,6 +219,7 @@ func TestUserThatDoesNotExistIsNotFound(t *testing.T) {
 }
 
 func TestUpdatingAUserReplacesTheirProfile(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createUser(t, b, ann)
 
@@ -225,6 +235,7 @@ func TestUpdatingAUserReplacesTheirProfile(t *testing.T) {
 }
 
 func TestUpdatingAUserChecksTheProfile(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		body string
 		want string
@@ -251,6 +262,7 @@ func TestUpdatingAUserChecksTheProfile(t *testing.T) {
 }
 
 func TestDeletingAUserMarksThemDeletedOnce(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	b := signedInAdmin(t, f)
 	createUser(t, b, ann)
@@ -269,6 +281,7 @@ func TestDeletingAUserMarksThemDeletedOnce(t *testing.T) {
 }
 
 func TestDeletedUserIsRefusedEverywhere(t *testing.T) {
+	t.Parallel()
 	h, admin := adminSession(t, testsupport.NewFactory())
 	createUser(t, admin, ann)
 	join(t, admin, "1", "2")
@@ -283,6 +296,7 @@ func TestDeletedUserIsRefusedEverywhere(t *testing.T) {
 }
 
 func TestRestoringAUserUndoesTheDeletion(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createUser(t, b, ann)
 	send(t, b, "DELETE", "/api/v1/users/2", "", 204)
@@ -299,6 +313,7 @@ func TestRestoringAUserUndoesTheDeletion(t *testing.T) {
 }
 
 func TestDeletingYourOwnAccountIsRefused(t *testing.T) {
+	t.Parallel()
 	got := signedInAdmin(t, testsupport.NewFactory()).Delete("/api/v1/users/1")
 
 	want := testsupport.Response{Status: 409, ContentType: jsonType, Body: `{"error":"you cannot delete your own account"}` + "\n"}
@@ -308,6 +323,7 @@ func TestDeletingYourOwnAccountIsRefused(t *testing.T) {
 }
 
 func TestSettingADoorCodeIsShownOnlyAsHavingOne(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createUser(t, b, ann)
 
@@ -325,6 +341,7 @@ func TestSettingADoorCodeIsShownOnlyAsHavingOne(t *testing.T) {
 }
 
 func TestDoorCodeIsChecked(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		body string
 		want string
@@ -353,6 +370,7 @@ func TestDoorCodeIsChecked(t *testing.T) {
 }
 
 func TestUserMaySetTheCodeTheyAlreadyHave(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	send(t, b, "PUT", "/api/v1/users/1/code", `{"code":"654321"}`, 204)
 
@@ -364,6 +382,7 @@ func TestUserMaySetTheCodeTheyAlreadyHave(t *testing.T) {
 }
 
 func TestDoorCodesStayUniqueWhenTheHashingCostChanges(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	b := signedInAdmin(t, f)
 	createUser(t, b, ann)
@@ -380,6 +399,7 @@ func TestDoorCodesStayUniqueWhenTheHashingCostChanges(t *testing.T) {
 }
 
 func TestRemovingADoorCode(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createUser(t, b, ann)
 	send(t, b, "PUT", "/api/v1/users/2/code", `{"code":"654321"}`, 204)
@@ -394,6 +414,7 @@ func TestRemovingADoorCode(t *testing.T) {
 }
 
 func TestDoorCodeHashingThatCannotBeReadAnswersWithARequestID(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	b := signedInAdmin(t, f)
 	f.StoreStub.SeedCodeHashing("not parameters")
@@ -407,6 +428,7 @@ func TestDoorCodeHashingThatCannotBeReadAnswersWithARequestID(t *testing.T) {
 }
 
 func TestAdministratorManagesAnotherUsersTokens(t *testing.T) {
+	t.Parallel()
 	h, b := adminSession(t, testsupport.NewFactory())
 	createUser(t, b, ann)
 
@@ -432,6 +454,7 @@ func TestAdministratorManagesAnotherUsersTokens(t *testing.T) {
 }
 
 func TestTokenRequestForAnotherUserIsChecked(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createUser(t, b, ann)
 
@@ -444,6 +467,7 @@ func TestTokenRequestForAnotherUserIsChecked(t *testing.T) {
 }
 
 func TestUserStoreFailureAnswersWithARequestID(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		fail   func(s *testsupport.Store)
 		method string

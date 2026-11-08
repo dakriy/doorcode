@@ -16,6 +16,7 @@ const hashMemoryJSON = `{"key":"password_hash_memory_kib","value":"8","source":"
 	`"env_var":"DOORCODE_PASSWORD_HASH_MEMORY_KIB"}`
 
 func TestSettingsListShowsDefaultsAndTheEnvironmentWhenNothingIsStored(t *testing.T) {
+	t.Parallel()
 	got := signedInAdmin(t, testsupport.NewFactory()).Get("/api/v1/settings")
 
 	want := testsupport.Response{Status: 200, ContentType: jsonType, Body: `{"settings":[` +
@@ -29,6 +30,7 @@ func TestSettingsListShowsDefaultsAndTheEnvironmentWhenNothingIsStored(t *testin
 }
 
 func TestSettingsListShowsStoredAndEnvironmentValuesWithTheirSources(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	f.StoreStub.SeedSetting("site_name", "Main Building", "2026-01-02T08:00:00Z")
 	f.EnvStub["DOORCODE_SITE_TIMEZONE"] = "Europe/Berlin"
@@ -46,6 +48,7 @@ func TestSettingsListShowsStoredAndEnvironmentValuesWithTheirSources(t *testing.
 }
 
 func TestSettingReadsTheStoredValue(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	f.StoreStub.SeedSetting("site_timezone", "America/Chicago", "2026-01-03T10:15:00Z")
 
@@ -59,6 +62,7 @@ func TestSettingReadsTheStoredValue(t *testing.T) {
 }
 
 func TestEnvironmentValueWinsOverTheStoredValueAndIsReadOnly(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	f.StoreStub.SeedSetting("site_name", "Stored Name", "2026-01-03T10:15:00Z")
 	f.EnvStub["DOORCODE_SITE_NAME"] = "Env Name"
@@ -73,6 +77,7 @@ func TestEnvironmentValueWinsOverTheStoredValueAndIsReadOnly(t *testing.T) {
 }
 
 func TestUpdatingASettingRespondsWithTheNewValueAndTheClockTime(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	f.ClockStub.Set("2026-02-10T14:30:00Z")
 	b := signedInAdmin(t, f)
@@ -87,6 +92,7 @@ func TestUpdatingASettingRespondsWithTheNewValueAndTheClockTime(t *testing.T) {
 }
 
 func TestUpdatedSettingIsReadBackFromTheStore(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	b.PutJSON("/api/v1/settings/site_timezone", `{"value":"Asia/Tokyo"}`)
 
@@ -100,6 +106,7 @@ func TestUpdatedSettingIsReadBackFromTheStore(t *testing.T) {
 }
 
 func TestUpdatingAnEnvironmentProvidedSettingIsRejected(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	f.EnvStub["DOORCODE_SITE_NAME"] = "Env Name"
 
@@ -113,6 +120,7 @@ func TestUpdatingAnEnvironmentProvidedSettingIsRejected(t *testing.T) {
 }
 
 func TestRejectedUpdateLeavesTheStoredValueInPlace(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	f.StoreStub.SeedSetting("site_name", "Stored Name", "2026-01-03T10:15:00Z")
 	f.EnvStub["DOORCODE_SITE_NAME"] = "Env Name"
@@ -130,6 +138,7 @@ func TestRejectedUpdateLeavesTheStoredValueInPlace(t *testing.T) {
 }
 
 func TestPasswordHashingCostAcceptsWholeKiBWithinItsRange(t *testing.T) {
+	t.Parallel()
 	values := map[string]int{
 		"7":       400,
 		"8":       200,
@@ -154,6 +163,7 @@ func TestPasswordHashingCostAcceptsWholeKiBWithinItsRange(t *testing.T) {
 }
 
 func TestRejectedPasswordHashingCostSaysWhatItAccepts(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	b := signedInAdmin(t, f)
 	delete(f.EnvStub, "DOORCODE_PASSWORD_HASH_MEMORY_KIB")
@@ -168,6 +178,7 @@ func TestRejectedPasswordHashingCostSaysWhatItAccepts(t *testing.T) {
 }
 
 func TestUnknownSettingIsNotFound(t *testing.T) {
+	t.Parallel()
 	requests := map[string]func(b *testsupport.Browser) testsupport.Response{
 		"read": func(b *testsupport.Browser) testsupport.Response {
 			return b.Get("/api/v1/settings/door_color")
@@ -189,6 +200,7 @@ func TestUnknownSettingIsNotFound(t *testing.T) {
 }
 
 func TestUpdateWithoutAStringValueIsABadRequest(t *testing.T) {
+	t.Parallel()
 	bodies := map[string]string{
 		"not json":     `site_name=x`,
 		"no value":     `{}`,
@@ -220,6 +232,7 @@ var settingsRequests = map[string]func(b *testsupport.Browser) testsupport.Respo
 }
 
 func TestSettingsStoreFailureAnswersWithARequestIDThatTheLogCarries(t *testing.T) {
+	t.Parallel()
 	for name, request := range settingsRequests {
 		t.Run(name, func(t *testing.T) {
 			f := testsupport.NewFactory()
@@ -242,6 +255,7 @@ func TestSettingsStoreFailureAnswersWithARequestIDThatTheLogCarries(t *testing.T
 }
 
 func TestSettingsAPIAsksForAToken(t *testing.T) {
+	t.Parallel()
 	for name, request := range settingsRequests {
 		t.Run(name, func(t *testing.T) {
 			got := request(startBrowser(t, testsupport.NewFactory()))
@@ -255,6 +269,7 @@ func TestSettingsAPIAsksForAToken(t *testing.T) {
 }
 
 func TestSettingsAPIRefusesAUserWithoutTheAdminRole(t *testing.T) {
+	t.Parallel()
 	for name, request := range settingsRequests {
 		t.Run(name, func(t *testing.T) {
 			f := testsupport.NewFactory()
@@ -272,6 +287,7 @@ func TestSettingsAPIRefusesAUserWithoutTheAdminRole(t *testing.T) {
 }
 
 func TestSettingsAPIAnswersWithARequestIDWhenSessionsCannotBeRead(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	b := signedInAdmin(t, f)
 	f.StoreStub.FailSessions()
@@ -285,6 +301,7 @@ func TestSettingsAPIAnswersWithARequestIDWhenSessionsCannotBeRead(t *testing.T) 
 }
 
 func TestSiteTimezoneAcceptsOnlyZonesOfTheTzDatabase(t *testing.T) {
+	t.Parallel()
 	values := map[string]int{
 		"America/New_York": 200,
 		"UTC":              200,
@@ -304,6 +321,7 @@ func TestSiteTimezoneAcceptsOnlyZonesOfTheTzDatabase(t *testing.T) {
 }
 
 func TestRejectedSiteTimezoneSaysWhatItAccepts(t *testing.T) {
+	t.Parallel()
 	got := signedInAdmin(t, testsupport.NewFactory()).PutJSON("/api/v1/settings/site_timezone", `{"value":"Mars/Olympus"}`)
 
 	want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"invalid value for site_timezone: ` +

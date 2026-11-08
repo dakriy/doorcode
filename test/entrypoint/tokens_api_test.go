@@ -41,6 +41,7 @@ func adminWithToken(t *testing.T, f *testsupport.Factory, body string) (testsupp
 }
 
 func TestCreatingATokenAnswersWithItsSecretOnce(t *testing.T) {
+	t.Parallel()
 	got := signedInAdmin(t, testsupport.NewFactory()).PostJSON("/api/v1/tokens", `{"name":" deploy script ","expires_in_days":90}`)
 
 	want := testsupport.Response{Status: 201, ContentType: jsonType, Body: `{"token":{"id":1,"name":"deploy script",` +
@@ -51,6 +52,7 @@ func TestCreatingATokenAnswersWithItsSecretOnce(t *testing.T) {
 }
 
 func TestTokenCallsTheAPIAsItsUser(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	h, b := adminSession(t, f)
 	secret := createToken(t, b, `{"name":"ci"}`)
@@ -68,6 +70,7 @@ func TestTokenCallsTheAPIAsItsUser(t *testing.T) {
 }
 
 func TestTokenCarriesItsUsersRoles(t *testing.T) {
+	t.Parallel()
 	h, secret := adminWithToken(t, testsupport.NewFactory(), `{"name":"ci"}`)
 
 	got := tokenClient(h, secret).PutJSON("/api/v1/settings/site_name", `{"value":"North Campus"}`)
@@ -78,6 +81,7 @@ func TestTokenCarriesItsUsersRoles(t *testing.T) {
 }
 
 func TestTokenIsAcceptedAsTheBasicAuthenticationPassword(t *testing.T) {
+	t.Parallel()
 	h, secret := adminWithToken(t, testsupport.NewFactory(), `{"name":"ci"}`)
 	c := testsupport.NewBrowser(h)
 	c.SetHeader("Authorization", testsupport.BasicAuth("anything", secret))
@@ -90,6 +94,7 @@ func TestTokenIsAcceptedAsTheBasicAuthenticationPassword(t *testing.T) {
 }
 
 func TestTokenOfAUserWithoutTheRoleIsRefused(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	h, secret := adminWithToken(t, f, `{"name":"ci"}`)
 	f.StoreStub.RevokeRoles(adminEmail)
@@ -103,6 +108,7 @@ func TestTokenOfAUserWithoutTheRoleIsRefused(t *testing.T) {
 }
 
 func TestTokenIsRefused(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		body    string
 		arrange func(t *testing.T, f *testsupport.Factory, b *testsupport.Browser)
@@ -140,6 +146,7 @@ func TestTokenIsRefused(t *testing.T) {
 }
 
 func TestTokenWorksUntilTheMomentItExpires(t *testing.T) {
+	t.Parallel()
 	times := map[string]int{
 		"2026-01-06T08:59:59Z": 200,
 		"2026-01-06T09:00:00Z": 401,
@@ -160,6 +167,7 @@ func TestTokenWorksUntilTheMomentItExpires(t *testing.T) {
 }
 
 func TestUnknownTokenIsRefusedEvenWithASessionCookie(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	b.SetHeader("Authorization", "Bearer dct_unknown")
 
@@ -171,6 +179,7 @@ func TestUnknownTokenIsRefusedEvenWithASessionCookie(t *testing.T) {
 }
 
 func TestTokenListShowsExpiredTokens(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	h, b := adminSession(t, f)
 	createToken(t, b, `{"name":"old","expires_in_days":1}`)
@@ -186,6 +195,7 @@ func TestTokenListShowsExpiredTokens(t *testing.T) {
 }
 
 func TestTokenListIsEmptyBeforeAnyTokenIsCreated(t *testing.T) {
+	t.Parallel()
 	got := signedInAdmin(t, testsupport.NewFactory()).Get("/api/v1/tokens")
 
 	want := testsupport.Response{Status: 200, ContentType: jsonType, Body: `{"tokens":[]}` + "\n"}
@@ -195,6 +205,7 @@ func TestTokenListIsEmptyBeforeAnyTokenIsCreated(t *testing.T) {
 }
 
 func TestRevokingATokenRemovesItFromTheList(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createToken(t, b, `{"name":"one"}`)
 	createToken(t, b, `{"name":"two"}`)
@@ -212,6 +223,7 @@ func TestRevokingATokenRemovesItFromTheList(t *testing.T) {
 }
 
 func TestRevokingATokenTheCallerDoesNotHaveIsNotFound(t *testing.T) {
+	t.Parallel()
 	for _, id := range []string{"7", "first"} {
 		t.Run(id, func(t *testing.T) {
 			b := signedInAdmin(t, testsupport.NewFactory())
@@ -228,6 +240,7 @@ func TestRevokingATokenTheCallerDoesNotHaveIsNotFound(t *testing.T) {
 }
 
 func TestTokenRequestIsChecked(t *testing.T) {
+	t.Parallel()
 	long := `"` + repeat("x", 101) + `"`
 	cases := map[string]struct {
 		body string
@@ -255,6 +268,7 @@ func TestTokenRequestIsChecked(t *testing.T) {
 }
 
 func TestTokenRequestAcceptsTheEdgesOfItsRanges(t *testing.T) {
+	t.Parallel()
 	bodies := map[string]string{
 		"100 characters": `{"name":"` + repeat("é", 100) + `"}`,
 		"one day":        `{"name":"ci","expires_in_days":1}`,
@@ -272,6 +286,7 @@ func TestTokenRequestAcceptsTheEdgesOfItsRanges(t *testing.T) {
 }
 
 func TestTokenStoreFailureAnswersWithARequestID(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		request func(b *testsupport.Browser) testsupport.Response
 		id      string
@@ -303,6 +318,7 @@ func TestTokenStoreFailureAnswersWithARequestID(t *testing.T) {
 }
 
 func TestTokenThatCannotBeCheckedAnswersWithARequestID(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	h, secret := adminWithToken(t, f, `{"name":"ci"}`)
 	f.StoreStub.FailTokens()

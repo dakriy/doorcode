@@ -15,6 +15,7 @@ var tokenNav = []string{"Home", "Users", "Groups", "Schedules", "Doors", "Zones"
 var tokenTableHead = []string{"Name", "Created", "Expires", "Actions"}
 
 func TestTokensPageInvitesCreatingTheFirstToken(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	b.Get("/")
 
@@ -39,6 +40,7 @@ func TestTokensPageInvitesCreatingTheFirstToken(t *testing.T) {
 }
 
 func TestTokenCreatedOnThePageShowsItsSecretOnce(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	b.Get("/")
 
@@ -65,6 +67,7 @@ func TestTokenCreatedOnThePageShowsItsSecretOnce(t *testing.T) {
 }
 
 func TestTokenCreatedOnThePageCallsTheAPI(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	h, b := adminSession(t, f)
 	created := b.Post("/account/tokens", "name", "deploy", "expires_in_days", "")
@@ -79,6 +82,7 @@ func TestTokenCreatedOnThePageCallsTheAPI(t *testing.T) {
 }
 
 func TestTokensPageShowsWhenEachTokenExpires(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	h, b := adminSession(t, f)
 	b.Post("/account/tokens", "name", "short", "expires_in_days", "7")
@@ -100,6 +104,7 @@ func TestTokensPageShowsWhenEachTokenExpires(t *testing.T) {
 }
 
 func TestTokenFormSaysWhatIsWrong(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		fields []string
 		want   map[string]string
@@ -130,6 +135,7 @@ func TestTokenFormSaysWhatIsWrong(t *testing.T) {
 }
 
 func TestRejectedTokenFormKeepsWhatWasEntered(t *testing.T) {
+	t.Parallel()
 	got := signedInAdmin(t, testsupport.NewFactory()).Post("/account/tokens", "name", " ci ", "expires_in_days", "0")
 
 	if diff := cmp.Diff(map[string]string{"name": "ci"}, pageOf(got).Values); diff != "" {
@@ -138,6 +144,7 @@ func TestRejectedTokenFormKeepsWhatWasEntered(t *testing.T) {
 }
 
 func TestRevokingATokenFromThePageConfirmsAndEmptiesTheList(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	b.Post("/account/tokens", "name", "deploy", "expires_in_days", "30")
 
@@ -157,6 +164,7 @@ func TestRevokingATokenFromThePageConfirmsAndEmptiesTheList(t *testing.T) {
 }
 
 func TestRevokingAnUnknownTokenFromThePageSaysSo(t *testing.T) {
+	t.Parallel()
 	for _, id := range []string{"7", "first"} {
 		t.Run(id, func(t *testing.T) {
 			b := signedInAdmin(t, testsupport.NewFactory())
@@ -172,6 +180,7 @@ func TestRevokingAnUnknownTokenFromThePageSaysSo(t *testing.T) {
 }
 
 func TestTokensPageAsksForSignIn(t *testing.T) {
+	t.Parallel()
 	got := testsupport.Get(start(t, testsupport.NewFactory()).Handler(), "/account/tokens")
 
 	want := testsupport.Response{Status: 303, Location: "/sign-in?next=%2Faccount%2Ftokens"}
@@ -181,6 +190,7 @@ func TestTokensPageAsksForSignIn(t *testing.T) {
 }
 
 func TestAPIDocsPageShowsTheDocumentationToASignedInUser(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	b := signedInAdmin(t, f)
 	f.StoreStub.RevokeRoles(adminEmail)
@@ -199,6 +209,7 @@ func TestAPIDocsPageShowsTheDocumentationToASignedInUser(t *testing.T) {
 }
 
 func TestAPIDocsPageLoadsSwaggerUI(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	b := signedInAdmin(t, f)
 	assets := testsupport.ParsePage(b.Get("/api-docs").Body).Assets
@@ -216,6 +227,7 @@ func TestAPIDocsPageLoadsSwaggerUI(t *testing.T) {
 }
 
 func TestAPIDocsPageAsksForSignIn(t *testing.T) {
+	t.Parallel()
 	got := testsupport.Get(start(t, testsupport.NewFactory()).Handler(), "/api-docs")
 
 	want := testsupport.Response{Status: 303, Location: "/sign-in?next=%2Fapi-docs"}

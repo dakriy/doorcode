@@ -17,6 +17,7 @@ func userToken(t *testing.T, h testsupport.Handler, b *testsupport.Browser, user
 }
 
 func TestMemberOfAGroupHoldsTheRoleTheGroupCarries(t *testing.T) {
+	t.Parallel()
 	h, admin := adminSession(t, testsupport.NewFactory())
 	createGroup(t, admin, `{"slug":"user-admins","name":"User admins","roles":["manage-users"]}`)
 	createUser(t, admin, ann)
@@ -33,6 +34,7 @@ func TestMemberOfAGroupHoldsTheRoleTheGroupCarries(t *testing.T) {
 }
 
 func TestLeavingTheGroupTakesItsRole(t *testing.T) {
+	t.Parallel()
 	h, admin := adminSession(t, testsupport.NewFactory())
 	createGroup(t, admin, `{"slug":"user-admins","name":"User admins","roles":["manage-users"]}`)
 	createUser(t, admin, ann)
@@ -49,6 +51,7 @@ func TestLeavingTheGroupTakesItsRole(t *testing.T) {
 }
 
 func TestAdminRoleHoldsEveryOtherRole(t *testing.T) {
+	t.Parallel()
 	h, admin := adminSession(t, testsupport.NewFactory())
 	createGroup(t, admin, `{"slug":"admins","name":"Admins","roles":["admin"]}`)
 	createUser(t, admin, ann)
@@ -63,6 +66,7 @@ func TestAdminRoleHoldsEveryOtherRole(t *testing.T) {
 }
 
 func TestUserCreatedWithAPreAssignedUserIDJoinsThatGroup(t *testing.T) {
+	t.Parallel()
 	admin := signedInAdmin(t, testsupport.NewFactory())
 	createGroup(t, admin, `{"slug":"night","name":"Night","preassigned_user_ids":["100877","100234"]}`)
 	createGroup(t, admin, `{"slug":"day","name":"Day","preassigned_user_ids":["100877"]}`)
@@ -78,6 +82,7 @@ func TestUserCreatedWithAPreAssignedUserIDJoinsThatGroup(t *testing.T) {
 }
 
 func TestFirstAdministratorIsAMemberOfTheAdministratorsGroup(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 
 	user := b.Get("/api/v1/users/1")
@@ -96,6 +101,7 @@ func TestFirstAdministratorIsAMemberOfTheAdministratorsGroup(t *testing.T) {
 }
 
 func TestTakingYourOwnAdminRoleIsRefused(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		method, target, body string
 	}{
@@ -119,6 +125,7 @@ func TestTakingYourOwnAdminRoleIsRefused(t *testing.T) {
 }
 
 func TestAdministratorMayLeaveAGroupWhileAnotherGivesThemAdmin(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		method, target, body string
 		status               int
@@ -144,6 +151,7 @@ func TestAdministratorMayLeaveAGroupWhileAnotherGivesThemAdmin(t *testing.T) {
 }
 
 func TestAdministratorMayRemoveAnotherAdministrator(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createUser(t, b, ann)
 	join(t, b, "1", "2")
@@ -156,6 +164,7 @@ func TestAdministratorMayRemoveAnotherAdministrator(t *testing.T) {
 }
 
 func TestUserWithoutAdminMayChangeTheirOwnGroups(t *testing.T) {
+	t.Parallel()
 	_, b := adminHolding(t, testsupport.NewFactory(), `["manage-groups","view-logs"]`)
 
 	left := b.Send("DELETE", "/api/v1/groups/2/members/1", "")
@@ -166,6 +175,7 @@ func TestUserWithoutAdminMayChangeTheirOwnGroups(t *testing.T) {
 }
 
 func TestGroupManagerMayChangeOnlyGroupsWhoseRolesTheyHold(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		method, target, body string
 		status               int
@@ -197,6 +207,7 @@ func TestGroupManagerMayChangeOnlyGroupsWhoseRolesTheyHold(t *testing.T) {
 }
 
 func TestGroupManagerRefusalSaysWhy(t *testing.T) {
+	t.Parallel()
 	_, b := adminHolding(t, testsupport.NewFactory(), `["manage-groups"]`)
 
 	got := b.Send("DELETE", "/api/v1/groups/1", "")
@@ -208,6 +219,7 @@ func TestGroupManagerRefusalSaysWhy(t *testing.T) {
 }
 
 func TestCreatingATokenForAnotherUserNeedsTheAdminRole(t *testing.T) {
+	t.Parallel()
 	_, b := adminHolding(t, testsupport.NewFactory(), `["manage-users","manage-groups"]`)
 
 	got := b.PostJSON("/api/v1/users/1/tokens", `{"name":"x"}`)

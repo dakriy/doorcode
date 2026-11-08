@@ -30,6 +30,7 @@ var nightsForm = map[string]string{"name": "Nights", "starts_on": "2026-01-01", 
 var weeknights = []string{"window-0-days=mon", "window-0-days=tue", "window-0-days=wed", "window-0-days=thu", "window-0-days=fri"}
 
 func TestSchedulesPageListsSchedulesWithWhenTheyApply(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createSchedule(t, b, `{"name":"Nights","starts_on":"2026-01-01","windows":[{"days":["mon","tue","wed","thu","fri"],"start":"22:00","end":"06:00"},`+
 		`{"days":["sat"],"start":"00:00","end":"08:00"}]}`)
@@ -58,6 +59,7 @@ func TestSchedulesPageListsSchedulesWithWhenTheyApply(t *testing.T) {
 }
 
 func TestNewSchedulePageOffersAFormWithOneWindow(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	b.Get("/")
 
@@ -74,6 +76,7 @@ func TestNewSchedulePageOffersAFormWithOneWindow(t *testing.T) {
 }
 
 func TestCreatingAScheduleFromTheFormOpensItsPage(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	b.Get("/")
 
@@ -97,6 +100,7 @@ func TestCreatingAScheduleFromTheFormOpensItsPage(t *testing.T) {
 }
 
 func TestScheduleFormSaysWhatIsWrongAndKeepsWhatWasEntered(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 
 	got := b.Post("/admin/schedules", "name", "always", "starts_on", "2026-03-02", "ends_on", "2026-03-01", "windows", "2", "dates", "1",
@@ -120,6 +124,7 @@ func TestScheduleFormSaysWhatIsWrongAndKeepsWhatWasEntered(t *testing.T) {
 }
 
 func TestScheduleFormWithoutWindowsAsksForOne(t *testing.T) {
+	t.Parallel()
 	got := signedInAdmin(t, testsupport.NewFactory()).Post("/admin/schedules", "name", "Empty", "windows", "0", "dates", "0")
 
 	want := []any{422, map[string]string{"windows": "Add at least one window."}}
@@ -129,6 +134,7 @@ func TestScheduleFormWithoutWindowsAsksForOne(t *testing.T) {
 }
 
 func TestScheduleFormReadsAtMostOneRowPastEachLimit(t *testing.T) {
+	t.Parallel()
 	got := signedInAdmin(t, testsupport.NewFactory()).Post("/admin/schedules", "name", "Huge", "windows", "100000", "dates", "100000")
 
 	page := pageOf(got)
@@ -146,6 +152,7 @@ var oneWindow = []string{"name", "Nights", "windows", "2", "dates", "2",
 	"excluded-0", "2026-12-24", "excluded-1", "2026-12-25"}
 
 func TestScheduleFormButtonsAddAndRemoveRows(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		button []string
 		values map[string]string
@@ -198,6 +205,7 @@ func TestScheduleFormButtonsAddAndRemoveRows(t *testing.T) {
 }
 
 func TestScheduleFormRemoveButtonNamingNoRowKeepsTheForm(t *testing.T) {
+	t.Parallel()
 	for _, index := range []string{"2", "-1", "first"} {
 		t.Run(index, func(t *testing.T) {
 			got := signedInAdmin(t, testsupport.NewFactory()).Post("/admin/schedules", append(append([]string{}, oneWindow...), "remove_window", index)...)
@@ -212,6 +220,7 @@ func TestScheduleFormRemoveButtonNamingNoRowKeepsTheForm(t *testing.T) {
 }
 
 func TestSchedulePageShowsItsForm(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createSchedule(t, b, nights)
 	b.Get("/")
@@ -225,6 +234,7 @@ func TestSchedulePageShowsItsForm(t *testing.T) {
 }
 
 func TestSchedulePageButtonsChangeItsFormWithoutSaving(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createSchedule(t, b, nights)
 
@@ -238,6 +248,7 @@ func TestSchedulePageButtonsChangeItsFormWithoutSaving(t *testing.T) {
 }
 
 func TestSavingAScheduleFromItsPage(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createSchedule(t, b, nights)
 
@@ -253,6 +264,7 @@ func TestSavingAScheduleFromItsPage(t *testing.T) {
 }
 
 func TestSavingAScheduleFromItsPageSaysWhatIsWrong(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createSchedule(t, b, nights)
 
@@ -267,6 +279,7 @@ func TestSavingAScheduleFromItsPageSaysWhatIsWrong(t *testing.T) {
 }
 
 func TestAlwaysSchedulePageSaysWhyItOffersNoChanges(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	b.Get("/")
 
@@ -283,6 +296,7 @@ func TestAlwaysSchedulePageSaysWhyItOffersNoChanges(t *testing.T) {
 }
 
 func TestChangingTheAlwaysScheduleFromItsPageIsRefused(t *testing.T) {
+	t.Parallel()
 	cases := map[string][]string{
 		"saving":   {"/admin/schedules/1", "name", "Weekdays", "windows", "1", "window-0-days", "mon", "window-0-start", "09:00", "window-0-end", "17:00"},
 		"deleting": {"/admin/schedules/1/delete"},
@@ -305,6 +319,7 @@ func TestChangingTheAlwaysScheduleFromItsPageIsRefused(t *testing.T) {
 }
 
 func TestDeletingAScheduleFromItsPage(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createSchedule(t, b, nights)
 
@@ -318,6 +333,7 @@ func TestDeletingAScheduleFromItsPage(t *testing.T) {
 }
 
 func TestSchedulePageThatDoesNotExistSaysSo(t *testing.T) {
+	t.Parallel()
 	cases := map[string]func(b *testsupport.Browser) testsupport.Response{
 		"an unknown id": func(b *testsupport.Browser) testsupport.Response { return b.Get("/admin/schedules/9") },
 		"a name":        func(b *testsupport.Browser) testsupport.Response { return b.Get("/admin/schedules/always") },
@@ -345,6 +361,7 @@ func TestSchedulePageThatDoesNotExistSaysSo(t *testing.T) {
 var calendarNav = append(append([]string{}, schedulesNav...), "Previous week", "This week", "Next week")
 
 func TestScheduleCalendarListsTheWeeksOccurrencesInTheSiteTimezone(t *testing.T) {
+	t.Parallel()
 	b := inZone(t, "America/New_York")
 	createSchedule(t, b, `{"name":"Nights","windows":[{"days":["fri","sat"],"start":"22:00","end":"06:00"},`+
 		`{"days":["mon"],"start":"08:00","end":"09:30"},{"days":["sun"],"start":"23:15","end":"00:00"}]}`)
@@ -373,6 +390,7 @@ func TestScheduleCalendarListsTheWeeksOccurrencesInTheSiteTimezone(t *testing.T)
 }
 
 func TestScheduleCalendarLoadsTheCalendarLibrary(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 
 	page := testsupport.ParsePage(b.Get("/admin/schedules/1/calendar").Body)
@@ -389,6 +407,7 @@ func TestScheduleCalendarLoadsTheCalendarLibrary(t *testing.T) {
 }
 
 func TestScheduleCalendarShowsThisWeekUnlessADayIsGiven(t *testing.T) {
+	t.Parallel()
 	for name, query := range map[string]string{"no day": "", "not a day": "?week=soon"} {
 		t.Run(name, func(t *testing.T) {
 			b := signedInAdmin(t, testsupport.NewFactory())
@@ -407,6 +426,7 @@ func TestScheduleCalendarShowsThisWeekUnlessADayIsGiven(t *testing.T) {
 }
 
 func TestScheduleCalendarSaysWhenTheScheduleIsNotActive(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createSchedule(t, b, `{"name":"Past","ends_on":"2025-12-31","windows":[{"days":["mon"],"start":"09:00","end":"17:00"}]}`)
 
@@ -419,6 +439,7 @@ func TestScheduleCalendarSaysWhenTheScheduleIsNotActive(t *testing.T) {
 }
 
 func TestSchedulePagesAskForTheRole(t *testing.T) {
+	t.Parallel()
 	_, b := adminHolding(t, testsupport.NewFactory(), `["manage-doors"]`)
 
 	got := b.Get("/admin/schedules")
@@ -429,6 +450,7 @@ func TestSchedulePagesAskForTheRole(t *testing.T) {
 }
 
 func TestSchedulePageStoreFailureShowsARequestID(t *testing.T) {
+	t.Parallel()
 	form := []string{"name", "Days", "windows", "1", "window-0-days", "mon", "window-0-start", "09:00", "window-0-end", "17:00"}
 	cases := map[string]struct {
 		fail    func(s *testsupport.Store)

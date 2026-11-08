@@ -14,6 +14,7 @@ const administrators = `{"id":1,"slug":"administrators","name":"Administrators",
 	`"roles":["admin"],"preassigned_user_ids":[],"member_count":1}`
 
 func TestGroupListStartsWithTheAdministrators(t *testing.T) {
+	t.Parallel()
 	got := signedInAdmin(t, testsupport.NewFactory()).Get("/api/v1/groups")
 
 	want := testsupport.Response{Status: 200, ContentType: jsonType, Body: `{"groups":[` + administrators + `]}` + "\n"}
@@ -23,6 +24,7 @@ func TestGroupListStartsWithTheAdministrators(t *testing.T) {
 }
 
 func TestCreatingAGroupAnswersWithTheGroupTidied(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 
 	got := b.PostJSON("/api/v1/groups", `{"slug":" night-staff ","name":" Night staff ","description":" Crews. ",`+
@@ -36,6 +38,7 @@ func TestCreatingAGroupAnswersWithTheGroupTidied(t *testing.T) {
 }
 
 func TestGroupsAreListedByName(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createGroup(t, b, `{"slug":"night","name":"night"}`)
 	createGroup(t, b, `{"slug":"day","name":"Day"}`)
@@ -53,6 +56,7 @@ func TestGroupsAreListedByName(t *testing.T) {
 }
 
 func TestGroupRequestIsChecked(t *testing.T) {
+	t.Parallel()
 	slugHint := "Use up to 64 lowercase letters and digits, in words joined by single dashes."
 	cases := map[string]struct {
 		body string
@@ -85,6 +89,7 @@ func TestGroupRequestIsChecked(t *testing.T) {
 }
 
 func TestGroupRequestAcceptsTheEdgesOfItsRanges(t *testing.T) {
+	t.Parallel()
 	bodies := map[string]string{
 		"64 character slug":          `{"slug":"` + repeat("a", 64) + `","name":"A"}`,
 		"slug of words":              `{"slug":"a1-b2-c3","name":"A"}`,
@@ -105,6 +110,7 @@ func TestGroupRequestAcceptsTheEdgesOfItsRanges(t *testing.T) {
 }
 
 func TestUpdatingAGroupReplacesIt(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createGroup(t, b, `{"slug":"night","name":"Night","roles":["view-logs"],"preassigned_user_ids":["1"]}`)
 	join(t, b, "2", "1")
@@ -119,6 +125,7 @@ func TestUpdatingAGroupReplacesIt(t *testing.T) {
 }
 
 func TestUpdatingAGroupChecksIt(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		body, want string
 	}{
@@ -141,6 +148,7 @@ func TestUpdatingAGroupChecksIt(t *testing.T) {
 }
 
 func TestDeletingAGroupRemovesItAndItsRoles(t *testing.T) {
+	t.Parallel()
 	h, b := adminSession(t, testsupport.NewFactory())
 	createGroup(t, b, `{"slug":"user-admins","name":"User admins","roles":["manage-users"]}`)
 	createUser(t, b, ann)
@@ -159,6 +167,7 @@ func TestDeletingAGroupRemovesItAndItsRoles(t *testing.T) {
 }
 
 func TestGroupThatDoesNotExistIsNotFound(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct{ method, target, body string }{
 		"read":          {method: "GET", target: "/api/v1/groups/9"},
 		"read by slug":  {method: "GET", target: "/api/v1/groups/administrators"},
@@ -181,6 +190,7 @@ func TestGroupThatDoesNotExistIsNotFound(t *testing.T) {
 }
 
 func TestGroupMembersAreListedByName(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createUser(t, b, ann)
 	createUser(t, b, `{"email":"bo@example.com","display_name":"Bo"}`)
@@ -204,6 +214,7 @@ func TestGroupMembersAreListedByName(t *testing.T) {
 }
 
 func TestRemovingSomeoneWhoIsNotAMemberIsNotFound(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createUser(t, b, ann)
 
@@ -216,6 +227,7 @@ func TestRemovingSomeoneWhoIsNotAMemberIsNotFound(t *testing.T) {
 }
 
 func TestGroupStoreFailureAnswersWithARequestID(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		fail           func(s *testsupport.Store)
 		method, target string

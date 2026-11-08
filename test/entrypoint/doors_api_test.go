@@ -43,6 +43,7 @@ func doorSite(t *testing.T, f *testsupport.Factory) *testsupport.Browser {
 }
 
 func TestCreatingADoorAnswersWithItTidied(t *testing.T) {
+	t.Parallel()
 	b := doorSite(t, testsupport.NewFactory())
 
 	got := b.PostJSON("/api/v1/doors", `{"name":" North entrance ","location":" Building A ","notes":" Strike replaced. ","public":true,`+
@@ -57,6 +58,7 @@ func TestCreatingADoorAnswersWithItTidied(t *testing.T) {
 }
 
 func TestDoorOpenModeSchedulesRoundTrip(t *testing.T) {
+	t.Parallel()
 	b := doorSite(t, testsupport.NewFactory())
 	createDoor(t, b, `{"name":"Lobby","open_schedule_ids":[2]}`)
 
@@ -71,6 +73,7 @@ func TestDoorOpenModeSchedulesRoundTrip(t *testing.T) {
 }
 
 func TestUpdatingADoorReplacesEverythingItDescribes(t *testing.T) {
+	t.Parallel()
 	b := doorSite(t, testsupport.NewFactory())
 	createDoor(t, b, `{"name":"Lobby","location":"Main","notes":"Old","public":true,"open_schedule_ids":[2],"zone_ids":[1]}`)
 
@@ -84,6 +87,7 @@ func TestUpdatingADoorReplacesEverythingItDescribes(t *testing.T) {
 }
 
 func TestDoorFieldsAreChecked(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		body string
 		want string
@@ -113,6 +117,7 @@ func TestDoorFieldsAreChecked(t *testing.T) {
 }
 
 func TestDoorAtTheLimitsIsAccepted(t *testing.T) {
+	t.Parallel()
 	body := `{"name":"` + repeat("x", 100) + `","location":"` + repeat("y", 200) + `","notes":"` + repeat("z", 2000) + `"}`
 
 	got := signedInAdmin(t, testsupport.NewFactory()).PostJSON("/api/v1/doors", body)
@@ -123,6 +128,7 @@ func TestDoorAtTheLimitsIsAccepted(t *testing.T) {
 }
 
 func TestDoorKeepsItsOwnNameButNotADeletedDoorsName(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createDoor(t, b, frontDoor)
 	createDoor(t, b, `{"name":"Old door"}`)
@@ -138,6 +144,7 @@ func TestDoorKeepsItsOwnNameButNotADeletedDoorsName(t *testing.T) {
 }
 
 func TestChangingADoorThatIsNotThereIsRefused(t *testing.T) {
+	t.Parallel()
 	cases := map[string]func(b *testsupport.Browser) testsupport.Response{
 		"read":    func(b *testsupport.Browser) testsupport.Response { return b.Get("/api/v1/doors/9") },
 		"update":  func(b *testsupport.Browser) testsupport.Response { return b.PutJSON("/api/v1/doors/9", `{"name":""}`) },
@@ -157,6 +164,7 @@ func TestChangingADoorThatIsNotThereIsRefused(t *testing.T) {
 }
 
 func TestUpdatingADoorWithABadBodyIsRefused(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createDoor(t, b, frontDoor)
 
@@ -169,6 +177,7 @@ func TestUpdatingADoorWithABadBodyIsRefused(t *testing.T) {
 }
 
 func TestDeletedDoorKeepsItsDeletionTimeUntilRestored(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	b := signedInAdmin(t, f)
 	createDoor(t, b, frontDoor)
@@ -214,6 +223,7 @@ func fiveDoors(t *testing.T) *testsupport.Browser {
 }
 
 func TestDoorListIsSearchedFilteredAndPaged(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		query string
 		want  []any
@@ -241,6 +251,7 @@ func TestDoorListIsSearchedFilteredAndPaged(t *testing.T) {
 }
 
 func TestDoorListSaysWhichPageItIs(t *testing.T) {
+	t.Parallel()
 	got := testsupport.JSON(send(t, fiveDoors(t), "GET", "/api/v1/doors?per_page=2&page=2", "", 200).Body)
 
 	want := testsupport.JSON(`{"doors":[` +
@@ -253,6 +264,7 @@ func TestDoorListSaysWhichPageItIs(t *testing.T) {
 }
 
 func TestDoorListQueryIsChecked(t *testing.T) {
+	t.Parallel()
 	for _, query := range []string{"page=0", "per_page=0", "per_page=201", "zone=0", "zone=x", "show=all"} {
 		t.Run(query, func(t *testing.T) {
 			got := signedInAdmin(t, testsupport.NewFactory()).Get("/api/v1/doors?" + query)
@@ -267,6 +279,7 @@ func TestDoorListQueryIsChecked(t *testing.T) {
 }
 
 func TestDoorListAtTheLimitsIsAnswered(t *testing.T) {
+	t.Parallel()
 	got := signedInAdmin(t, testsupport.NewFactory()).Get("/api/v1/doors?per_page=200&page=1000000&zone=1")
 
 	if diff := cmp.Diff(200, got.Status); diff != "" {
@@ -275,6 +288,7 @@ func TestDoorListAtTheLimitsIsAnswered(t *testing.T) {
 }
 
 func TestDoorsAnswerWithARequestIDWhenTheStoreFails(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		fail   func(s *testsupport.Store)
 		method string

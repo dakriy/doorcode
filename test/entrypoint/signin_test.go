@@ -31,6 +31,7 @@ func pageOf(r testsupport.Response) testsupport.Page {
 }
 
 func TestSignInPageShowsAnEmptyForm(t *testing.T) {
+	t.Parallel()
 	got := testsupport.Get(start(t, testsupport.NewFactory()).Handler(), "/sign-in")
 
 	want := testsupport.Page{Title: "Sign in · doorcode", Heading: "Sign in", Values: map[string]string{"email": "", "next": "/"}}
@@ -43,6 +44,7 @@ func TestSignInPageShowsAnEmptyForm(t *testing.T) {
 }
 
 func TestSignInPageNamesTheSite(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	f.EnvStub["DOORCODE_SITE_NAME"] = "North Campus"
 
@@ -54,6 +56,7 @@ func TestSignInPageNamesTheSite(t *testing.T) {
 }
 
 func TestSigningInSetsASessionCookieAndGoesHome(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	b := startBrowser(t, f)
 
@@ -69,6 +72,7 @@ func TestSigningInSetsASessionCookieAndGoesHome(t *testing.T) {
 }
 
 func TestHomeGreetsTheSignedInAdministratorAndShowsTheFlashOnce(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 
 	firstResponse := b.Get("/")
@@ -94,6 +98,7 @@ func TestHomeGreetsTheSignedInAdministratorAndShowsTheFlashOnce(t *testing.T) {
 }
 
 func TestSignInEmailIgnoresCaseAndSurroundingSpace(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	b := startBrowser(t, f)
 
@@ -105,6 +110,7 @@ func TestSignInEmailIgnoresCaseAndSurroundingSpace(t *testing.T) {
 }
 
 func TestSignInReturnsToThePageThatAskedForIt(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	b := startBrowser(t, f)
 
@@ -119,6 +125,7 @@ func TestSignInReturnsToThePageThatAskedForIt(t *testing.T) {
 }
 
 func TestSignInGoesHomeInsteadOfLeavingTheSite(t *testing.T) {
+	t.Parallel()
 	for _, next := range []string{"https://evil.example.com/", "//evil.example.com/", `/\evil.example.com/`, "settings"} {
 		t.Run(next, func(t *testing.T) {
 			f := testsupport.NewFactory()
@@ -134,6 +141,7 @@ func TestSignInGoesHomeInsteadOfLeavingTheSite(t *testing.T) {
 }
 
 func TestSignInPageKeepsOnlyALocalNext(t *testing.T) {
+	t.Parallel()
 	h := start(t, testsupport.NewFactory()).Handler()
 
 	got := pageOf(testsupport.Get(h, "/sign-in?next=%2F%2Fevil.example.com")).Values["next"]
@@ -144,6 +152,7 @@ func TestSignInPageKeepsOnlyALocalNext(t *testing.T) {
 }
 
 func TestSignInAsksForMissingFields(t *testing.T) {
+	t.Parallel()
 	const noEmail, noPassword = "Enter your email address.", "Enter your password."
 	cases := map[string]struct {
 		email, password string
@@ -181,6 +190,7 @@ func TestSignInAsksForMissingFields(t *testing.T) {
 }
 
 func TestSignInRefusesCredentialsThatDoNotMatchAnAccount(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		arrange  func(f *testsupport.Factory)
 		email    string
@@ -234,6 +244,7 @@ func TestSignInRefusesCredentialsThatDoNotMatchAnAccount(t *testing.T) {
 }
 
 func TestExpiredAccountCannotSignIn(t *testing.T) {
+	t.Parallel()
 	const expiredMessage = "This account has expired. Ask an administrator to renew it."
 	cases := map[string]struct {
 		expires string
@@ -263,6 +274,7 @@ func TestExpiredAccountCannotSignIn(t *testing.T) {
 }
 
 func TestSessionLastsTwelveHours(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		at     string
 		status int
@@ -286,6 +298,7 @@ func TestSessionLastsTwelveHours(t *testing.T) {
 }
 
 func TestSessionEndsWhenTheAccountExpiresOrIsDeleted(t *testing.T) {
+	t.Parallel()
 	cases := map[string]func(f *testsupport.Factory){
 		"expired": func(f *testsupport.Factory) {
 			f.StoreStub.ExpireUser(adminEmail, "2026-01-05T10:00:00Z")
@@ -312,6 +325,7 @@ func TestSessionEndsWhenTheAccountExpiresOrIsDeleted(t *testing.T) {
 }
 
 func TestUnknownSessionTokenIsTreatedAsSignedOut(t *testing.T) {
+	t.Parallel()
 	b := startBrowser(t, testsupport.NewFactory())
 	b.SetCookie("doorcode_session", "forged")
 
@@ -324,6 +338,7 @@ func TestUnknownSessionTokenIsTreatedAsSignedOut(t *testing.T) {
 }
 
 func TestSigningOutClearsTheCookieAndSaysSo(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 
 	got := b.Post("/sign-out")
@@ -342,6 +357,7 @@ func TestSigningOutClearsTheCookieAndSaysSo(t *testing.T) {
 }
 
 func TestSignedOutTokenNoLongerWorks(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	h, b := adminSession(t, f)
 	token := b.Cookie("doorcode_session")
@@ -357,6 +373,7 @@ func TestSignedOutTokenNoLongerWorks(t *testing.T) {
 }
 
 func TestSigningOutWithoutASessionGoesToSignIn(t *testing.T) {
+	t.Parallel()
 	got := startBrowser(t, testsupport.NewFactory()).Post("/sign-out")
 
 	if diff := cmp.Diff([]any{303, "/sign-in"}, []any{got.Status, got.Location}); diff != "" {
@@ -365,6 +382,7 @@ func TestSigningOutWithoutASessionGoesToSignIn(t *testing.T) {
 }
 
 func TestSessionCookieIsSecureWhenTheBrowserUsesHTTPS(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		target string
 		header string
@@ -392,6 +410,7 @@ func TestSessionCookieIsSecureWhenTheBrowserUsesHTTPS(t *testing.T) {
 }
 
 func TestCrossSiteFormPostIsRefused(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	b := startBrowser(t, f)
 	b.SetHeader("Sec-Fetch-Site", "cross-site")

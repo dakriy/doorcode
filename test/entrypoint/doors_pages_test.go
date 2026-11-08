@@ -26,6 +26,7 @@ func doorPage(t *testing.T, b *testsupport.Browser, target string) testsupport.P
 }
 
 func TestDoorsPageListsDoorsWithTheirPrimaryPicture(t *testing.T) {
+	t.Parallel()
 	b := doorSite(t, testsupport.NewFactory())
 	createDoor(t, b, `{"name":"Lobby","location":"Building A","public":true,"open_schedule_ids":[2,3],"zone_ids":[1,2]}`)
 	createDoor(t, b, `{"name":"Dock"}`)
@@ -50,6 +51,7 @@ func TestDoorsPageListsDoorsWithTheirPrimaryPicture(t *testing.T) {
 }
 
 func TestDoorsPageSaysWhyItIsEmpty(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		query string
 		want  string
@@ -101,6 +103,7 @@ func doorPagerOf(r testsupport.Response) []any {
 }
 
 func TestDoorsPageIsPagedKeepingItsFilters(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		query string
 		want  []any
@@ -129,6 +132,7 @@ func TestDoorsPageIsPagedKeepingItsFilters(t *testing.T) {
 }
 
 func TestDoorsPageLinksKeepTheDeletedFilter(t *testing.T) {
+	t.Parallel()
 	b := manyDoors(t)
 	for i := 1; i <= 30; i++ {
 		send(t, b, "DELETE", "/api/v1/doors/"+itoa(i), "", 204)
@@ -143,6 +147,7 @@ func TestDoorsPageLinksKeepTheDeletedFilter(t *testing.T) {
 }
 
 func TestDoorsPageFiltersOfferEveryZoneAndBothLists(t *testing.T) {
+	t.Parallel()
 	got := testsupport.ParsePage(manyDoors(t).Get("/admin/doors?zone=1&show=deleted").Body).Options
 
 	want := map[string][]string{
@@ -155,6 +160,7 @@ func TestDoorsPageFiltersOfferEveryZoneAndBothLists(t *testing.T) {
 }
 
 func TestDoorsPageFiltersStartAtEverything(t *testing.T) {
+	t.Parallel()
 	got := testsupport.ParsePage(signedInAdmin(t, testsupport.NewFactory()).Get("/admin/doors").Body).Options
 
 	want := map[string][]string{"zone": {"Every zone (selected)"}, "show": {"Current doors (selected)", "Deleted doors"}}
@@ -164,6 +170,7 @@ func TestDoorsPageFiltersStartAtEverything(t *testing.T) {
 }
 
 func TestNewDoorPageOffersAnEmptyForm(t *testing.T) {
+	t.Parallel()
 	got := doorPage(t, signedInAdmin(t, testsupport.NewFactory()), "/admin/doors/new")
 
 	want := testsupport.Page{
@@ -176,6 +183,7 @@ func TestNewDoorPageOffersAnEmptyForm(t *testing.T) {
 }
 
 func TestCreatingADoorFromTheFormOpensItsPage(t *testing.T) {
+	t.Parallel()
 	b := doorSite(t, testsupport.NewFactory())
 	b.Get("/")
 
@@ -198,6 +206,7 @@ func TestCreatingADoorFromTheFormOpensItsPage(t *testing.T) {
 }
 
 func TestDoorFormSaysWhatIsWrongAndKeepsWhatWasEntered(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createDoor(t, b, frontDoor)
 
@@ -215,6 +224,7 @@ func TestDoorFormSaysWhatIsWrongAndKeepsWhatWasEntered(t *testing.T) {
 }
 
 func TestDoorPageShowsTheDoorItsChoicesAndItsPictures(t *testing.T) {
+	t.Parallel()
 	b := doorSite(t, testsupport.NewFactory())
 	createDoor(t, b, `{"name":"Lobby","location":"Building A","notes":"Side.","open_schedule_ids":[3],"zone_ids":[2]}`)
 	send(t, b, "PUT", "/api/v1/zones/1", `{"name":"North","description":"North wing."}`, 200)
@@ -232,6 +242,7 @@ func TestDoorPageShowsTheDoorItsChoicesAndItsPictures(t *testing.T) {
 }
 
 func TestDoorPageLabelsEachChoice(t *testing.T) {
+	t.Parallel()
 	b := doorSite(t, testsupport.NewFactory())
 	createDoor(t, b, frontDoor)
 	send(t, b, "PUT", "/api/v1/zones/1", `{"name":"North","description":"North wing."}`, 200)
@@ -252,6 +263,7 @@ func TestDoorPageLabelsEachChoice(t *testing.T) {
 }
 
 func TestDoorPageServesThePrimaryThumbnailAndListsEveryPicture(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createDoor(t, b, frontDoor)
 	first := b.Upload("/admin/doors/1/pictures", "picture", "wide.png", testsupport.PNG(30, 20))
@@ -281,6 +293,7 @@ func TestDoorPageServesThePrimaryThumbnailAndListsEveryPicture(t *testing.T) {
 }
 
 func TestUploadingAPictureFromTheDoorPageSaysSo(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createDoor(t, b, frontDoor)
 	b.Get("/")
@@ -298,6 +311,7 @@ func TestUploadingAPictureFromTheDoorPageSaysSo(t *testing.T) {
 }
 
 func TestDoorPageRefusesUploadsThatAreNotPictures(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		content []byte
 		status  int
@@ -324,6 +338,7 @@ func TestDoorPageRefusesUploadsThatAreNotPictures(t *testing.T) {
 }
 
 func TestDeletingAPictureFromTheDoorPage(t *testing.T) {
+	t.Parallel()
 	b := doorWithPictures(t, testsupport.NewFactory())
 	b.Get("/")
 
@@ -340,6 +355,7 @@ func TestDeletingAPictureFromTheDoorPage(t *testing.T) {
 }
 
 func TestChangingAPictureThatIsGoneFromTheDoorPageSaysSo(t *testing.T) {
+	t.Parallel()
 	for _, action := range []string{"primary", "delete"} {
 		t.Run(action, func(t *testing.T) {
 			b := doorWithPictures(t, testsupport.NewFactory())
@@ -357,6 +373,7 @@ func TestChangingAPictureThatIsGoneFromTheDoorPageSaysSo(t *testing.T) {
 }
 
 func TestSavingADoorsDetailsFromItsPageKeepsTheRest(t *testing.T) {
+	t.Parallel()
 	b := doorSite(t, testsupport.NewFactory())
 	createDoor(t, b, `{"name":"Lobby","public":true,"open_schedule_ids":[2],"zone_ids":[1]}`)
 	b.Get("/")
@@ -373,6 +390,7 @@ func TestSavingADoorsDetailsFromItsPageKeepsTheRest(t *testing.T) {
 }
 
 func TestSavingADoorsDetailsFromItsPageSaysWhatIsWrong(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createDoor(t, b, frontDoor)
 
@@ -389,6 +407,7 @@ func TestSavingADoorsDetailsFromItsPageSaysWhatIsWrong(t *testing.T) {
 }
 
 func TestSavingADoorsOpenModeAndZonesFromItsPage(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		target string
 		fields []string
@@ -419,6 +438,7 @@ func TestSavingADoorsOpenModeAndZonesFromItsPage(t *testing.T) {
 }
 
 func TestSavingUnknownChoicesFromADoorsPageSaysSo(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		target string
 		fields []string
@@ -444,6 +464,7 @@ func TestSavingUnknownChoicesFromADoorsPageSaysSo(t *testing.T) {
 }
 
 func TestDeletingAndRestoringADoorFromItsPage(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createDoor(t, b, frontDoor)
 	b.Get("/")
@@ -461,6 +482,7 @@ func TestDeletingAndRestoringADoorFromItsPage(t *testing.T) {
 }
 
 func TestDoorPageThatDoesNotExistSaysSo(t *testing.T) {
+	t.Parallel()
 	for _, target := range []string{"/admin/doors/9", "/admin/doors/front"} {
 		t.Run(target, func(t *testing.T) {
 			got := signedInAdmin(t, testsupport.NewFactory())
@@ -477,6 +499,7 @@ func TestDoorPageThatDoesNotExistSaysSo(t *testing.T) {
 }
 
 func TestChangingADoorThatDoesNotExistFromAPageSaysSo(t *testing.T) {
+	t.Parallel()
 	for _, target := range []string{"/admin/doors/9", "/admin/doors/9/delete", "/admin/doors/9/restore", "/admin/doors/9/pictures",
 		"/admin/doors/9/pictures/1/primary", "/admin/doors/9/pictures/1/delete", "/admin/doors/9/zones"} {
 		t.Run(target, func(t *testing.T) {
@@ -490,6 +513,7 @@ func TestChangingADoorThatDoesNotExistFromAPageSaysSo(t *testing.T) {
 }
 
 func TestDoorPagesAskForTheRole(t *testing.T) {
+	t.Parallel()
 	_, b := adminHolding(t, testsupport.NewFactory(), `["manage-schedules"]`)
 
 	got := []any{b.Get("/admin/doors").Status, b.Get("/admin/zones").Status, testsupport.ParsePage(b.Get("/").Body).Nav}
@@ -501,6 +525,7 @@ func TestDoorPagesAskForTheRole(t *testing.T) {
 }
 
 func TestDoorPageStoreFailureShowsARequestID(t *testing.T) {
+	t.Parallel()
 	png := testsupport.PNG(4, 4)
 	cases := map[string]struct {
 		fail    func(s *testsupport.Store)
@@ -546,6 +571,7 @@ func TestDoorPageStoreFailureShowsARequestID(t *testing.T) {
 }
 
 func TestDeletingAScheduleADoorUsesFromItsPageIsRefused(t *testing.T) {
+	t.Parallel()
 	b := doorSite(t, testsupport.NewFactory())
 	createDoor(t, b, `{"name":"Lobby","open_schedule_ids":[2]}`)
 	b.Get("/")

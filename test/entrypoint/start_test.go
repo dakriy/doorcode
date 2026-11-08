@@ -74,6 +74,7 @@ func signedInAdmin(t *testing.T, f *testsupport.Factory) *testsupport.Browser {
 }
 
 func TestFirstStartCreatesAnAdministratorAndLogsItsPassword(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 
 	start(t, f)
@@ -89,6 +90,7 @@ func TestFirstStartCreatesAnAdministratorAndLogsItsPassword(t *testing.T) {
 }
 
 func TestFirstAdministratorEmailComesFromTheSettingLowercased(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	f.EnvStub["DOORCODE_ADMIN_EMAIL"] = " Ops@Example.COM "
 	h := start(t, f).Handler()
@@ -104,6 +106,7 @@ func TestFirstAdministratorEmailComesFromTheSettingLowercased(t *testing.T) {
 }
 
 func TestStartupWithExistingUsersOnlyMigrates(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	f.StoreStub.SeedUser("someone@example.com", "Someone")
 
@@ -116,6 +119,7 @@ func TestStartupWithExistingUsersOnlyMigrates(t *testing.T) {
 }
 
 func TestSecondStartKeepsTheFirstAdministratorsPassword(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	start(t, f)
 	password := adminPassword(t, f)
@@ -128,6 +132,7 @@ func TestSecondStartKeepsTheFirstAdministratorsPassword(t *testing.T) {
 }
 
 func TestStartupFails(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		arrange func(f *testsupport.Factory)
 		want    string
@@ -170,6 +175,7 @@ func TestStartupFails(t *testing.T) {
 }
 
 func TestHealthzReportsOK(t *testing.T) {
+	t.Parallel()
 	got := testsupport.Get(start(t, testsupport.NewFactory()).Handler(), "/healthz")
 
 	want := testsupport.Response{Status: 200, ContentType: "text/plain; charset=utf-8", Body: "ok\n"}

@@ -19,6 +19,7 @@ var annForm = map[string]string{"email": "ann@example.com", "user_id": "100234",
 	"last_name": "Smith", "display_name": "Ann Smith", "expires_on": "", "name": ""}
 
 func TestUsersPageListsUsersWithTheirGroupsAndStatus(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	b := signedInAdmin(t, f)
 	createUser(t, b, ann)
@@ -48,6 +49,7 @@ func TestUsersPageListsUsersWithTheirGroupsAndStatus(t *testing.T) {
 }
 
 func TestUsersPageSearchesAndShowsDeletedUsers(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		query string
 		rows  [][]string
@@ -71,6 +73,7 @@ func TestUsersPageSearchesAndShowsDeletedUsers(t *testing.T) {
 }
 
 func TestUsersPageSaysWhyItIsEmpty(t *testing.T) {
+	t.Parallel()
 	cases := map[string]string{
 		"?q=nobody":         "No users match this search.",
 		"?show=deleted":     "No users are deleted.",
@@ -111,6 +114,7 @@ func pagerOf(r testsupport.Response) []any {
 }
 
 func TestUsersPageIsPaged(t *testing.T) {
+	t.Parallel()
 	deleteAll := func(t *testing.T, b *testsupport.Browser) {
 		for i := 2; i <= 31; i++ {
 			send(t, b, "DELETE", "/api/v1/users/"+itoa(i), "", 204)
@@ -161,6 +165,7 @@ var annPage = testsupport.Page{
 }
 
 func TestNewUserPageOffersAnEmptyForm(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	b.Get("/")
 
@@ -176,6 +181,7 @@ func TestNewUserPageOffersAnEmptyForm(t *testing.T) {
 }
 
 func TestCreatingAUserFromTheFormOpensTheirPage(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	b.Get("/")
 
@@ -196,6 +202,7 @@ func TestCreatingAUserFromTheFormOpensTheirPage(t *testing.T) {
 }
 
 func TestExpiryTypedOnAPageIsTheStartOfThatDayInTheSiteTimezone(t *testing.T) {
+	t.Parallel()
 	b := inZone(t, "Europe/Berlin")
 	b.Post("/admin/users", "email", "ann@example.com", "display_name", "Ann", "expires_on", "2027-03-01")
 
@@ -208,6 +215,7 @@ func TestExpiryTypedOnAPageIsTheStartOfThatDayInTheSiteTimezone(t *testing.T) {
 }
 
 func TestUserFormSaysWhatIsWrongAndKeepsWhatWasEntered(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		fields []string
 		errors map[string]string
@@ -239,6 +247,7 @@ func TestUserFormSaysWhatIsWrongAndKeepsWhatWasEntered(t *testing.T) {
 }
 
 func TestUserPageShowsTheirGroupsAndTokens(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	b := signedInAdmin(t, f)
 	createUser(t, b, ann)
@@ -264,6 +273,7 @@ func TestUserPageShowsTheirGroupsAndTokens(t *testing.T) {
 }
 
 func TestUserPageThatDoesNotExistSaysSo(t *testing.T) {
+	t.Parallel()
 	cases := map[string]func(b *testsupport.Browser) testsupport.Response{
 		"an unknown id": func(b *testsupport.Browser) testsupport.Response { return b.Get("/admin/users/9") },
 		"not an id":     func(b *testsupport.Browser) testsupport.Response { return b.Get("/admin/users/ann") },
@@ -293,6 +303,7 @@ func TestUserPageThatDoesNotExistSaysSo(t *testing.T) {
 }
 
 func TestSavingAUserFromTheirPage(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createUser(t, b, ann)
 
@@ -310,6 +321,7 @@ func TestSavingAUserFromTheirPage(t *testing.T) {
 }
 
 func TestSavingAUserFromTheirPageSaysWhatIsWrong(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		fields []string
 		errors map[string]string
@@ -335,6 +347,7 @@ func TestSavingAUserFromTheirPageSaysWhatIsWrong(t *testing.T) {
 }
 
 func TestSettingADoorCodeFromTheUserPage(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createUser(t, b, ann)
 
@@ -356,6 +369,7 @@ func TestSettingADoorCodeFromTheUserPage(t *testing.T) {
 }
 
 func TestDoorCodeFormSaysWhatIsWrong(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		code, want string
 	}{
@@ -378,6 +392,7 @@ func TestDoorCodeFormSaysWhatIsWrong(t *testing.T) {
 }
 
 func TestDeletingAndRestoringAUserFromTheirPage(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createUser(t, b, ann)
 
@@ -399,6 +414,7 @@ func TestDeletingAndRestoringAUserFromTheirPage(t *testing.T) {
 }
 
 func TestYourOwnPageSaysWhyItOffersNoDeletion(t *testing.T) {
+	t.Parallel()
 	got := pageOf(signedInAdmin(t, testsupport.NewFactory()).Get("/admin/users/1"))
 
 	want := []string{"This is your own account. You cannot delete it, and you cannot remove your own admin role."}
@@ -408,6 +424,7 @@ func TestYourOwnPageSaysWhyItOffersNoDeletion(t *testing.T) {
 }
 
 func TestDeletingYourOwnAccountFromYourPageIsRefused(t *testing.T) {
+	t.Parallel()
 	got := signedInAdmin(t, testsupport.NewFactory()).Post("/admin/users/1/delete")
 
 	page := pageOf(got)
@@ -418,6 +435,7 @@ func TestDeletingYourOwnAccountFromYourPageIsRefused(t *testing.T) {
 }
 
 func TestCreatingATokenForAUserFromTheirPageShowsItOnce(t *testing.T) {
+	t.Parallel()
 	h, b := adminSession(t, testsupport.NewFactory())
 	createUser(t, b, ann)
 	b.Get("/")
@@ -438,6 +456,7 @@ func TestCreatingATokenForAUserFromTheirPageShowsItOnce(t *testing.T) {
 }
 
 func TestTokenFormOnAUserPageSaysWhatIsWrong(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createUser(t, b, ann)
 
@@ -450,6 +469,7 @@ func TestTokenFormOnAUserPageSaysWhatIsWrong(t *testing.T) {
 }
 
 func TestRevokingAUsersTokenFromTheirPage(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		token, message string
 	}{
@@ -473,6 +493,7 @@ func TestRevokingAUsersTokenFromTheirPage(t *testing.T) {
 }
 
 func TestUserManagerWithoutAdminSeesUsersButNotTheirTokens(t *testing.T) {
+	t.Parallel()
 	_, b := adminHolding(t, testsupport.NewFactory(), `["manage-users"]`)
 	b.Get("/")
 
@@ -490,6 +511,7 @@ func TestUserManagerWithoutAdminSeesUsersButNotTheirTokens(t *testing.T) {
 }
 
 func TestUserPagesAskForTheRole(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	b := signedInAdmin(t, f)
 	f.StoreStub.RevokeRoles(adminEmail)
@@ -502,6 +524,7 @@ func TestUserPagesAskForTheRole(t *testing.T) {
 }
 
 func TestUserPageStoreFailureShowsARequestID(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		fail    func(s *testsupport.Store)
 		request func(b *testsupport.Browser) testsupport.Response

@@ -33,6 +33,7 @@ func doorWithPictures(t *testing.T, f *testsupport.Factory) *testsupport.Browser
 }
 
 func TestUploadingAPictureAnswersWithIt(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createDoor(t, b, frontDoor)
 
@@ -46,6 +47,7 @@ func TestUploadingAPictureAnswersWithIt(t *testing.T) {
 }
 
 func TestDoorsFirstPictureIsPrimaryAndLaterOnesAreListedAfterIt(t *testing.T) {
+	t.Parallel()
 	b := doorWithPictures(t, testsupport.NewFactory())
 
 	door := testsupport.JSONAt(b.Get("/api/v1/doors/1").Body, "/primary_picture_id")
@@ -62,6 +64,7 @@ func TestDoorsFirstPictureIsPrimaryAndLaterOnesAreListedAfterIt(t *testing.T) {
 }
 
 func TestPicturesAreServedAsJPEGThatBrowsersMayKeep(t *testing.T) {
+	t.Parallel()
 	b := doorWithPictures(t, testsupport.NewFactory())
 
 	image := b.Get("/api/v1/doors/1/pictures/2")
@@ -79,6 +82,7 @@ func TestPicturesAreServedAsJPEGThatBrowsersMayKeep(t *testing.T) {
 }
 
 func TestLargePicturesAreReducedKeepingTheirProportions(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		width, height int
 		want          []string
@@ -108,6 +112,7 @@ func TestLargePicturesAreReducedKeepingTheirProportions(t *testing.T) {
 }
 
 func TestSettingTheSecondPictureAsPrimary(t *testing.T) {
+	t.Parallel()
 	b := doorWithPictures(t, testsupport.NewFactory())
 
 	set := b.PostJSON("/api/v1/doors/1/pictures/2/primary", "")
@@ -123,6 +128,7 @@ func TestSettingTheSecondPictureAsPrimary(t *testing.T) {
 }
 
 func TestDeletingThePrimaryPictureMakesTheOldestLeftPrimary(t *testing.T) {
+	t.Parallel()
 	b := doorWithPictures(t, testsupport.NewFactory())
 	uploadPicture(t, b, "1", testsupport.PNG(10, 10))
 	send(t, b, "POST", "/api/v1/doors/1/pictures/3/primary", "", 204)
@@ -138,6 +144,7 @@ func TestDeletingThePrimaryPictureMakesTheOldestLeftPrimary(t *testing.T) {
 }
 
 func TestDeletingAnotherPictureKeepsThePrimaryOne(t *testing.T) {
+	t.Parallel()
 	b := doorWithPictures(t, testsupport.NewFactory())
 
 	send(t, b, "DELETE", "/api/v1/doors/1/pictures/2", "", 204)
@@ -148,6 +155,7 @@ func TestDeletingAnotherPictureKeepsThePrimaryOne(t *testing.T) {
 }
 
 func TestDeletingTheLastPictureLeavesNoPrimary(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createDoor(t, b, frontDoor)
 	uploadPicture(t, b, "1", testsupport.PNG(10, 10))
@@ -162,6 +170,7 @@ func TestDeletingTheLastPictureLeavesNoPrimary(t *testing.T) {
 }
 
 func TestPicturesOfAnotherDoorAreNotFound(t *testing.T) {
+	t.Parallel()
 	b := doorWithPictures(t, testsupport.NewFactory())
 	createDoor(t, b, `{"name":"Back door"}`)
 	cases := map[string]func() testsupport.Response{
@@ -183,6 +192,7 @@ func TestPicturesOfAnotherDoorAreNotFound(t *testing.T) {
 }
 
 func TestPicturesOfADoorThatIsNotThereAreNotFound(t *testing.T) {
+	t.Parallel()
 	cases := map[string]func(b *testsupport.Browser) testsupport.Response{
 		"list": func(b *testsupport.Browser) testsupport.Response { return b.Get("/api/v1/doors/9/pictures") },
 		"upload": func(b *testsupport.Browser) testsupport.Response {
@@ -206,6 +216,7 @@ func TestPicturesOfADoorThatIsNotThereAreNotFound(t *testing.T) {
 }
 
 func TestATooLargeUploadIsRefused(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createDoor(t, b, frontDoor)
 
@@ -219,6 +230,7 @@ func TestATooLargeUploadIsRefused(t *testing.T) {
 }
 
 func TestAnUploadAtTheSizeLimitIsAccepted(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createDoor(t, b, frontDoor)
 
@@ -230,6 +242,7 @@ func TestAnUploadAtTheSizeLimitIsAccepted(t *testing.T) {
 }
 
 func TestUploadsThatAreNotPicturesAreRefused(t *testing.T) {
+	t.Parallel()
 	unreadable := "The file is not a JPEG, PNG, GIF, or WebP image that can be read."
 	notUpload := "Send the picture as a multipart form with the file in the field picture."
 	png := testsupport.PNG(8, 8)
@@ -279,6 +292,7 @@ func TestUploadsThatAreNotPicturesAreRefused(t *testing.T) {
 }
 
 func TestPicturesAnswerWithARequestIDWhenTheStoreFails(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		fail   func(s *testsupport.Store)
 		method string
@@ -311,6 +325,7 @@ func TestPicturesAnswerWithARequestIDWhenTheStoreFails(t *testing.T) {
 }
 
 func TestUploadAnswersWithARequestIDWhenThePictureCannotBeStored(t *testing.T) {
+	t.Parallel()
 	cases := map[string]func(s *testsupport.Store){
 		"storing the picture":       (*testsupport.Store).FailDoorWrites,
 		"making it the primary one": (*testsupport.Store).FailPrimaryPictures,

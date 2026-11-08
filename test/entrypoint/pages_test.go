@@ -9,6 +9,7 @@ import (
 )
 
 func TestHomeAsksForSignIn(t *testing.T) {
+	t.Parallel()
 	got := testsupport.Get(start(t, testsupport.NewFactory()).Handler(), "/")
 
 	want := testsupport.Response{Status: 303, Location: "/sign-in?next=%2F"}
@@ -18,6 +19,7 @@ func TestHomeAsksForSignIn(t *testing.T) {
 }
 
 func TestAdministratorReachesTheSettingsPage(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	f.StoreStub.SeedSetting("site_name", "North Campus", "2026-01-02T08:00:00Z")
 	b := signedInAdmin(t, f)
@@ -46,6 +48,7 @@ func TestAdministratorReachesTheSettingsPage(t *testing.T) {
 }
 
 func TestUserWithoutTheAdminRoleIsRefusedTheSettingsPage(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	b := signedInAdmin(t, f)
 	b.Get("/")
@@ -67,6 +70,7 @@ func TestUserWithoutTheAdminRoleIsRefusedTheSettingsPage(t *testing.T) {
 }
 
 func TestHomeOffersOnlyWhatTheUserMayUse(t *testing.T) {
+	t.Parallel()
 	f := testsupport.NewFactory()
 	b := signedInAdmin(t, f)
 	f.StoreStub.RevokeRoles(adminEmail)
@@ -79,6 +83,7 @@ func TestHomeOffersOnlyWhatTheUserMayUse(t *testing.T) {
 }
 
 func TestPagesLoadTheirAssets(t *testing.T) {
+	t.Parallel()
 	h := start(t, testsupport.NewFactory()).Handler()
 	assets := testsupport.ParsePage(testsupport.Get(h, "/sign-in").Body).Assets
 
@@ -95,6 +100,7 @@ func TestPagesLoadTheirAssets(t *testing.T) {
 }
 
 func TestPageStoreFailureShowsARequestIDThatTheLogCarries(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		request func(t *testing.T, f *testsupport.Factory) testsupport.Response
 		id      string

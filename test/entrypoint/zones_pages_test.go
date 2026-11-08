@@ -15,6 +15,7 @@ var zonesNav = []string{"Home", "Users", "Groups", "Schedules", "Doors", "Zones 
 var zonesHead = []string{"Name", "Description", "Doors"}
 
 func TestZonesPageListsZonesWithTheirDoors(t *testing.T) {
+	t.Parallel()
 	b := zonedDoors(t, testsupport.NewFactory())
 	createZone(t, b, `{"name":"West","description":"West wing.","door_ids":[1,2]}`)
 	createZone(t, b, `{"name":"Attic"}`)
@@ -31,6 +32,7 @@ func TestZonesPageListsZonesWithTheirDoors(t *testing.T) {
 }
 
 func TestZonesPageSaysWhenThereAreNone(t *testing.T) {
+	t.Parallel()
 	got := doorPage(t, signedInAdmin(t, testsupport.NewFactory()), "/admin/zones").Tables["Zones"]
 
 	want := [][]string{zonesHead, {"There are no zones yet. Create one to group doors for access rules."}}
@@ -40,6 +42,7 @@ func TestZonesPageSaysWhenThereAreNone(t *testing.T) {
 }
 
 func TestNewZonePageOffersEveryDoorThatIsNotDeleted(t *testing.T) {
+	t.Parallel()
 	b := zonedDoors(t, testsupport.NewFactory())
 	send(t, b, "PUT", "/api/v1/doors/1", `{"name":"Front door","location":"Street side"}`, 200)
 	createDoor(t, b, `{"name":"Old door"}`)
@@ -56,6 +59,7 @@ func TestNewZonePageOffersEveryDoorThatIsNotDeleted(t *testing.T) {
 }
 
 func TestNewZonePageSaysWhenThereAreNoDoors(t *testing.T) {
+	t.Parallel()
 	got := pageOf(signedInAdmin(t, testsupport.NewFactory()).Get("/admin/zones/new")).Notes
 
 	if diff := cmp.Diff([]string{"There are no doors yet. Create them on the doors page."}, got); diff != "" {
@@ -64,6 +68,7 @@ func TestNewZonePageSaysWhenThereAreNoDoors(t *testing.T) {
 }
 
 func TestCreatingAZoneFromTheFormOpensItsPage(t *testing.T) {
+	t.Parallel()
 	b := zonedDoors(t, testsupport.NewFactory())
 	b.Get("/")
 
@@ -82,6 +87,7 @@ func TestCreatingAZoneFromTheFormOpensItsPage(t *testing.T) {
 }
 
 func TestZoneFormSaysWhatIsWrongAndKeepsWhatWasEntered(t *testing.T) {
+	t.Parallel()
 	b := zonedDoors(t, testsupport.NewFactory())
 	createZone(t, b, `{"name":"West"}`)
 
@@ -98,6 +104,7 @@ func TestZoneFormSaysWhatIsWrongAndKeepsWhatWasEntered(t *testing.T) {
 }
 
 func TestZonePageOffersTheDeletedDoorsItHolds(t *testing.T) {
+	t.Parallel()
 	b := zonedDoors(t, testsupport.NewFactory())
 	createZone(t, b, `{"name":"West","door_ids":[1]}`)
 	send(t, b, "DELETE", "/api/v1/doors/1", "", 204)
@@ -111,6 +118,7 @@ func TestZonePageOffersTheDeletedDoorsItHolds(t *testing.T) {
 }
 
 func TestSavingAZoneFromItsPage(t *testing.T) {
+	t.Parallel()
 	b := zonedDoors(t, testsupport.NewFactory())
 	createZone(t, b, `{"name":"West","door_ids":[1]}`)
 	b.Get("/")
@@ -125,6 +133,7 @@ func TestSavingAZoneFromItsPage(t *testing.T) {
 }
 
 func TestSavingAZoneFromItsPageSaysWhatIsWrong(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createZone(t, b, `{"name":"West"}`)
 
@@ -137,6 +146,7 @@ func TestSavingAZoneFromItsPageSaysWhatIsWrong(t *testing.T) {
 }
 
 func TestDeletingAZoneFromItsPage(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createZone(t, b, `{"name":"West"}`)
 	b.Get("/")
@@ -152,6 +162,7 @@ func TestDeletingAZoneFromItsPage(t *testing.T) {
 }
 
 func TestZonePageThatDoesNotExistSaysSo(t *testing.T) {
+	t.Parallel()
 	cases := map[string]func(b *testsupport.Browser) testsupport.Response{
 		"an unknown id": func(b *testsupport.Browser) testsupport.Response { return b.Get("/admin/zones/9") },
 		"saving it":     func(b *testsupport.Browser) testsupport.Response { return b.Post("/admin/zones/9", "name", "X") },
@@ -173,6 +184,7 @@ func TestZonePageThatDoesNotExistSaysSo(t *testing.T) {
 }
 
 func TestZonePageStoreFailureShowsARequestID(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		fail    func(s *testsupport.Store)
 		request func(b *testsupport.Browser) testsupport.Response

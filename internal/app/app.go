@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
@@ -27,8 +28,10 @@ type App struct {
 	schedules schedule.Service
 	doors     door.Service
 	root      http.Handler
-	// openapi is the OpenAPI document of the route table's API operations.
-	openapi []byte
+	// openapi builds the OpenAPI document of the route table's API
+	// operations the first time it is served, so constructing an App does
+	// not pay for it.
+	openapi func() []byte
 }
 
 // New brings the store's schema up to date, creates the first administrator
@@ -61,7 +64,7 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 	}
 
 	table := a.routes()
-	a.openapi = apiDocument(table)
+	a.openapi = sync.OnceValue(func() []byte { return apiDocument(table) })
 	a.root = a.handler(table)
 	return a, nil
 }

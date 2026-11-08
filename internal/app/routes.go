@@ -171,5 +171,5 @@ func OpenAPI() []byte {
 
 func (a *App) serveOpenAPI(w http.ResponseWriter, _ *http.Request, _ auth.User) {
 	w.Header().Set("Content-Type", jsonType)
-	_, _ = w.Write(a.openapi)
+	_, _ = w.Write(a.openapi())
 }

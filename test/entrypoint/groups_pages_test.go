@@ -25,6 +25,7 @@ const night = `{"slug":"night","name":"Night","description":"Late shifts.","role
 	`"preassigned_user_ids":["100234","100877"]}`
 
 func TestGroupsPageListsGroupsWithRoleBadges(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createGroup(t, b, night)
 	createGroup(t, b, `{"slug":"day","name":"Day"}`)
@@ -47,6 +48,7 @@ func TestGroupsPageListsGroupsWithRoleBadges(t *testing.T) {
 }
 
 func TestNewGroupPageOffersAnEmptyForm(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	b.Get("/")
 
@@ -62,6 +64,7 @@ func TestNewGroupPageOffersAnEmptyForm(t *testing.T) {
 }
 
 func TestCreatingAGroupFromTheFormOpensItsPage(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	b.Get("/")
 
@@ -85,6 +88,7 @@ func TestCreatingAGroupFromTheFormOpensItsPage(t *testing.T) {
 }
 
 func TestGroupFormSaysWhatIsWrongAndKeepsWhatWasEntered(t *testing.T) {
+	t.Parallel()
 	got := signedInAdmin(t, testsupport.NewFactory()).Post("/admin/groups", "name", "", "slug", "administrators",
 		"description", repeat("x", 1001), "roles", "admin", "roles", "root", "preassigned_user_ids", "a b")
 
@@ -102,6 +106,7 @@ func TestGroupFormSaysWhatIsWrongAndKeepsWhatWasEntered(t *testing.T) {
 }
 
 func TestCreatingAGroupWithARoleYouDoNotHoldIsRefusedOnTheForm(t *testing.T) {
+	t.Parallel()
 	_, b := adminHolding(t, testsupport.NewFactory(), `["manage-groups"]`)
 	b.Get("/")
 
@@ -115,6 +120,7 @@ func TestCreatingAGroupWithARoleYouDoNotHoldIsRefusedOnTheForm(t *testing.T) {
 }
 
 func TestGroupPageListsItsMembers(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createGroup(t, b, night)
 	createUser(t, b, ann)
@@ -143,6 +149,7 @@ func TestGroupPageListsItsMembers(t *testing.T) {
 }
 
 func TestGroupPageThatDoesNotExistSaysSo(t *testing.T) {
+	t.Parallel()
 	cases := map[string]func(b *testsupport.Browser) testsupport.Response{
 		"an unknown id": func(b *testsupport.Browser) testsupport.Response { return b.Get("/admin/groups/9") },
 		"a slug":        func(b *testsupport.Browser) testsupport.Response { return b.Get("/admin/groups/administrators") },
@@ -171,6 +178,7 @@ func TestGroupPageThatDoesNotExistSaysSo(t *testing.T) {
 }
 
 func TestSavingAGroupFromItsPage(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createGroup(t, b, night)
 
@@ -185,6 +193,7 @@ func TestSavingAGroupFromItsPage(t *testing.T) {
 }
 
 func TestSavingAGroupFromItsPageSaysWhatIsWrong(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createGroup(t, b, night)
 
@@ -198,6 +207,7 @@ func TestSavingAGroupFromItsPageSaysWhatIsWrong(t *testing.T) {
 }
 
 func TestTakingYourOwnAdminRoleFromTheGroupPageIsRefused(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		request func(b *testsupport.Browser) testsupport.Response
 		roles   []string
@@ -230,6 +240,7 @@ func TestTakingYourOwnAdminRoleFromTheGroupPageIsRefused(t *testing.T) {
 }
 
 func TestAddingAndRemovingMembersFromTheGroupPage(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createGroup(t, b, night)
 	createUser(t, b, ann)
@@ -254,6 +265,7 @@ func TestAddingAndRemovingMembersFromTheGroupPage(t *testing.T) {
 }
 
 func TestAddingSomeoneUnknownToAGroupSaysSo(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 
 	got := b.Post("/admin/groups/1/members", "member", " nobody ")
@@ -266,6 +278,7 @@ func TestAddingSomeoneUnknownToAGroupSaysSo(t *testing.T) {
 }
 
 func TestRemovingSomeoneWhoIsNotAMemberFromTheGroupPageSaysSo(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createUser(t, b, ann)
 	b.Get("/")
@@ -279,6 +292,7 @@ func TestRemovingSomeoneWhoIsNotAMemberFromTheGroupPageSaysSo(t *testing.T) {
 }
 
 func TestDeletingAGroupFromItsPage(t *testing.T) {
+	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createGroup(t, b, night)
 
@@ -293,6 +307,7 @@ func TestDeletingAGroupFromItsPage(t *testing.T) {
 }
 
 func TestGroupManagerWithoutUserManagementSeesMembersWithoutLinks(t *testing.T) {
+	t.Parallel()
 	_, b := adminHolding(t, testsupport.NewFactory(), `["manage-groups"]`)
 	b.Get("/")
 
@@ -306,6 +321,7 @@ func TestGroupManagerWithoutUserManagementSeesMembersWithoutLinks(t *testing.T) 
 }
 
 func TestGroupPageStoreFailureShowsARequestID(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		fail    func(s *testsupport.Store)
 		request func(b *testsupport.Browser) testsupport.Response

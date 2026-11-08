@@ -16,6 +16,7 @@ func openAPIDocument(t *testing.T) string {
 }
 
 func TestServedOpenAPIDocumentIsTheGeneratedOne(t *testing.T) {
+	t.Parallel()
 	got := testsupport.Get(start(t, testsupport.NewFactory()).Handler(), "/api/v1/openapi.json")
 
 	want := testsupport.Response{Status: 200, ContentType: jsonType, Body: string(app.OpenAPI())}
@@ -25,6 +26,7 @@ func TestServedOpenAPIDocumentIsTheGeneratedOne(t *testing.T) {
 }
 
 func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
+	t.Parallel()
 	got := testsupport.OpenAPIOperations(openAPIDocument(t))
 
 	groupBody := `{"slug":"night-staff","name":"Night staff","description":"Security and cleaning crews.",` +
@@ -97,6 +99,7 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 }
 
 func TestOpenAPIDescribesTheAPIAndHowToAuthenticate(t *testing.T) {
+	t.Parallel()
 	doc := openAPIDocument(t)
 
 	got := []any{
@@ -121,6 +124,7 @@ func TestOpenAPIDescribesTheAPIAndHowToAuthenticate(t *testing.T) {
 }
 
 func TestOpenAPIDerivesBodySchemasFromTheWireTypes(t *testing.T) {
+	t.Parallel()
 	doc := openAPIDocument(t)
 	schemas := []string{"TokenView", "CreatedToken", "TokenRequest", "SettingList"}
 
@@ -152,6 +156,7 @@ func TestOpenAPIDerivesBodySchemasFromTheWireTypes(t *testing.T) {
 }
 
 func TestOpenAPIDescribesParametersRequestsAndResponses(t *testing.T) {
+	t.Parallel()
 	doc := openAPIDocument(t)
 
 	got := []any{
@@ -182,6 +187,7 @@ func TestOpenAPIDescribesParametersRequestsAndResponses(t *testing.T) {
 }
 
 func TestOpenAPIRefusalOfAMissingRoleNamesTheRole(t *testing.T) {
+	t.Parallel()
 	got := testsupport.JSONAt(openAPIDocument(t), "/paths/~1settings/get/responses/403/description")
 
 	if diff := cmp.Diff("The caller does not hold the admin role.", got); diff != "" {
@@ -217,6 +223,7 @@ var specCallers = map[string]specCaller{
 }
 
 func TestEveryDocumentedOperationAnswersWithADocumentedStatus(t *testing.T) {
+	t.Parallel()
 	for name, arrange := range specCallers {
 		t.Run(name, func(t *testing.T) {
 			f := testsupport.NewFactory()
@@ -245,6 +252,7 @@ func listed(statuses []int, status int) bool {
 }
 
 func TestOpenAPIDescribesPictureUploadsAndImages(t *testing.T) {
+	t.Parallel()
 	doc := openAPIDocument(t)
 
 	got := []any{
