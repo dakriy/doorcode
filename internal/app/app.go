@@ -1,34 +1,53 @@
-// Package app is the entrypoint: the HTTP handler for the doorcode API.
+// Package app is the entrypoint. New builds the application from a connector
+// factory; the application serves HTTP through Handler.
 package app
 
 import (
+	"context"
+	"fmt"
 	"io"
 	"net/http"
 
-	"github.com/dakriy/doorcode/internal/access"
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/settings"
 )
 
-// Handler returns the doorcode API. It takes every connector from f and
-// constructs none itself.
-func Handler(f connector.Factory) http.Handler {
-	codes := f.Codes()
-	mux := http.NewServeMux()
-	mux.HandleFunc("POST /api/check", func(w http.ResponseWriter, r *http.Request) {
-		check(codes, w, r)
-	})
-	return mux
+// App is the running application.
+type App struct {
+	log      connector.Log
+	entropy  connector.Entropy
+	settings settings.Service
+	mux      *http.ServeMux
 }
 
-func check(codes connector.Codes, w http.ResponseWriter, r *http.Request) {
-	content, err := codes.Load()
-	if err != nil {
-		http.Error(w, "unavailable", http.StatusServiceUnavailable)
-		return
+// New brings the store's schema up to date and returns the application. It
+// takes every connector from f and constructs none itself.
+func New(ctx context.Context, f connector.Factory) (*App, error) {
+	store := f.Store()
+	log := f.Log()
+	if err := store.Migrate(ctx); err != nil {
+		return nil, fmt.Errorf("migrate schema: %w", err)
 	}
-	if !access.Allowed(content, r.FormValue("code")) {
-		http.Error(w, "denied", http.StatusForbidden)
-		return
+	log.Info("schema migrated")
+
+	a := &App{
+		log:      log,
+		entropy:  f.Entropy(),
+		settings: settings.Service{Store: store, Env: f.Environment(), Clock: f.Clock()},
+		mux:      http.NewServeMux(),
 	}
-	_, _ = io.WriteString(w, "open\n")
+	a.mux.HandleFunc("GET /healthz", healthz)
+	a.mux.HandleFunc("GET /api/v1/settings", a.listSettings)
+	a.mux.HandleFunc("GET /api/v1/settings/{key}", a.getSetting)
+	a.mux.HandleFunc("PUT /api/v1/settings/{key}", a.updateSetting)
+	return a, nil
+}
+
+// Handler returns the application's HTTP handler.
+func (a *App) Handler() http.Handler {
+	return a.mux
+}
+
+func healthz(w http.ResponseWriter, _ *http.Request) {
+	_, _ = io.WriteString(w, "ok\n")
 }

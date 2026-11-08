@@ -1,0 +1,36 @@
+# Local services for development and the slow connector tests.
+#
+#   docker compose up -d
+#   export DOORCODE_TEST_DATABASE_URL=postgres://doorcode:doorcode@localhost:5432/doorcode?sslmode=disable
+#   make verify-integration
+#
+# Set DOORCODE_POSTGRES_PORT or DOORCODE_MQTT_PORT to publish on other host
+# ports when the defaults are taken.
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: doorcode
+      POSTGRES_PASSWORD: doorcode
+      POSTGRES_DB: doorcode
+    ports:
+      - "${DOORCODE_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U doorcode -d doorcode"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "${DOORCODE_MQTT_PORT:-1883}:1883"
+    volumes:
+      - ./deploy/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto:/mosquitto/data
+
+volumes:
+  postgres:
+  mosquitto:

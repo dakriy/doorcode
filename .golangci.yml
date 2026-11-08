@@ -80,6 +80,10 @@ linters:
               desc: "effect package (writes to stderr/syslog): put it behind a connector"
             - pkg: github.com/google/uuid
               desc: "identifier generation: put it behind a connector"
+            - pkg: github.com/jackc/pgx
+              desc: "effect package (database): put it behind a connector"
+            - pkg: github.com/jackc/tern
+              desc: "effect package (database migrations): put it behind a connector"
         # Entrypoint suite: an allowlist. Nothing else may be imported.
         entrypoint-suite:
           list-mode: strict

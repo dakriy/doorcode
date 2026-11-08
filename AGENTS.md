@@ -128,23 +128,28 @@ The runtime budget covers everything `verify-fast` runs.
 - Effect-call linter: forbidigo via golangci-lint (`.golangci.yml`)
 - Dead-code tool: `golang.org/x/tools/cmd/deadcode`, wrapped by `scripts/deadcode.sh`
 - Duplicate-code tool: dupl via golangci-lint (`.golangci.dupl.yml`, threshold 50 tokens, reporting only)
+- Database: PostgreSQL 18 through pgx v5 (`github.com/jackc/pgx/v5`); schema migrations are embedded SQL files run by tern v2 (`github.com/jackc/tern/v2/migrate`) from the store's `Migrate`
 - Static analysis and formatting: `go vet`; golangci-lint with govet, staticcheck, errcheck, errorlint, ineffassign, unused, unconvert, misspell, bodyclose, noctx; formatters gofmt and goimports (local prefix `github.com/dakriy/doorcode`). `make fmt` rewrites formatting.
 
 ## Layout
 
 | What | Location |
 | --- | --- |
-| Entrypoints | `internal/app` (`app.Handler`) |
-| Application code | everything under the module except `cmd/`, `internal/driver/`, `internal/testsupport/`, `test/`; today `internal/app`, `internal/access`, `internal/connector` |
-| Connector interfaces | `internal/connector` |
-| Connector implementations | `internal/driver/<name>` (today `internal/driver/codesfile`) |
-| Connector factory interface | `internal/connector` (`connector.Factory`) |
-| Production wiring | `cmd/doorcode` (`main.go`: production factory, `http.Server`, `ListenAndServe`) |
+| Entrypoints | `internal/app`: `app.New(ctx, connector.Factory) (*app.App, error)` and `(*App).Handler() http.Handler` |
+| Application code | everything under the module except `cmd/`, `internal/driver/`, `internal/testsupport/`, `test/`; today `internal/app` (HTTP routes, JSON responses), `internal/settings` (setting registry and env/database/default resolution), `internal/connector` |
+| Connector interfaces | `internal/connector`: `Clock`, `Entropy`, `Environment`, `Log`, `Store` (`Migrate` plus one embedded interface per aggregate; today `SettingsStore`) |
+| Connector implementations | `internal/driver/<name>`: `systemclock` (Clock), `cryptoentropy` (Entropy), `osenv` (Environment), `slogjson` (Log, JSON lines via `log/slog`), `postgres` (Store; migrations in `internal/driver/postgres/migrations/NNN_name.sql`, embedded) |
+| Connector factory interface | `internal/connector` (`connector.Factory`, one method per connector) |
+| Production wiring | `cmd/doorcode` (`main.go`: reads `DOORCODE_DATABASE_URL` and `DOORCODE_LISTEN_ADDR`, opens the Postgres store, builds the production factory, calls `app.New`, serves `http.Server`) |
 | Entrypoint suite | `test/entrypoint` |
-| Connector suite, and how a test is marked slow | `test/connector`. Fast files carry `//go:build !slow`, slow files `//go:build slow`; untagged `_test.go` files there hold the shared implementation tables. Each connector test runs against every entry of the table (stub and real), e.g. `codesImpls` in `codes_impls_test.go`. |
-| Test support, stubs, and the stub factory | `internal/testsupport` (`testsupport.Factory`, `testsupport.Codes`, `WithCodes`, `WithUnavailableCodes`, `PostForm`) |
+| Connector suite, and how a test is marked slow | `test/connector`. Fast files carry `//go:build !slow`, slow files `//go:build slow`; untagged `_test.go` files there hold the shared implementation tables (`clockImpls`, `entropyImpls`, `envImpls`, `logImpls` in `system_impls_test.go`; `storeImpls` in `store_impls_test.go`). Each connector test runs against every entry of its table (stub and real). The Store tests are slow; the others are fast. |
+| Test support, stubs, and the stub factory | `internal/testsupport`: `NewFactory()` returns a `*Factory` whose fields `ClockStub`, `EntropyStub`, `EnvStub`, `LogStub`, `StoreStub` are the stubs; `Get`, `PutJSON`, `Response`, `Handler`, `LogEntry`, `DefaultNow` |
 
-The entry function and how tests pass it the stub factory: `app.Handler(f connector.Factory) http.Handler`. The HTTP request and response are its input and output handles. An entrypoint test builds a stub factory with `testsupport.WithCodes(...)` or `testsupport.WithUnavailableCodes()`, calls `app.Handler(f)`, and drives it in-process with `testsupport.PostForm(handler, path, form)`, which returns a `testsupport.Response{Status, Body}` to compare with `cmp.Diff`. No socket is opened.
+The entry function and how tests pass it the stub factory: an entrypoint test builds `f := testsupport.NewFactory()`, arranges stubs through its fields (`f.ClockStub.Set(rfc3339)`, `f.EnvStub["DOORCODE_SITE_NAME"] = "..."`, `f.StoreStub.SeedSetting(key, value, rfc3339)`, `f.StoreStub.Fail()`, `f.StoreStub.FailMigration()`), calls `app.New(t.Context(), f)` (the suite's `start(t, f)` helper fails the test on error), and drives `a.Handler()` in-process with `testsupport.Get` or `testsupport.PutJSON`, which return a `testsupport.Response{Status, Body}` to compare with `cmp.Diff`. Logged lines are compared as `[]testsupport.LogEntry` against `f.LogStub.Entries`. No socket is opened.
+
+Stub behavior tests rely on: the clock reads `testsupport.DefaultNow` until set; the entropy stub hands out consecutive bytes from `0x00`, so the first request id is `0001020304050607`; the store reports `testsupport.ErrNotMigrated` until `Migrate` runs (as a real database without its tables would), except for values placed with `SeedSetting`.
+
+A setting is defined once in `internal/settings` (`definitions`). Its environment override is `DOORCODE_` plus the upper-cased key; a set variable (even empty) wins and makes the setting read-only.
 
 The list of non-application directories lives once, in `scripts/scope.sh`; the coverage and mutation scopes are derived from it. The depguard and forbidigo file globs in `.golangci.yml` and the path regexes in `.golangci.connector.yml` mirror it and must change with it.
 
@@ -161,9 +166,11 @@ The list of non-application directories lives once, in `scripts/scope.sh`; the c
 
 `verify-mutation` runs `scripts/mutation.sh`: gremlins with every optional mutator enabled and `--timeout-coefficient=100`, then prints every `LIVED`, `NOT COVERED`, and `TIMED OUT` line and fails if there is one. The log is `build/mutation.log`, the JSON report `build/mutation.json`.
 
-Runtime budget for `verify-fast` tests: 10 seconds (`FAST_BUDGET_SECONDS` in the Makefile), measured over both test invocations with `-count=1` so the cache does not hide the cost. Measured at bootstrap: about 0.7 seconds.
+Runtime budget for `verify-fast` tests: 10 seconds (`FAST_BUDGET_SECONDS` in the Makefile), measured over both test invocations with `-count=1` so the cache does not hide the cost. Measured at bootstrap: about 0.7 seconds; after the foundation work about 0.6 seconds.
 
-Slow connector test prerequisites: none yet; no slow connector test exists. Record each new prerequisite (container runtime, local service) here when the first slow test that needs it lands.
+Slow connector test prerequisites (record each new one here when the first slow test that needs it lands):
+
+- **Postgres.** A disposable local PostgreSQL 18 whose URL is in `DOORCODE_TEST_DATABASE_URL`. `docker compose up -d --wait` starts one from `docker-compose.yml` (user, password, and database `doorcode`); then `export DOORCODE_TEST_DATABASE_URL='postgres://doorcode:doorcode@localhost:5432/doorcode?sslmode=disable'`. Set `DOORCODE_POSTGRES_PORT` (and `DOORCODE_MQTT_PORT`) before `docker compose up` when the host ports are taken, and use that port in the URL. Each test creates and drops its own schema, so the database may be shared. Without the variable the slow Store tests fail; they are never skipped.
 
 ## Complexity caps
 
@@ -183,7 +190,7 @@ Denied by import (depguard rule `application`; entries match as prefixes, `$` an
 - `net$`, `net/rpc`, `net/smtp`: sockets and network protocols
 - `net/http/httputil`, `net/http/cookiejar`: reverse proxying and HTTP client state
 - `net/http/httptest`: opens listeners; tests reach it only through `internal/testsupport`
-- `database/sql`: database
+- `database/sql`, `github.com/jackc/pgx`, `github.com/jackc/tern`: database
 - `math/rand` (and `math/rand/v2`), `crypto/rand`: randomness and entropy
 - `log` (and `log/slog`, `log/syslog`): writes to process stderr or syslog
 - `github.com/google/uuid`: identifier generation
