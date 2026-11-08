@@ -105,12 +105,25 @@ func (s *Store) SetController(_ context.Context, id int64, c *connector.StoredCo
 	if held == nil {
 		return false, nil
 	}
-	if c != nil {
-		copied := *c
-		c = &copied
-	}
-	held.Controller = c
+	held.Controller = clonedController(c)
 	return true, nil
+}
+
+// clonedController is a copy of c sharing nothing with it.
+func clonedController(c *connector.StoredController) *connector.StoredController {
+	if c == nil {
+		return nil
+	}
+	copied := *c
+	if c.OpenedAt != nil {
+		at := *c.OpenedAt
+		copied.OpenedAt = &at
+	}
+	if c.Telemetry != nil {
+		t := *c.Telemetry
+		copied.Telemetry = &t
+	}
+	return &copied
 }
 
 // SetDoorConfig stores config as the configuration overrides of the door
@@ -180,10 +193,7 @@ func (s *Store) doorByID(id int64) *connector.StoredDoor {
 // hold it.
 func (s *Store) cloneDoor(d connector.StoredDoor) connector.StoredDoor {
 	d.OpenScheduleIDs = append([]int64{}, slices.Sorted(slices.Values(d.OpenScheduleIDs))...)
-	if d.Controller != nil {
-		c := *d.Controller
-		d.Controller = &c
-	}
+	d.Controller = clonedController(d.Controller)
 	d.Config = maps.Clone(d.Config)
 	d.ZoneIDs = []int64{}
 	for _, p := range s.zoneDoors {

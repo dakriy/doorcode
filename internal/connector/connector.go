@@ -281,13 +281,98 @@ type SchedulesStore interface {
 // StoredController is the controller enrolled as a door: its hardware id,
 // what it last reported of its firmware version and signal strength (in
 // dBm), whether it is connected to the broker, and when the server last
-// heard of it.
+// heard from it. DoorState is "open" or "closed" as the controller last
+// said, empty until it has; OpenedAt is when the door opened, nil unless
+// it is open; HeldOpen is whether it has been logged as held open since.
+// Unresponsive marks a controller the server has not heard from for too
+// long. Telemetry is its latest report, nil until its first.
 type StoredController struct {
 	HardwareID      string
 	FirmwareVersion string
 	Signal          int
 	Online          bool
 	LastSeenAt      time.Time
+	DoorState       string
+	OpenedAt        *time.Time
+	HeldOpen        bool
+	Unresponsive    bool
+	Telemetry       *StoredTelemetry
+}
+
+// StoredTelemetry is one report of a door's controller, received at At:
+// its signal strength in dBm, the round trip to the server in
+// milliseconds, how long it has run in seconds, its free memory in bytes,
+// its firmware version, how often it connected again since it started,
+// whether the door was open, and how often it was opened since its last
+// report.
+type StoredTelemetry struct {
+	At              time.Time
+	Signal          int
+	LatencyMS       int
+	UptimeS         int64
+	FreeBytes       int64
+	FirmwareVersion string
+	Reconnects      int
+	DoorOpen        bool
+	Opens           int
+}
+
+// StoredSample is a report of the controller of the door whose id is
+// DoorID, as the telemetry history keeps it.
+type StoredSample struct {
+	DoorID int64
+	StoredTelemetry
+}
+
+// StoredSpread is what a set of values ranged over: their mean, their
+// smallest, and their largest.
+type StoredSpread struct {
+	Mean float64
+	Min  int64
+	Max  int64
+}
+
+// StoredRollup sums up the Samples reports the controller of the door
+// whose id is DoorID made in the hour that starts at Hour: the spread of
+// their signal strength, latency, and free memory, and how often the door
+// was opened in all.
+type StoredRollup struct {
+	DoorID    int64
+	Hour      time.Time
+	Samples   int
+	Signal    StoredSpread
+	Latency   StoredSpread
+	FreeBytes StoredSpread
+	Opens     int
+}
+
+// TelemetryStore holds the doors' telemetry history: each report as a
+// sample, and the hourly rollups of the samples, which are kept longer.
+type TelemetryStore interface {
+	// AddSample stores s.
+	AddSample(ctx context.Context, s StoredSample) error
+	// Samples returns the samples of the door whose id is doorID, or of
+	// every door when doorID is zero, taken at or after from and before
+	// to, ordered by door id and then by time.
+	Samples(ctx context.Context, doorID int64, from, to time.Time) ([]StoredSample, error)
+	// FirstSampleSince returns when the earliest sample taken at or after
+	// since was taken, and whether there is one.
+	FirstSampleSince(ctx context.Context, since time.Time) (time.Time, bool, error)
+	// DeleteSamplesBefore removes every sample taken before before, and
+	// returns how many it removed.
+	DeleteSamplesBefore(ctx context.Context, before time.Time) (int, error)
+	// PutRollups stores rollups, each replacing the one of the same door
+	// and hour.
+	PutRollups(ctx context.Context, rollups []StoredRollup) error
+	// NewestRollup returns the latest hour any rollup sums up, and whether
+	// there is one.
+	NewestRollup(ctx context.Context) (time.Time, bool, error)
+	// Rollups returns the rollups of the door whose id is doorID whose
+	// hour starts at or after from and before to, oldest first.
+	Rollups(ctx context.Context, doorID int64, from, to time.Time) ([]StoredRollup, error)
+	// DeleteRollupsBefore removes every rollup whose hour starts before
+	// before, and returns how many it removed.
+	DeleteRollupsBefore(ctx context.Context, before time.Time) (int, error)
 }
 
 // StoredDoor is a door as the store holds it. OpenScheduleIDs are the
@@ -574,6 +659,7 @@ type Store interface {
 	OverridesStore
 	CredentialsStore
 	EventsStore
+	TelemetryStore
 }
 
 // Message is one message the broker carries: its topic, its payload, and

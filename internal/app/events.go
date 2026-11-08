@@ -24,9 +24,9 @@ type eventView struct {
 	ID        int64     `json:"id" doc:"Names the event."`
 	At        time.Time `json:"at" doc:"When it happened."`
 	Door      nameRef   `json:"door" doc:"The door, by id and name; deleted doors keep their events."`
-	Type      string    `json:"type" doc:"check (a code entered at the keypad), command (a keypad command carried out), or open (opened from the admin UI or the API)."`
-	Outcome   string    `json:"outcome" doc:"allowed or denied."`
-	Reason    string    `json:"reason" doc:"Why, such as access rule, open mode, no rule, locked, expired, rate limited, or unreachable."`
+	Type      string    `json:"type" doc:"check (a code entered at the keypad), command (a keypad command carried out), open (opened from the admin UI or the API), or alarm (the door forced open or held open)."`
+	Outcome   string    `json:"outcome" doc:"allowed or denied, or alert for an alarm."`
+	Reason    string    `json:"reason" doc:"Why, such as access rule, open mode, no rule, locked, expired, rate limited, unreachable, forced open, or held open."`
 	User      *nameRef  `json:"user,omitempty" doc:"The user whose code it was, or who gave the command or opened the door, by id and display name; absent for a code nobody has."`
 	RuleID    *int64    `json:"rule_id,omitempty" doc:"The access rule that let the user in; absent unless one did."`
 	RequestID string    `json:"request_id,omitempty" doc:"The id the door gave the code check; absent for other events."`
@@ -47,8 +47,8 @@ func (a *App) eventRoutes() []route {
 	params := []openapi.Param{
 		{Name: "door", In: "query", Description: "Keeps the events of the door with this id.", Example: int64(1)},
 		{Name: "user", In: "query", Description: "Keeps the events of the user with this id.", Example: int64(2)},
-		{Name: "type", In: "query", Description: "Keeps the events of this type: check, command, or open.", Example: event.Check},
-		{Name: "outcome", In: "query", Description: "Keeps the events with this outcome: allowed or denied.", Example: event.Denied},
+		{Name: "type", In: "query", Description: "Keeps the events of this type: check, command, open, or alarm.", Example: event.Check},
+		{Name: "outcome", In: "query", Description: "Keeps the events with this outcome: allowed, denied, or alert.", Example: event.Denied},
 		{Name: "reason", In: "query", Description: "Keeps the events with this reason.", Example: event.NoRule},
 		{Name: "from", In: "query", Description: "Keeps the events at or after this RFC 3339 time.", Example: "2026-01-05T00:00:00Z"},
 		{Name: "to", In: "query", Description: "Keeps the events before this RFC 3339 time.", Example: "2026-01-06T00:00:00Z"},

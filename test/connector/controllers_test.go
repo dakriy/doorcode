@@ -284,3 +284,25 @@ func TestStoreReportsAConfigurationForADoorThatIsNotThere(t *testing.T) {
 		})
 	}
 }
+
+func TestStoreKeepsADoorsStateWithItsController(t *testing.T) {
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			store := migrated(t, impl)
+			id := mustCreateDoor(t, store, plainDoor("Lobby"))
+			opened := controllerSeen.Add(-time.Minute)
+			c := controllerOf("A1")
+			c.DoorState, c.OpenedAt, c.HeldOpen, c.Unresponsive = "open", &opened, true, true
+			c.Telemetry = &connector.StoredTelemetry{
+				At: controllerSeen, Signal: -61, LatencyMS: 40, UptimeS: 3720, FreeBytes: 120832, FirmwareVersion: "1.4.2",
+				Reconnects: 2, DoorOpen: true, Opens: 1,
+			}
+
+			mustSetController(t, store, id, c)
+
+			if diff := cmp.Diff(c, mustDoor(t, store, id).Controller); diff != "" {
+				t.Errorf("controller (-want +got):\n%s", diff)
+			}
+		})
+	}
+}

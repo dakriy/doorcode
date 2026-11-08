@@ -22,6 +22,7 @@ import (
 	"github.com/dakriy/doorcode/internal/rule"
 	"github.com/dakriy/doorcode/internal/schedule"
 	"github.com/dakriy/doorcode/internal/settings"
+	"github.com/dakriy/doorcode/internal/telemetry"
 )
 
 // App is the running application.
@@ -45,6 +46,9 @@ type App struct {
 	// tells the pages watching it when what they show of them changes.
 	controllers controller.Service
 	live        *hub
+	// telemetry follows the doors' state from what their controllers
+	// report.
+	telemetry telemetry.Service
 	// enrolling says Run has set up the enrollment credentials, and
 	// nextSweep is when it next does the periodic work. Only Run reads and
 	// changes them.
@@ -91,6 +95,9 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 	a.controllers = controller.Service{
 		Store: store, Doors: a.doors, Broker: a.broker, Clock: clock, Entropy: entropy, Pending: controller.NewPending(),
 		Push: a.pushes, Changed: a.live.notify,
+	}
+	a.telemetry = telemetry.Service{
+		Store: store, Doors: a.doors, Events: a.events, Settings: s, Clock: clock, Changed: a.live.notify, Reported: a.live.report,
 	}
 	if err := a.auth.CreateFirstAdmin(ctx); err != nil {
 		return nil, fmt.Errorf("create first administrator: %w", err)

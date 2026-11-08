@@ -36,10 +36,12 @@ var defaultSettings = []shownSetting{
 	{"password_hash_memory_kib", "8", "environment, read-only"},
 	{"enrollment_username", "doorcode-enroll", "default"}, {"enrollment_password", "", "default"},
 	{"door_credential_grace_hours", "24", "default"},
+	{"telemetry_retention_days", "7", "default"}, {"telemetry_rollup_retention_days", "730", "default"},
+	{"unresponsive_minutes", "5", "default"},
 	{"door_strike_pulse_ms", "3000", "default"}, {"door_keypad_idle_clear_ms", "10000", "default"},
 	{"door_min_code_length", "4", "default"}, {"door_max_code_length", "32", "default"}, {"door_submit_key", "#", "default"},
 	{"door_reply_timeout_ms", "3000", "default"}, {"door_telemetry_interval_s", "60", "default"},
-	{"door_timeline_refresh_hours", "6", "default"}, {"door_credential_rotation_days", "30", "default"},
+	{"door_held_open_s", "60", "default"}, {"door_timeline_refresh_hours", "6", "default"}, {"door_credential_rotation_days", "30", "default"},
 	{"door_rate_limit_per_minute", "30", "default"}, {"door_rate_limit_burst", "10", "default"},
 	{"door_ntp_server", "pool.ntp.org", "default"}, {"door_log_level", "info", "default"},
 }

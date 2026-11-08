@@ -11,8 +11,8 @@ import (
 // defaultConfigJSON is the effective configuration of a door that follows
 // the site's defaults, as the API shows it.
 const defaultConfigJSON = `{"strike_pulse_ms":3000,"keypad_idle_clear_ms":10000,"min_code_length":4,"max_code_length":32,` +
-	`"submit_key":"#","reply_timeout_ms":3000,"telemetry_interval_s":60,"timeline_refresh_hours":6,"credential_rotation_days":30,` +
-	`"rate_limit_per_minute":30,"rate_limit_burst":10,"ntp_server":"pool.ntp.org","log_level":"info"}`
+	`"submit_key":"#","reply_timeout_ms":3000,"telemetry_interval_s":60,"held_open_s":60,"timeline_refresh_hours":6,` +
+	`"credential_rotation_days":30,"rate_limit_per_minute":30,"rate_limit_burst":10,"ntp_server":"pool.ntp.org","log_level":"info"}`
 
 func TestADoorWithoutOverridesHasTheSitesDefaultConfiguration(t *testing.T) {
 	t.Parallel()
@@ -36,8 +36,8 @@ func TestADoorsOverridesReplaceTheDefaultsTheyNameAndEachOther(t *testing.T) {
 	got := b.PutJSON("/api/v1/doors/1/config", `{"overrides":{"strike_pulse_ms":"500","log_level":"debug"}}`)
 
 	want := testsupport.JSON(`{"effective":{"strike_pulse_ms":500,"keypad_idle_clear_ms":10000,"min_code_length":4,"max_code_length":32,
-		"submit_key":"#","reply_timeout_ms":3000,"telemetry_interval_s":60,"timeline_refresh_hours":6,"credential_rotation_days":30,
-		"rate_limit_per_minute":30,"rate_limit_burst":10,"ntp_server":"pool.ntp.org","log_level":"debug"},
+		"submit_key":"#","reply_timeout_ms":3000,"telemetry_interval_s":60,"held_open_s":60,"timeline_refresh_hours":6,
+		"credential_rotation_days":30,"rate_limit_per_minute":30,"rate_limit_burst":10,"ntp_server":"pool.ntp.org","log_level":"debug"},
 		"overrides":{"strike_pulse_ms":"500","log_level":"debug"}}`)
 	if diff := cmp.Diff([]any{200, want}, []any{got.Status, testsupport.JSONAt(got.Body, "")}); diff != "" {
 		t.Errorf("status, body (-want +got):\n%s", diff)
@@ -230,6 +230,7 @@ func configTable(changed map[string][2]string) [][]string {
 		{"submit_key", "Submit key", "one of #, A, B, C, D", "#"},
 		{"reply_timeout_ms", "Reply timeout", "a whole number of milliseconds from 100 to 60000", "3000"},
 		{"telemetry_interval_s", "Telemetry interval", "a whole number of seconds from 5 to 86400", "60"},
+		{"held_open_s", "Held open after", "a whole number of seconds from 5 to 86400", "60"},
 		{"timeline_refresh_hours", "Timeline refresh", "a whole number of hours from 1 to 24", "6"},
 		{"credential_rotation_days", "Credential rotation", "a whole number of days from 1 to 3650", "30"},
 		{"rate_limit_per_minute", "Code checks a minute", "a whole number of checks from 1 to 6000", "30"},

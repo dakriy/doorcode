@@ -17,6 +17,83 @@
 </div>
 
 {{with $c.Alert}}<div class="mt-6">{{template "alert" .}}</div>{{end}}
+{{with $c.State}}
+<section id="state-live" hx-get="{{$.URI}}" hx-trigger="live-doors from:body, live-door-{{$d.ID}} from:body" hx-select="#state-live" hx-swap="outerHTML" aria-labelledby="state-heading" class="mt-6 overflow-hidden {{template "card-class"}}">
+  <div class="flex flex-col gap-3 px-6 pt-6 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <div class="flex flex-wrap items-center gap-2">
+        <h2 id="state-heading" class="text-sm font-semibold">Live state</h2>
+        {{template "door-status" .Status}}{{range .Badges}}{{template "door-status" .}}{{end}}
+      </div>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">What the controller last said of itself and the door. It updates as reports arrive.</p>
+    </div>
+    <div role="group" aria-label="Telemetry range" class="inline-flex shrink-0 overflow-hidden rounded-md ring-1 ring-zinc-300 dark:ring-zinc-700">
+      {{range .Ranges}}{{if .Current}}<span aria-current="true" class="bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">{{.Label}}</span>{{else}}<a href="{{.Href}}" aria-label="Show the last {{.Label}}" class="px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800">{{.Label}}</a>{{end}}{{end}}
+    </div>
+  </div>
+  <dl class="mt-5 grid gap-4 px-6 sm:grid-cols-3 lg:grid-cols-5">
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Door</dt><dd class="mt-1 text-sm">{{.Door}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Firmware</dt><dd class="mt-1 text-sm">{{.Firmware}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Signal</dt><dd class="mt-1 text-sm tabular-nums">{{.Signal}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Latency</dt><dd class="mt-1 text-sm tabular-nums">{{.Latency}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Uptime</dt><dd class="mt-1 text-sm tabular-nums">{{.Uptime}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Free memory</dt><dd class="mt-1 text-sm tabular-nums">{{.Memory}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Reconnects</dt><dd class="mt-1 text-sm tabular-nums">{{.Reconnects}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Last seen</dt><dd class="mt-1 text-sm tabular-nums">{{.LastSeen}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Last report</dt><dd class="mt-1 text-sm tabular-nums">{{.LastReport}}</dd></div>
+  </dl>
+  <div class="mt-6 grid gap-6 border-t border-zinc-200 px-6 py-5 lg:grid-cols-2 dark:border-zinc-800">
+    {{range .Charts}}
+    <figure>
+      <figcaption class="text-xs font-medium text-zinc-500 dark:text-zinc-400">{{.Label}}</figcaption>
+      <svg role="img" aria-label="{{.Label}}" viewBox="0 0 680 150" class="mt-2 w-full text-brand-600 dark:text-brand-400">
+        <line x1="0" y1="5" x2="600" y2="5" class="stroke-zinc-200 dark:stroke-zinc-800" stroke-width="1"/>
+        <line x1="0" y1="125" x2="600" y2="125" class="stroke-zinc-200 dark:stroke-zinc-800" stroke-width="1"/>
+        {{if .Points}}
+        <polyline points="{{.Points}}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        <text x="608" y="12" class="fill-zinc-500 text-[11px] dark:fill-zinc-400">{{.Top}}</text>
+        <text x="608" y="129" class="fill-zinc-500 text-[11px] dark:fill-zinc-400">{{.Bottom}}</text>
+        {{else}}
+        <text x="300" y="70" text-anchor="middle" class="fill-zinc-400 text-[13px] dark:fill-zinc-500">{{.Empty}}</text>
+        {{end}}
+        <text x="0" y="145" class="fill-zinc-500 text-[11px] dark:fill-zinc-400">{{.Start}}</text>
+        <text x="600" y="145" text-anchor="end" class="fill-zinc-500 text-[11px] dark:fill-zinc-400">{{.End}}</text>
+      </svg>
+    </figure>
+    {{end}}
+  </div>
+  {{with .Alarms}}
+  <div class="border-t border-zinc-200 dark:border-zinc-800">
+    <div class="flex items-center justify-between gap-3 px-6 pt-5">
+      <h3 class="text-sm font-semibold">Alarms</h3>
+      <a href="{{.Link}}" class="text-sm {{template "link-class"}}">All alarms</a>
+    </div>
+    <div class="mt-3 overflow-x-auto">
+      <table aria-label="Alarms" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+        <thead class="{{template "table-head-class"}}">
+          <tr>
+            <th scope="col" class="px-6 py-2">When</th>
+            <th scope="col" class="px-6 py-2">Alarm</th>
+            <th scope="col" class="px-6 py-2">Details</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+          {{range .Rows}}
+          <tr>
+            <td class="px-6 py-3 whitespace-nowrap tabular-nums text-zinc-600 dark:text-zinc-400">{{.At}}</td>
+            <td class="px-6 py-3 whitespace-nowrap">{{template "reason-badge" .Reason}}</td>
+            <td class="px-6 py-3 text-zinc-600 dark:text-zinc-400">{{.Detail}}</td>
+          </tr>
+          {{else}}
+          <tr><td colspan="3" class="px-6 py-6 text-center text-sm text-zinc-500 dark:text-zinc-400">No alarms. A door forced open or held open is listed here as it happens.</td></tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {{end}}
+</section>
+{{end}}
 {{if $c.Manage}}{{with $d.DeletedAt}}
 <div class="mt-6 flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200">
   <p>Deleted on {{.UTC.Format "2 Jan 2006"}}. The door is listed only under deleted doors; its history stays.</p>
@@ -50,9 +127,6 @@
   </div>
   <dl class="mt-5 grid gap-4 px-6 sm:grid-cols-4">
     <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Hardware id</dt><dd class="mt-1 font-mono text-sm">{{.HardwareID}}</dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Firmware</dt><dd class="mt-1 text-sm">{{.Firmware}}</dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Signal</dt><dd class="mt-1 text-sm tabular-nums">{{.Signal}}</dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Last seen</dt><dd class="mt-1 text-sm tabular-nums">{{.LastSeen}}</dd></div>
   </dl>
   {{if not .Online}}<p role="note" class="mx-6 mt-4 text-xs text-zinc-500 dark:text-zinc-400">New credentials can be sent only while the controller is connected.</p>{{end}}
   <div class="mt-5 overflow-x-auto">

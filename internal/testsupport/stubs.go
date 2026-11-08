@@ -161,6 +161,8 @@ type Store struct {
 	nextOverride int64
 	credentials  []connector.StoredCredential
 	events       []connector.StoredEvent
+	samples      []connector.StoredSample
+	rollups      []connector.StoredRollup
 	migrateErr   error
 	failing      map[aggregate]bool
 }
@@ -192,6 +194,9 @@ const (
 	controllerWrites
 	eventsAggregate
 	eventWrites
+	telemetryAggregate
+	telemetryWrites
+	sampleReads
 )
 
 // NewStore returns an empty, unmigrated stub store.
@@ -465,6 +470,7 @@ func (s *Store) Fail() {
 	s.FailOverrides()
 	s.FailCredentials()
 	s.FailEvents()
+	s.FailTelemetry()
 }
 
 // FailSettings makes the settings methods report ErrUnavailable.

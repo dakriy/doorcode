@@ -305,7 +305,7 @@ func TestAKeypadCommandThatCannotBeCarriedOutIsDeniedAndLogged(t *testing.T) {
 	}
 }
 
-func TestACheckWhoseReplyCannotBeSentIsLoggedAsDeniedUnreachable(t *testing.T) {
+func TestACheckWhoseReplyCannotBeSentIsLoggedAsDeniedUnreachableWithTheRuleThatDecided(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	k := keypadSite(t, f)
@@ -314,7 +314,7 @@ func TestACheckWhoseReplyCannotBeSentIsLoggedAsDeniedUnreachable(t *testing.T) {
 
 	k.press("111111")
 
-	if diff := cmp.Diff(checked("1", "denied", "unreachable", byAnn), k.lastEvent()); diff != "" {
+	if diff := cmp.Diff(checked("1", "denied", "unreachable", byAnn+`,"rule_id":1`), k.lastEvent()); diff != "" {
 		t.Errorf("event (-want +got):\n%s", diff)
 	}
 }

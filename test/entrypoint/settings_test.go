@@ -22,6 +22,9 @@ var brokerSettingsJSON = `{"key":"enrollment_username","value":"doorcode-enroll"
 	`{"key":"enrollment_password","value":"","source":"default","read_only":false,"env_var":"DOORCODE_ENROLLMENT_PASSWORD"},` +
 	`{"key":"door_credential_grace_hours","value":"24","source":"default","read_only":false,` +
 	`"env_var":"DOORCODE_DOOR_CREDENTIAL_GRACE_HOURS"},` +
+	defaultSetting("telemetry_retention_days", "7") + `,` +
+	defaultSetting("telemetry_rollup_retention_days", "730") + `,` +
+	defaultSetting("unresponsive_minutes", "5") + `,` +
 	defaultSetting("door_strike_pulse_ms", "3000") + `,` +
 	defaultSetting("door_keypad_idle_clear_ms", "10000") + `,` +
 	defaultSetting("door_min_code_length", "4") + `,` +
@@ -29,6 +32,7 @@ var brokerSettingsJSON = `{"key":"enrollment_username","value":"doorcode-enroll"
 	defaultSetting("door_submit_key", "#") + `,` +
 	defaultSetting("door_reply_timeout_ms", "3000") + `,` +
 	defaultSetting("door_telemetry_interval_s", "60") + `,` +
+	defaultSetting("door_held_open_s", "60") + `,` +
 	defaultSetting("door_timeline_refresh_hours", "6") + `,` +
 	defaultSetting("door_credential_rotation_days", "30") + `,` +
 	defaultSetting("door_rate_limit_per_minute", "30") + `,` +

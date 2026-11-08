@@ -2701,6 +2701,309 @@
         }
       }
     },
+    "/doors/{id}/state": {
+      "get": {
+        "operationId": "getDoorState",
+        "summary": "Get a door's current state",
+        "tags": [
+          "telemetry"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What the door's controller last said of itself and the door.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoorStateView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors or door-commander role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/doors/{id}/telemetry": {
+      "get": {
+        "operationId": "listDoorTelemetry",
+        "summary": "List a door's telemetry reports",
+        "tags": [
+          "telemetry"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "description": "The start of the range, an RFC 3339 time; 24 hours before to by default.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-01-05T00:00:00Z"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "description": "The end of the range, an RFC 3339 time; now by default.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-01-06T00:00:00Z"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The reports made from from up to to, kept for the telemetry_retention_days setting.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SampleList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "from or to is not an RFC 3339 time, or to is not after from.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors or door-commander role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/doors/{id}/telemetry/hourly": {
+      "get": {
+        "operationId": "listDoorTelemetryHourly",
+        "summary": "List a door's telemetry an hour at a time",
+        "tags": [
+          "telemetry"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "description": "The start of the range, an RFC 3339 time; 7 days before to by default.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-01-05T00:00:00Z"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "description": "The end of the range, an RFC 3339 time; now by default.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-01-06T00:00:00Z"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The reports summed up for each hour that ended and starts from from up to to, kept for the telemetry_rollup_retention_days setting.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RollupList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "from or to is not an RFC 3339 time, or to is not after from.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors or door-commander role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/doors/{id}/timeline": {
       "get": {
         "operationId": "getDoorTimeline",
@@ -3025,7 +3328,7 @@
             "name": "type",
             "in": "query",
             "required": false,
-            "description": "Keeps the events of this type: check, command, or open.",
+            "description": "Keeps the events of this type: check, command, open, or alarm.",
             "schema": {
               "type": "string"
             },
@@ -3035,7 +3338,7 @@
             "name": "outcome",
             "in": "query",
             "required": false,
-            "description": "Keeps the events with this outcome: allowed or denied.",
+            "description": "Keeps the events with this outcome: allowed, denied, or alert.",
             "schema": {
               "type": "string"
             },
@@ -6536,6 +6839,10 @@
             "type": "integer",
             "description": "How many days the door's broker credentials work before the server issues new ones."
           },
+          "held_open_s": {
+            "type": "integer",
+            "description": "How long the door may stay open before it is logged as held open, in seconds."
+          },
           "keypad_idle_clear_ms": {
             "type": "integer",
             "description": "How long a half-typed code waits for the next key before the keypad clears it, in milliseconds."
@@ -6593,6 +6900,7 @@
           "submit_key",
           "reply_timeout_ms",
           "telemetry_interval_s",
+          "held_open_s",
           "timeline_refresh_hours",
           "credential_rotation_days",
           "rate_limit_per_minute",
@@ -6667,6 +6975,57 @@
         },
         "required": [
           "name"
+        ]
+      },
+      "DoorStateView": {
+        "type": "object",
+        "properties": {
+          "door": {
+            "type": "string",
+            "description": "open or closed, as the controller last said; unknown until it has."
+          },
+          "enrolled": {
+            "type": "boolean",
+            "description": "True once a controller has enrolled as the door; the other fields say nothing until one has."
+          },
+          "firmware_version": {
+            "type": "string",
+            "description": "The firmware version the controller last reported; may be empty."
+          },
+          "held_open": {
+            "type": "boolean",
+            "description": "True when the door has been open longer than its configuration allows since it opened."
+          },
+          "last_seen_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the server last heard from the controller; absent until a controller enrolls."
+          },
+          "online": {
+            "type": "boolean",
+            "description": "True while the controller is connected to the broker."
+          },
+          "opened_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the door opened; absent unless it is open."
+          },
+          "telemetry": {
+            "$ref": "#/components/schemas/TelemetryView",
+            "description": "The controller's latest telemetry report; absent until its first."
+          },
+          "unresponsive": {
+            "type": "boolean",
+            "description": "True when the server has not heard from the controller for the unresponsive_minutes setting."
+          }
+        },
+        "required": [
+          "enrolled",
+          "online",
+          "door",
+          "held_open",
+          "unresponsive",
+          "firmware_version"
         ]
       },
       "DoorView": {
@@ -6897,11 +7256,11 @@
           },
           "outcome": {
             "type": "string",
-            "description": "allowed or denied."
+            "description": "allowed or denied, or alert for an alarm."
           },
           "reason": {
             "type": "string",
-            "description": "Why, such as access rule, open mode, no rule, locked, expired, rate limited, or unreachable."
+            "description": "Why, such as access rule, open mode, no rule, locked, expired, rate limited, unreachable, forced open, or held open."
           },
           "request_id": {
             "type": "string",
@@ -6913,7 +7272,7 @@
           },
           "type": {
             "type": "string",
-            "description": "check (a code entered at the keypad), command (a keypad command carried out), or open (opened from the admin UI or the API)."
+            "description": "check (a code entered at the keypad), command (a keypad command carried out), open (opened from the admin UI or the API), or alarm (the door forced open or held open)."
           },
           "user": {
             "$ref": "#/components/schemas/NameRef",
@@ -7299,6 +7658,59 @@
           "created_at"
         ]
       },
+      "RollupList": {
+        "type": "object",
+        "properties": {
+          "rollups": {
+            "type": "array",
+            "description": "The hours in the range in which the door's controller reported, oldest first.",
+            "items": {
+              "$ref": "#/components/schemas/RollupView"
+            }
+          }
+        },
+        "required": [
+          "rollups"
+        ]
+      },
+      "RollupView": {
+        "type": "object",
+        "properties": {
+          "free_bytes": {
+            "$ref": "#/components/schemas/SpreadView",
+            "description": "The free memory, in bytes."
+          },
+          "hour": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The start of the hour, in UTC."
+          },
+          "latency_ms": {
+            "$ref": "#/components/schemas/SpreadView",
+            "description": "The round trip to the server, in milliseconds."
+          },
+          "opens": {
+            "type": "integer",
+            "description": "How often the door was opened in the hour."
+          },
+          "samples": {
+            "type": "integer",
+            "description": "How many reports the controller made in the hour."
+          },
+          "signal": {
+            "$ref": "#/components/schemas/SpreadView",
+            "description": "The signal strength, in dBm."
+          }
+        },
+        "required": [
+          "hour",
+          "samples",
+          "signal",
+          "latency_ms",
+          "free_bytes",
+          "opens"
+        ]
+      },
       "RuleList": {
         "type": "object",
         "properties": {
@@ -7381,6 +7793,21 @@
           "schedule",
           "doors",
           "zones"
+        ]
+      },
+      "SampleList": {
+        "type": "object",
+        "properties": {
+          "samples": {
+            "type": "array",
+            "description": "Every report the door's controller made in the range, oldest first.",
+            "items": {
+              "$ref": "#/components/schemas/TelemetryView"
+            }
+          }
+        },
+        "required": [
+          "samples"
         ]
       },
       "ScheduleList": {
@@ -7565,6 +7992,81 @@
           "start",
           "end",
           "state"
+        ]
+      },
+      "SpreadView": {
+        "type": "object",
+        "properties": {
+          "max": {
+            "type": "integer",
+            "description": "The largest value."
+          },
+          "mean": {
+            "type": "number",
+            "description": "The mean of the values."
+          },
+          "min": {
+            "type": "integer",
+            "description": "The smallest value."
+          }
+        },
+        "required": [
+          "mean",
+          "min",
+          "max"
+        ]
+      },
+      "TelemetryView": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the server received the report."
+          },
+          "door_open": {
+            "type": "boolean",
+            "description": "True when the door was open."
+          },
+          "firmware_version": {
+            "type": "string",
+            "description": "The firmware version the controller runs."
+          },
+          "free_bytes": {
+            "type": "integer",
+            "description": "The controller's free memory, in bytes."
+          },
+          "latency_ms": {
+            "type": "integer",
+            "description": "The round trip from the controller to the server and back, in milliseconds."
+          },
+          "opens": {
+            "type": "integer",
+            "description": "How often the door was opened since the controller's last report."
+          },
+          "reconnects": {
+            "type": "integer",
+            "description": "How often the controller connected to the broker again since it started."
+          },
+          "signal": {
+            "type": "integer",
+            "description": "The signal strength, in dBm."
+          },
+          "uptime_s": {
+            "type": "integer",
+            "description": "How long the controller has run since it started, in seconds."
+          }
+        },
+        "required": [
+          "at",
+          "signal",
+          "latency_ms",
+          "uptime_s",
+          "free_bytes",
+          "firmware_version",
+          "reconnects",
+          "door_open",
+          "opens"
         ]
       },
       "TimelineView": {

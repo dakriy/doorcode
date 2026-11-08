@@ -51,9 +51,36 @@ const (
 	keyEnrollmentUsername  = "enrollment_username"
 	keyEnrollmentPassword  = "enrollment_password"
 	keyGraceHours          = "door_credential_grace_hours"
-	maxGraceHours          = 8760
-	graceHoursHint         = "must be a whole number of hours from 1 to 8760"
+	keyTelemetryRetention  = "telemetry_retention_days"
+	keyRollupRetention     = "telemetry_rollup_retention_days"
+	keyUnresponsive        = "unresponsive_minutes"
 )
+
+// The settings that are a length of time, parsed.
+var (
+	graceHours         = durationSetting(1, 8760, "hours", hoursOf)
+	telemetryRetention = durationSetting(1, 365, "days", daysOf)
+	rollupRetention    = durationSetting(1, 3650, "days", daysOf)
+	unresponsiveAfter  = durationSetting(1, 10080, "minutes", minutesOf)
+)
+
+// The lengths of time that are a number of minutes, hours, or days.
+func minutesOf(n int) time.Duration { return time.Duration(n) * time.Minute }
+func hoursOf(n int) time.Duration   { return time.Duration(n) * time.Hour }
+func daysOf(n int) time.Duration    { return time.Duration(n) * 24 * time.Hour }
+
+// durations is each setting that is a length of time: its key, how it is
+// parsed, and where Current keeps it, in display order.
+var durations = []struct {
+	key   string
+	parse func(string) (time.Duration, error)
+	at    func(c *Current) *time.Duration
+}{
+	{keyGraceHours, graceHours, func(c *Current) *time.Duration { return &c.Grace }},
+	{keyTelemetryRetention, telemetryRetention, func(c *Current) *time.Duration { return &c.TelemetryRetention }},
+	{keyRollupRetention, rollupRetention, func(c *Current) *time.Duration { return &c.RollupRetention }},
+	{keyUnresponsive, unresponsiveAfter, func(c *Current) *time.Duration { return &c.UnresponsiveAfter }},
+}
 
 type definition struct {
 	key      string
@@ -75,6 +102,9 @@ var siteDefinitions = []definition{
 	{key: keyEnrollmentUsername, fallback: "doorcode-enroll"},
 	{key: keyEnrollmentPassword, fallback: ""},
 	{key: keyGraceHours, fallback: "24", validate: accepting(graceHours)},
+	{key: keyTelemetryRetention, fallback: "7", validate: accepting(telemetryRetention)},
+	{key: keyRollupRetention, fallback: "730", validate: accepting(rollupRetention)},
+	{key: keyUnresponsive, fallback: "5", validate: accepting(unresponsiveAfter)},
 }
 
 // definitions is every setting the site has, in display order: the
@@ -94,6 +124,13 @@ type Current struct {
 	// Grace is how long a door's old credentials keep working after the
 	// server issues new ones.
 	Grace time.Duration
+	// TelemetryRetention is how long each telemetry report is kept, and
+	// RollupRetention how long the hourly rollups of the reports are.
+	TelemetryRetention time.Duration
+	RollupRetention    time.Duration
+	// UnresponsiveAfter is how long the server goes without hearing from
+	// a door's controller before it marks it unresponsive.
+	UnresponsiveAfter time.Duration
 }
 
 // siteZone loads the site timezone a value names. The empty name and
@@ -125,10 +162,15 @@ func passwordHashMemory(value string) (uint32, error) {
 	return uint32(n), err
 }
 
-// graceHours parses a credential grace period in hours.
-func graceHours(value string) (time.Duration, error) {
-	n, err := wholeNumber(value, 1, maxGraceHours, graceHoursHint)
-	return time.Duration(n) * time.Hour, err
+// durationSetting parses a length of time given as a whole number of
+// units, named units, from lowest to highest, which of makes a length of
+// time.
+func durationSetting(lowest, highest int, units string, of func(n int) time.Duration) func(string) (time.Duration, error) {
+	hint := fmt.Sprintf("must be a whole number of %s from %d to %d", units, lowest, highest)
+	return func(value string) (time.Duration, error) {
+		n, err := wholeNumber(value, lowest, highest, hint)
+		return of(n), err
+	}
 }
 
 // Setting is a resolved setting.
@@ -185,17 +227,13 @@ func (s Service) Current(ctx context.Context) (Current, error) {
 	if err != nil {
 		return Current{}, err
 	}
-	grace, err := parsed(values, keyGraceHours, graceHours)
-	if err != nil {
-		return Current{}, err
+	c := Current{SiteName: values[keySiteName], AdminEmail: values[keyAdminEmail], PasswordHashMemoryKiB: memory, Zone: zone}
+	for _, d := range durations {
+		if *d.at(&c), err = parsed(values, d.key, d.parse); err != nil {
+			return Current{}, err
+		}
 	}
-	return Current{
-		SiteName:              values[keySiteName],
-		AdminEmail:            values[keyAdminEmail],
-		PasswordHashMemoryKiB: memory,
-		Zone:                  zone,
-		Grace:                 grace,
-	}, nil
+	return c, nil
 }
 
 // Enrollment returns the broker username and password every controller

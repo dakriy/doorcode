@@ -30,6 +30,10 @@ const (
 	OnlineFilter = "doorcode/doors/+/online"
 	// CheckFilter matches the code checks of every door.
 	CheckFilter = "doorcode/doors/+/check"
+	// TelemetryFilter matches the telemetry of every door.
+	TelemetryFilter = "doorcode/doors/+/telemetry"
+	// EventFilter matches what every door says happened to it.
+	EventFilter = "doorcode/doors/+/event"
 	// EnrollOwnFilter is the one topic an enrolling controller may
 	// announce itself on: the broker puts the controller's client id,
 	// which must be its hardware id, in place of %c.
@@ -52,6 +56,10 @@ const (
 	LeafConfig = "config"
 	// LeafTimeline ends the topic a door receives its timeline on.
 	LeafTimeline = "timeline"
+	// LeafTelemetry ends the topic a door reports its telemetry on.
+	LeafTelemetry = "telemetry"
+	// LeafEvent ends the topic a door says what happened to it on.
+	LeafEvent = "event"
 )
 
 // EnrollTopic is where the controller with hardware id hwid announces
@@ -194,9 +202,10 @@ type Reply struct {
 // DoorConfig is how a door runs: how long it releases the strike, how
 // long a half-typed code waits, how long a code may be and what key ends
 // it, how long it waits for the server's answer, how often it reports its
-// telemetry and expects a new timeline, how often its credentials rotate,
-// how many codes a minute (and in a burst) the server checks, where it
-// gets the time, and how much it logs.
+// telemetry, how long it may stay open, how often it expects a new
+// timeline, how often its credentials rotate, how many codes a minute
+// (and in a burst) the server checks, where it gets the time, and how
+// much it logs.
 type DoorConfig struct {
 	StrikePulseMS          int    `cbor:"strike_pulse_ms"`
 	KeypadIdleClearMS      int    `cbor:"keypad_idle_clear_ms"`
@@ -205,6 +214,7 @@ type DoorConfig struct {
 	SubmitKey              string `cbor:"submit_key"`
 	ReplyTimeoutMS         int    `cbor:"reply_timeout_ms"`
 	TelemetryIntervalS     int    `cbor:"telemetry_interval_s"`
+	HeldOpenS              int    `cbor:"held_open_s"`
 	TimelineRefreshHours   int    `cbor:"timeline_refresh_hours"`
 	CredentialRotationDays int    `cbor:"credential_rotation_days"`
 	RateLimitPerMinute     int    `cbor:"rate_limit_per_minute"`
@@ -239,6 +249,40 @@ type Timeline struct {
 	From  int64  `cbor:"from"`
 	To    int64  `cbor:"to"`
 	Spans []Span `cbor:"spans"`
+}
+
+// Telemetry is what a door publishes on its telemetry topic at the
+// interval its configuration gives: its signal strength in dBm, the round
+// trip to the server in milliseconds, how long it has run in seconds, its
+// free memory in bytes, its firmware version, how often it has connected
+// to the broker again since it started, whether the door is open, and how
+// often it was opened since its last report.
+type Telemetry struct {
+	Header
+	Signal          int    `cbor:"signal"`
+	LatencyMS       int    `cbor:"latency_ms"`
+	UptimeS         int64  `cbor:"uptime_s"`
+	FreeBytes       int64  `cbor:"free_bytes"`
+	FirmwareVersion string `cbor:"firmware_version"`
+	Reconnects      int    `cbor:"reconnects"`
+	DoorOpen        bool   `cbor:"door_open"`
+	Opens           int    `cbor:"opens"`
+}
+
+// The things a door says happened to it.
+const (
+	// EventOpened is the door opening.
+	EventOpened = "opened"
+	// EventClosed is the door closing.
+	EventClosed = "closed"
+)
+
+// DoorEvent is what a door publishes on its event topic when something
+// happens to it, such as EventOpened. Outside open mode a door says each
+// time it opens and closes.
+type DoorEvent struct {
+	Header
+	Event string `cbor:"event"`
 }
 
 // ErrVersion reports a message of another protocol version.

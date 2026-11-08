@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -35,7 +37,9 @@ func (a *App) Run(ctx context.Context) error {
 		}
 		a.enrolling = true
 	}
-	inbound, err := a.broker.Subscribe(ctx, []string{protocol.EnrollFilter, protocol.OnlineFilter, protocol.CheckFilter})
+	inbound, err := a.broker.Subscribe(ctx, []string{
+		protocol.EnrollFilter, protocol.OnlineFilter, protocol.CheckFilter, protocol.TelemetryFilter, protocol.EventFilter,
+	})
 	if err != nil {
 		return fmt.Errorf("subscribe: %w", err)
 	}
@@ -85,15 +89,19 @@ func (a *App) receive(ctx context.Context, m connector.Message) {
 	}
 }
 
-// handle handles one message from a controller: a code check, or what it
-// says of itself while it enrolls or as a door.
+// handle handles one message from a controller: a code check, its
+// telemetry, what happened to its door, or what it says of itself while
+// it enrolls or as a door.
 func (a *App) handle(ctx context.Context, m connector.Message) error {
 	t, ok := protocol.Parse(m.Topic)
 	if !ok {
 		return errors.New("the topic names no controller or door")
 	}
-	if t.Leaf == protocol.LeafCheck {
+	switch t.Leaf {
+	case protocol.LeafCheck:
 		return a.checkCode(ctx, t.DoorID, m.Payload)
+	case protocol.LeafTelemetry, protocol.LeafEvent:
+		return a.telemetry.Receive(ctx, t, m.Payload)
 	}
 	return a.controllers.Receive(ctx, t, m.Payload)
 }
@@ -113,8 +121,9 @@ func (a *App) sweepIfDue(ctx context.Context) {
 }
 
 // sweep does the periodic work: it rotates and revokes door credentials,
-// sends doors their timelines again when they are due, and removes the
-// sessions that have expired. A part that fails does not stop the others.
+// sends doors their timelines again when they are due, removes the
+// sessions that have expired, and watches the doors' state and keeps
+// their telemetry history. A part that fails does not stop the others.
 func (a *App) sweep(ctx context.Context) error {
 	defaults, err := a.settings.DoorDefaults(ctx)
 	if err != nil {
@@ -128,54 +137,105 @@ func (a *App) sweep(ctx context.Context) error {
 		a.controllers.Sweep(ctx, current.Grace, defaults),
 		a.pushes.Refresh(ctx),
 		a.auth.PurgeSessions(ctx),
+		a.telemetry.Sweep(ctx, current, defaults),
 	)
 }
 
-// hub tells every page watching live updates that something changed.
+// hub tells every page watching live updates what changed: what is shown
+// of doors and enrollments, or only the state of one door.
 type hub struct {
 	mu        sync.Mutex
-	listeners map[chan struct{}]bool
+	listeners map[*listener]bool
+}
+
+// listener is one page watching live updates: wake receives when there
+// is news, which doors and reported hold until the page takes it.
+type listener struct {
+	wake     chan struct{}
+	doors    bool
+	reported []int64
 }
 
 func newHub() *hub {
-	return &hub{listeners: map[chan struct{}]bool{}}
+	return &hub{listeners: map[*listener]bool{}}
 }
 
-// listen returns a channel that receives after each change, changes
-// coming faster than the listener reads them merged into one, and the
-// function that stops listening.
-func (h *hub) listen() (<-chan struct{}, func()) {
-	ch := make(chan struct{}, 1)
+// listen returns a listener that wakes after each change, changes coming
+// faster than it takes them merged into one, and the function that stops
+// listening.
+func (h *hub) listen() (*listener, func()) {
+	l := &listener{wake: make(chan struct{}, 1)}
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.listeners[ch] = true
-	return ch, func() {
+	h.listeners[l] = true
+	return l, func() {
 		h.mu.Lock()
 		defer h.mu.Unlock()
-		delete(h.listeners, ch)
+		delete(h.listeners, l)
 	}
 }
 
-// notify tells every listener that something changed.
+// notify tells every listener that what is shown of doors or enrollments
+// changed.
 func (h *hub) notify() {
+	h.tell(func(l *listener) { l.doors = true })
+}
+
+// report tells every listener that the state of the door whose id is id
+// changed.
+func (h *hub) report(id int64) {
+	h.tell(func(l *listener) {
+		if !slices.Contains(l.reported, id) {
+			l.reported = append(l.reported, id)
+		}
+	})
+}
+
+// tell gives every listener news and wakes it.
+func (h *hub) tell(news func(l *listener)) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	for ch := range h.listeners {
+	for l := range h.listeners {
+		news(l)
 		select {
-		case ch <- struct{}{}:
+		case l.wake <- struct{}{}:
 		default:
 		}
 	}
+}
+
+// take returns l's news, whether doors changed and which doors reported,
+// and clears it.
+func (h *hub) take(l *listener) (bool, []int64) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	doors, reported := l.doors, l.reported
+	l.doors, l.reported = false, nil
+	return doors, reported
 }
 
 // liveEvent is the server-sent event that tells a page what it shows of
 // doors and enrollments has changed.
 const liveEvent = "event: doors\ndata: changed\n\n"
 
-// liveStream sends a server-sent event each time a door's status or the
-// pending enrollments change, until the browser goes away.
+// liveNews is the server-sent events that tell a page what changed: what
+// it shows of doors, which covers every door, or else each door whose
+// state changed, by id.
+func liveNews(doors bool, reported []int64) string {
+	if doors {
+		return liveEvent
+	}
+	var b strings.Builder
+	for _, id := range reported {
+		fmt.Fprintf(&b, "event: door\ndata: %d\n\n", id)
+	}
+	return b.String()
+}
+
+// liveStream sends server-sent events each time a door's status, its
+// state, or the pending enrollments change, until the browser goes away.
 func (a *App) liveStream(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	changes, stop := a.live.listen()
+	l, stop := a.live.listen()
 	defer stop()
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -186,8 +246,8 @@ func (a *App) liveStream(w http.ResponseWriter, r *http.Request, _ auth.User) {
 		select {
 		case <-r.Context().Done():
 			return
-		case <-changes:
-			_, _ = io.WriteString(w, liveEvent)
+		case <-l.wake:
+			_, _ = io.WriteString(w, liveNews(a.live.take(l)))
 			_ = flush()
 		}
 	}

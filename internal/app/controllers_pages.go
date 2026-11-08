@@ -185,10 +185,7 @@ func (a *App) revokeCredentialsFromForm(w http.ResponseWriter, r *http.Request, 
 // it.
 type controllerRow struct {
 	HardwareID string
-	Firmware   string
-	Signal     string
 	Online     bool
-	LastSeen   string
 }
 
 // credentialRow is one credential as a door's page lists it.
@@ -205,14 +202,11 @@ var credentialLabels = map[string]string{
 	"revoked": "Revoked",
 }
 
-func rowOfController(c *connector.StoredController, zone *time.Location) *controllerRow {
+func rowOfController(c *connector.StoredController) *controllerRow {
 	if c == nil {
 		return nil
 	}
-	return &controllerRow{
-		HardwareID: c.HardwareID, Firmware: firmwareText(c.FirmwareVersion), Signal: signalText(c.Signal),
-		Online: c.Online, LastSeen: c.LastSeenAt.In(zone).Format(overrideLayout),
-	}
+	return &controllerRow{HardwareID: c.HardwareID, Online: c.Online}
 }
 
 // credentialRows are a door's credentials as its page lists them, newest

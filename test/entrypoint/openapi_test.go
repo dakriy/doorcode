@@ -72,6 +72,9 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 		{Method: "POST", Target: "/api/v1/doors/1/pictures/1/primary", ID: "setPrimaryDoorPicture", Statuses: []int{204, 401, 403, 404, 500}},
 		{Method: "GET", Target: "/api/v1/doors/1/pictures/1/thumbnail", ID: "getDoorPictureThumbnail", Statuses: []int{200, 401, 403, 404, 500}},
 		{Method: "POST", Target: "/api/v1/doors/1/restore", ID: "restoreDoor", Statuses: []int{204, 401, 403, 404, 500}},
+		{Method: "GET", Target: "/api/v1/doors/1/state", ID: "getDoorState", Statuses: []int{200, 401, 403, 404, 500}},
+		{Method: "GET", Target: "/api/v1/doors/1/telemetry", ID: "listDoorTelemetry", Statuses: []int{200, 400, 401, 403, 404, 500}},
+		{Method: "GET", Target: "/api/v1/doors/1/telemetry/hourly", ID: "listDoorTelemetryHourly", Statuses: []int{200, 400, 401, 403, 404, 500}},
 		{Method: "GET", Target: "/api/v1/doors/1/timeline", ID: "getDoorTimeline", Statuses: []int{200, 400, 401, 403, 404, 500}},
 		{Method: "GET", Target: "/api/v1/enrollments", ID: "listEnrollments", Statuses: []int{200, 401, 403, 500}},
 		{Method: "POST", Target: "/api/v1/enrollments/a4cf12f00e3b/approve", ID: "approveEnrollment", Body: `{"door_id":1}`,
@@ -182,6 +185,20 @@ func TestOpenAPIDerivesBodySchemasFromTheWireTypes(t *testing.T) {
 	]`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("schemas (-want +got):\n%s", diff)
+	}
+}
+
+func TestOpenAPIDescribesFractionsAsNumbers(t *testing.T) {
+	t.Parallel()
+
+	got := testsupport.JSONAt(openAPIDocument(t), "/components/schemas/SpreadView")
+
+	want := testsupport.JSON(`{"type": "object", "required": ["mean", "min", "max"], "properties": {
+		"mean": {"type": "number", "description": "The mean of the values."},
+		"min": {"type": "integer", "description": "The smallest value."},
+		"max": {"type": "integer", "description": "The largest value."}}}`)
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("schema (-want +got):\n%s", diff)
 	}
 }
 

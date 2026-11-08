@@ -297,7 +297,11 @@ func TestDoorPageShowsItsControllerAndCredentials(t *testing.T) {
 
 	got := []any{page.Details, page.Tables["Credentials"]}
 	want := []any{
-		map[string]string{"Hardware id": "A1", "Firmware": "1.4.3", "Signal": "-58 dBm", "Last seen": "Mon 5 Jan 2026 09:30"},
+		map[string]string{
+			"Hardware id": "A1", "Door": "Not reported yet", "Firmware": "1.4.3", "Signal": "-58 dBm", "Latency": "Not reported yet",
+			"Uptime": "Not reported yet", "Free memory": "Not reported yet", "Reconnects": "Not reported yet",
+			"Last seen": "Mon 5 Jan 2026 09:30:00", "Last report": "Not reported yet",
+		},
 		[][]string{credentialsHead,
 			{secondUsername, "Mon 5 Jan 2026 09:00", "In use"},
 			{firstUsername, "Mon 5 Jan 2026 09:00", "Revoked"}},

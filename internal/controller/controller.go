@@ -179,7 +179,7 @@ func (s Service) online(ctx context.Context, doorID int64, payload []byte) error
 		return nil
 	}
 	c := *d.Controller
-	c.Online, c.LastSeenAt = m.Online, s.Clock.Now()
+	c.Online, c.LastSeenAt, c.Unresponsive = m.Online, s.Clock.Now(), false
 	if !m.Online {
 		return s.setController(ctx, doorID, &c)
 	}

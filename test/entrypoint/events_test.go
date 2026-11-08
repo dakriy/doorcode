@@ -134,8 +134,8 @@ func TestTheEventsPageFiltersByWhatItsFormSays(t *testing.T) {
 		[]string{"User: Ann Smith ×"},
 		map[string]string{"user": "2", "from": "2026-01-05", "to": "2026-01-05"},
 		[]string{"Every door", "Dock (selected)", "Lobby"},
-		[]string{"Every type", "Code check (selected)", "Keypad command", "Opened from the UI"},
-		[]string{"Allowed or denied", "Allowed", "Denied (selected)"},
+		[]string{"Every type", "Code check (selected)", "Keypad command", "Opened from the UI", "Door alarm"},
+		[]string{"Every outcome", "Allowed", "Denied (selected)", "Alert"},
 	}
 	got := []any{page.Tables["Events"], page.Messages, page.Values, page.Options["door"], page.Options["type"], page.Options["outcome"]}
 	if diff := cmp.Diff(want, got); diff != "" {
@@ -164,7 +164,7 @@ func TestTheEventsPageSaysWhyItListsNoEvents(t *testing.T) {
 		query  string
 		want   string
 	}{
-		"nothing logged yet":       {false, "", "No events yet. Codes entered at keypads, keypad commands, and doors opened from here are logged as they happen."},
+		"nothing logged yet":       {false, "", "No events yet. Codes entered at keypads, keypad commands, doors opened from here, and door alarms are logged as they happen."},
 		"filters no event matches": {true, "?door=2&outcome=allowed", "No events match these filters."},
 		"a page past the last":     {true, "?page=9", "This page is past the last one."},
 	}
@@ -215,12 +215,7 @@ func TestTheEventsPageNamesAUserItsFilterNamesThoughNobodyHasTheID(t *testing.T)
 
 func TestTheEventsPageIsPagedKeepingItsFilters(t *testing.T) {
 	t.Parallel()
-	f := testsupport.NewFactory()
-	_, b, _, _ := enrolledDoor(t, f)
-	for range 51 {
-		send(t, b, "POST", "/api/v1/doors/1/open", "", 200)
-	}
-	b.Get("/")
+	b := openedTimes(t, testsupport.NewFactory())
 
 	first := testsupport.ParsePage(b.Get("/admin/events?door=&type=open&outcome=").Body)
 	second := testsupport.ParsePage(b.Get("/admin/events?type=open&page=2").Body)
@@ -284,5 +279,63 @@ func TestEventPagesFailWhenTheStoreDoes(t *testing.T) {
 				t.Errorf("status (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+// openedTimes is a site whose Lobby (1) was opened from the API 51 times,
+// one more than a page of events holds, with the administrator's browser
+// on its home page.
+func openedTimes(t *testing.T, f *testsupport.Factory) *testsupport.Browser {
+	t.Helper()
+	_, b, _, _ := enrolledDoor(t, f)
+	for range 51 {
+		send(t, b, "POST", "/api/v1/doors/1/open", "", 200)
+	}
+	b.Get("/")
+	return b
+}
+
+func TestTheEventsPagePagesEveryEventWithoutTheFiltersItCouldNotRead(t *testing.T) {
+	t.Parallel()
+	b := openedTimes(t, testsupport.NewFactory())
+
+	page := testsupport.ParsePage(b.Get("/admin/events?door=x&type=open").Body)
+
+	want := []any{
+		[]string{"Some filters could not be read, so every event is shown."},
+		[]string{"Showing 1 to 50 of 51"}, "/admin/events?page=2",
+	}
+	got := []any{page.Messages, page.Tables["Events"][51], page.NavTargets[len(page.NavTargets)-1]}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("messages, events shown, older page (-want +got):\n%s", diff)
+	}
+}
+
+func TestTheEventsPageShowsTheFirstPageKeepingItsFiltersWhenThePageNumberCannotBeRead(t *testing.T) {
+	t.Parallel()
+	b := openedTimes(t, testsupport.NewFactory())
+
+	page := testsupport.ParsePage(b.Get("/admin/events?type=open&page=x").Body)
+
+	want := []any{
+		[]string{"The page number could not be read, so the first page is shown."},
+		[]string{"Showing 1 to 50 of 51"}, "/admin/events?page=2&type=open", "Opened from the UI (selected)",
+	}
+	got := []any{page.Messages, page.Tables["Events"][51], page.NavTargets[len(page.NavTargets)-1], page.Options["type"][3]}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("messages, events shown, older page, type (-want +got):\n%s", diff)
+	}
+}
+
+func TestStoppingFilteringTheEventsPageByUserKeepsTheOtherFilters(t *testing.T) {
+	t.Parallel()
+	k := loggedSite(t, testsupport.NewFactory())
+	k.b.Get("/")
+
+	page := testsupport.ParsePage(k.b.Get("/admin/events?user=2&door=1&outcome=allowed&from=2026-01-05&page=1").Body)
+
+	want := "/admin/events?door=1&from=2026-01-05&outcome=allowed"
+	if diff := cmp.Diff(want, page.LinkTargets["Stop filtering by user"]); diff != "" {
+		t.Errorf("link (-want +got):\n%s", diff)
 	}
 }

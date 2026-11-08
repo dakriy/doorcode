@@ -47,6 +47,12 @@ type Page struct {
 	Details map[string]string
 	// Images is every image the page shows, in order.
 	Images []Image
+	// LinkTargets maps the label of each link that has one, such as a
+	// button made of a symbol, to its address.
+	LinkTargets map[string]string
+	// Charts maps the label of each chart, an image drawn in SVG, to what
+	// it draws.
+	Charts map[string]Chart
 	// Assets is every stylesheet and script the page loads.
 	Assets []string
 }
@@ -56,6 +62,13 @@ type Page struct {
 type Image struct {
 	Src string
 	Alt string
+}
+
+// Chart is what a chart draws: the points of each line, in order, and
+// each piece of text on it.
+type Chart struct {
+	Lines  []string
+	Labels []string
 }
 
 // ParsePage reads a page from HTML.
@@ -105,6 +118,8 @@ func (p *Page) read(n *html.Node) {
 		p.readRow(n)
 	case n.Data == "dt":
 		p.readDetail(n)
+	case n.Data == "svg" && attr(n, "role") == "img":
+		p.readChart(n)
 	default:
 		p.readResource(n)
 	}
@@ -121,6 +136,24 @@ func (p *Page) readDetail(dt *html.Node) {
 		p.Details = map[string]string{}
 	}
 	p.Details[text(dt)] = text(dd)
+}
+
+// readChart reads what a chart draws.
+func (p *Page) readChart(svg *html.Node) {
+	var c Chart
+	for d := range svg.Descendants() {
+		switch {
+		case d.Type != html.ElementNode:
+		case d.Data == "polyline":
+			c.Lines = append(c.Lines, attr(d, "points"))
+		case d.Data == "text":
+			c.Labels = append(c.Labels, text(d))
+		}
+	}
+	if p.Charts == nil {
+		p.Charts = map[string]Chart{}
+	}
+	p.Charts[attr(svg, "aria-label")] = c
 }
 
 // readRow reads a table row into the table it belongs to.
@@ -149,6 +182,8 @@ func (p *Page) readResource(n *html.Node) {
 		p.value(attr(n, "name"), attr(n, "value"))
 	case n.Data == "textarea":
 		p.value(attr(n, "name"), rawText(n))
+	case n.Data == "a" && attr(n, "aria-label") != "":
+		p.readLink(n)
 	case n.Data == "img":
 		p.Images = append(p.Images, Image{Src: attr(n, "src"), Alt: attr(n, "alt")})
 	case n.Data == "link" && attr(n, "rel") == "stylesheet":
@@ -156,6 +191,14 @@ func (p *Page) readResource(n *html.Node) {
 	case n.Data == "script" && attr(n, "src") != "":
 		p.Assets = append(p.Assets, attr(n, "src"))
 	}
+}
+
+// readLink reads where a labelled link goes.
+func (p *Page) readLink(a *html.Node) {
+	if p.LinkTargets == nil {
+		p.LinkTargets = map[string]string{}
+	}
+	p.LinkTargets[attr(a, "aria-label")] = attr(a, "href")
 }
 
 func (p *Page) readCheckbox(n *html.Node) {

@@ -170,9 +170,10 @@ func TestRunLogsWhenThePeriodicWorkFails(t *testing.T) {
 			arrange: func(_ *testing.T, f *testsupport.Factory, _ *testsupport.Browser) {
 				f.StoreStub.SeedSetting("door_credential_rotation_days", "3651", testsupport.DefaultNow)
 			},
-			// Both the rotation and the timeline refresh need a door's
-			// configuration.
+			// The rotation, the timeline refresh, and the watch over the
+			// doors' state need a door's configuration.
 			at: "2026-01-05T09:01:00Z", want: "invalid value for door_credential_rotation_days: must be a whole number of days from 1 to 3650\n" +
+				"invalid value for door_credential_rotation_days: must be a whole number of days from 1 to 3650\n" +
 				"invalid value for door_credential_rotation_days: must be a whole number of days from 1 to 3650",
 		},
 		"when settings cannot be read": {
@@ -189,8 +190,9 @@ func TestRunLogsWhenThePeriodicWorkFails(t *testing.T) {
 		},
 		"when doors cannot be read": {
 			arrange: func(_ *testing.T, f *testsupport.Factory, _ *testsupport.Browser) { f.StoreStub.FailDoors() },
-			// Both the rotation and the timeline refresh read doors.
-			at: "2026-01-05T09:01:00Z", want: "stub: unavailable\nstub: unavailable",
+			// The rotation, the timeline refresh, and the watch over the
+			// doors' state read doors.
+			at: "2026-01-05T09:01:00Z", want: "stub: unavailable\nstub: unavailable\nstub: unavailable",
 		},
 		"when a timeline cannot be sent": {
 			arrange: func(_ *testing.T, f *testsupport.Factory, _ *testsupport.Browser) { f.BrokerStub.FailPublishing() },

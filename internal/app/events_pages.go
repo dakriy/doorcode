@@ -31,7 +31,9 @@ func (a *App) eventPageRoutes() []route {
 }
 
 // typeLabels names each type of event on pages.
-var typeLabels = map[string]string{event.Check: "Code check", event.Command: "Keypad command", event.Open: "Opened from the UI"}
+var typeLabels = map[string]string{
+	event.Check: "Code check", event.Command: "Keypad command", event.Open: "Opened from the UI", event.Alarm: "Door alarm",
+}
 
 // eventRow is one event as pages list it.
 type eventRow struct {
@@ -135,20 +137,56 @@ type eventsContent struct {
 	Empty    string
 	Filtered bool
 	pager
-	// Alert says filters that could not be read were cleared.
+	// WithoutUser is the events page with these filters but the user's.
+	WithoutUser string
+	// Alert says filters or a page number that could not be read were
+	// left out.
 	Alert string
 }
 
 // readEventFilters reads the events page's filters, their dates in zone,
-// and reports whether each could be read.
-func readEventFilters(r *http.Request, zone *time.Location) (eventFilters, bool) {
+// and reports whether the filters could be read and whether the page
+// number could. A page number that cannot be read is the first page.
+func readEventFilters(r *http.Request, zone *time.Location) (eventFilters, bool, bool) {
 	q, filterOK := readEventFilter(r)
 	f := eventFilters{EventQuery: q, FromDate: r.URL.Query().Get("from"), ToDate: r.URL.Query().Get("to"), Page: 1}
 	from, fromErr := formDate(f.FromDate, zone)
 	to, toErr := dayAfter(f.ToDate, zone)
+	f.From, f.To = from, to
 	page, pageOK := queryNumber(r, "page", 1, 1, maxPage)
-	f.From, f.To, f.Page = from, to, page
-	return f, filterOK && fromErr == nil && toErr == nil && pageOK
+	if pageOK {
+		f.Page = page
+	}
+	return f, filterOK && fromErr == nil && toErr == nil, pageOK
+}
+
+// link is the events page with the filters f holds, on page; on no page
+// in particular when page is zero.
+func (f eventFilters) link(page int) string {
+	values := url.Values{}
+	for name, value := range map[string]string{
+		"door": idText(f.DoorID), "user": idText(f.UserID), "type": f.Type, "outcome": f.Outcome, "reason": f.Reason,
+		"from": f.FromDate, "to": f.ToDate,
+	} {
+		if value != "" {
+			values.Set(name, value)
+		}
+	}
+	if page > 0 {
+		values.Set("page", strconv.Itoa(page))
+	}
+	if len(values) == 0 {
+		return "/admin/events"
+	}
+	return "/admin/events?" + values.Encode()
+}
+
+// idText is id as a query parameter writes it, empty for zero.
+func idText(id int64) string {
+	if id == 0 {
+		return ""
+	}
+	return strconv.FormatInt(id, 10)
 }
 
 // dayAfter is the start, in zone, of the day after the date value names,
@@ -168,9 +206,12 @@ func (a *App) eventsPage(w http.ResponseWriter, r *http.Request, viewer auth.Use
 	if !ok {
 		return
 	}
-	f, readable := readEventFilters(r, zone)
+	f, filtersOK, pageOK := readEventFilters(r, zone)
 	content := eventsContent{}
-	if !readable {
+	if !pageOK {
+		content.Alert = "The page number could not be read, so the first page is shown."
+	}
+	if !filtersOK {
 		f, content.Alert = eventFilters{Page: 1}, "Some filters could not be read, so every event is shown."
 	}
 	found, err := a.events.Find(r.Context(), event.Query{EventQuery: f.EventQuery, Page: f.Page, PerPage: eventsPerPage})
@@ -195,7 +236,10 @@ func (a *App) eventsPage(w http.ResponseWriter, r *http.Request, viewer auth.Use
 	content.Outcomes = optionsOf(event.Outcomes, sentence, f.Outcome)
 	content.Reasons = optionsOf(event.Reasons, sentence, f.Reason)
 	content.Empty = emptyEvents(content.Filtered, found.Total)
-	content.pager = pagerOf(f.Page, eventsPerPage, len(found.Events), found.Total, func(page int) string { return eventsURL(r, page) })
+	content.pager = pagerOf(f.Page, eventsPerPage, len(found.Events), found.Total, f.link)
+	withoutUser := f
+	withoutUser.UserID = 0
+	content.WithoutUser = withoutUser.link(0)
 	a.render(w, r, http.StatusOK, eventsTemplate, "Events", &viewer, content)
 }
 
@@ -231,19 +275,7 @@ func emptyEvents(filtered bool, total int) string {
 	if filtered {
 		return "No events match these filters."
 	}
-	return "No events yet. Codes entered at keypads, keypad commands, and doors opened from here are logged as they happen."
-}
-
-// eventsURL is the events page r asked for, on page.
-func eventsURL(r *http.Request, page int) string {
-	values := url.Values{}
-	for name, vs := range r.URL.Query() {
-		if vs[0] != "" && name != "page" {
-			values.Set(name, vs[0])
-		}
-	}
-	values.Set("page", strconv.Itoa(page))
-	return "/admin/events?" + values.Encode()
+	return "No events yet. Codes entered at keypads, keypad commands, doors opened from here, and door alarms are logged as they happen."
 }
 
 func (a *App) openDoorFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {

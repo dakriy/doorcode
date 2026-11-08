@@ -49,7 +49,9 @@ func (a *App) checkCode(ctx context.Context, doorID int64, payload []byte) error
 		reply.StrikeMS = config.StrikePulseMS
 	}
 	if err := a.broker.Publish(ctx, connector.Message{Topic: protocol.DoorTopic(d.ID, protocol.LeafReply), Payload: protocol.Encode(&reply)}); err != nil {
-		v = v.Denied(event.Unreachable)
+		// The door never heard the decision, so nobody got in; the rule
+		// that decided it stays on the event.
+		v.Allow, v.Reason = false, event.Unreachable
 	}
 	_, err = a.events.Record(ctx, checkEvent(a.clock.Now(), d.ID, m.RequestID, v))
 	return err

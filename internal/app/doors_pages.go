@@ -11,6 +11,7 @@ import (
 	"github.com/dakriy/doorcode/internal/controller"
 	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/picture"
+	"github.com/dakriy/doorcode/internal/telemetry"
 )
 
 func (a *App) doorPageRoutes() []route {
@@ -46,8 +47,10 @@ type doorRow struct {
 	Thumbnail string
 	Zones     []nameRef
 	OpenMode  []nameRef
-	// Status is whether a controller is enrolled as the door and connected.
+	// Status is whether a controller is enrolled as the door and connected,
+	// and Badges what else is to know of its state.
 	Status string
+	Badges []string
 }
 
 func (c catalog) rowOfDoor(d connector.StoredDoor) doorRow {
@@ -57,6 +60,9 @@ func (c catalog) rowOfDoor(d connector.StoredDoor) doorRow {
 	}
 	if d.PrimaryPictureID != nil {
 		row.Thumbnail = picturePath(d.ID, *d.PrimaryPictureID) + "/thumbnail"
+	}
+	if d.Controller != nil {
+		row.Badges = telemetry.Badges(*d.Controller)
 	}
 	return row
 }
@@ -248,6 +254,9 @@ type doorContent struct {
 	Events *recentLog
 	// StrikeMS is how long opening the door releases its strike.
 	StrikeMS int
+	// State is the door's live state, nil while no controller is enrolled
+	// as it.
+	State *stateView
 }
 
 // entrantRow is one access rule as a door's page lists who may enter.
@@ -311,12 +320,17 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 		a.pageError(w, err)
 		return
 	}
+	state, err := a.stateOf(r, viewer, d.StoredDoor, zone)
+	if err != nil {
+		a.pageError(w, err)
+		return
+	}
 	content := doorContent{
-		Manage: viewer.Has(auth.RoleManageDoors), Events: events, StrikeMS: config.StrikePulseMS,
+		Manage: viewer.Has(auth.RoleManageDoors), Events: events, StrikeMS: config.StrikePulseMS, State: state,
 		Door: d.StoredDoor, Row: n.rowOfDoor(d.StoredDoor), Form: form, Alert: alert,
 		Entrants: []entrantRow{}, Overrides: []overrideRow{},
 		Schedules: scheduleChoices(n.schedules, form.OpenScheduleIDs), Zones: zoneChoices(n.zones, form.ZoneIDs),
-		Controller: rowOfController(d.Controller, zone), Credentials: credentialRows(creds, zone),
+		Controller: rowOfController(d.Controller), Credentials: credentialRows(creds, zone),
 		Config:       configRows(d.StoredDoor, defaults, form.Config),
 		MaxPictureMB: picture.Megabytes(), MaxPictureSide: picture.MaxSide,
 	}

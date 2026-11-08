@@ -58,7 +58,7 @@ func configWith(changed map[string]any) map[string]any {
 	m := map[string]any{
 		"v": int64(1), "strike_pulse_ms": int64(3000), "keypad_idle_clear_ms": int64(10000), "min_code_length": int64(4),
 		"max_code_length": int64(32), "submit_key": "#", "reply_timeout_ms": int64(3000), "telemetry_interval_s": int64(60),
-		"timeline_refresh_hours": int64(6), "credential_rotation_days": int64(30), "rate_limit_per_minute": int64(30),
+		"held_open_s": int64(60), "timeline_refresh_hours": int64(6), "credential_rotation_days": int64(30), "rate_limit_per_minute": int64(30),
 		"rate_limit_burst": int64(10), "ntp_server": "pool.ntp.org", "log_level": "info",
 	}
 	for key, value := range changed {

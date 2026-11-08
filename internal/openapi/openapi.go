@@ -237,10 +237,11 @@ var (
 // scalarTypes maps the Go kinds a body field may have to JSON Schema types.
 // A kind not listed gets a schema without a type, which accepts anything.
 var scalarTypes = map[reflect.Kind]string{
-	reflect.Bool:   "boolean",
-	reflect.Int:    "integer",
-	reflect.Int64:  "integer",
-	reflect.String: "string",
+	reflect.Bool:    "boolean",
+	reflect.Int:     "integer",
+	reflect.Int64:   "integer",
+	reflect.Float64: "number",
+	reflect.String:  "string",
 }
 
 // schema is the schema of values of t, as encoding/json writes them. A

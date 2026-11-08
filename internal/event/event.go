@@ -1,6 +1,7 @@
 // Package event keeps the activity log: every code check a door asked
-// about, with what was decided and why, every keypad command, and every
-// opening from the admin UI. Events are only ever added.
+// about, with what was decided and why, every keypad command, every
+// opening from the admin UI, and every alarm a door's state raised.
+// Events are only ever added.
 package event
 
 import (
@@ -17,19 +18,23 @@ const (
 	Command = "command"
 	// Open is a door opened from the admin UI or the API.
 	Open = "open"
+	// Alarm is something wrong with a door's state, such as the door
+	// forced open.
+	Alarm = "alarm"
 )
 
 // Types is every type, in the order pages list them.
-var Types = []string{Check, Command, Open}
+var Types = []string{Check, Command, Open, Alarm}
 
-// The outcomes of an event.
+// The outcomes of an event. An alarm's outcome is Alert.
 const (
 	Allowed = "allowed"
 	Denied  = "denied"
+	Alert   = "alert"
 )
 
 // Outcomes is every outcome, in the order pages list them.
-var Outcomes = []string{Allowed, Denied}
+var Outcomes = []string{Allowed, Denied, Alert}
 
 // The reasons a code check was allowed.
 const (
@@ -82,11 +87,19 @@ const (
 // FromUI is the reason of an opening from the admin UI or the API.
 const FromUI = "admin UI"
 
+// The reasons of alarms.
+const (
+	// ForcedOpen is a door opened when nothing had unlocked it.
+	ForcedOpen = "forced open"
+	// HeldOpen is a door open for longer than its configuration allows.
+	HeldOpen = "held open"
+)
+
 // Reasons is every reason, in the order pages list them.
 var Reasons = []string{
 	AccessRule, OpenMode, OpenOverride, Commander, Commanded,
 	NoRule, Locked, Expired, RateLimited, NotCommander, BadCommand, CommandFailed, Unreachable,
-	KeypadOpen, KeypadLocked, KeypadCancel, FromUI,
+	KeypadOpen, KeypadLocked, KeypadCancel, FromUI, ForcedOpen, HeldOpen,
 }
 
 // Service records and finds events.

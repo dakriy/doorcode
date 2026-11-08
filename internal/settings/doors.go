@@ -34,6 +34,7 @@ type DoorConfig struct {
 	SubmitKey              string
 	ReplyTimeoutMS         int
 	TelemetryIntervalS     int
+	HeldOpenS              int
 	TimelineRefreshHours   int
 	CredentialRotationDays int
 	RateLimitPerMinute     int
@@ -46,6 +47,18 @@ type DoorConfig struct {
 // issues new ones.
 func (c DoorConfig) RotateAfter() time.Duration {
 	return time.Duration(c.CredentialRotationDays) * 24 * time.Hour
+}
+
+// HeldOpen is how long the door may stay open before it is held open.
+func (c DoorConfig) HeldOpen() time.Duration {
+	return time.Duration(c.HeldOpenS) * time.Second
+}
+
+// StrikeWindow is how long after the server lets someone in, or tells the
+// door to open, the door may open without being forced: its strike pulse,
+// and its reply timeout for the time the news takes to come and go.
+func (c DoorConfig) StrikeWindow() time.Duration {
+	return time.Duration(c.StrikePulseMS+c.ReplyTimeoutMS) * time.Millisecond
 }
 
 // TimelineRefresh is how often the server sends a door its timeline again
@@ -78,6 +91,7 @@ var DoorFields = []DoorField{
 	choiceField("submit_key", "Submit key", "#", []string{"#", "A", "B", "C", "D"}, func(c *DoorConfig) *string { return &c.SubmitKey }),
 	wholeField("reply_timeout_ms", "Reply timeout", "3000", 100, 60000, "milliseconds", func(c *DoorConfig) *int { return &c.ReplyTimeoutMS }),
 	wholeField("telemetry_interval_s", "Telemetry interval", "60", 5, 86400, "seconds", func(c *DoorConfig) *int { return &c.TelemetryIntervalS }),
+	wholeField("held_open_s", "Held open after", "60", 5, 86400, "seconds", func(c *DoorConfig) *int { return &c.HeldOpenS }),
 	wholeField("timeline_refresh_hours", "Timeline refresh", "6", 1, 24, "hours", func(c *DoorConfig) *int { return &c.TimelineRefreshHours }),
 	wholeField("credential_rotation_days", "Credential rotation", "30", 1, 3650, "days", func(c *DoorConfig) *int { return &c.CredentialRotationDays }),
 	wholeField("rate_limit_per_minute", "Code checks a minute", "30", 1, 6000, "checks", func(c *DoorConfig) *int { return &c.RateLimitPerMinute }),

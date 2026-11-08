@@ -2,7 +2,7 @@
 {{$c := .Content}}{{$f := $c.Filters}}
 <div>
   <h1 class="text-2xl font-semibold tracking-tight">Events</h1>
-  <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Everything the doors were asked or told: each code entered at a keypad with what was decided and why, each keypad command, and each door opened from here. Events stay when their door or user is deleted.</p>
+  <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Everything the doors were asked or told: each code entered at a keypad with what was decided and why, each keypad command, each door opened from here, and each door forced open or held open. Events stay when their door or user is deleted.</p>
 </div>
 
 {{with $c.Alert}}<div class="mt-6">{{template "alert" .}}</div>{{end}}
@@ -27,7 +27,7 @@
     <div>
       <label for="outcome" class="block text-xs font-medium text-zinc-600 dark:text-zinc-400">Outcome</label>
       <select id="outcome" name="outcome" class="mt-1 {{template "input-base"}}">
-        <option value="">Allowed or denied</option>
+        <option value="">Every outcome</option>
         {{range $c.Outcomes}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
       </select>
     </div>
@@ -49,7 +49,7 @@
   </div>
   <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
     <div class="text-sm text-zinc-600 dark:text-zinc-400">
-      {{with $c.User}}<span role="status" class="inline-flex items-center gap-2 rounded-full bg-brand-50 py-0.5 pr-1 pl-3 text-xs font-medium text-brand-700 ring-1 ring-brand-600/20 ring-inset dark:bg-brand-950 dark:text-brand-300 dark:ring-brand-400/20">User: {{.Name}}<a href="/admin/events" aria-label="Stop filtering by user" class="rounded-full px-1.5 hover:bg-brand-100 dark:hover:bg-brand-900">×</a></span>{{end}}
+      {{with $c.User}}<span role="status" class="inline-flex items-center gap-2 rounded-full bg-brand-50 py-0.5 pr-1 pl-3 text-xs font-medium text-brand-700 ring-1 ring-brand-600/20 ring-inset dark:bg-brand-950 dark:text-brand-300 dark:ring-brand-400/20">User: {{.Name}}<a href="{{$c.WithoutUser}}" aria-label="Stop filtering by user" class="rounded-full px-1.5 hover:bg-brand-100 dark:hover:bg-brand-900">×</a></span>{{end}}
     </div>
     <div class="flex gap-2">
       {{if $c.Filtered}}<a href="/admin/events" class="{{template "secondary-class"}}">Clear filters</a>{{end}}

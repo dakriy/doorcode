@@ -1,7 +1,9 @@
 // Keeps a page's live regions current. A page that shows live state names
 // its stream in a data-live-stream attribute; each region marks itself with
 // hx-trigger="live-doors from:body" and reloads when the stream says what
-// it shows of doors and enrollments has changed. Navigating to a page
+// it shows of doors and enrollments has changed, and a region showing one
+// door's state also with "live-door-<id> from:body", which the stream
+// triggers when only that door's state changed. Navigating to a page
 // without a stream closes it.
 (() => {
   if (window.doorcodeLive) {
@@ -24,6 +26,7 @@
     if (wanted) {
       source = new EventSource(wanted);
       source.addEventListener("doors", () => htmx.trigger(document.body, "live-doors"));
+      source.addEventListener("door", (e) => htmx.trigger(document.body, "live-door-" + e.data));
     }
   };
   window.doorcodeLive = connect;
