@@ -173,12 +173,11 @@ func (s *Store) UserByEmail(_ context.Context, email string) (connector.StoredUs
 	if err := s.usable(usersAggregate); err != nil {
 		return connector.StoredUser{}, false, err
 	}
-	for _, u := range s.users {
-		if u.Email == email {
-			return u, true, nil
-		}
+	u := s.findUser(email)
+	if u == nil {
+		return connector.StoredUser{}, false, nil
 	}
-	return connector.StoredUser{}, false, nil
+	return *u, true, nil
 }
 
 // CreateSession stores a session.
@@ -226,13 +225,22 @@ func (s *Store) userByID(id int64) *connector.StoredUser {
 	return nil
 }
 
-func (s *Store) userByEmail(email string) *connector.StoredUser {
+func (s *Store) findUser(email string) *connector.StoredUser {
 	for i := range s.users {
 		if s.users[i].Email == email {
 			return &s.users[i]
 		}
 	}
-	panic("stub: no user with email " + email)
+	return nil
+}
+
+// userByEmail is the user a test arranges by email, which must exist.
+func (s *Store) userByEmail(email string) *connector.StoredUser {
+	u := s.findUser(email)
+	if u == nil {
+		panic("stub: no user with email " + email)
+	}
+	return u
 }
 
 func (s *Store) usable(a aggregate) error {

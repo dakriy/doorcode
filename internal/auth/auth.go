@@ -148,7 +148,9 @@ func (s Service) Authenticate(ctx context.Context, token string) (User, bool, er
 		return User{}, false, err
 	}
 	now := s.Clock.Now()
-	if !found || now.Compare(session.ExpiresAt) >= 0 || u.DeletedAt != nil || expired(u, now) {
+	sessionEnded := !found || now.Compare(session.ExpiresAt) >= 0
+	accountEnded := u.DeletedAt != nil || expired(u, now)
+	if sessionEnded || accountEnded {
 		return User{}, false, nil
 	}
 	return User{ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, roles: u.Roles}, true, nil

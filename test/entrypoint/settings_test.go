@@ -244,7 +244,7 @@ func TestSettingsStoreFailureAnswersWithARequestIDThatTheLogCarries(t *testing.T
 func TestSettingsAPIAsksForSignIn(t *testing.T) {
 	for name, request := range settingsRequests {
 		t.Run(name, func(t *testing.T) {
-			got := request(testsupport.NewBrowser(start(t, testsupport.NewFactory()).Handler()))
+			got := request(startBrowser(t, testsupport.NewFactory()))
 
 			want := testsupport.Response{Status: 401, ContentType: jsonType, Body: `{"error":"sign in required"}` + "\n"}
 			if diff := cmp.Diff(want, got); diff != "" {

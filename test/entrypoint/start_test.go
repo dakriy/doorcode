@@ -26,6 +26,13 @@ func start(t *testing.T, f *testsupport.Factory) *app.App {
 	return a
 }
 
+// startBrowser starts the application from f and returns a browser on it
+// with no cookies.
+func startBrowser(t *testing.T, f *testsupport.Factory) *testsupport.Browser {
+	t.Helper()
+	return testsupport.NewBrowser(start(t, f).Handler())
+}
+
 // adminPassword is the first administrator's password, read from the log
 // where the operator would find it.
 func adminPassword(t *testing.T, f *testsupport.Factory) string {
@@ -104,7 +111,7 @@ func TestSecondStartKeepsTheFirstAdministratorsPassword(t *testing.T) {
 	start(t, f)
 	password := adminPassword(t, f)
 
-	got := testsupport.NewBrowser(start(t, f).Handler()).Post("/sign-in", "email", adminEmail, "password", password)
+	got := startBrowser(t, f).Post("/sign-in", "email", adminEmail, "password", password)
 
 	if diff := cmp.Diff(303, got.Status); diff != "" {
 		t.Errorf("sign-in status (-want +got):\n%s", diff)

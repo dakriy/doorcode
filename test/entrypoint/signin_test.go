@@ -50,7 +50,7 @@ func TestSignInPageNamesTheSite(t *testing.T) {
 
 func TestSigningInSetsASessionCookieAndGoesHome(t *testing.T) {
 	f := testsupport.NewFactory()
-	b := testsupport.NewBrowser(start(t, f).Handler())
+	b := startBrowser(t, f)
 
 	got := b.Post("/sign-in", "email", adminEmail, "password", adminPassword(t, f))
 
@@ -90,7 +90,7 @@ func TestHomeGreetsTheSignedInAdministratorAndShowsTheFlashOnce(t *testing.T) {
 
 func TestSignInEmailIgnoresCaseAndSurroundingSpace(t *testing.T) {
 	f := testsupport.NewFactory()
-	b := testsupport.NewBrowser(start(t, f).Handler())
+	b := startBrowser(t, f)
 
 	got := b.Post("/sign-in", "email", "  ADMIN@Example.com ", "password", adminPassword(t, f))
 
@@ -101,7 +101,7 @@ func TestSignInEmailIgnoresCaseAndSurroundingSpace(t *testing.T) {
 
 func TestSignInReturnsToThePageThatAskedForIt(t *testing.T) {
 	f := testsupport.NewFactory()
-	b := testsupport.NewBrowser(start(t, f).Handler())
+	b := startBrowser(t, f)
 
 	asked := b.Get("/admin/settings?view=all")
 	form := pageOf(b.Get(asked.Location))
@@ -117,7 +117,7 @@ func TestSignInGoesHomeInsteadOfLeavingTheSite(t *testing.T) {
 	for _, next := range []string{"https://evil.example.com/", "//evil.example.com/", `/\evil.example.com/`, "settings"} {
 		t.Run(next, func(t *testing.T) {
 			f := testsupport.NewFactory()
-			b := testsupport.NewBrowser(start(t, f).Handler())
+			b := startBrowser(t, f)
 
 			got := b.Post("/sign-in", "email", adminEmail, "password", adminPassword(t, f), "next", next)
 
@@ -159,7 +159,7 @@ func TestSignInAsksForMissingFields(t *testing.T) {
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			b := testsupport.NewBrowser(start(t, testsupport.NewFactory()).Handler())
+			b := startBrowser(t, testsupport.NewFactory())
 
 			got := b.Post("/sign-in", "email", c.email, "password", c.password)
 
@@ -208,7 +208,7 @@ func TestSignInRefusesCredentialsThatDoNotMatchAnAccount(t *testing.T) {
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			f := testsupport.NewFactory()
-			b := testsupport.NewBrowser(start(t, f).Handler())
+			b := startBrowser(t, f)
 			c.arrange(f)
 
 			got := b.Post("/sign-in", "email", c.email, "password", c.password(t, f))
@@ -242,7 +242,7 @@ func TestExpiredAccountCannotSignIn(t *testing.T) {
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			f := testsupport.NewFactory()
-			b := testsupport.NewBrowser(start(t, f).Handler())
+			b := startBrowser(t, f)
 			f.StoreStub.ExpireUser(adminEmail, c.expires)
 
 			got := b.Post("/sign-in", "email", adminEmail, "password", adminPassword(t, f))
@@ -307,7 +307,7 @@ func TestSessionEndsWhenTheAccountExpiresOrIsDeleted(t *testing.T) {
 }
 
 func TestUnknownSessionTokenIsTreatedAsSignedOut(t *testing.T) {
-	b := testsupport.NewBrowser(start(t, testsupport.NewFactory()).Handler())
+	b := startBrowser(t, testsupport.NewFactory())
 	b.SetCookie("doorcode_session", "forged")
 
 	got := b.Get("/")
@@ -353,7 +353,7 @@ func TestSignedOutTokenNoLongerWorks(t *testing.T) {
 }
 
 func TestSigningOutWithoutASessionGoesToSignIn(t *testing.T) {
-	got := testsupport.NewBrowser(start(t, testsupport.NewFactory()).Handler()).Post("/sign-out")
+	got := startBrowser(t, testsupport.NewFactory()).Post("/sign-out")
 
 	if diff := cmp.Diff([]any{303, "/sign-in"}, []any{got.Status, got.Location}); diff != "" {
 		t.Errorf("status and location (-want +got):\n%s", diff)
@@ -371,7 +371,7 @@ func TestSessionCookieIsSecureWhenTheBrowserUsesHTTPS(t *testing.T) {
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			f := testsupport.NewFactory()
-			b := testsupport.NewBrowser(start(t, f).Handler())
+			b := startBrowser(t, f)
 			b.SetHeader("X-Forwarded-Proto", c.header)
 
 			got := b.Post(c.target, "email", adminEmail, "password", adminPassword(t, f))
@@ -389,7 +389,7 @@ func TestSessionCookieIsSecureWhenTheBrowserUsesHTTPS(t *testing.T) {
 
 func TestCrossSiteFormPostIsRefused(t *testing.T) {
 	f := testsupport.NewFactory()
-	b := testsupport.NewBrowser(start(t, f).Handler())
+	b := startBrowser(t, f)
 	b.SetHeader("Sec-Fetch-Site", "cross-site")
 
 	got := b.Post("/sign-in", "email", adminEmail, "password", adminPassword(t, f))

@@ -31,40 +31,60 @@ type signInForm struct {
 
 func (a *App) signInPage(w http.ResponseWriter, r *http.Request) {
 	form := signInForm{Next: localPath(r.URL.Query().Get("next"))}
-	a.render(w, r, http.StatusOK, signInTemplate, "Sign in", nil, form)
+	a.renderSignIn(w, r, http.StatusOK, form)
 }
 
 func (a *App) signIn(w http.ResponseWriter, r *http.Request) {
 	email := strings.TrimSpace(r.PostFormValue("email"))
 	password := r.PostFormValue("password")
-	form := signInForm{Email: email, Next: localPath(r.PostFormValue("next"))}
-	if email == "" {
-		form.EmailError = "Enter your email address."
-	}
-	if password == "" {
-		form.PasswordError = "Enter your password."
+	form := signInForm{
+		Email:         email,
+		Next:          localPath(r.PostFormValue("next")),
+		EmailError:    required(email, "Enter your email address."),
+		PasswordError: required(password, "Enter your password."),
 	}
 	if form.EmailError != "" || form.PasswordError != "" {
-		a.render(w, r, http.StatusUnprocessableEntity, signInTemplate, "Sign in", nil, form)
+		a.renderSignIn(w, r, http.StatusUnprocessableEntity, form)
 		return
 	}
 
 	token, err := a.auth.SignIn(r.Context(), email, password)
-	if errors.Is(err, auth.ErrBadCredentials) {
-		form.Error = "That email and password do not match an account."
-	} else if errors.Is(err, auth.ErrExpired) {
-		form.Error = "This account has expired. Ask an administrator to renew it."
-	} else if err != nil {
-		a.pageError(w, err)
+	form.Error = signInRefusal(err)
+	if form.Error != "" {
+		a.renderSignIn(w, r, http.StatusUnprocessableEntity, form)
 		return
 	}
-	if form.Error != "" {
-		a.render(w, r, http.StatusUnprocessableEntity, signInTemplate, "Sign in", nil, form)
+	if err != nil {
+		a.pageError(w, err)
 		return
 	}
 	setCookie(w, r, sessionCookie, token, int(auth.SessionLifetime().Seconds()))
 	setCookie(w, r, flashCookie, "signed-in", 0)
 	redirect(w, form.Next)
+}
+
+func (a *App) renderSignIn(w http.ResponseWriter, r *http.Request, status int, form signInForm) {
+	a.render(w, r, status, signInTemplate, "Sign in", nil, form)
+}
+
+// required returns message when value is empty, and nothing otherwise.
+func required(value, message string) string {
+	if value == "" {
+		return message
+	}
+	return ""
+}
+
+// signInRefusal is what the sign-in page says about err, or nothing when err
+// is not a refusal.
+func signInRefusal(err error) string {
+	if errors.Is(err, auth.ErrBadCredentials) {
+		return "That email and password do not match an account."
+	}
+	if errors.Is(err, auth.ErrExpired) {
+		return "This account has expired. Ask an administrator to renew it."
+	}
+	return ""
 }
 
 func (a *App) signOut(w http.ResponseWriter, r *http.Request) {
