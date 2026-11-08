@@ -1,7 +1,6 @@
 package app
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -129,12 +128,7 @@ func (a *App) pageOverride(w http.ResponseWriter, r *http.Request, viewer auth.U
 		return d, connector.StoredOverride{}, zone, false
 	}
 	o, err := a.doors.Override(r.Context(), d.ID, pathID(r, "override"))
-	if errors.Is(err, door.ErrNoOverride) {
-		a.notFound(w, r, viewer, "There is no override here. It may have been deleted.")
-		return d, o, zone, false
-	}
-	if err != nil {
-		a.pageError(w, err)
+	if a.unloaded(w, r, viewer, err, door.ErrNoOverride, "There is no override here. It may have been deleted.") {
 		return d, o, zone, false
 	}
 	return d, o, zone, true

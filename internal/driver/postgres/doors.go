@@ -26,11 +26,7 @@ func (s *Store) Doors(ctx context.Context) ([]connector.StoredDoor, error) {
 	if err != nil {
 		return nil, err
 	}
-	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (connector.StoredDoor, error) {
-		var d connector.StoredDoor
-		err := row.Scan(doorFields(&d)...)
-		return d, err
-	})
+	return pgx.CollectRows(rows, scanned(doorFields))
 }
 
 // Door returns the door with id.
@@ -162,11 +158,7 @@ func (s *Store) Zones(ctx context.Context) ([]connector.StoredZone, error) {
 	if err != nil {
 		return nil, err
 	}
-	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (connector.StoredZone, error) {
-		var z connector.StoredZone
-		err := row.Scan(zoneFields(&z)...)
-		return z, err
-	})
+	return pgx.CollectRows(rows, scanned(zoneFields))
 }
 
 // Zone returns the zone with id.

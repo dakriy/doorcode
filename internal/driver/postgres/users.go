@@ -27,12 +27,6 @@ const userOrder = `order by lower(users.display_name) collate "C", users.id`
 const userFilter = `(users.deleted_at is not null) = $2 and strpos(lower(concat_ws(' ',
 	users.email, users.user_id, users.first_name, users.last_name, users.display_name)), lower($1)) > 0`
 
-func scanUser(row pgx.CollectableRow) (connector.StoredUser, error) {
-	var u connector.StoredUser
-	err := row.Scan(userFields(&u)...)
-	return u, err
-}
-
 // CreateFirstUser inserts u, as a member of the group with groupSlug, when
 // the users table is empty. The table lock keeps two servers starting
 // together from both inserting.
@@ -133,7 +127,7 @@ func (s *Store) Users(ctx context.Context, q connector.UserQuery) ([]connector.S
 
 // collectUsers reads users from rows and attaches their groups.
 func (s *Store) collectUsers(ctx context.Context, rows pgx.Rows) ([]connector.StoredUser, error) {
-	users, err := pgx.CollectRows(rows, scanUser)
+	users, err := pgx.CollectRows(rows, scanned(userFields))
 	if err != nil {
 		return nil, err
 	}

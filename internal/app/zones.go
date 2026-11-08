@@ -62,7 +62,7 @@ func (a *App) zoneRoutes() []route {
 func viewOfZone(z connector.StoredZone, doors []connector.StoredDoor) zoneView {
 	return zoneView{
 		ID: z.ID, Name: z.Name, Description: z.Description,
-		Doors: refs(doors, z.DoorIDs, func(d connector.StoredDoor) nameRef { return nameRef{ID: d.ID, Name: d.Name} }),
+		Doors: refs(doors, z.DoorIDs, doorRef),
 	}
 }
 

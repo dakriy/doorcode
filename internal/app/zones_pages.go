@@ -1,7 +1,6 @@
 package app
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 
@@ -104,12 +103,7 @@ func (a *App) createZoneFromForm(w http.ResponseWriter, r *http.Request, viewer 
 // none or that the store failed.
 func (a *App) pageZone(w http.ResponseWriter, r *http.Request, viewer auth.User) (connector.StoredZone, bool) {
 	z, err := a.doors.Zone(r.Context(), pathID(r, "id"))
-	if errors.Is(err, door.ErrNoZone) {
-		a.notFound(w, r, viewer, "There is no zone here. It may have been deleted.")
-		return z, false
-	}
-	if err != nil {
-		a.pageError(w, err)
+	if a.unloaded(w, r, viewer, err, door.ErrNoZone, "There is no zone here. It may have been deleted.") {
 		return z, false
 	}
 	return z, true

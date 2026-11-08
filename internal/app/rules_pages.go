@@ -66,12 +66,7 @@ type ruleContent struct {
 // is none or that the store failed.
 func (a *App) pageRuleGroup(w http.ResponseWriter, r *http.Request, viewer auth.User) (connector.StoredGroup, bool) {
 	g, err := a.directory.Group(r.Context(), pathID(r, "id"))
-	if errors.Is(err, directory.ErrNoGroup) {
-		a.notFound(w, r, viewer, "There is no group here. It may have been deleted.")
-		return g, false
-	}
-	if err != nil {
-		a.pageError(w, err)
+	if a.unloaded(w, r, viewer, err, directory.ErrNoGroup, noGroupHere) {
 		return g, false
 	}
 	return g, true

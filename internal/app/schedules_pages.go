@@ -184,12 +184,7 @@ type scheduleContent struct {
 // that the store failed.
 func (a *App) pageSchedule(w http.ResponseWriter, r *http.Request, viewer auth.User) (scheduleContent, bool) {
 	sch, err := a.schedules.Schedule(r.Context(), pathID(r, "id"))
-	if errors.Is(err, schedule.ErrNoSchedule) {
-		a.notFound(w, r, viewer, "There is no schedule here. It may have been deleted.")
-		return scheduleContent{}, false
-	}
-	if err != nil {
-		a.pageError(w, err)
+	if a.unloaded(w, r, viewer, err, schedule.ErrNoSchedule, "There is no schedule here. It may have been deleted.") {
 		return scheduleContent{}, false
 	}
 	form := scheduleForm{Fields: schedule.FieldsOf(sch), Action: schedulePath(sch.ID)}
@@ -284,7 +279,7 @@ func (a *App) scheduleCalendarPage(w http.ResponseWriter, r *http.Request, viewe
 		Calendar: a.weekOf(r, zone, schedulePath(content.Schedule.ID)+"/calendar"), Schedule: content.Schedule, Row: content.Row, Rows: []occurrenceRow{},
 	}
 	events := []calendarEvent{}
-	for _, in := range schedule.ExpandDays(content.Schedule, zone, calendar.Calendar.first, calendar.Calendar.first.AddDate(0, 0, 6)) {
+	for _, in := range schedule.ExpandDays(content.Schedule, zone, calendar.Calendar.days.first, calendar.Calendar.days.last) {
 		calendar.Rows = append(calendar.Rows, rowOfOccurrence(in))
 		events = append(events, eventOf(in, content.Schedule.Name, eventAccess))
 	}

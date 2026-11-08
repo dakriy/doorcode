@@ -23,11 +23,7 @@ func (s *Store) Groups(ctx context.Context) ([]connector.StoredGroup, error) {
 	if err != nil {
 		return nil, err
 	}
-	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (connector.StoredGroup, error) {
-		var g connector.StoredGroup
-		err := row.Scan(groupFields(&g)...)
-		return g, err
-	})
+	return pgx.CollectRows(rows, scanned(groupFields))
 }
 
 // Group returns the group with id.

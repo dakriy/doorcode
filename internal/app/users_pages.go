@@ -237,12 +237,7 @@ func (a *App) pageUser(w http.ResponseWriter, r *http.Request, viewer auth.User)
 		return connector.StoredUser{}, userContent{}, false
 	}
 	u, err := a.directory.User(r.Context(), pathID(r, "id"))
-	if errors.Is(err, directory.ErrNoUser) {
-		a.notFound(w, r, viewer, "There is no user here. They may never have existed; deleted users are listed under Deleted.")
-		return u, userContent{}, false
-	}
-	if err != nil {
-		a.pageError(w, err)
+	if a.unloaded(w, r, viewer, err, directory.ErrNoUser, "There is no user here. They may never have existed; deleted users are listed under Deleted.") {
 		return u, userContent{}, false
 	}
 	return u, freshUser(u, zone), true

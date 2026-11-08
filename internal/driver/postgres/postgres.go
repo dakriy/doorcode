@@ -131,11 +131,7 @@ func (s *Store) UserTokens(ctx context.Context, userID int64) ([]connector.Store
 	if err != nil {
 		return nil, err
 	}
-	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (connector.StoredToken, error) {
-		var t connector.StoredToken
-		err := row.Scan(tokenFields(&t)...)
-		return t, err
-	})
+	return pgx.CollectRows(rows, scanned(tokenFields))
 }
 
 // TokenUser returns the token stored under tokenHash and its user.
@@ -154,6 +150,16 @@ func (s *Store) TokenUser(ctx context.Context, tokenHash []byte) (connector.Stor
 func (s *Store) DeleteToken(ctx context.Context, userID, id int64) (bool, error) {
 	tag, err := s.pool.Exec(ctx, `delete from api_tokens where id = $1 and user_id = $2`, id, userID)
 	return tag.RowsAffected() == 1, err
+}
+
+// scanned reads a row into a T through the pointers fields gives for its
+// columns.
+func scanned[T any](fields func(*T) []any) pgx.RowToFunc[T] {
+	return func(row pgx.CollectableRow) (T, error) {
+		var value T
+		err := row.Scan(fields(&value)...)
+		return value, err
+	}
 }
 
 // found translates pgx's no-rows error into a not-found result.

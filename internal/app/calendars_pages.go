@@ -2,7 +2,6 @@ package app
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"slices"
 	"strconv"
@@ -44,7 +43,8 @@ type week struct {
 	Zone     string
 	// Events is what the calendar draws, as JSON, in local time.
 	Events string
-	first  time.Time
+	// days is the week's days, Monday to Sunday.
+	days dayRange
 }
 
 // weekOf is the week the request's week query parameter falls in, by
@@ -61,18 +61,8 @@ func (a *App) weekOf(r *http.Request, zone *time.Location, path string) week {
 		Monday: first.Format(schedule.DateLayout), Today: today.Format(schedule.DateLayout),
 		Heading:  "Week of " + first.Format(longDateLayout),
 		Previous: link(first.AddDate(0, 0, -7)), Next: link(first.AddDate(0, 0, 7)), This: path,
-		Zone: zone.String(), first: first,
+		Zone: zone.String(), days: dayRange{zone: zone, first: first, last: first.AddDate(0, 0, 6)},
 	}
-}
-
-// from is the start of the week in zone.
-func (wk week) from(zone *time.Location) time.Time {
-	return schedule.StartOf(wk.first, zone)
-}
-
-// to is the end of the week in zone.
-func (wk week) to(zone *time.Location) time.Time {
-	return schedule.StartOf(wk.first.AddDate(0, 0, 7), zone)
 }
 
 // The kinds of event a calendar draws, each in its own color.
@@ -162,8 +152,8 @@ func (a *App) doorCalendarPage(w http.ResponseWriter, r *http.Request, viewer au
 		return
 	}
 	wk := a.weekOf(r, zone, doorPath(pathID(r, "id"))+"/calendar")
-	d, spans, err := a.doors.Timeline(r.Context(), pathID(r, "id"), zone, wk.from(zone), wk.to(zone))
-	if a.calendarRefused(w, r, viewer, err) {
+	d, spans, err := a.doors.Timeline(r.Context(), pathID(r, "id"), zone, wk.days.from(), wk.days.to())
+	if a.unloaded(w, r, viewer, err, door.ErrNoDoor, noDoorHere) {
 		return
 	}
 	n, err := a.names(r.Context())
@@ -183,7 +173,7 @@ func (a *App) doorCalendarPage(w http.ResponseWriter, r *http.Request, viewer au
 	for _, reach := range entrants {
 		reaching = append(reaching, reach.Rule)
 	}
-	for _, window := range rule.Windows(reaching, n.schedules, zone, wk.from(zone), wk.to(zone)) {
+	for _, window := range rule.Windows(reaching, n.schedules, zone, wk.days.from(), wk.days.to()) {
 		in := inZone(window.Interval, zone)
 		group := n.group(window.Rule.GroupID)
 		content.Windows = append(content.Windows, windowRow{occurrenceRow: rowOfOccurrence(in), Group: group, Schedule: n.schedule(window.Rule.ScheduleID)})
@@ -191,20 +181,6 @@ func (a *App) doorCalendarPage(w http.ResponseWriter, r *http.Request, viewer au
 	}
 	content.Calendar.Events = eventsText(events)
 	a.render(w, r, http.StatusOK, doorCalendarTemplate, d.Name, &viewer, content)
-}
-
-// calendarRefused shows that the door a calendar is about does not exist,
-// or that the store failed, as err says, and reports whether it did.
-func (a *App) calendarRefused(w http.ResponseWriter, r *http.Request, viewer auth.User, err error) bool {
-	if errors.Is(err, door.ErrNoDoor) {
-		a.notFound(w, r, viewer, "There is no door here. Deleted doors are listed under Deleted on the doors page.")
-		return true
-	}
-	if err != nil {
-		a.pageError(w, err)
-		return true
-	}
-	return false
 }
 
 // accessCalendarContent is the content of the page showing when a user's
@@ -226,11 +202,11 @@ func (a *App) accessCalendarPage(w http.ResponseWriter, r *http.Request, viewer 
 	zone := content.zone
 	doorID := pathID(r, "door")
 	wk := a.weekOf(r, zone, userPath(u.ID)+"/doors/"+strconv.FormatInt(doorID, 10)+"/calendar")
-	d, spans, err := a.doors.Timeline(r.Context(), doorID, zone, wk.from(zone), wk.to(zone))
-	if a.calendarRefused(w, r, viewer, err) {
+	d, spans, err := a.doors.Timeline(r.Context(), doorID, zone, wk.days.from(), wk.days.to())
+	if a.unloaded(w, r, viewer, err, door.ErrNoDoor, noDoorHere) {
 		return
 	}
-	reachable, err := a.rules.UserAccess(r.Context(), u.Groups, zone, wk.from(zone), wk.to(zone))
+	reachable, err := a.rules.UserAccess(r.Context(), u.Groups, zone, wk.days.from(), wk.days.to())
 	if err != nil {
 		a.pageError(w, err)
 		return

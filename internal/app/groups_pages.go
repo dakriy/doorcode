@@ -1,7 +1,6 @@
 package app
 
 import (
-	"errors"
 	"net/http"
 	"strings"
 
@@ -112,12 +111,7 @@ type groupContent struct {
 // that the store failed.
 func (a *App) pageGroup(w http.ResponseWriter, r *http.Request, viewer auth.User) (groupContent, bool) {
 	g, members, err := a.directory.Members(r.Context(), pathID(r, "id"))
-	if errors.Is(err, directory.ErrNoGroup) {
-		a.notFound(w, r, viewer, "There is no group here. It may have been deleted.")
-		return groupContent{}, false
-	}
-	if err != nil {
-		a.pageError(w, err)
+	if a.unloaded(w, r, viewer, err, directory.ErrNoGroup, noGroupHere) {
 		return groupContent{}, false
 	}
 	rules, err := a.rules.Rules(r.Context(), g.ID)

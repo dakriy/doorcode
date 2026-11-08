@@ -41,6 +41,27 @@ func (a *App) notFound(w http.ResponseWriter, r *http.Request, viewer auth.User,
 	a.render(w, r, http.StatusNotFound, notFoundTemplate, "Not found", &viewer, message)
 }
 
+// What a page shows when the door or group it is about does not exist.
+const (
+	noDoorHere  = "There is no door here. Deleted doors are listed under Deleted on the doors page."
+	noGroupHere = "There is no group here. It may have been deleted."
+)
+
+// unloaded reports whether err kept a page from loading what it is about,
+// after showing why: message when err is absent, which says it does not
+// exist, and the failure otherwise.
+func (a *App) unloaded(w http.ResponseWriter, r *http.Request, viewer auth.User, err, absent error, message string) bool {
+	if errors.Is(err, absent) {
+		a.notFound(w, r, viewer, message)
+		return true
+	}
+	if err != nil {
+		a.pageError(w, err)
+		return true
+	}
+	return false
+}
+
 // done sends the browser to location with a flash message.
 func done(w http.ResponseWriter, r *http.Request, location, flash string) {
 	setCookie(w, r, flashCookie, flash, 0)

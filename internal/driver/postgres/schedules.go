@@ -16,19 +16,13 @@ func scheduleFields(sch *connector.StoredSchedule) []any {
 	return []any{&sch.ID, &sch.Name, &sch.StartsOn, &sch.EndsOn, &sch.Excluded, &sch.Builtin}
 }
 
-func scanSchedule(row pgx.CollectableRow) (connector.StoredSchedule, error) {
-	var sch connector.StoredSchedule
-	err := row.Scan(scheduleFields(&sch)...)
-	return sch, err
-}
-
 // Schedules returns every schedule in name order with its windows.
 func (s *Store) Schedules(ctx context.Context) ([]connector.StoredSchedule, error) {
 	rows, err := s.pool.Query(ctx, `select `+scheduleColumns+` from schedules order by lower(name) collate "C", id`)
 	if err != nil {
 		return nil, err
 	}
-	all, err := pgx.CollectRows(rows, scanSchedule)
+	all, err := pgx.CollectRows(rows, scanned(scheduleFields))
 	if err != nil {
 		return nil, err
 	}

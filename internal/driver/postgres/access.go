@@ -25,11 +25,7 @@ func (s *Store) Rules(ctx context.Context) ([]connector.StoredRule, error) {
 	if err != nil {
 		return nil, err
 	}
-	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (connector.StoredRule, error) {
-		var r connector.StoredRule
-		err := row.Scan(ruleFields(&r)...)
-		return r, err
-	})
+	return pgx.CollectRows(rows, scanned(ruleFields))
 }
 
 // Rule returns the rule with id.
@@ -113,11 +109,7 @@ func (s *Store) DoorOverrides(ctx context.Context, doorID int64, endsAfter time.
 	if err != nil {
 		return nil, err
 	}
-	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (connector.StoredOverride, error) {
-		var o connector.StoredOverride
-		err := row.Scan(overrideFields(&o)...)
-		return o, err
-	})
+	return pgx.CollectRows(rows, scanned(overrideFields))
 }
 
 // Override returns the override with id.

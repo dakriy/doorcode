@@ -1,7 +1,8 @@
 // Package door keeps the site's doors, the zones that group them, their
-// pictures, and their overrides, and works out their timelines. A door exists once an administrator creates it; enrollment
-// attaches the hardware later. Doors are soft-deleted; zones, pictures, and
-// overrides removed.
+// pictures, and their overrides, and works out their timelines. A door
+// exists once an administrator creates it; enrollment attaches the
+// hardware later. Doors are soft-deleted; zones, pictures, and overrides
+// removed.
 package door
 
 import (

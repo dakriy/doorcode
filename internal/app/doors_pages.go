@@ -241,12 +241,7 @@ type storedDoor struct {
 // that there is none or that the store failed.
 func (a *App) pageDoor(w http.ResponseWriter, r *http.Request, viewer auth.User) (storedDoor, bool) {
 	d, pictures, err := a.doors.Pictures(r.Context(), pathID(r, "id"))
-	if errors.Is(err, door.ErrNoDoor) {
-		a.notFound(w, r, viewer, "There is no door here. Deleted doors are listed under Deleted on the doors page.")
-		return storedDoor{}, false
-	}
-	if err != nil {
-		a.pageError(w, err)
+	if a.unloaded(w, r, viewer, err, door.ErrNoDoor, noDoorHere) {
 		return storedDoor{}, false
 	}
 	return storedDoor{StoredDoor: d, pictures: pictures}, true
