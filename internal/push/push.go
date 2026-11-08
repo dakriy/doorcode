@@ -138,7 +138,7 @@ func (s Service) each(ctx context.Context, ids []int64, send sender) error {
 	}
 	var errs []error
 	for _, d := range doors {
-		if d.DeletedAt != nil || d.Controller == nil || (ids != nil && !slices.Contains(ids, d.ID)) {
+		if !chosen(d, ids) {
 			continue
 		}
 		config, err := defaults.For(d.Config)
@@ -148,6 +148,13 @@ func (s Service) each(ctx context.Context, ids []int64, send sender) error {
 		errs = append(errs, err)
 	}
 	return errors.Join(errs...)
+}
+
+// chosen reports whether each sends to d: a door a controller is
+// enrolled as that is not deleted, among ids unless ids is nil.
+func chosen(d connector.StoredDoor, ids []int64) bool {
+	enrolled := d.DeletedAt == nil && d.Controller != nil
+	return enrolled && (ids == nil || slices.Contains(ids, d.ID))
 }
 
 func sendConfig(s Service, ctx context.Context, t target) error {

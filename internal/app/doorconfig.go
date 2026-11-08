@@ -117,11 +117,7 @@ func configRows(d connector.StoredDoor, defaults settings.DoorDefaults, entered 
 	}
 	var rows []configRow
 	for _, f := range settings.DoorFields {
-		effective, overridden := d.Config[f.Name]
-		if !overridden {
-			effective = defaults[f.Name]
-		}
-		rows = append(rows, configRow{DoorField: f, Default: defaults[f.Name], Entered: entered[f.Name], Effective: effective})
+		rows = append(rows, configRow{DoorField: f, Default: defaults[f.Name], Entered: entered[f.Name], Effective: defaults.Value(d.Config, f.Name)})
 	}
 	return rows
 }

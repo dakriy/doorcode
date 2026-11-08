@@ -409,17 +409,9 @@ func (s Service) Sweep(ctx context.Context, grace time.Duration, defaults settin
 	if err != nil {
 		return err
 	}
-	all, err := s.Store.Doors(ctx)
+	rotateAfter, err := s.rotationIntervals(ctx, defaults)
 	if err != nil {
 		return err
-	}
-	rotateAfter := map[int64]time.Duration{}
-	for _, d := range all {
-		config, err := defaults.For(d.Config)
-		if err != nil {
-			return err
-		}
-		rotateAfter[d.ID] = config.RotateAfter()
 	}
 	byDoor := map[int64][]connector.StoredCredential{}
 	var doors []int64
@@ -435,6 +427,24 @@ func (s Service) Sweep(ctx context.Context, grace time.Duration, defaults settin
 		}
 	}
 	return nil
+}
+
+// rotationIntervals is how long each door's credentials work before it
+// gets new ones, by door id, by defaults and the door's own overrides.
+func (s Service) rotationIntervals(ctx context.Context, defaults settings.DoorDefaults) (map[int64]time.Duration, error) {
+	doors, err := s.Store.Doors(ctx)
+	if err != nil {
+		return nil, err
+	}
+	intervals := map[int64]time.Duration{}
+	for _, d := range doors {
+		config, err := defaults.For(d.Config)
+		if err != nil {
+			return nil, err
+		}
+		intervals[d.ID] = config.RotateAfter()
+	}
+	return intervals, nil
 }
 
 // sweepDoor does what time makes due about one door's live credentials,

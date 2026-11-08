@@ -336,16 +336,17 @@ func TestADoorsRotationIntervalOverrideRotatesItsCredentials(t *testing.T) {
 
 func TestAChangeStandsAndIsLoggedWhenDoorsCannotBeSentIt(t *testing.T) {
 	t.Parallel()
+	failPublishing := func(f *testsupport.Factory) { f.BrokerStub.FailPublishing() }
 	cases := map[string]struct {
 		fail                 func(f *testsupport.Factory)
 		method, target, body string
 		status               int
 	}{
-		"an override":                 {func(f *testsupport.Factory) { f.BrokerStub.FailPublishing() }, "POST", "/api/v1/doors/1/overrides", lockedToday, 201},
-		"a door":                      {func(f *testsupport.Factory) { f.BrokerStub.FailPublishing() }, "PUT", "/api/v1/doors/1", `{"name":"Lobby"}`, 200},
-		"a door's configuration":      {func(f *testsupport.Factory) { f.BrokerStub.FailPublishing() }, "PUT", "/api/v1/doors/1/config", `{"overrides":{}}`, 200},
-		"a configuration default":     {func(f *testsupport.Factory) { f.BrokerStub.FailPublishing() }, "PUT", "/api/v1/settings/door_log_level", `{"value":"debug"}`, 200},
-		"the site timezone":           {func(f *testsupport.Factory) { f.BrokerStub.FailPublishing() }, "PUT", "/api/v1/settings/site_timezone", `{"value":"Europe/Berlin"}`, 200},
+		"an override":                 {failPublishing, "POST", "/api/v1/doors/1/overrides", lockedToday, 201},
+		"a door":                      {failPublishing, "PUT", "/api/v1/doors/1", `{"name":"Lobby"}`, 200},
+		"a door's configuration":      {failPublishing, "PUT", "/api/v1/doors/1/config", `{"overrides":{}}`, 200},
+		"a configuration default":     {failPublishing, "PUT", "/api/v1/settings/door_log_level", `{"value":"debug"}`, 200},
+		"the site timezone":           {failPublishing, "PUT", "/api/v1/settings/site_timezone", `{"value":"Europe/Berlin"}`, 200},
 		"access rules cannot be read": {func(f *testsupport.Factory) { f.StoreStub.FailRules() }, "POST", "/api/v1/doors/1/overrides", lockedToday, 201},
 	}
 	for name, c := range cases {

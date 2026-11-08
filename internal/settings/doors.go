@@ -113,14 +113,31 @@ func choiceField(name, label, fallback string, choices []string, at func(*DoorCo
 // setHost keeps value as the time server when it is a host name.
 func setHost(c *DoorConfig, value string) error {
 	c.NTPServer = value
-	valid := value != "" && utf8.RuneCountInString(value) <= maxHostLength
-	for _, r := range value {
-		valid = valid && (r == '.' || r == '-' || ('0' <= r && r <= '9') || ('a' <= r && r <= 'z') || ('A' <= r && r <= 'Z'))
-	}
-	if !valid {
+	if !isHostName(value) {
 		return errors.New("must be " + hostHint)
 	}
 	return nil
+}
+
+// isHostName reports whether value is what hostHint says a host name is.
+func isHostName(value string) bool {
+	if value == "" || utf8.RuneCountInString(value) > maxHostLength {
+		return false
+	}
+	for _, r := range value {
+		if !hostRune(r) {
+			return false
+		}
+	}
+	return true
+}
+
+// hostRune reports whether r may appear in a host name: a letter, a
+// digit, a dot, or a hyphen.
+func hostRune(r rune) bool {
+	letter := ('a' <= r && r <= 'z') || ('A' <= r && r <= 'Z')
+	digit := '0' <= r && r <= '9'
+	return letter || digit || r == '.' || r == '-'
 }
 
 // doorDefinitions is the setting of each door field's default.
@@ -177,15 +194,20 @@ func (s Service) DoorDefaults(ctx context.Context) (DoorDefaults, error) {
 func (d DoorDefaults) For(overrides map[string]string) (DoorConfig, error) {
 	var c DoorConfig
 	for _, f := range DoorFields {
-		value, overridden := overrides[f.Name]
-		if !overridden {
-			value = d[f.Name]
-		}
-		if err := f.set(&c, value); err != nil {
+		if err := f.set(&c, d.Value(overrides, f.Name)); err != nil {
 			return DoorConfig{}, fmt.Errorf("%w for %s: %w", ErrInvalid, doorPrefix+f.Name, err)
 		}
 	}
 	return c, nil
+}
+
+// Value is the value of the field named name for a door with overrides:
+// its override when it has one, the default otherwise.
+func (d DoorDefaults) Value(overrides map[string]string, name string) string {
+	if value, overridden := overrides[name]; overridden {
+		return value
+	}
+	return d[name]
 }
 
 // CheckOverrides reports what is wrong with a door's configuration

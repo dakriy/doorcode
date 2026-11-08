@@ -283,12 +283,12 @@ func TestARefusedConfigurationFromADoorsPageSaysWhatIsWrong(t *testing.T) {
 	_, b, _, _ := enrolledDoor(t, f)
 	b.Get("/")
 
-	got := b.Post("/admin/doors/1/config", "strike_pulse_ms", "50", "log_level", "debug")
+	response := b.Post("/admin/doors/1/config", "strike_pulse_ms", "50", "log_level", "debug")
 
-	page := pageOf(got)
+	page := pageOf(response)
 	want := []any{422, map[string]string{"strike_pulse_ms": "Enter a whole number of milliseconds from 100 to 60000."}, "50", "debug", "info"}
-	got2 := []any{got.Status, page.FieldErrors, page.Values["strike_pulse_ms"], page.Values["log_level"], testsupport.JSONAt(b.Get("/api/v1/doors/1/config").Body, "/effective/log_level")}
-	if diff := cmp.Diff(want, got2); diff != "" {
+	got := []any{response.Status, page.FieldErrors, page.Values["strike_pulse_ms"], page.Values["log_level"], testsupport.JSONAt(b.Get("/api/v1/doors/1/config").Body, "/effective/log_level")}
+	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("status, field errors, strike pulse, log level, log level stored (-want +got):\n%s", diff)
 	}
 }
