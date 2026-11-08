@@ -1,0 +1,101 @@
+{{define "content"}}
+{{$c := .Content}}{{$f := $c.Filters}}
+<div>
+  <h1 class="text-2xl font-semibold tracking-tight">Events</h1>
+  <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Everything the doors were asked or told: each code entered at a keypad with what was decided and why, each keypad command, and each door opened from here. Events stay when their door or user is deleted.</p>
+</div>
+
+{{with $c.Alert}}<div class="mt-6">{{template "alert" .}}</div>{{end}}
+
+<form method="get" action="/admin/events" role="search" aria-label="Filter events" class="mt-8 p-4 {{template "card-class"}}">
+  {{with $c.User}}<input type="hidden" name="user" value="{{.ID}}">{{end}}
+  <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+    <div>
+      <label for="door" class="block text-xs font-medium text-zinc-600 dark:text-zinc-400">Door</label>
+      <select id="door" name="door" class="mt-1 {{template "input-base"}}">
+        <option value="">Every door</option>
+        {{range $c.Doors}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
+      </select>
+    </div>
+    <div>
+      <label for="type" class="block text-xs font-medium text-zinc-600 dark:text-zinc-400">Type</label>
+      <select id="type" name="type" class="mt-1 {{template "input-base"}}">
+        <option value="">Every type</option>
+        {{range $c.Types}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
+      </select>
+    </div>
+    <div>
+      <label for="outcome" class="block text-xs font-medium text-zinc-600 dark:text-zinc-400">Outcome</label>
+      <select id="outcome" name="outcome" class="mt-1 {{template "input-base"}}">
+        <option value="">Allowed or denied</option>
+        {{range $c.Outcomes}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
+      </select>
+    </div>
+    <div>
+      <label for="reason" class="block text-xs font-medium text-zinc-600 dark:text-zinc-400">Reason</label>
+      <select id="reason" name="reason" class="mt-1 {{template "input-base"}}">
+        <option value="">Every reason</option>
+        {{range $c.Reasons}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
+      </select>
+    </div>
+    <div>
+      <label for="from" class="block text-xs font-medium text-zinc-600 dark:text-zinc-400">From</label>
+      <input id="from" name="from" type="date" value="{{$f.FromDate}}" class="mt-1 {{template "input-base"}}">
+    </div>
+    <div>
+      <label for="to" class="block text-xs font-medium text-zinc-600 dark:text-zinc-400">To</label>
+      <input id="to" name="to" type="date" value="{{$f.ToDate}}" class="mt-1 {{template "input-base"}}">
+    </div>
+  </div>
+  <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div class="text-sm text-zinc-600 dark:text-zinc-400">
+      {{with $c.User}}<span role="status" class="inline-flex items-center gap-2 rounded-full bg-brand-50 py-0.5 pr-1 pl-3 text-xs font-medium text-brand-700 ring-1 ring-brand-600/20 ring-inset dark:bg-brand-950 dark:text-brand-300 dark:ring-brand-400/20">User: {{.Name}}<a href="/admin/events" aria-label="Stop filtering by user" class="rounded-full px-1.5 hover:bg-brand-100 dark:hover:bg-brand-900">×</a></span>{{end}}
+    </div>
+    <div class="flex gap-2">
+      {{if $c.Filtered}}<a href="/admin/events" class="{{template "secondary-class"}}">Clear filters</a>{{end}}
+      <button type="submit" class="{{template "primary-class"}}">Filter</button>
+    </div>
+  </div>
+</form>
+
+<div class="mt-6 overflow-hidden {{template "card-class"}}">
+  <div class="overflow-x-auto">
+    <table aria-label="Events" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+      <thead class="{{template "table-head-class"}}">
+        <tr>
+          <th scope="col" class="px-4 py-3">When</th>
+          <th scope="col" class="px-4 py-3">Door</th>
+          <th scope="col" class="px-4 py-3">Who</th>
+          <th scope="col" class="px-4 py-3">Outcome</th>
+          <th scope="col" class="px-4 py-3">Details</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {{range $c.Rows}}
+        <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/40">{{template "event-cells" (eventcells . "both")}}</tr>
+        {{else}}
+        <tr>
+          <td colspan="5" class="px-4 py-16 text-center">
+            <svg class="mx-auto size-8 text-zinc-300 dark:text-zinc-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25Z"/></svg>
+            <p class="mt-3 text-sm text-zinc-500 dark:text-zinc-400">{{$c.Empty}}</p>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+      {{if $c.Rows}}
+      <tfoot class="border-t border-zinc-200 dark:border-zinc-800">
+        <tr><td colspan="5" class="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">Showing {{$c.From}} to {{$c.To}} of {{$c.Total}}</td></tr>
+      </tfoot>
+      {{end}}
+    </table>
+  </div>
+  {{if or $c.Previous $c.Next}}
+  <div class="flex justify-end border-t border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800">
+    <nav aria-label="Pages" class="flex gap-2">
+      {{if $c.Previous}}<a href="{{$c.Previous}}" rel="prev" class="{{template "secondary-class"}} py-1.5">Newer</a>{{end}}
+      {{if $c.Next}}<a href="{{$c.Next}}" rel="next" class="{{template "secondary-class"}} py-1.5">Older</a>{{end}}
+    </nav>
+  </div>
+  {{end}}
+</div>
+{{end}}

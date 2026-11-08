@@ -17,7 +17,7 @@
 </div>
 
 {{with $c.Alert}}<div class="mt-6">{{template "alert" .}}</div>{{end}}
-{{with $d.DeletedAt}}
+{{if $c.Manage}}{{with $d.DeletedAt}}
 <div class="mt-6 flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200">
   <p>Deleted on {{.UTC.Format "2 Jan 2006"}}. The door is listed only under deleted doors; its history stays.</p>
   <form method="post" action="/admin/doors/{{$d.ID}}/restore">
@@ -120,9 +120,11 @@
   </div>
 </form>
 {{end}}
+{{end}}
 
 <div class="mt-8 grid gap-8 lg:grid-cols-3">
   <div class="space-y-8 lg:col-span-2">
+    {{if $c.Manage}}
     <section aria-labelledby="details-heading" class="p-6 {{template "card-class"}}">
       <h2 id="details-heading" class="text-sm font-semibold">Details</h2>
       <form method="post" action="/admin/doors/{{$d.ID}}" novalidate hx-disabled-elt="find button" class="mt-5">
@@ -132,6 +134,7 @@
         </div>
       </form>
     </section>
+    {{end}}
 
     <section aria-labelledby="overrides-heading" class="overflow-hidden {{template "card-class"}}">
       <div class="flex flex-col gap-3 px-6 pt-6 sm:flex-row sm:items-start sm:justify-between">
@@ -216,6 +219,7 @@
       </div>
     </section>
 
+    {{if $c.Manage}}
     <section aria-labelledby="pictures-heading" class="p-6 {{template "card-class"}}">
       <div class="sm:flex sm:items-start sm:justify-between sm:gap-6">
         <div>
@@ -263,9 +267,29 @@
         {{else}}<p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">JPEG, PNG, GIF, or WebP, up to {{$c.MaxPictureMB}} MB. Larger pictures are reduced to {{$c.MaxPictureSide}} pixels on their longest side.</p>{{end}}
       </form>
     </section>
+    {{end}}
   </div>
 
   <div class="space-y-8">
+    <section aria-labelledby="pulse-heading" class="p-6 {{template "card-class"}}">
+      <div class="flex items-center justify-between gap-3">
+        <h2 id="pulse-heading" class="text-sm font-semibold">Open the door</h2>
+        {{template "door-status" $c.Row.Status}}
+      </div>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Releases the strike once, for {{$c.StrikeMS}} ms, as if a code had been accepted. The opening is logged under your name.</p>
+      {{if eq $c.Row.Status "Online"}}
+      <form method="post" action="/admin/doors/{{$d.ID}}/open" hx-confirm="Release the strike of {{$d.Name}} now?" hx-disabled-elt="find button" class="mt-4">
+        <button type="submit" class="w-full {{template "primary-class"}}">
+          <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M14.5 1A4.5 4.5 0 0 0 10 5.5V9H3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-1.5V5.5a3 3 0 1 1 6 0v2.75a.75.75 0 0 0 1.5 0V5.5A4.5 4.5 0 0 0 14.5 1Z" clip-rule="evenodd"/></svg>
+          Open now
+        </button>
+      </form>
+      {{else}}
+      <p role="note" class="mt-4 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">The door can be opened from here once its controller is connected.</p>
+      {{end}}
+    </section>
+
+    {{if $c.Manage}}
     <section aria-labelledby="open-heading" class="p-6 {{template "card-class"}}">
       <h2 id="open-heading" class="text-sm font-semibold">Open mode</h2>
       <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">While one of these schedules is active the door unlocks on any keypress, without a code.</p>
@@ -287,10 +311,13 @@
         </div>
       </form>
     </section>
+    {{end}}
   </div>
 </div>
 
-{{if not $d.DeletedAt}}
+{{with $c.Events}}{{template "recent-events" .}}{{end}}
+
+{{if and $c.Manage (not $d.DeletedAt)}}
 <section aria-labelledby="delete-heading" class="mt-8 rounded-xl border border-red-200 p-6 dark:border-red-900/60">
   <h2 id="delete-heading" class="text-sm font-semibold text-red-700 dark:text-red-300">Delete door</h2>
   <div class="mt-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

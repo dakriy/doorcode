@@ -308,3 +308,50 @@
 {{define "door-status"}}{{if eq . "Online"}}<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-600/20 ring-inset dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-400/20"><span class="size-1.5 rounded-full bg-emerald-500" aria-hidden="true"></span>Online</span>
 {{else if eq . "Offline"}}<span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-600/20 ring-inset dark:bg-amber-950 dark:text-amber-300 dark:ring-amber-400/20"><span class="size-1.5 rounded-full bg-amber-500" aria-hidden="true"></span>Offline</span>
 {{else}}<span class="text-xs text-zinc-400 dark:text-zinc-500">{{.}}</span>{{end}}{{end}}
+
+{{define "outcome-badge"}}{{if eq .Outcome "Allowed"}}<span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-600/20 ring-inset dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-400/20"><svg class="size-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd"/></svg>{{.Outcome}}</span>
+{{- else}}<span class="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 ring-1 ring-red-600/20 ring-inset dark:bg-red-950 dark:text-red-300 dark:ring-red-400/20"><svg class="size-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>{{.Outcome}}</span>{{end}}{{end}}
+
+{{define "reason-badge"}}<span class="inline-flex rounded-md bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 ring-1 ring-zinc-500/20 ring-inset dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-400/20">{{.}}</span>{{end}}
+
+{{/* event-cells is one event's cells: when, the door or the user as cols says ("door", "user", or "both"), outcome, reason, and detail. */}}
+{{define "event-cells"}}{{$e := .Row}}
+<td class="px-4 py-3 whitespace-nowrap tabular-nums text-zinc-600 dark:text-zinc-400">{{$e.At}}</td>
+{{if ne .Cols "user"}}<td class="px-4 py-3 whitespace-nowrap"><a href="/admin/events?door={{$e.Door.ID}}" class="{{template "link-class"}}">{{$e.Door.Name}}</a></td>{{end}}
+{{if ne .Cols "door"}}<td class="px-4 py-3 whitespace-nowrap">{{with $e.User}}<a href="/admin/events?user={{.ID}}" class="{{template "link-class"}}">{{.Name}}</a>{{else}}<span class="text-zinc-500 dark:text-zinc-400">Unknown code</span>{{end}}</td>{{end}}
+<td class="px-4 py-3 whitespace-nowrap"><div class="flex items-center gap-1.5">{{template "outcome-badge" $e}}{{template "reason-badge" $e.Reason}}</div></td>
+<td class="px-4 py-3 text-zinc-600 dark:text-zinc-400"><span class="block">{{$e.Type}}{{with $e.RuleID}} · rule {{.}}{{end}}</span>{{with $e.Detail}}<span class="block text-xs">{{.}}</span>{{end}}{{with $e.RequestID}}<span class="block font-mono text-xs text-zinc-500 dark:text-zinc-500">{{.}}</span>{{end}}</td>
+{{end}}
+
+{{/* recent-events is a door's or a user's newest events, with a link to every one of them. */}}
+{{define "recent-events"}}
+<section aria-labelledby="events-heading" class="mt-8 overflow-hidden {{template "card-class"}}">
+  <div class="flex flex-col gap-3 px-6 pt-6 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <h2 id="events-heading" class="text-sm font-semibold">Recent events</h2>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">The newest codes entered, keypad commands, and openings from here, with what was decided and why.</p>
+    </div>
+    <a href="{{.Link}}" class="shrink-0 {{template "secondary-class"}}">All events</a>
+  </div>
+  <div class="mt-4 overflow-x-auto">
+    <table aria-label="Recent events" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+      <thead class="{{template "table-head-class"}}">
+        <tr>
+          <th scope="col" class="px-4 py-2">When</th>
+          {{if .OfUser}}<th scope="col" class="px-4 py-2">Door</th>{{else}}<th scope="col" class="px-4 py-2">Who</th>{{end}}
+          <th scope="col" class="px-4 py-2">Outcome</th>
+          <th scope="col" class="px-4 py-2">Details</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {{$cols := "user"}}{{if .OfUser}}{{$cols = "door"}}{{end}}
+        {{range .Rows}}
+        <tr>{{template "event-cells" (eventcells . $cols)}}</tr>
+        {{else}}
+        <tr><td colspan="4" class="px-6 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">Nothing has happened here yet.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</section>
+{{end}}

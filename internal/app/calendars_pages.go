@@ -18,7 +18,7 @@ import (
 
 func (a *App) calendarPageRoutes() []route {
 	return []route{
-		pageRoute(http.MethodGet, "/admin/doors/{id}/calendar", holding(auth.RoleManageDoors), a.doorCalendarPage),
+		pageRoute(http.MethodGet, "/admin/doors/{id}/calendar", opensDoors, a.doorCalendarPage),
 		pageRoute(http.MethodGet, "/admin/users/{id}/doors/{door}/calendar", holding(auth.RoleManageUsers), a.accessCalendarPage),
 	}
 }

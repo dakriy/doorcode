@@ -121,7 +121,7 @@ func (a *App) saveZoneFromForm(w http.ResponseWriter, r *http.Request, viewer au
 		return
 	}
 	f := readZoneForm(r)
-	_, err := a.changeZone(r.Context(), z.ID, f)
+	_, err := a.doors.UpdateZone(r.Context(), z.ID, f)
 	if errs, rejected := fieldErrors(err); rejected {
 		a.showZone(w, r, http.StatusUnprocessableEntity, viewer, z, f, errs)
 		return
@@ -131,6 +131,6 @@ func (a *App) saveZoneFromForm(w http.ResponseWriter, r *http.Request, viewer au
 
 func (a *App) deleteZoneFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	if z, ok := a.pageZone(w, r, viewer); ok {
-		a.changed(w, r, a.removeZone(r.Context(), z.ID), "/admin/zones", "zone-deleted")
+		a.changed(w, r, a.doors.DeleteZone(r.Context(), z.ID), "/admin/zones", "zone-deleted")
 	}
 }

@@ -16,10 +16,10 @@ import (
 func (a *App) doorPageRoutes() []route {
 	doors := holding(auth.RoleManageDoors)
 	return []route{
-		pageRoute(http.MethodGet, "/admin/doors", doors, a.doorsPage),
+		pageRoute(http.MethodGet, "/admin/doors", opensDoors, a.doorsPage),
 		pageRoute(http.MethodGet, "/admin/doors/new", doors, a.newDoorPage),
 		pageRoute(http.MethodPost, "/admin/doors", doors, a.createDoorFromForm),
-		pageRoute(http.MethodGet, "/admin/doors/{id}", doors, a.doorPage),
+		pageRoute(http.MethodGet, "/admin/doors/{id}", opensDoors, a.doorPage),
 		pageRoute(http.MethodPost, "/admin/doors/{id}", doors, a.doorSaver(readDoorDetails, "door-saved")),
 		pageRoute(http.MethodPost, "/admin/doors/{id}/open-mode", doors, a.doorSaver(readOpenMode, "open-mode-saved")),
 		pageRoute(http.MethodPost, "/admin/doors/{id}/zones", doors, a.doorSaver(readDoorZones, "door-zones-saved")),
@@ -88,6 +88,9 @@ type doorsContent struct {
 	Next     string
 	// Pending is how many controllers wait to be approved.
 	Pending int
+	// Manage is true when the viewer may change doors, not only open
+	// them and manage their overrides.
+	Manage bool
 }
 
 func (a *App) doorsPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
@@ -111,7 +114,7 @@ func (a *App) doorsPage(w http.ResponseWriter, r *http.Request, viewer auth.User
 	content := doorsContent{
 		Search: q.Search, Deleted: q.Deleted, Zone: q.ZoneID, Zones: c.zones, Rows: []doorRow{}, Total: found.Total,
 		From: (q.Page-1)*doorsPerPage + 1, To: (q.Page-1)*doorsPerPage + len(found.Doors), Empty: emptyDoors(q, found.Total),
-		Pending: len(a.controllers.Pending.List()),
+		Pending: len(a.controllers.Pending.List()), Manage: viewer.Has(auth.RoleManageDoors),
 	}
 	for _, d := range found.Doors {
 		content.Rows = append(content.Rows, c.rowOfDoor(d))
@@ -245,6 +248,14 @@ type doorContent struct {
 	Alert          string
 	MaxPictureMB   int
 	MaxPictureSide int
+	// Manage is true when the viewer may change the door, not only open
+	// it and manage its overrides.
+	Manage bool
+	// Events is the door's newest events, nil when the viewer may not
+	// read the log.
+	Events *recentLog
+	// StrikeMS is how long opening the door releases its strike.
+	StrikeMS int
 }
 
 // entrantRow is one access rule as a door's page lists who may enter.
@@ -298,12 +309,18 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 		a.pageError(w, err)
 		return
 	}
-	_, defaults, err := a.effectiveConfig(r.Context(), d.StoredDoor)
+	config, defaults, err := a.effectiveConfig(r.Context(), d.StoredDoor)
+	if err != nil {
+		a.pageError(w, err)
+		return
+	}
+	events, err := a.recent(r.Context(), viewer, connector.EventQuery{DoorID: d.ID}, eventsLink("door", d.ID), zone)
 	if err != nil {
 		a.pageError(w, err)
 		return
 	}
 	content := doorContent{
+		Manage: viewer.Has(auth.RoleManageDoors), Events: events, StrikeMS: config.StrikePulseMS,
 		Door: d.StoredDoor, Row: n.rowOfDoor(d.StoredDoor), Form: form, Alert: alert,
 		Entrants: []entrantRow{}, Overrides: []overrideRow{},
 		Schedules: scheduleChoices(n.schedules, form.OpenScheduleIDs), Zones: zoneChoices(n.zones, form.ZoneIDs),

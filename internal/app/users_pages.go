@@ -211,6 +211,9 @@ type userContent struct {
 	Alert string
 	// Access is the doors the user's groups let them enter.
 	Access []accessRow
+	// Events is the user's newest events, nil when the viewer may not
+	// read the log.
+	Events *recentLog
 	// ShowTokens is true when the viewer may manage the user's tokens.
 	ShowTokens    bool
 	Tokens        []auth.Token
@@ -261,6 +264,11 @@ func (a *App) renderUser(w http.ResponseWriter, r *http.Request, status int, vie
 		return
 	}
 	content.Access = access
+	content.Events, err = a.recent(r.Context(), viewer, connector.EventQuery{UserID: u.ID}, eventsLink("user", u.ID), content.zone)
+	if err != nil {
+		a.pageError(w, err)
+		return
+	}
 	content.ShowTokens = viewer.Has(auth.RoleAdmin)
 	if content.ShowTokens {
 		tokens, err := a.auth.Tokens(r.Context(), u.ID)

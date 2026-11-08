@@ -12,7 +12,7 @@ import (
 )
 
 func (a *App) overridePageRoutes() []route {
-	doors := holding(auth.RoleManageDoors)
+	doors := opensDoors
 	return []route{
 		pageRoute(http.MethodGet, "/admin/doors/{id}/overrides/new", doors, a.newOverridePage),
 		pageRoute(http.MethodPost, "/admin/doors/{id}/overrides", doors, a.createOverrideFromForm),

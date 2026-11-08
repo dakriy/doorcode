@@ -10,7 +10,7 @@ import (
 
 // adminNav is the navigation an administrator sees on a page no link
 // leads to.
-var adminNav = []string{"Home", "Users", "Groups", "Schedules", "Doors", "Zones", "Settings", "API tokens", "API docs"}
+var adminNav = []string{"Home", "Users", "Groups", "Schedules", "Doors", "Zones", "Events", "Settings", "API tokens", "API docs"}
 
 // enrollmentsHead and credentialsHead are the header rows of the pending
 // enrollments and of a door's credentials.
@@ -154,7 +154,7 @@ func TestApprovingAsANewDoorFromTheFormOpensTheDoor(t *testing.T) {
 	}
 	want := []any{
 		[]string{"The controller has been approved. Its credentials are on their way, and it connects as this door once it has them."},
-		[]string{"New credentials can be sent only while the controller is connected."},
+		[]string{"New credentials can be sent only while the controller is connected.", openNote},
 		[]string{"open_schedule_ids=1", "zone_ids=1"},
 		[][]string{credentialsHead, {firstUsername, "Mon 5 Jan 2026 09:00", "Issued, not yet used"}},
 	}

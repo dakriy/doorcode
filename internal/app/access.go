@@ -3,6 +3,7 @@ package app
 import (
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/dakriy/doorcode/internal/auth"
@@ -16,9 +17,9 @@ type viewerHandler func(w http.ResponseWriter, r *http.Request, viewer auth.User
 type access struct {
 	// public routes are open to anyone, signed in or not.
 	public bool
-	// role is the role a signed-in user must hold; empty means any
-	// signed-in user.
-	role string
+	// roles are the roles a signed-in user must hold one of; none means
+	// any signed-in user.
+	roles []string
 }
 
 var (
@@ -26,9 +27,16 @@ var (
 	signedInUser = access{}
 )
 
-// holding is the access of a route for signed-in users holding role.
-func holding(role string) access {
-	return access{role: role}
+// holding is the access of a route for signed-in users holding one of
+// roles.
+func holding(roles ...string) access {
+	return access{roles: roles}
+}
+
+// roleNames names need's roles, as in "the manage-doors or door-commander
+// role".
+func (need access) roleNames() string {
+	return strings.Join(need.roles, " or ")
 }
 
 // viewer returns who sent r from its session cookie, and whether anyone is
@@ -103,7 +111,7 @@ func (a *App) api(need access, next viewerHandler) http.HandlerFunc {
 			return
 		}
 		if !holds(caller, need) {
-			writeError(w, http.StatusForbidden, "the "+need.role+" role is required")
+			writeError(w, http.StatusForbidden, "the "+need.roleNames()+" role is required")
 			return
 		}
 		next(w, r, caller)
@@ -111,7 +119,7 @@ func (a *App) api(need access, next viewerHandler) http.HandlerFunc {
 }
 
 func holds(u auth.User, need access) bool {
-	return need.role == "" || u.Has(need.role)
+	return len(need.roles) == 0 || slices.ContainsFunc(need.roles, u.Has)
 }
 
 // redirect sends the browser to location with 303 See Other, so a form post

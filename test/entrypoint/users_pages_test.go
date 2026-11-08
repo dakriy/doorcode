@@ -9,7 +9,7 @@ import (
 )
 
 // usersNav is the navigation of a users page for an administrator.
-var usersNav = []string{"Home", "Users (current)", "Groups", "Schedules", "Doors", "Zones", "Settings", "API tokens", "API docs"}
+var usersNav = []string{"Home", "Users (current)", "Groups", "Schedules", "Doors", "Zones", "Events", "Settings", "API tokens", "API docs"}
 
 // usersHead is the header row of the user list.
 var usersHead = []string{"Name", "Email", "User id", "Groups", "Status"}
@@ -158,6 +158,13 @@ var accessHead = []string{"Door", "Through", "Calendar"}
 // noAccess is a user's door access when no rule names their groups.
 var noAccess = [][]string{accessHead, {"No access rule names one of their groups, so their code opens no door."}}
 
+// userEventsHead heads the table of a user's recent events, and
+// noUserEvents is the table before they did anything.
+var (
+	userEventsHead = []string{"When", "Door", "Outcome", "Details"}
+	noUserEvents   = [][]string{userEventsHead, {"Nothing has happened here yet."}}
+)
+
 // annPage is ann's page as an administrator first sees it.
 var annPage = testsupport.Page{
 	Title:   "Ann Smith · doorcode",
@@ -165,9 +172,10 @@ var annPage = testsupport.Page{
 	Nav:     usersNav,
 	Values:  annForm,
 	Tables: map[string][][]string{
-		"Groups":      {{"Group", "Roles"}, {"Not a member of any group."}},
-		"Door access": noAccess,
-		"API tokens":  {{"Name", "Created", "Expires", "Actions"}, {"Ann Smith has no API tokens."}},
+		"Groups":        {{"Group", "Roles"}, {"Not a member of any group."}},
+		"Door access":   noAccess,
+		"API tokens":    {{"Name", "Created", "Expires", "Actions"}, {"Ann Smith has no API tokens."}},
+		"Recent events": noUserEvents,
 	},
 }
 
@@ -268,9 +276,10 @@ func TestUserPageShowsTheirGroupsAndTokens(t *testing.T) {
 	got := pageOf(b.Get("/admin/users/2"))
 
 	want := map[string][][]string{
-		"Groups":      {{"Group", "Roles"}, {"Administrators", "admin"}, {"Night", "view-logs door-commander"}},
-		"Door access": noAccess,
-		"API tokens":  {{"Name", "Created", "Expires", "Actions"}, {"sync", "5 Jan 2026", "Never", "Revoke"}},
+		"Groups":        {{"Group", "Roles"}, {"Administrators", "admin"}, {"Night", "view-logs door-commander"}},
+		"Door access":   noAccess,
+		"API tokens":    {{"Name", "Created", "Expires", "Actions"}, {"sync", "5 Jan 2026", "Never", "Revoke"}},
+		"Recent events": noUserEvents,
 	}
 	if diff := cmp.Diff(want, got.Tables); diff != "" {
 		t.Errorf("tables (-want +got):\n%s", diff)

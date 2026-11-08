@@ -33,6 +33,7 @@ func TestDoorPageListsWhoCanEnterAndTheOverrides(t *testing.T) {
 			{"Guests", "Nights", "This door; Zones Annex, North", "Rule 2"},
 			{"Guests", "Always", "This door", "Rule 3"},
 		},
+		"Recent events": noDoorEvents,
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("tables (-want +got):\n%s", diff)

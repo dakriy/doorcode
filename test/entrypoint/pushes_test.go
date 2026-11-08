@@ -129,27 +129,19 @@ func TestChangingAnOverrideSendsANewTimelineToItsDoorAndNoOther(t *testing.T) {
 	}
 }
 
-func TestAChangeSendsNewTimelinesToTheDoorsThatDependOnIt(t *testing.T) {
+func TestAChangeSendsNewTimelinesToTheDoorsWhoseTimelinesDependOnIt(t *testing.T) {
 	t.Parallel()
 	cases := map[string]struct {
 		method, target, body string
 		status               int
 		want                 []string
 	}{
-		"editing a schedule":                    {"PUT", "/api/v1/schedules/3", `{"name":"Nights","windows":[{"days":["mon"],"start":"21:00","end":"06:00"}]}`, 200, []string{"3", "4"}},
-		"creating an override":                  {"POST", "/api/v1/doors/3/overrides", lockedToday, 201, []string{"3"}},
-		"editing an override":                   {"PUT", "/api/v1/doors/2/overrides/1", lockedToday, 200, []string{"2"}},
-		"cancelling an override":                {"POST", "/api/v1/doors/1/overrides/2/cancel", "", 200, []string{"1"}},
-		"deleting an override":                  {"DELETE", "/api/v1/doors/2/overrides/1", "", 204, []string{"2"}},
-		"editing a zone a rule names":           {"PUT", "/api/v1/zones/1", `{"name":"North","door_ids":[1]}`, 200, []string{"1"}},
-		"moving a zone a rule names":            {"PUT", "/api/v1/zones/1", `{"name":"North","door_ids":[4]}`, 200, []string{"4", "1"}},
-		"editing a zone no rule names":          {"PUT", "/api/v1/zones/2", `{"name":"Annex","door_ids":[2,4]}`, 200, []string{}},
-		"deleting a zone a rule names":          {"DELETE", "/api/v1/zones/1", "", 204, []string{"1"}},
-		"deleting a group":                      {"DELETE", "/api/v1/groups/3", "", 204, []string{"2", "1"}},
-		"creating a rule":                       {"POST", "/api/v1/access-rules", `{"group_id":2,"schedule_id":2,"door_ids":[1]}`, 201, []string{"1"}},
-		"moving a rule to other doors":          {"PUT", "/api/v1/access-rules/2", `{"group_id":3,"schedule_id":2,"door_ids":[3]}`, 200, []string{"3", "2", "1"}},
-		"deleting a rule":                       {"DELETE", "/api/v1/access-rules/1", "", 204, []string{"3"}},
-		"changing a door's open-mode schedules": {"PUT", "/api/v1/doors/1", `{"name":"Lobby","open_schedule_ids":[2],"zone_ids":[1]}`, 200, []string{"1"}},
+		"editing a schedule open mode and a rule use": {"PUT", "/api/v1/schedules/3", `{"name":"Nights","windows":[{"days":["mon"],"start":"21:00","end":"06:00"}]}`, 200, []string{"4"}},
+		"creating an override":                        {"POST", "/api/v1/doors/3/overrides", lockedToday, 201, []string{"3"}},
+		"editing an override":                         {"PUT", "/api/v1/doors/2/overrides/1", lockedToday, 200, []string{"2"}},
+		"cancelling an override":                      {"POST", "/api/v1/doors/1/overrides/2/cancel", "", 200, []string{"1"}},
+		"deleting an override":                        {"DELETE", "/api/v1/doors/2/overrides/1", "", 204, []string{"2"}},
+		"changing a door's open-mode schedules":       {"PUT", "/api/v1/doors/1", `{"name":"Lobby","open_schedule_ids":[2],"zone_ids":[1]}`, 200, []string{"1"}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -161,7 +153,6 @@ func TestAChangeSendsNewTimelinesToTheDoorsThatDependOnIt(t *testing.T) {
 			enroll(t, f, a, b, "E5", "5")
 			send(t, b, "DELETE", "/api/v1/doors/5", "", 204)
 			createRule(t, b, `{"group_id":2,"schedule_id":3,"door_ids":[3]}`)
-			createRule(t, b, `{"group_id":3,"schedule_id":2,"zone_ids":[1],"door_ids":[2]}`)
 			createOverride(t, b, "2", lockedToday)
 			createOverride(t, b, "1", `{"kind":"open","start":"2026-01-05T08:00:00Z","end":"2026-01-05T11:00:00Z"}`)
 			sent := len(f.BrokerStub.Published)
@@ -336,25 +327,28 @@ func TestADoorsRotationIntervalOverrideRotatesItsCredentials(t *testing.T) {
 
 func TestAChangeStandsAndIsLoggedWhenDoorsCannotBeSentIt(t *testing.T) {
 	t.Parallel()
-	failPublishing := func(f *testsupport.Factory) { f.BrokerStub.FailPublishing() }
+	failPublishing := func(f *testsupport.Factory, _ *testsupport.Browser) { f.BrokerStub.FailPublishing() }
 	cases := map[string]struct {
-		fail                 func(f *testsupport.Factory)
+		fail                 func(f *testsupport.Factory, b *testsupport.Browser)
 		method, target, body string
 		status               int
 	}{
-		"an override":                 {failPublishing, "POST", "/api/v1/doors/1/overrides", lockedToday, 201},
-		"a door":                      {failPublishing, "PUT", "/api/v1/doors/1", `{"name":"Lobby"}`, 200},
-		"a door's configuration":      {failPublishing, "PUT", "/api/v1/doors/1/config", `{"overrides":{}}`, 200},
-		"a configuration default":     {failPublishing, "PUT", "/api/v1/settings/door_log_level", `{"value":"debug"}`, 200},
-		"the site timezone":           {failPublishing, "PUT", "/api/v1/settings/site_timezone", `{"value":"Europe/Berlin"}`, 200},
-		"access rules cannot be read": {func(f *testsupport.Factory) { f.StoreStub.FailRules() }, "POST", "/api/v1/doors/1/overrides", lockedToday, 201},
+		"an override":             {failPublishing, "POST", "/api/v1/doors/1/overrides", lockedToday, 201},
+		"a door":                  {failPublishing, "PUT", "/api/v1/doors/1", `{"name":"Lobby"}`, 200},
+		"a door's configuration":  {failPublishing, "PUT", "/api/v1/doors/1/config", `{"overrides":{}}`, 200},
+		"a configuration default": {failPublishing, "PUT", "/api/v1/settings/door_log_level", `{"value":"debug"}`, 200},
+		"the site timezone":       {failPublishing, "PUT", "/api/v1/settings/site_timezone", `{"value":"Europe/Berlin"}`, 200},
+		"doors cannot be read": {func(f *testsupport.Factory, b *testsupport.Browser) {
+			createSchedule(t, b, `{"name":"Nights","windows":[{"days":["mon"],"start":"22:00","end":"06:00"}]}`)
+			f.StoreStub.FailDoors()
+		}, "PUT", "/api/v1/schedules/2", `{"name":"Nights","windows":[{"days":["tue"],"start":"22:00","end":"06:00"}]}`, 200},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			f := testsupport.NewFactory()
 			_, b, _, _ := enrolledDoor(t, f)
+			c.fail(f, b)
 			logged := len(f.LogStub.Entries)
-			c.fail(f)
 
 			got := b.Send(c.method, c.target, c.body)
 

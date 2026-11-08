@@ -504,6 +504,58 @@ type OverridesStore interface {
 	DeleteOverride(ctx context.Context, id int64) (bool, error)
 }
 
+// StoredEvent is one thing a door did or was told to do, as the store
+// holds it: at At, at the door whose id is DoorID, an event of Type, whose
+// Outcome is "allowed" or "denied" for Reason. UserID is the user it
+// concerns, nil when there is none or the code was unknown; RuleID the
+// access rule that decided, nil when none did. RequestID is the id the
+// door gave the code check, empty for other events, and Detail says more
+// in words. DoorName and UserName are the door's name and the user's
+// display name, which the store fills when it returns an event (UserName
+// empty without a user) and ignores when it stores one.
+type StoredEvent struct {
+	ID        int64
+	At        time.Time
+	DoorID    int64
+	DoorName  string
+	Type      string
+	Outcome   string
+	Reason    string
+	UserID    *int64
+	UserName  string
+	RuleID    *int64
+	RequestID string
+	Detail    string
+}
+
+// EventQuery selects a page of events. A zero DoorID or UserID, and an
+// empty Type, Outcome, or Reason, keeps every event; otherwise an event is
+// kept when it has that value. A nil From or To leaves the range open on
+// that side; otherwise an event is kept when it is at or after From and
+// before To. The page skips Offset events and holds at most Limit.
+type EventQuery struct {
+	DoorID  int64
+	UserID  int64
+	Type    string
+	Outcome string
+	Reason  string
+	From    *time.Time
+	To      *time.Time
+	Offset  int
+	Limit   int
+}
+
+// EventsStore holds the events aggregate, the activity log. Events are
+// only ever added; they outlive the deletion of their door and user.
+type EventsStore interface {
+	// AddEvent stores e, ignoring e.ID, and returns the id it was given.
+	AddEvent(ctx context.Context, e StoredEvent) (int64, error)
+	// Events returns the page of events q selects, newest first and then
+	// by id descending, and how many events q selects on every page
+	// together.
+	Events(ctx context.Context, q EventQuery) ([]StoredEvent, int, error)
+}
+
 // Store is the application's persistent state, one interface per aggregate.
 type Store interface {
 	// Migrate brings the schema up to date. It runs once at startup, before
@@ -521,6 +573,7 @@ type Store interface {
 	RulesStore
 	OverridesStore
 	CredentialsStore
+	EventsStore
 }
 
 // Message is one message the broker carries: its topic, its payload, and

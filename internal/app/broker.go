@@ -35,7 +35,7 @@ func (a *App) Run(ctx context.Context) error {
 		}
 		a.enrolling = true
 	}
-	inbound, err := a.broker.Subscribe(ctx, []string{protocol.EnrollFilter, protocol.OnlineFilter})
+	inbound, err := a.broker.Subscribe(ctx, []string{protocol.EnrollFilter, protocol.OnlineFilter, protocol.CheckFilter})
 	if err != nil {
 		return fmt.Errorf("subscribe: %w", err)
 	}
@@ -78,11 +78,24 @@ func (a *App) prepareEnrollment(ctx context.Context) error {
 // receive handles one message from a controller, logging why it was
 // ignored when it was.
 func (a *App) receive(ctx context.Context, m connector.Message) {
-	if err := a.controllers.Receive(ctx, m); err != nil {
+	if err := a.handle(ctx, m); err != nil {
 		a.log.Error("ignored a broker message",
 			connector.Field{Key: "topic", Value: m.Topic},
 			connector.Field{Key: "error", Value: err.Error()})
 	}
+}
+
+// handle handles one message from a controller: a code check, or what it
+// says of itself while it enrolls or as a door.
+func (a *App) handle(ctx context.Context, m connector.Message) error {
+	t, ok := protocol.Parse(m.Topic)
+	if !ok {
+		return errors.New("the topic names no controller or door")
+	}
+	if t.Leaf == protocol.LeafCheck {
+		return a.checkCode(ctx, t.DoorID, m.Payload)
+	}
+	return a.controllers.Receive(ctx, t, m.Payload)
 }
 
 // sweepIfDue does the periodic work when its turn has come, and sets the

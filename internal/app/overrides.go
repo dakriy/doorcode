@@ -40,7 +40,7 @@ var (
 )
 
 func (a *App) overrideRoutes() []route {
-	doors := holding(auth.RoleManageDoors)
+	doors := opensDoors
 	example := overrideRequest{
 		Kind: "locked", Start: time.Date(2026, 12, 24, 18, 0, 0, 0, time.UTC), End: time.Date(2026, 12, 27, 6, 0, 0, 0, time.UTC),
 		Reason: "Closed over the holiday.",

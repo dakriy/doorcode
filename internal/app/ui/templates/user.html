@@ -103,6 +103,8 @@
   </div>
 </section>
 
+{{with $c.Events}}{{template "recent-events" .}}{{end}}
+
 {{if $c.ShowTokens}}
 <section aria-labelledby="tokens-heading" class="mt-8">
   <h2 id="tokens-heading" class="text-lg font-semibold tracking-tight">API tokens</h2>

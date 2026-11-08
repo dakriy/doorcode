@@ -130,16 +130,13 @@ func (p *Pending) set(e Enrollment, waiting bool) {
 	p.byID[e.HardwareID] = e
 }
 
-// Receive handles a message the broker delivered from a controller.
-func (s Service) Receive(ctx context.Context, m connector.Message) error {
-	t, ok := protocol.Parse(m.Topic)
-	if !ok {
-		return errors.New("the topic names no controller or door")
-	}
+// Receive handles payload, which the broker delivered from a controller on
+// the enrollment or online topic t names.
+func (s Service) Receive(ctx context.Context, t protocol.Topic, payload []byte) error {
 	if t.HardwareID != "" {
-		return s.announced(t.HardwareID, m.Payload)
+		return s.announced(t.HardwareID, payload)
 	}
-	return s.online(ctx, t.DoorID, m.Payload)
+	return s.online(ctx, t.DoorID, payload)
 }
 
 // announced records what an enrolling controller says of itself. An empty
@@ -356,19 +353,37 @@ func (s Service) Rotate(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	if d.Controller == nil || !d.Controller.Online {
+	if !connected(d) {
 		return ErrOffline
 	}
 	username, token, err := s.issue(ctx, id)
 	if err != nil {
 		return err
 	}
-	command := protocol.Encode(&protocol.Command{
-		ID: hex.EncodeToString(s.Entropy.Bytes(commandIDBytes)), Command: protocol.CommandCredentials, Username: username, Token: token,
-	})
-	err = s.Broker.Publish(ctx, connector.Message{Topic: protocol.DoorTopic(id, protocol.LeafCommand), Payload: command})
+	err = s.send(ctx, id, protocol.Command{Command: protocol.CommandCredentials, Username: username, Token: token})
 	s.Changed()
 	return err
+}
+
+// Open tells the connected controller of d to release its strike for
+// strikeMS milliseconds.
+func (s Service) Open(ctx context.Context, d connector.StoredDoor, strikeMS int) error {
+	if !connected(d) {
+		return ErrOffline
+	}
+	return s.send(ctx, d.ID, protocol.Command{Command: protocol.CommandOpen, StrikeMS: strikeMS})
+}
+
+// connected reports whether a controller enrolled as d is connected.
+func connected(d connector.StoredDoor) bool {
+	return d.Controller != nil && d.Controller.Online
+}
+
+// send gives c an id of its own and publishes it on the command topic of
+// the door whose id is id.
+func (s Service) send(ctx context.Context, id int64, c protocol.Command) error {
+	c.ID = hex.EncodeToString(s.Entropy.Bytes(commandIDBytes))
+	return s.Broker.Publish(ctx, connector.Message{Topic: protocol.DoorTopic(id, protocol.LeafCommand), Payload: protocol.Encode(&c)})
 }
 
 // Revoke stops every credential of the door whose id is id working, which

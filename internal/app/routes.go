@@ -85,6 +85,8 @@ func (a *App) routes() []route {
 	table = append(table, a.timelineRoutes()...)
 	table = append(table, a.controllerRoutes()...)
 	table = append(table, a.controllerPageRoutes()...)
+	table = append(table, a.eventRoutes()...)
+	table = append(table, a.eventPageRoutes()...)
 	return append(table, a.calendarPageRoutes()...)
 }
 
@@ -166,8 +168,8 @@ func refusals(need access) []openapi.Response {
 		{Status: http.StatusUnauthorized, Description: "No valid API token was sent.", Body: errorBody{}},
 		{Status: http.StatusInternalServerError, Description: "The server failed; the body names a request id to give an administrator.", Body: errorBody{}},
 	}
-	if need.role != "" {
-		out = append(out, openapi.Response{Status: http.StatusForbidden, Description: "The caller does not hold the " + need.role + " role.", Body: errorBody{}})
+	if len(need.roles) > 0 {
+		out = append(out, openapi.Response{Status: http.StatusForbidden, Description: "The caller does not hold the " + need.roleNames() + " role.", Body: errorBody{}})
 	}
 	return out
 }

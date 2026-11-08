@@ -117,6 +117,8 @@ var (
 	doorCalendarTemplate   = shellPage("door-calendar.html")
 	accessCalendarTemplate = shellPage("access-calendar.html")
 
+	eventsTemplate = shellPage("events.html")
+
 	enrollmentsTemplate = shellPage("enrollments.html")
 	approvalTemplate    = shellPage("approval.html")
 )
@@ -153,6 +155,16 @@ var templateFuncs = template.FuncMap{
 	"thumb": func(row doorRow, size string) thumbnailView {
 		return thumbnailView{Row: row, Size: size}
 	},
+	"eventcells": func(row eventRow, cols string) eventCells {
+		return eventCells{Row: row, Cols: cols}
+	},
+}
+
+// eventCells is one event's row of cells, naming its door, its user, or
+// both, as Cols says.
+type eventCells struct {
+	Row  eventRow
+	Cols string
 }
 
 // choiceList is a list of checkboxes sharing the form field Name, with

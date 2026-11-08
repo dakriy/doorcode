@@ -180,6 +180,7 @@ func TestCalendarPageStoreFailureShowsARequestID(t *testing.T) {
 		"an access calendar's door":   {(*testsupport.Store).FailDoors, "/admin/users/2/doors/1/calendar"},
 		"an access calendar's rules":  {(*testsupport.Store).FailRules, "/admin/users/2/doors/1/calendar"},
 		"a user page's door access":   {(*testsupport.Store).FailRules, "/admin/users/2"},
+		"a user page's doors":         {(*testsupport.Store).FailDoors, "/admin/users/2"},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

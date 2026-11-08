@@ -51,7 +51,7 @@ var defaultSettings = []shownSetting{
 func settingsPage(shown []shownSetting, changed map[string]shownSetting, entered, refused map[string]string) testsupport.Page {
 	page := testsupport.Page{
 		Title: "Settings · doorcode", Heading: "Settings", Notes: settingsNote, Values: map[string]string{},
-		Nav:    []string{"Home", "Users", "Groups", "Schedules", "Doors", "Zones", "Settings (current)", "API tokens", "API docs"},
+		Nav:    []string{"Home", "Users", "Groups", "Schedules", "Doors", "Zones", "Events", "Settings (current)", "API tokens", "API docs"},
 		Tables: map[string][][]string{"Settings": {{"Setting", "Value", "Source", "Environment variable"}}},
 	}
 	for _, s := range shown {

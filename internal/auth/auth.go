@@ -205,10 +205,15 @@ func (s Service) Authenticate(ctx context.Context, token string) (User, bool, er
 func (s Service) admit(u connector.StoredUser, found bool, ends *time.Time) (User, bool, error) {
 	now := s.Clock.Now()
 	credentialEnded := !found || reached(ends, now)
-	if credentialEnded || accountEnded(u, now) {
+	if credentialEnded || AccountEnded(u, now) {
 		return User{}, false, nil
 	}
-	return User{ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, groups: u.Groups}, true, nil
+	return UserOf(u), true, nil
+}
+
+// UserOf is u as a person holding the roles of u's groups.
+func UserOf(u connector.StoredUser) User {
+	return User{ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, groups: u.Groups}
 }
 
 // SignOut ends the session token belongs to.
@@ -223,8 +228,9 @@ func (s Service) PurgeSessions(ctx context.Context) error {
 	return err
 }
 
-// accountEnded reports whether u's account is deleted or has expired by now.
-func accountEnded(u connector.StoredUser, now time.Time) bool {
+// AccountEnded reports whether u's account is deleted or has expired by
+// now. Such a user is refused everywhere.
+func AccountEnded(u connector.StoredUser, now time.Time) bool {
 	return u.DeletedAt != nil || reached(u.ExpiresAt, now)
 }
 

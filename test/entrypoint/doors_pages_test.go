@@ -9,7 +9,7 @@ import (
 )
 
 // doorsNav is the navigation of a doors page for an administrator.
-var doorsNav = []string{"Home", "Users", "Groups", "Schedules", "Doors (current)", "Zones", "Settings", "API tokens", "API docs"}
+var doorsNav = []string{"Home", "Users", "Groups", "Schedules", "Doors (current)", "Zones", "Events", "Settings", "API tokens", "API docs"}
 
 // doorsHead is the header row of the door list.
 var doorsHead = []string{"Picture", "Name", "Status", "Zones", "Open mode", "Portal"}
@@ -26,10 +26,22 @@ var (
 var freshDoorTables = map[string][][]string{
 	"Overrides":     {overridesHead, {"No overrides are in force or to come. The door follows its open mode and access rules."}},
 	"Who can enter": {entrantsHead, {"No access rule reaches this door, so only open mode, overrides, and door commanders open it."}},
+	"Recent events": noDoorEvents,
 }
 
-// doorNote is what a door's page says about what enrollment adds.
-var doorNote = []string{"No controller has enrolled as this door yet. Its hardware, credentials, configuration, and live state appear here once one does."}
+// doorEventsHead heads the table of a door's recent events, and
+// noDoorEvents is the table before anything happened there.
+var (
+	doorEventsHead = []string{"When", "Who", "Outcome", "Details"}
+	noDoorEvents   = [][]string{doorEventsHead, {"Nothing has happened here yet."}}
+)
+
+// openNote is what a door's page says while it cannot be opened.
+const openNote = "The door can be opened from here once its controller is connected."
+
+// doorNote is what a door's page says about what enrollment adds and why
+// it cannot be opened yet.
+var doorNote = []string{"No controller has enrolled as this door yet. Its hardware, credentials, configuration, and live state appear here once one does.", openNote}
 
 // doorPage is the page at target, after the flash of signing in is
 // shown elsewhere.
@@ -491,7 +503,7 @@ func TestDeletingAndRestoringADoorFromItsPage(t *testing.T) {
 	afterwards := pageOf(b.Get(restored.Location))
 
 	want := []any{"/admin/doors/1", []string{"The door has been deleted. Its history stays, and you can restore it."},
-		"/admin/doors/1", []string{"The door has been restored."}, []string{doorNote[0], "There are no zones yet. Create one on the zones page."}}
+		"/admin/doors/1", []string{"The door has been restored."}, []string{doorNote[0], openNote, "There are no zones yet. Create one on the zones page."}}
 	if diff := cmp.Diff(want, []any{deleted.Location, whileDeleted.Messages, restored.Location, afterwards.Messages, afterwards.Notes}); diff != "" {
 		t.Errorf("delete, restore (-want +got):\n%s", diff)
 	}

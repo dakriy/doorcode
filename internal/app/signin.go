@@ -58,6 +58,7 @@ var flashes = map[string]string{
 	"override-created":    "The override has been created.",
 	"override-saved":      "The override's changes have been saved.",
 	"override-cancelled":  "The override has been cancelled. It ends now.",
+	"door-opened":         "The door has been told to release its strike. The opening is logged under your name.",
 	"override-deleted":    "The override has been deleted.",
 }
 

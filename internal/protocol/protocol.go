@@ -28,6 +28,8 @@ const (
 	EnrollFilter = "doorcode/enroll/+"
 	// OnlineFilter matches the online status of every door.
 	OnlineFilter = "doorcode/doors/+/online"
+	// CheckFilter matches the code checks of every door.
+	CheckFilter = "doorcode/doors/+/check"
 	// EnrollOwnFilter is the one topic an enrolling controller may
 	// announce itself on: the broker puts the controller's client id,
 	// which must be its hardware id, in place of %c.
@@ -37,8 +39,13 @@ const (
 	CredentialsOwnFilter = "doorcode/enroll/%c/credentials"
 )
 
-// The leaves of a door's topics the server publishes on.
+// The leaves of a door's topics.
 const (
+	// LeafCheck ends the topic a door asks the server to check a code on.
+	LeafCheck = "check"
+	// LeafReply ends the topic a door receives the server's answers to
+	// its code checks on.
+	LeafReply = "reply"
 	// LeafCommand ends the topic a door receives commands on.
 	LeafCommand = "command"
 	// LeafConfig ends the topic a door receives its configuration on.
@@ -75,10 +82,12 @@ func doorPrefix(id int64) string {
 }
 
 // Topic is what a topic says: the hardware id of an enrolling controller,
-// or the id of a door.
+// or the id of a door and the last level of the door's topic, such as
+// LeafCheck.
 type Topic struct {
 	HardwareID string
 	DoorID     int64
+	Leaf       string
 }
 
 // Parse reads a topic that EnrollFilter or a filter of every door's topics
@@ -91,7 +100,7 @@ func Parse(topic string) (Topic, bool) {
 		return Topic{HardwareID: levels[2]}, levels[2] != ""
 	}
 	id, err := strconv.ParseInt(levels[2], 10, 64)
-	return Topic{DoorID: id}, err == nil && id > 0
+	return Topic{DoorID: id, Leaf: levels[len(levels)-1]}, err == nil && id > 0
 }
 
 // Header is the part every message has: the protocol version.
@@ -139,21 +148,47 @@ type Online struct {
 	Signal          int    `cbor:"signal,omitempty"`
 }
 
-// CommandCredentials is the kind of command that hands a door new
-// credentials.
-const CommandCredentials = "credentials"
+// The kinds of command.
+const (
+	// CommandCredentials hands a door new credentials.
+	CommandCredentials = "credentials"
+	// CommandOpen releases a door's strike.
+	CommandOpen = "open"
+)
 
 // Command is what the server tells a door to do on its command topic. ID
 // names the command, so the door can acknowledge it. A credentials command
 // carries the username and token to connect as from now on; the door
 // connects with them, publishes its online status, and then closes the
-// connection it had.
+// connection it had. An open command carries how long, in milliseconds,
+// to release the strike for.
 type Command struct {
 	Header
 	ID       string `cbor:"id"`
 	Command  string `cbor:"command"`
 	Username string `cbor:"username,omitempty"`
 	Token    string `cbor:"token,omitempty"`
+	StrikeMS int    `cbor:"strike_ms,omitempty"`
+}
+
+// Check is what a door publishes on its check topic when someone enters a
+// code: the id it gives the request, so it can match the answer to it, and
+// the digits entered, the code followed, when a command is given, by "*"
+// and the command.
+type Check struct {
+	Header
+	RequestID string `cbor:"request_id"`
+	Digits    string `cbor:"digits"`
+}
+
+// Reply is what the server answers a check with on the door's reply topic:
+// the request id the check gave, whether to let the person in, and, when
+// it does, how long in milliseconds to release the strike for.
+type Reply struct {
+	Header
+	RequestID string `cbor:"request_id"`
+	Allow     bool   `cbor:"allow"`
+	StrikeMS  int    `cbor:"strike_ms,omitempty"`
 }
 
 // DoorConfig is how a door runs: how long it releases the strike, how

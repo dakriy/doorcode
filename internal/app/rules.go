@@ -196,7 +196,7 @@ func readRule(w http.ResponseWriter, r *http.Request) (rule.Fields, bool) {
 
 func (a *App) createRule(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	if f, ok := readRule(w, r); ok {
-		stored, err := a.newRule(r.Context(), f)
+		stored, err := a.rules.Create(r.Context(), f)
 		a.writeRule(w, r, http.StatusCreated, stored, err)
 	}
 }
@@ -208,13 +208,13 @@ func (a *App) getRule(w http.ResponseWriter, r *http.Request, _ auth.User) {
 
 func (a *App) updateRule(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	if f, ok := readRule(w, r); ok {
-		stored, err := a.changeRule(r.Context(), pathID(r, "id"), f)
+		stored, err := a.rules.Update(r.Context(), pathID(r, "id"), f)
 		a.writeRule(w, r, http.StatusOK, stored, err)
 	}
 }
 
 func (a *App) deleteRule(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	if err := a.removeRule(r.Context(), pathID(r, "id")); err != nil {
+	if err := a.rules.Delete(r.Context(), pathID(r, "id")); err != nil {
 		a.ruleError(w, err)
 		return
 	}

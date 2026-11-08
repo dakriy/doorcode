@@ -6,7 +6,6 @@ import (
 	"errors"
 	"slices"
 
-	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/door"
@@ -82,34 +81,6 @@ func (a *App) changeSchedule(ctx context.Context, id int64, f schedule.Fields) (
 	return affecting(ctx, a, rule.OfSchedule, id, func() (connector.StoredSchedule, error) {
 		return a.schedules.Update(ctx, id, f)
 	}, func(s connector.StoredSchedule) int64 { return s.ID })
-}
-
-func (a *App) changeZone(ctx context.Context, id int64, f door.ZoneFields) (connector.StoredZone, error) {
-	return affecting(ctx, a, rule.OfZone, id, func() (connector.StoredZone, error) {
-		return a.doors.UpdateZone(ctx, id, f)
-	}, func(z connector.StoredZone) int64 { return z.ID })
-}
-
-func (a *App) removeZone(ctx context.Context, id int64) error {
-	return removing(ctx, a, rule.OfZone, id, func() error { return a.doors.DeleteZone(ctx, id) })
-}
-
-func ruleID(r connector.StoredRule) int64 { return r.ID }
-
-func (a *App) newRule(ctx context.Context, f rule.Fields) (connector.StoredRule, error) {
-	return affecting(ctx, a, rule.OfRule, 0, func() (connector.StoredRule, error) { return a.rules.Create(ctx, f) }, ruleID)
-}
-
-func (a *App) changeRule(ctx context.Context, id int64, f rule.Fields) (connector.StoredRule, error) {
-	return affecting(ctx, a, rule.OfRule, id, func() (connector.StoredRule, error) { return a.rules.Update(ctx, id, f) }, ruleID)
-}
-
-func (a *App) removeRule(ctx context.Context, id int64) error {
-	return removing(ctx, a, rule.OfRule, id, func() error { return a.rules.Delete(ctx, id) })
-}
-
-func (a *App) removeGroup(ctx context.Context, viewer auth.User, id int64) error {
-	return removing(ctx, a, rule.OfGroup, id, func() error { return a.directory.DeleteGroup(ctx, viewer, id) })
 }
 
 // changeDoor changes the door whose id is id and sends it its timeline,
