@@ -105,39 +105,61 @@ func inside(at, start, end time.Time) bool {
 func portalDoorOf(d rule.DoorAccess, now time.Time) portalDoor {
 	shown := portalDoor{
 		Row:     doorRow{ID: d.Door.ID, Name: d.Door.Name, Location: d.Door.Location, Thumbnail: thumbnailOf(d.Door)},
-		Reached: len(d.Rules) > 0,
+		Reached: d.Reached(),
 	}
+	shown.Now, shown.Kind = doesNow(d, now)
+	return shown
+}
+
+// doesNow says what d does for the viewer at now, and how it is drawn: its
+// timeline's state first, then whether their code works.
+func doesNow(d rule.DoorAccess, now time.Time) (string, string) {
 	for _, s := range d.Spans {
-		if inside(now, s.Start, s.End) && s.State == timeline.Open {
-			shown.Now, shown.Kind = "Open mode now: any keypress unlocks it", eventOpen
-			return shown
-		}
 		if inside(now, s.Start, s.End) {
-			shown.Now, shown.Kind = "Locked now: no code opens it", eventLocked
-			return shown
+			return spanNow(s.State)
 		}
-	}
-	shown.Now, shown.Kind = "Your code never opens this door", "none"
-	if shown.Reached {
-		shown.Now, shown.Kind = "Your code works here at set times", "later"
 	}
 	for _, in := range d.Works {
 		if inside(now, in.Start, in.End) {
-			shown.Now, shown.Kind = "Your code works now", eventCode
+			return "Your code works now", eventCode
 		}
 	}
-	return shown
+	if d.Reached() {
+		return "Your code works here at set times", "later"
+	}
+	return "Your code never opens this door", "none"
+}
+
+// spanNow says what a door in a timeline span with state does now, and how
+// it is drawn.
+func spanNow(state string) (string, string) {
+	if state == timeline.Open {
+		return "Open mode now: any keypress unlocks it", eventOpen
+	}
+	return "Locked now: no code opens it", eventLocked
+}
+
+// publicDoors is every door the portal shows, with the access viewer has
+// there from from up to to, read in zone.
+func (a *App) publicDoors(r *http.Request, viewer auth.User, zone *time.Location, from, to time.Time) ([]rule.DoorAccess, error) {
+	u, err := a.directory.User(r.Context(), viewer.ID)
+	if err != nil {
+		return nil, err
+	}
+	return a.rules.Public(r.Context(), u.Groups, zone, from, to)
+}
+
+// ownEntries asks for page page, of perPage, of the events of the user
+// whose id is userID.
+func ownEntries(userID int64, page, perPage int) event.Query {
+	return event.Query{EventQuery: connector.EventQuery{UserID: userID}, Page: page, PerPage: perPage}
 }
 
 // portalDoors is every door the portal shows, as it is today in zone, for
 // viewer.
 func (a *App) portalDoors(r *http.Request, viewer auth.User, zone *time.Location) ([]portalDoor, error) {
-	groups, err := a.groupsOf(r, viewer)
-	if err != nil {
-		return nil, err
-	}
 	today := dayRange{zone: zone, first: a.today(zone), last: a.today(zone)}
-	doors, err := a.rules.Public(r.Context(), groups, zone, today.from(), today.to())
+	doors, err := a.publicDoors(r, viewer, zone, today.from(), today.to())
 	shown := []portalDoor{}
 	for _, d := range doors {
 		shown = append(shown, portalDoorOf(d, a.clock.Now()))
@@ -180,7 +202,7 @@ func (a *App) home(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 			content.Open++
 		}
 	}
-	found, err := a.events.Find(r.Context(), event.Query{EventQuery: connector.EventQuery{UserID: viewer.ID}, Page: 1, PerPage: homeEntries})
+	found, err := a.events.Find(r.Context(), ownEntries(viewer.ID, 1, homeEntries))
 	if err != nil {
 		a.pageError(w, err)
 		return
@@ -304,12 +326,7 @@ func (a *App) doorAccessPage(w http.ResponseWriter, r *http.Request, viewer auth
 	}
 	doorID := pathID(r, "door")
 	wk := a.weekOf(r, zone, accessPath+"/"+strconv.FormatInt(doorID, 10))
-	groups, err := a.groupsOf(r, viewer)
-	if err != nil {
-		a.pageError(w, err)
-		return
-	}
-	doors, err := a.rules.Public(r.Context(), groups, zone, wk.days.from(), wk.days.to())
+	doors, err := a.publicDoors(r, viewer, zone, wk.days.from(), wk.days.to())
 	if err != nil {
 		a.pageError(w, err)
 		return
@@ -320,7 +337,7 @@ func (a *App) doorAccessPage(w http.ResponseWriter, r *http.Request, viewer auth
 		return
 	}
 	d := doors[i]
-	content := doorAccessContent{Calendar: wk, Row: portalDoorOf(d, a.clock.Now()).Row, Reached: len(d.Rules) > 0, Works: []occurrenceRow{}}
+	content := doorAccessContent{Calendar: wk, Row: portalDoorOf(d, a.clock.Now()).Row, Reached: d.Reached(), Works: []occurrenceRow{}}
 	events := []calendarEvent{}
 	for _, in := range d.Works {
 		in = inZone(in, zone)
@@ -349,7 +366,7 @@ func (a *App) entriesPage(w http.ResponseWriter, r *http.Request, viewer auth.Us
 	if !ok {
 		page = 1
 	}
-	found, err := a.events.Find(r.Context(), event.Query{EventQuery: connector.EventQuery{UserID: viewer.ID}, Page: page, PerPage: entriesPerPage})
+	found, err := a.events.Find(r.Context(), ownEntries(viewer.ID, page, entriesPerPage))
 	if err != nil {
 		a.pageError(w, err)
 		return

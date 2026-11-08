@@ -8,7 +8,6 @@ import (
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/directory"
-	"github.com/dakriy/doorcode/internal/event"
 	"github.com/dakriy/doorcode/internal/openapi"
 	"github.com/dakriy/doorcode/internal/request"
 	"github.com/dakriy/doorcode/internal/rule"
@@ -205,7 +204,7 @@ func (a *App) setOwnPassword(w http.ResponseWriter, r *http.Request, caller auth
 func viewOfPortalDoor(d rule.DoorAccess, zone *time.Location) portalDoorView {
 	view := portalDoorView{
 		Door: doorRef(d.Door), Location: d.Door.Location, ThumbnailURL: thumbnailOf(d.Door),
-		Reached: len(d.Rules) > 0, Works: []occurrenceView{}, Spans: []spanView{},
+		Reached: d.Reached(), Works: []occurrenceView{}, Spans: []spanView{},
 	}
 	for _, in := range d.Works {
 		view.Works = append(view.Works, occurrenceView{Start: in.Start.In(zone), End: in.End.In(zone)})
@@ -221,12 +220,7 @@ func (a *App) getOwnAccess(w http.ResponseWriter, r *http.Request, caller auth.U
 	if !ok {
 		return
 	}
-	groups, err := a.groupsOf(r, caller)
-	if err != nil {
-		a.internalError(w, err)
-		return
-	}
-	doors, err := a.rules.Public(r.Context(), groups, days.zone, days.from(), days.to())
+	doors, err := a.publicDoors(r, caller, days.zone, days.from(), days.to())
 	if err != nil {
 		a.internalError(w, err)
 		return
@@ -238,12 +232,6 @@ func (a *App) getOwnAccess(w http.ResponseWriter, r *http.Request, caller auth.U
 	writeJSON(w, http.StatusOK, portalAccessView{TimeZone: days.zone.String(), From: days.firstText(), To: days.lastText(), Doors: views})
 }
 
-// groupsOf is the groups of the person who sent r.
-func (a *App) groupsOf(r *http.Request, viewer auth.User) ([]connector.UserGroup, error) {
-	u, err := a.directory.User(r.Context(), viewer.ID)
-	return u.Groups, err
-}
-
 func (a *App) listOwnEntries(w http.ResponseWriter, r *http.Request, caller auth.User) {
 	page, pageOK := queryNumber(r, "page", 1, 1, maxPage)
 	perPage, perPageOK := queryNumber(r, "per_page", eventsPerPage, 1, maxEventsAPIPer)
@@ -251,7 +239,7 @@ func (a *App) listOwnEntries(w http.ResponseWriter, r *http.Request, caller auth
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("page must be a whole number from 1, and per_page one from 1 to %d", maxEventsAPIPer))
 		return
 	}
-	found, err := a.events.Find(r.Context(), event.Query{EventQuery: connector.EventQuery{UserID: caller.ID}, Page: page, PerPage: perPage})
+	found, err := a.events.Find(r.Context(), ownEntries(caller.ID, page, perPage))
 	if err != nil {
 		a.internalError(w, err)
 		return

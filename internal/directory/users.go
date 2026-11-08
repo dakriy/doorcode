@@ -190,7 +190,7 @@ func (s Service) RestoreUser(ctx context.Context, id int64) error {
 // SetCode gives the user whose id is id the door code code, 6 to 20 digits
 // that no other user has.
 func (s Service) SetCode(ctx context.Context, id int64, code string) error {
-	if problem := codeProblem(code); problem != "" {
+	if problem := digitsProblem(code, minCodeDigits, maxCodeDigits); problem != "" {
 		return check.Problems{{Field: "code", Message: problem}}
 	}
 	return s.storeCode(ctx, id, code, "code")
@@ -220,8 +220,8 @@ func (s Service) SetOwnCode(ctx context.Context, id int64, chosen string) error 
 	if err != nil {
 		return err
 	}
-	if strings.Trim(chosen, digits) != "" || len(chosen) < minOwnDigits || len(chosen) > maxOwnDigits {
-		return check.Problems{{Field: "digits", Message: fmt.Sprintf("Enter %d to %d digits.", minOwnDigits, maxOwnDigits)}}
+	if problem := digitsProblem(chosen, minOwnDigits, maxOwnDigits); problem != "" {
+		return check.Problems{{Field: "digits", Message: problem}}
 	}
 	return s.storeCode(ctx, id, prefix+chosen, "digits")
 }
@@ -257,9 +257,11 @@ func (s Service) changed(found bool, err error) error {
 	return err
 }
 
-func codeProblem(code string) string {
-	if strings.Trim(code, digits) != "" || len(code) < minCodeDigits || len(code) > maxCodeDigits {
-		return fmt.Sprintf("Enter %d to %d digits.", minCodeDigits, maxCodeDigits)
+// digitsProblem says what is wrong with s as least to most digits; empty
+// when nothing is.
+func digitsProblem(s string, least, most int) string {
+	if strings.Trim(s, digits) != "" || len(s) < least || len(s) > most {
+		return fmt.Sprintf("Enter %d to %d digits.", least, most)
 	}
 	return ""
 }

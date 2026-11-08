@@ -13,6 +13,7 @@ import (
 
 	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/schedule"
 	"github.com/dakriy/doorcode/internal/timeline"
 )
@@ -213,6 +214,12 @@ type DoorAccess struct {
 	Spans []timeline.Span
 }
 
+// Reached reports whether an access rule of the user's groups reaches the
+// door.
+func (d DoorAccess) Reached() bool {
+	return len(d.Rules) > 0
+}
+
 // Reachable returns each door that is not deleted which an access rule
 // naming one of groups reaches, in name order, with those rules.
 func (s Service) Reachable(ctx context.Context, groups []connector.UserGroup) ([]DoorAccess, error) {
@@ -264,7 +271,7 @@ func (s Service) Public(ctx context.Context, groups []connector.UserGroup, zone 
 	}
 	public := []DoorAccess{}
 	for _, d := range doors {
-		if d.Public && d.DeletedAt == nil {
+		if door.InPortal(d) {
 			public = append(public, DoorAccess{Door: d, Rules: reachingFrom(d, groups, rules)})
 		}
 	}

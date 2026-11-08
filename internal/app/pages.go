@@ -169,6 +169,15 @@ var templateFuncs = template.FuncMap{
 	"portalcard": func(href, title, about string) portalCard {
 		return portalCard{Href: href, Title: title, About: about}
 	},
+	"spantable": func(label string, rows []spanRow) spanTable {
+		return spanTable{Label: label, Rows: rows}
+	},
+}
+
+// spanTable is a door's timeline as a table labelled Label.
+type spanTable struct {
+	Label string
+	Rows  []spanRow
 }
 
 // portalCard is a card on the portal's home leading to one of its pages.

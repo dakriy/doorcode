@@ -182,7 +182,7 @@ func (a *App) servePicture(read func(ctx context.Context, doorID, id int64) ([]b
 			a.doorError(w, err)
 			return
 		}
-		if !caller.Has(auth.RoleManageDoors) && (!d.Public || d.DeletedAt != nil) {
+		if !caller.Has(auth.RoleManageDoors) && !door.InPortal(d) {
 			writeError(w, http.StatusForbidden, "the manage-doors role is required for the pictures of a door the portal does not show")
 			return
 		}

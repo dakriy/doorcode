@@ -42,6 +42,12 @@ type Store interface {
 	connector.OverridesStore
 }
 
+// InPortal reports whether the user portal shows d, to everyone signed
+// in: it is public and not deleted.
+func InPortal(d connector.StoredDoor) bool {
+	return d.Public && d.DeletedAt == nil
+}
+
 // Service reads and changes doors, zones, and pictures.
 type Service struct {
 	Store Store
