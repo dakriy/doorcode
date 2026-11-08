@@ -60,14 +60,18 @@ func apiToken(r *http.Request) (string, bool) {
 	return token, strings.EqualFold(scheme, "Bearer")
 }
 
-// page guards a page: anyone else is sent to the sign-in page, which returns
-// them here afterwards, and a user without the role sees a refusal.
+// unguarded serves a public route to anyone, as the zero User.
+func unguarded(next viewerHandler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		next(w, r, auth.User{})
+	}
+}
+
+// page guards a page that needs a signed-in user: anyone else is sent to
+// the sign-in page, which returns them here afterwards, and a user without
+// the role sees a refusal.
 func (a *App) page(need access, next viewerHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if need.public {
-			next(w, r, auth.User{})
-			return
-		}
 		viewer, ok, err := a.viewer(r)
 		if err != nil {
 			a.pageError(w, err)
@@ -85,14 +89,10 @@ func (a *App) page(need access, next viewerHandler) http.HandlerFunc {
 	}
 }
 
-// api guards an API operation, answering in JSON when the caller is not
-// authenticated or does not hold the role.
+// api guards an API operation that needs a signed-in caller, answering in
+// JSON when the caller is not authenticated or does not hold the role.
 func (a *App) api(need access, next viewerHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if need.public {
-			next(w, r, auth.User{})
-			return
-		}
 		caller, ok, err := a.caller(r)
 		if err != nil {
 			a.internalError(w, err)

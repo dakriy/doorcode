@@ -2,6 +2,7 @@ package app
 
 import (
 	"cmp"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -14,6 +15,7 @@ import (
 
 const (
 	maxTokenNameLength = 100
+	minTokenDays       = 1
 	maxTokenDays       = 3650
 	// defaultTokenExpiry is the expiry the page offers first, in days.
 	defaultTokenExpiry = "30"
@@ -80,10 +82,10 @@ func tokenProblems(name string, days *int) (nameProblem, daysProblem string) {
 		nameProblem = "Enter a name for the token."
 	}
 	if utf8.RuneCountInString(name) > maxTokenNameLength {
-		nameProblem = "Use at most 100 characters for the name."
+		nameProblem = fmt.Sprintf("Use at most %d characters for the name.", maxTokenNameLength)
 	}
-	if days != nil && (*days < 1 || *days > maxTokenDays) {
-		daysProblem = "Choose an expiry from 1 to 3650 days."
+	if days != nil && (*days < minTokenDays || *days > maxTokenDays) {
+		daysProblem = fmt.Sprintf("Choose an expiry from %d to %d days.", minTokenDays, maxTokenDays)
 	}
 	return nameProblem, daysProblem
 }
@@ -117,7 +119,8 @@ func (a *App) createToken(w http.ResponseWriter, r *http.Request, caller auth.Us
 		return
 	}
 	name := strings.TrimSpace(body.Name)
-	if problem := cmp.Or(tokenProblems(name, body.ExpiresInDays)); problem != "" {
+	nameProblem, daysProblem := tokenProblems(name, body.ExpiresInDays)
+	if problem := cmp.Or(nameProblem, daysProblem); problem != "" {
 		writeError(w, http.StatusBadRequest, problem)
 		return
 	}
@@ -157,6 +160,8 @@ type tokensContent struct {
 	Tokens  []auth.Token
 	Form    tokenForm
 	Choices []expiryChoice
+	// MaxNameLength is the longest name the form accepts.
+	MaxNameLength int
 	// Created is the token just created, whose secret the page shows once.
 	Created *createdSecret
 }
@@ -242,6 +247,6 @@ func (a *App) renderTokens(w http.ResponseWriter, r *http.Request, status int, v
 		a.pageError(w, err)
 		return
 	}
-	content := tokensContent{Tokens: tokens, Form: form, Choices: expiryChoices, Created: created}
+	content := tokensContent{Tokens: tokens, Form: form, Choices: expiryChoices, MaxNameLength: maxTokenNameLength, Created: created}
 	a.render(w, r, status, tokensTemplate, "API tokens", &viewer, content)
 }

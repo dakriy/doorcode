@@ -338,8 +338,7 @@ func TestSigningOutClearsTheCookieAndSaysSo(t *testing.T) {
 
 func TestSignedOutTokenNoLongerWorks(t *testing.T) {
 	f := testsupport.NewFactory()
-	h := start(t, f).Handler()
-	b := signIn(t, f, h)
+	h, b := adminSession(t, f)
 	token := b.Cookie("doorcode_session")
 	b.Post("/sign-out")
 	replay := testsupport.NewBrowser(h)

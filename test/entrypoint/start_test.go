@@ -57,11 +57,20 @@ func signIn(t *testing.T, f *testsupport.Factory, h testsupport.Handler) *testsu
 	return b
 }
 
+// adminSession starts the application from f and returns its handler and a
+// browser on it signed in as the first administrator.
+func adminSession(t *testing.T, f *testsupport.Factory) (testsupport.Handler, *testsupport.Browser) {
+	t.Helper()
+	h := start(t, f).Handler()
+	return h, signIn(t, f, h)
+}
+
 // signedInAdmin starts the application from f and returns a browser signed
 // in as the first administrator.
 func signedInAdmin(t *testing.T, f *testsupport.Factory) *testsupport.Browser {
 	t.Helper()
-	return signIn(t, f, start(t, f).Handler())
+	_, b := adminSession(t, f)
+	return b
 }
 
 func TestFirstStartCreatesAnAdministratorAndLogsItsPassword(t *testing.T) {

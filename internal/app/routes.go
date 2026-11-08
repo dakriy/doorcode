@@ -74,16 +74,26 @@ func (a *App) handler(table []route) http.Handler {
 	return http.NewCrossOriginProtection().Handler(mux)
 }
 
+// isAPI reports whether rt is a JSON API operation, which lives under
+// apiPrefix and is described by the OpenAPI document.
+func (rt route) isAPI() bool {
+	return rt.doc != nil
+}
+
 func (rt route) pattern() string {
-	if rt.doc != nil {
+	if rt.isAPI() {
 		return apiPrefix + rt.path
 	}
 	return rt.path
 }
 
-// guard wraps the route's handler in the access check for its kind.
+// guard wraps the route's handler in the access check for its kind. A
+// public route has none.
 func (a *App) guard(rt route) http.HandlerFunc {
-	if rt.doc != nil {
+	if rt.access.public {
+		return unguarded(rt.handle)
+	}
+	if rt.isAPI() {
 		return a.api(rt.access, rt.handle)
 	}
 	return a.page(rt.access, rt.handle)
@@ -103,7 +113,7 @@ var apiInfo = openapi.Info{
 func apiDocument(table []route) []byte {
 	var ops []openapi.Operation
 	for _, rt := range table {
-		if rt.doc == nil {
+		if !rt.isAPI() {
 			continue
 		}
 		ops = append(ops, openapi.Operation{

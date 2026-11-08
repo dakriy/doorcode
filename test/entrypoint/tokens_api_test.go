@@ -36,8 +36,8 @@ func tokenClient(h testsupport.Handler, secret string) *testsupport.Browser {
 // and the token's secret.
 func adminWithToken(t *testing.T, f *testsupport.Factory, body string) (testsupport.Handler, string) {
 	t.Helper()
-	h := start(t, f).Handler()
-	return h, createToken(t, signIn(t, f, h), body)
+	h, b := adminSession(t, f)
+	return h, createToken(t, b, body)
 }
 
 func TestCreatingATokenAnswersWithItsSecretOnce(t *testing.T) {
@@ -52,8 +52,7 @@ func TestCreatingATokenAnswersWithItsSecretOnce(t *testing.T) {
 
 func TestTokenCallsTheAPIAsItsUser(t *testing.T) {
 	f := testsupport.NewFactory()
-	h := start(t, f).Handler()
-	b := signIn(t, f, h)
+	h, b := adminSession(t, f)
 	secret := createToken(t, b, `{"name":"ci"}`)
 	f.ClockStub.Set("2026-01-05T15:00:00Z")
 	createToken(t, b, `{"name":"backup","expires_in_days":1}`)
@@ -126,8 +125,7 @@ func TestTokenIsRefused(t *testing.T) {
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			f := testsupport.NewFactory()
-			h := start(t, f).Handler()
-			b := signIn(t, f, h)
+			h, b := adminSession(t, f)
 			secret := createToken(t, b, c.body)
 			c.arrange(t, f, b)
 
@@ -174,8 +172,7 @@ func TestUnknownTokenIsRefusedEvenWithASessionCookie(t *testing.T) {
 
 func TestTokenListShowsExpiredTokens(t *testing.T) {
 	f := testsupport.NewFactory()
-	h := start(t, f).Handler()
-	b := signIn(t, f, h)
+	h, b := adminSession(t, f)
 	createToken(t, b, `{"name":"old","expires_in_days":1}`)
 	createToken(t, b, `{"name":"current"}`)
 	f.ClockStub.Set("2026-01-07T00:00:00Z")

@@ -66,8 +66,8 @@ func TestTokenCreatedOnThePageShowsItsSecretOnce(t *testing.T) {
 
 func TestTokenCreatedOnThePageCallsTheAPI(t *testing.T) {
 	f := testsupport.NewFactory()
-	h := start(t, f).Handler()
-	created := signIn(t, f, h).Post("/account/tokens", "name", "deploy", "expires_in_days", "")
+	h, b := adminSession(t, f)
+	created := b.Post("/account/tokens", "name", "deploy", "expires_in_days", "")
 	secret := pageOf(created).Values["secret"]
 
 	got := tokenClient(h, secret).Get("/api/v1/tokens")
@@ -80,8 +80,7 @@ func TestTokenCreatedOnThePageCallsTheAPI(t *testing.T) {
 
 func TestTokensPageShowsWhenEachTokenExpires(t *testing.T) {
 	f := testsupport.NewFactory()
-	h := start(t, f).Handler()
-	b := signIn(t, f, h)
+	h, b := adminSession(t, f)
 	b.Post("/account/tokens", "name", "short", "expires_in_days", "7")
 	b.Post("/account/tokens", "name", "forever", "expires_in_days", "")
 	b.Post("/account/tokens", "name", "yearly", "expires_in_days", "365")

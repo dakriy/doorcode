@@ -23,7 +23,7 @@
     <form method="post" action="/account/tokens" class="mt-4 space-y-5" novalidate hx-disabled-elt="find button">
       <div>
         <label for="name" class="block text-sm font-medium">Name</label>
-        <input id="name" name="name" type="text" maxlength="100" value="{{$c.Form.Name}}" placeholder="Deploy script"
+        <input id="name" name="name" type="text" maxlength="{{$c.MaxNameLength}}" value="{{$c.Form.Name}}" placeholder="Deploy script"
           {{if $c.Form.NameError}}aria-invalid="true" aria-describedby="name-error" autofocus{{end}}
           class="mt-2 block w-full rounded-lg border-0 bg-white px-3 py-2 text-sm shadow-xs ring-1 ring-zinc-300 ring-inset placeholder:text-zinc-400 focus:ring-2 focus:ring-brand-600 focus:outline-none aria-invalid:ring-red-500 dark:bg-zinc-950 dark:ring-zinc-700 dark:focus:ring-brand-500">
         {{if $c.Form.NameError}}<p id="name-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$c.Form.NameError}}</p>
