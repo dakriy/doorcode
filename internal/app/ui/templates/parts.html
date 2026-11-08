@@ -360,3 +360,65 @@
   </div>
 </section>
 {{end}}
+
+{{/* A card on the portal's home leading to one of its pages, given a portalCard. */}}
+{{define "portal-card"}}
+<a href="{{.Href}}" class="group rounded-xl border border-zinc-200 bg-white p-5 shadow-xs transition hover:border-brand-300 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-brand-700">
+  <dl>
+    <dt class="flex items-center gap-1 text-sm font-semibold group-hover:text-brand-700 dark:group-hover:text-brand-300">{{.Title}}<svg class="size-4 transition group-hover:translate-x-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg></dt>
+    <dd class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{{.About}}</dd>
+  </dl>
+</a>
+{{end}}
+
+{{/* What a door does for the viewer now, given a portalDoor. */}}
+{{define "portal-now"}}{{if eq .Kind "open"}}<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-600/20 ring-inset dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-400/20"><span class="size-1.5 rounded-full bg-emerald-500" aria-hidden="true"></span>{{.Now}}</span>
+{{- else if eq .Kind "locked"}}<span class="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 ring-1 ring-red-600/20 ring-inset dark:bg-red-950 dark:text-red-300 dark:ring-red-400/20"><span class="size-1.5 rounded-full bg-red-500" aria-hidden="true"></span>{{.Now}}</span>
+{{- else if eq .Kind "code"}}<span class="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700 ring-1 ring-sky-600/20 ring-inset dark:bg-sky-950 dark:text-sky-300 dark:ring-sky-400/20"><span class="size-1.5 rounded-full bg-sky-500" aria-hidden="true"></span>{{.Now}}</span>
+{{- else if eq .Kind "later"}}<span class="inline-flex rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 ring-1 ring-brand-600/20 ring-inset dark:bg-brand-950 dark:text-brand-300 dark:ring-brand-400/20">{{.Now}}</span>
+{{- else}}<span class="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600 ring-1 ring-zinc-500/20 ring-inset dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-400/20">{{.Now}}</span>{{end}}{{end}}
+
+{{/* The doors the portal shows, given portalDoors, each linking to its calendar. */}}
+{{define "portal-doors"}}
+<div class="mt-4 overflow-x-auto">
+  <table aria-label="Your doors" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+    <thead class="{{template "table-head-class"}}"><tr><th scope="col" class="px-5 py-2">Door</th><th scope="col" class="px-5 py-2">Now</th><th scope="col" class="px-5 py-2"><span class="sr-only">Calendar</span></th></tr></thead>
+    <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+      {{range .}}
+      <tr>
+        <td class="px-5 py-3">
+          <div class="flex items-center gap-3">
+            {{template "door-thumbnail" (thumb .Row "size-11")}}
+            <div class="min-w-0"><p class="font-medium">{{.Row.Name}}</p>{{with .Row.Location}}<p class="truncate text-xs text-zinc-500 dark:text-zinc-400">{{.}}</p>{{end}}</div>
+          </div>
+        </td>
+        <td class="px-5 py-3">{{template "portal-now" .}}</td>
+        <td class="px-5 py-3 text-right whitespace-nowrap"><a href="/me/access/{{.Row.ID}}" hx-boost="false" aria-label="Calendar of {{.Row.Name}}" class="{{template "row-button-class"}}">{{template "calendar-icon"}}Calendar</a></td>
+      </tr>
+      {{else}}
+      <tr><td colspan="3" class="px-5 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">No doors are shown in the portal yet. An administrator decides which doors appear here.</td></tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{end}}
+
+{{/* An access request's title and body, given a requestForm and the most characters each takes. */}}
+{{define "request-fields"}}
+<div>
+  <label for="title" class="block text-sm font-medium">Title</label>
+  <input id="title" name="title" type="text" value="{{.Form.Title}}" maxlength="{{.MaxTitle}}" placeholder="Access to the electronics lab"
+    {{with index .Form.Errors "title"}}aria-invalid="true" aria-describedby="title-error" autofocus{{end}} class="{{template "input-class"}}">
+  {{with index .Form.Errors "title"}}<p id="title-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{.}}</p>{{else}}<p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">What you are asking for, in a few words.</p>{{end}}
+</div>
+<div>
+  <label for="body" class="block text-sm font-medium">Details <span class="font-normal text-zinc-500 dark:text-zinc-400">(optional)</span></label>
+  <textarea id="body" name="body" rows="5" maxlength="{{.MaxBody}}" placeholder="Which doors, when, and why."
+    {{with index .Form.Errors "body"}}aria-invalid="true" aria-describedby="body-error"{{end}} class="{{template "input-class"}}">{{.Form.Body}}</textarea>
+  {{with index .Form.Errors "body"}}<p id="body-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{.}}</p>{{end}}
+</div>
+{{end}}
+
+{{/* Whether an access request is resolved, given its row. */}}
+{{define "request-status"}}{{if .Resolved}}<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-600/20 ring-inset dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-400/20">Resolved {{.Resolved}}</span>
+{{- else}}<span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-600/20 ring-inset dark:bg-amber-950 dark:text-amber-300 dark:ring-amber-400/20"><span class="size-1.5 rounded-full bg-amber-500" aria-hidden="true"></span>Waiting for an answer</span>{{end}}{{end}}

@@ -36,8 +36,13 @@ type userAccessView struct {
 }
 
 func dayParams(first openapi.Param) []openapi.Param {
+	return append([]openapi.Param{first}, dayRangeParams()...)
+}
+
+// dayRangeParams are the query parameters naming the days an operation
+// covers.
+func dayRangeParams() []openapi.Param {
 	return []openapi.Param{
-		first,
 		{Name: "from", In: "query", Description: "The first day to cover, YYYY-MM-DD in the site timezone; by default the Monday of the current week.", Example: "2026-11-09"},
 		{Name: "to", In: "query", Description: fmt.Sprintf("The last day to cover, YYYY-MM-DD, at most %d days after from; by default the Sunday after from.", maxOccurrenceSpan), Example: "2026-11-15"},
 	}

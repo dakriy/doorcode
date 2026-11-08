@@ -56,15 +56,21 @@ type doorRow struct {
 func (c catalog) rowOfDoor(d connector.StoredDoor) doorRow {
 	row := doorRow{
 		ID: d.ID, Name: d.Name, Location: d.Location, Public: d.Public,
-		Zones: c.zonesOf(d), OpenMode: c.openSchedules(d), Status: doorStatus(d.Controller),
-	}
-	if d.PrimaryPictureID != nil {
-		row.Thumbnail = picturePath(d.ID, *d.PrimaryPictureID) + "/thumbnail"
+		Zones: c.zonesOf(d), OpenMode: c.openSchedules(d), Status: doorStatus(d.Controller), Thumbnail: thumbnailOf(d),
 	}
 	if d.Controller != nil {
 		row.Badges = telemetry.Badges(*d.Controller)
 	}
 	return row
+}
+
+// thumbnailOf is where the thumbnail of d's primary picture is served,
+// empty without one.
+func thumbnailOf(d connector.StoredDoor) string {
+	if d.PrimaryPictureID == nil {
+		return ""
+	}
+	return picturePath(d.ID, *d.PrimaryPictureID) + "/thumbnail"
 }
 
 // doorStatus says whether a controller c is enrolled as a door and

@@ -176,6 +176,11 @@ func TestStartupFails(t *testing.T) {
 			want: "create first administrator: invalid value for password_hash_memory_kib: " +
 				"must be a whole number of KiB from 8 to 1048576",
 		},
+		"when the shortest password is too short": {
+			arrange: func(f *testsupport.Factory) { f.EnvStub["DOORCODE_PASSWORD_MIN_LENGTH"] = "7" },
+			want: "create first administrator: invalid value for password_min_length: " +
+				"must be a whole number of characters from 8 to 128",
+		},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

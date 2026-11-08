@@ -58,8 +58,15 @@ func (a *App) backFromProvider(w http.ResponseWriter, r *http.Request, _ auth.Us
 		return
 	}
 	setCookie(w, r, sessionCookie, done.Token, int(auth.SessionLifetime().Seconds()))
-	setCookie(w, r, flashCookie, "signed-in", 0)
-	redirect(w, done.Next)
+	flash, next := "signed-in", done.Next
+	if done.Created {
+		flash = "welcome"
+	}
+	if done.Created && next == "/" {
+		next = codePath
+	}
+	setCookie(w, r, flashCookie, flash, 0)
+	redirect(w, next)
 }
 
 // providerRefusals is what the sign-in page says, and with which status,

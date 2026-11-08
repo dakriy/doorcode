@@ -15,10 +15,11 @@ const jsonType = "application/json"
 const hashMemoryJSON = `{"key":"password_hash_memory_kib","value":"8","source":"environment","read_only":true,` +
 	`"env_var":"DOORCODE_PASSWORD_HASH_MEMORY_KIB"}`
 
-// signInSettingsJSON is how the settings API shows the settings of new
-// users and of signing in through an identity provider when nothing sets
+// signInSettingsJSON is how the settings API shows the settings of
+// passwords, of new users, and of signing in through an identity provider when nothing sets
 // them.
-var signInSettingsJSON = defaultSetting("new_user_expiry_days", "1826") + `,` +
+var signInSettingsJSON = defaultSetting("password_min_length", "12") + `,` +
+	defaultSetting("new_user_expiry_days", "1826") + `,` +
 	defaultSetting("oidc_enabled", "false") + `,` +
 	defaultSetting("oidc_auto_sign_in", "false") + `,` +
 	defaultSetting("oidc_issuer", "") + `,` +

@@ -284,7 +284,7 @@ func (a *App) saveUserFromForm(w http.ResponseWriter, r *http.Request, viewer au
 		a.renderUser(w, r, http.StatusUnprocessableEntity, viewer, u, content)
 		return
 	}
-	_, err := a.directory.UpdateUser(r.Context(), u.ID, p)
+	_, err := a.directory.ChangeUser(r.Context(), viewer, u.ID, p)
 	if form, rejected := form.rejected(err); rejected {
 		content.Form = form
 		a.renderUser(w, r, http.StatusUnprocessableEntity, viewer, u, content)

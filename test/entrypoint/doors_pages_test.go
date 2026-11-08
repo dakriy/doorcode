@@ -544,9 +544,10 @@ func TestDoorPagesAskForTheRole(t *testing.T) {
 	t.Parallel()
 	_, b := adminHolding(t, testsupport.NewFactory(), `["manage-schedules"]`)
 
-	got := []any{b.Get("/admin/doors").Status, b.Get("/admin/zones").Status, testsupport.ParsePage(b.Get("/").Body).Nav}
+	doors := b.Get("/admin/doors")
+	got := []any{doors.Status, b.Get("/admin/zones").Status, testsupport.ParsePage(doors.Body).Nav}
 
-	want := []any{403, 403, []string{"Home (current)", "Schedules", "API tokens", "API docs"}}
+	want := []any{403, 403, []string{"Home", "Schedules", "API tokens", "API docs"}}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("doors, zones, navigation (-want +got):\n%s", diff)
 	}

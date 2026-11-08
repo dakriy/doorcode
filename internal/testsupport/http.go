@@ -52,6 +52,12 @@ func NewBrowser(h http.Handler) *Browser {
 	return &Browser{handler: h, cookies: map[string]string{}, headers: map[string]string{}}
 }
 
+// Another is a new browser on the same site, with no cookies or headers,
+// as another person would open it.
+func (b *Browser) Another() *Browser {
+	return NewBrowser(b.handler)
+}
+
 // SetHeader sends header name with value on every later request.
 func (b *Browser) SetHeader(name, value string) {
 	b.headers[name] = value

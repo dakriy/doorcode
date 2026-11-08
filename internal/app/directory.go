@@ -18,6 +18,7 @@ var directoryStatuses = []refusalStatus{
 	{directory.ErrNotHeld, http.StatusForbidden},
 	{directory.ErrOwnAdmin, http.StatusConflict},
 	{directory.ErrOwnAccount, http.StatusConflict},
+	{directory.ErrOwnExpiry, http.StatusConflict},
 }
 
 // directoryError answers an API request with what err, from the

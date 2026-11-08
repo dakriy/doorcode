@@ -50,7 +50,11 @@ var (
 func (a *App) pictureRoutes() []route {
 	doors := holding(auth.RoleManageDoors)
 	image := func(what string) []openapi.Response {
-		return []openapi.Response{{Status: http.StatusOK, Description: what, Body: openapi.File{}, Type: picture.ContentType}, noPicture}
+		return []openapi.Response{
+			{Status: http.StatusOK, Description: what + " Anyone signed in may read the pictures of a door the portal shows; other doors' need the manage-doors role.", Body: openapi.File{}, Type: picture.ContentType},
+			{Status: http.StatusForbidden, Description: "The door is not one the portal shows, and the caller does not hold the manage-doors role.", Body: errorBody{}},
+			noPicture,
+		}
 	}
 	return []route{
 		apiRoute(http.MethodGet, "/doors/{id}/pictures", doors, a.listPictures, apiDoc{
@@ -66,11 +70,11 @@ func (a *App) pictureRoutes() []route {
 				{Status: http.StatusRequestEntityTooLarge, Description: fmt.Sprintf("The file is larger than %d MB.", picture.Megabytes()), Body: errorBody{}},
 			},
 		}),
-		apiRoute(http.MethodGet, "/doors/{id}/pictures/{picture}", doors, a.servePicture(a.doors.Image), apiDoc{
+		apiRoute(http.MethodGet, "/doors/{id}/pictures/{picture}", signedInUser, a.servePicture(a.doors.Image), apiDoc{
 			id: "getDoorPicture", summary: "Read a picture's image", tag: "doors", params: pictureParams,
 			responses: image("The image."),
 		}),
-		apiRoute(http.MethodGet, "/doors/{id}/pictures/{picture}/thumbnail", doors, a.servePicture(a.doors.Thumbnail), apiDoc{
+		apiRoute(http.MethodGet, "/doors/{id}/pictures/{picture}/thumbnail", signedInUser, a.servePicture(a.doors.Thumbnail), apiDoc{
 			id: "getDoorPictureThumbnail", summary: "Read a picture's thumbnail", tag: "doors", params: pictureParams,
 			responses: image(fmt.Sprintf("The image reduced to at most %d pixels on its longest side.", picture.ThumbnailSide)),
 		}),
@@ -169,10 +173,20 @@ func (a *App) uploadPicture(w http.ResponseWriter, r *http.Request, _ auth.User)
 }
 
 // servePicture serves what read returns for the picture the path names, as
-// JPEG that browsers may keep.
+// JPEG that browsers may keep. Anyone signed in sees the pictures of a door
+// the portal shows; only those who manage doors see the others.
 func (a *App) servePicture(read func(ctx context.Context, doorID, id int64) ([]byte, error)) viewerHandler {
-	return func(w http.ResponseWriter, r *http.Request, _ auth.User) {
-		data, err := read(r.Context(), pathID(r, "id"), pathID(r, "picture"))
+	return func(w http.ResponseWriter, r *http.Request, caller auth.User) {
+		d, err := a.doors.Door(r.Context(), pathID(r, "id"))
+		if err != nil {
+			a.doorError(w, err)
+			return
+		}
+		if !caller.Has(auth.RoleManageDoors) && (!d.Public || d.DeletedAt != nil) {
+			writeError(w, http.StatusForbidden, "the manage-doors role is required for the pictures of a door the portal does not show")
+			return
+		}
+		data, err := read(r.Context(), d.ID, pathID(r, "picture"))
 		if err != nil {
 			a.doorError(w, err)
 			return

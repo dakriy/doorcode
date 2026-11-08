@@ -2666,7 +2666,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The image.",
+            "description": "The image. Anyone signed in may read the pictures of a door the portal shows; other doors' need the manage-doors role.",
             "content": {
               "image/jpeg": {
                 "schema": {
@@ -2687,7 +2687,7 @@
             }
           },
           "403": {
-            "description": "The caller does not hold the manage-doors role.",
+            "description": "The door is not one the portal shows, and the caller does not hold the manage-doors role.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2842,7 +2842,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The image reduced to at most 320 pixels on its longest side.",
+            "description": "The image reduced to at most 320 pixels on its longest side. Anyone signed in may read the pictures of a door the portal shows; other doors' need the manage-doors role.",
             "content": {
               "image/jpeg": {
                 "schema": {
@@ -2863,7 +2863,7 @@
             }
           },
           "403": {
-            "description": "The caller does not hold the manage-doors role.",
+            "description": "The door is not one the portal shows, and the caller does not hold the manage-doors role.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5094,6 +5094,732 @@
         }
       }
     },
+    "/me/access": {
+      "get": {
+        "operationId": "getMyAccess",
+        "summary": "Read when the portal's doors are open and when your code works there",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "description": "The first day to cover, YYYY-MM-DD in the site timezone; by default the Monday of the current week.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-11-09"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "description": "The last day to cover, YYYY-MM-DD, at most 365 days after from; by default the Sunday after from.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-11-15"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every door the portal shows, with when it is open or locked and when your code works there.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalAccessView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "from or to is not a date, or the range is backwards or too long.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/code": {
+      "get": {
+        "operationId": "getMyCode",
+        "summary": "Read whether you have a door code and what yours starts with",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Whether you have a code, and what a code you choose starts with or why you cannot choose one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnCodeView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setMyCode",
+        "summary": "Choose your door code",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OwnCodeRequest"
+              },
+              "example": {
+                "digits": "4821"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Your code is your prefix followed by the digits. It is stored only as a hash and never shown."
+          },
+          "400": {
+            "description": "The body is not a JSON object with digits, they are not 4 to 8 digits, or another user has the code they make.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "You have no user id, or one that is not a number, so you cannot choose a code; an administrator can set one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/entries": {
+      "get": {
+        "operationId": "listMyEntries",
+        "summary": "List your entries, a page at a time",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "The page to return, from 1 (the default).",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "description": "How many entries a page holds, from 1 to 500; 50 by default.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 50
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of your events, newest first: your codes entered at doors, your keypad commands, and doors you opened.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "page or per_page is out of range.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/password": {
+      "put": {
+        "operationId": "setMyPassword",
+        "summary": "Choose your password",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordRequest"
+              },
+              "example": {
+                "current_password": "old horse battery staple",
+                "new_password": "correct horse battery staple"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "You sign in with the new password from now on."
+          },
+          "400": {
+            "description": "The body is not a JSON password request, the current password is wrong, or the new one is too short or too long.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Everyone signs in with single sign-on here, so passwords are not used.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/requests": {
+      "get": {
+        "operationId": "listMyRequests",
+        "summary": "List your access requests",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Your requests, newest first, with any reply.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createMyRequest",
+        "summary": "Ask an administrator for access",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestBody"
+              },
+              "example": {
+                "title": "Lab access",
+                "body": "I start in the electronics lab on Monday and need to get in from 8:00."
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The request, open until an administrator resolves it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON request, or the title is missing or a field too long.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/requests/{id}": {
+      "delete": {
+        "operationId": "deleteMyRequest",
+        "summary": "Withdraw one of your open access requests",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The request's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The request is gone."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "You have no access request with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request is resolved and can no longer be changed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getMyRequest",
+        "summary": "Read one of your access requests",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The request's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request, with any reply.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "You have no access request with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateMyRequest",
+        "summary": "Change one of your open access requests",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The request's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestBody"
+              },
+              "example": {
+                "title": "Lab access",
+                "body": "I start in the electronics lab on Monday and need to get in from 8:00."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The request as it is now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON request, or the title is missing or a field too long.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "You have no access request with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request is resolved and can no longer be changed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/openapi.json": {
       "get": {
         "operationId": "getOpenAPI",
@@ -6549,6 +7275,16 @@
           },
           "404": {
             "description": "No user has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The user is the caller, who cannot make their own account expire now or earlier.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8683,6 +9419,54 @@
           "active"
         ]
       },
+      "OwnCodeRequest": {
+        "type": "object",
+        "properties": {
+          "digits": {
+            "type": "string",
+            "description": "The 4 to 8 digits that follow your prefix. Your code is the prefix followed by them."
+          }
+        },
+        "required": [
+          "digits"
+        ]
+      },
+      "OwnCodeView": {
+        "type": "object",
+        "properties": {
+          "has_code": {
+            "type": "boolean",
+            "description": "True when you have a door code. The code itself is never shown."
+          },
+          "prefix": {
+            "type": "string",
+            "description": "What every code you choose starts with: your user id without its leading zeros. Absent when you cannot choose one."
+          },
+          "refusal": {
+            "type": "string",
+            "description": "Why you cannot choose a code here; absent when you can."
+          }
+        },
+        "required": [
+          "has_code"
+        ]
+      },
+      "PasswordRequest": {
+        "type": "object",
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "description": "Your password now; needed when you have one."
+          },
+          "new_password": {
+            "type": "string",
+            "description": "The password to sign in with from now on, at least as long as the password_min_length setting says."
+          }
+        },
+        "required": [
+          "new_password"
+        ]
+      },
       "PictureList": {
         "type": "object",
         "properties": {
@@ -8752,6 +9536,157 @@
           "image_url",
           "thumbnail_url",
           "created_at"
+        ]
+      },
+      "PortalAccessView": {
+        "type": "object",
+        "properties": {
+          "doors": {
+            "type": "array",
+            "description": "Every door the portal shows, by name.",
+            "items": {
+              "$ref": "#/components/schemas/PortalDoorView"
+            }
+          },
+          "from": {
+            "type": "string",
+            "description": "The first day covered, YYYY-MM-DD."
+          },
+          "time_zone": {
+            "type": "string",
+            "description": "The site timezone schedules are read in."
+          },
+          "to": {
+            "type": "string",
+            "description": "The last day covered, YYYY-MM-DD."
+          }
+        },
+        "required": [
+          "time_zone",
+          "from",
+          "to",
+          "doors"
+        ]
+      },
+      "PortalDoorView": {
+        "type": "object",
+        "properties": {
+          "door": {
+            "$ref": "#/components/schemas/NameRef",
+            "description": "The door."
+          },
+          "location": {
+            "type": "string",
+            "description": "Where the door is; may be empty."
+          },
+          "reached": {
+            "type": "boolean",
+            "description": "True when an access rule naming one of your groups reaches the door."
+          },
+          "spans": {
+            "type": "array",
+            "description": "When the door is in open mode, and anyone gets in, or locked during those days, in order.",
+            "items": {
+              "$ref": "#/components/schemas/SpanView"
+            }
+          },
+          "thumbnail_url": {
+            "type": "string",
+            "description": "Where a thumbnail of the door's primary picture is served; absent without one."
+          },
+          "works": {
+            "type": "array",
+            "description": "When your code opens the door during the days asked for: while such a rule's schedule is active and the door is not locked.",
+            "items": {
+              "$ref": "#/components/schemas/OccurrenceView"
+            }
+          }
+        },
+        "required": [
+          "door",
+          "location",
+          "reached",
+          "works",
+          "spans"
+        ]
+      },
+      "RequestBody": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "The request in your words, up to 4000 characters."
+          },
+          "title": {
+            "type": "string",
+            "description": "What the request is about, up to 120 characters."
+          }
+        },
+        "required": [
+          "title"
+        ]
+      },
+      "RequestList": {
+        "type": "object",
+        "properties": {
+          "requests": {
+            "type": "array",
+            "description": "Your requests, newest first.",
+            "items": {
+              "$ref": "#/components/schemas/RequestView"
+            }
+          }
+        },
+        "required": [
+          "requests"
+        ]
+      },
+      "RequestView": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "The request in your words; may be empty."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When you made the request."
+          },
+          "id": {
+            "type": "integer",
+            "description": "Names the request."
+          },
+          "reply": {
+            "type": "string",
+            "description": "An administrator's answer; absent until there is one."
+          },
+          "resolved": {
+            "type": "boolean",
+            "description": "True once an administrator has resolved the request, which can then no longer be changed."
+          },
+          "resolved_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the request was resolved; absent while it is open."
+          },
+          "title": {
+            "type": "string",
+            "description": "What the request is about."
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When you last changed it."
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "body",
+          "resolved",
+          "created_at",
+          "updated_at"
         ]
       },
       "RolloutView": {

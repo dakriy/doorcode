@@ -21,6 +21,7 @@ import (
 	"github.com/dakriy/doorcode/internal/firmware"
 	"github.com/dakriy/doorcode/internal/identity"
 	"github.com/dakriy/doorcode/internal/push"
+	"github.com/dakriy/doorcode/internal/request"
 	"github.com/dakriy/doorcode/internal/rule"
 	"github.com/dakriy/doorcode/internal/schedule"
 	"github.com/dakriy/doorcode/internal/settings"
@@ -39,6 +40,7 @@ type App struct {
 	doors     door.Service
 	rules     rule.Service
 	events    event.Service
+	requests  request.Service
 	// decisions decides the codes doors ask about.
 	decisions decision.Service
 	broker    connector.Broker
@@ -100,6 +102,7 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 		doors:     door.Service{Store: store, Clock: clock},
 		rules:     rule.Service{Store: store},
 		events:    event.Service{Store: store},
+		requests:  request.Service{Store: store, Clock: clock},
 		decisions: decision.Service{Store: store, Auth: authService, Settings: s, Clock: clock, Limits: decision.NewLimiter()},
 		broker:    f.Broker(),
 		live:      newHub(),

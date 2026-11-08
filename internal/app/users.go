@@ -84,6 +84,7 @@ func (a *App) userRoutes() []route {
 				{Status: http.StatusOK, Description: "The user with the new profile.", Body: userView{}},
 				badBody("The body is not a JSON user, or a field is wrong; the error says which."),
 				noUser,
+				{Status: http.StatusConflict, Description: "The user is the caller, who cannot make their own account expire now or earlier.", Body: errorBody{}},
 			},
 		}),
 		apiRoute(http.MethodDelete, "/users/{id}", users, a.deleteUser, apiDoc{
@@ -204,12 +205,12 @@ func (a *App) getUser(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	writeJSON(w, http.StatusOK, a.viewOfUser(u))
 }
 
-func (a *App) updateUser(w http.ResponseWriter, r *http.Request, _ auth.User) {
+func (a *App) updateUser(w http.ResponseWriter, r *http.Request, caller auth.User) {
 	p, ok := readUser(w, r)
 	if !ok {
 		return
 	}
-	u, err := a.directory.UpdateUser(r.Context(), pathID(r, "id"), p)
+	u, err := a.directory.ChangeUser(r.Context(), caller, pathID(r, "id"), p)
 	if err != nil {
 		a.directoryError(w, err)
 		return

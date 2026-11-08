@@ -19,6 +19,12 @@ const (
 	maxNameLength  = 100
 	minCodeDigits  = 6
 	maxCodeDigits  = 20
+	// A code a user chooses is their prefix followed by minOwnDigits to
+	// maxOwnDigits digits.
+	minOwnDigits = 4
+	maxOwnDigits = 8
+	digits       = "0123456789"
+	codeConflict = "Another user has this code. Choose a different one."
 )
 
 // Profile is what an administrator says about a user. Every field is
@@ -153,6 +159,15 @@ func (s Service) UpdateUser(ctx context.Context, id int64, p Profile) (connector
 	return s.User(ctx, id)
 }
 
+// ChangeUser is UpdateUser made by viewer, who may not make their own
+// account expire now or earlier: that would end it, as deleting it would.
+func (s Service) ChangeUser(ctx context.Context, viewer auth.User, id int64, p Profile) (connector.StoredUser, error) {
+	if id == viewer.ID && p.ExpiresAt != nil && !p.ExpiresAt.After(s.Clock.Now()) {
+		return connector.StoredUser{}, ErrOwnExpiry
+	}
+	return s.UpdateUser(ctx, id, p)
+}
+
 // DeleteUser soft-deletes the user whose id is id, which viewer may not be.
 // A user deleted already keeps their deletion time.
 func (s Service) DeleteUser(ctx context.Context, viewer auth.User, id int64) error {
@@ -178,6 +193,42 @@ func (s Service) SetCode(ctx context.Context, id int64, code string) error {
 	if problem := codeProblem(code); problem != "" {
 		return check.Problems{{Field: "code", Message: problem}}
 	}
+	return s.storeCode(ctx, id, code, "code")
+}
+
+// CodePrefix is what every door code u chooses starts with: u's user id
+// with its leading zeros stripped, which must leave digits.
+func CodePrefix(u connector.StoredUser) (string, error) {
+	if u.UserID == nil {
+		return "", ErrNoUserID
+	}
+	prefix := strings.TrimLeft(*u.UserID, "0")
+	if prefix == "" || strings.Trim(prefix, digits) != "" {
+		return "", ErrUserIDNotDigits
+	}
+	return prefix, nil
+}
+
+// SetOwnCode gives the user whose id is id the door code they chose: their
+// prefix followed by chosen, 4 to 8 digits, which no other user has.
+func (s Service) SetOwnCode(ctx context.Context, id int64, chosen string) error {
+	u, err := s.User(ctx, id)
+	if err != nil {
+		return err
+	}
+	prefix, err := CodePrefix(u)
+	if err != nil {
+		return err
+	}
+	if strings.Trim(chosen, digits) != "" || len(chosen) < minOwnDigits || len(chosen) > maxOwnDigits {
+		return check.Problems{{Field: "digits", Message: fmt.Sprintf("Enter %d to %d digits.", minOwnDigits, maxOwnDigits)}}
+	}
+	return s.storeCode(ctx, id, prefix+chosen, "digits")
+}
+
+// storeCode stores the hash of code as the door code of the user whose id
+// is id, unless another user has it, which is a problem with field.
+func (s Service) storeCode(ctx context.Context, id int64, code, field string) error {
 	hash, err := s.Auth.CodeHash(ctx, code)
 	if err != nil {
 		return err
@@ -186,8 +237,8 @@ func (s Service) SetCode(ctx context.Context, id int64, code string) error {
 	if err != nil {
 		return err
 	}
-	if problem := conflict(id, holder.ID, taken, "Another user has this code. Choose a different one."); problem != "" {
-		return check.Problems{{Field: "code", Message: problem}}
+	if problem := conflict(id, holder.ID, taken, codeConflict); problem != "" {
+		return check.Problems{{Field: field, Message: problem}}
 	}
 	return s.changed(s.Store.SetCodeHash(ctx, id, &hash))
 }
@@ -207,7 +258,7 @@ func (s Service) changed(found bool, err error) error {
 }
 
 func codeProblem(code string) string {
-	if strings.Trim(code, "0123456789") != "" || len(code) < minCodeDigits || len(code) > maxCodeDigits {
+	if strings.Trim(code, digits) != "" || len(code) < minCodeDigits || len(code) > maxCodeDigits {
 		return fmt.Sprintf("Enter %d to %d digits.", minCodeDigits, maxCodeDigits)
 	}
 	return ""

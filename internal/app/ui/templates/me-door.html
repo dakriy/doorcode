@@ -1,0 +1,61 @@
+{{define "content"}}
+{{$c := .Content}}{{$w := $c.Calendar}}
+{{template "back" (link "/me/access" "Access")}}
+<div class="mt-4 lg:flex lg:items-end lg:justify-between">
+  <div class="flex items-center gap-4">
+    {{template "door-thumbnail" (thumb $c.Row "size-14")}}
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight">{{$c.Row.Name}}</h1>
+      <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{{with $c.Row.Location}}{{.}} · {{end}}<span class="font-medium text-zinc-900 dark:text-zinc-100">{{$w.Heading}}</span> · times in {{$w.Zone}}</p>
+    </div>
+  </div>
+  {{template "week-nav" $w}}
+</div>
+{{if not $c.Reached}}
+<p role="note" class="mt-6 rounded-lg border border-dashed border-zinc-300 px-4 py-3 text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">None of your groups has access to this door, so your code does not open it; you get in only while it is in open mode. <a href="/me/requests" class="{{template "link-class"}}">Ask for access</a>.</p>
+{{end}}
+{{template "calendar-key" (list "code" "open" "locked")}}
+{{template "calendar" $w}}
+
+<div class="mt-8 grid gap-8 lg:grid-cols-2">
+  <section aria-labelledby="works-heading" class="overflow-hidden {{template "card-class"}}">
+    <h2 id="works-heading" class="px-5 pt-5 text-sm font-semibold">When your code works</h2>
+    <p class="mt-1 px-5 text-xs text-zinc-500 dark:text-zinc-400">While an access rule of one of your groups is active and the door is not locked.</p>
+    <div class="mt-4 overflow-x-auto">
+      <table aria-label="When your code works" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+        <thead class="{{template "table-head-class"}}">
+          <tr><th scope="col" class="px-5 py-3">Starts</th><th scope="col" class="px-5 py-3">Ends</th><th scope="col" class="px-5 py-3 text-right">Length</th></tr>
+        </thead>
+        <tbody class="divide-y divide-zinc-100 tabular-nums dark:divide-zinc-800">
+          {{range $c.Works}}
+          <tr>
+            <td class="px-5 py-3 whitespace-nowrap">{{.Start}}</td>
+            <td class="px-5 py-3 whitespace-nowrap">{{.End}}</td>
+            <td class="px-5 py-3 text-right whitespace-nowrap text-zinc-600 dark:text-zinc-400">{{.Length}}</td>
+          </tr>
+          {{else}}
+          <tr><td colspan="3" class="px-5 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">Your code does not open this door this week.</td></tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="unlocked-heading" class="overflow-hidden {{template "card-class"}}">
+    <h2 id="unlocked-heading" class="px-5 pt-5 text-sm font-semibold">When the door is open or locked</h2>
+    <p class="mt-1 px-5 text-xs text-zinc-500 dark:text-zinc-400">In open mode anyone gets in without a code; while locked, no code opens it.</p>
+    <div class="mt-4 overflow-x-auto">
+      <table aria-label="Open and locked" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+        <thead class="{{template "table-head-class"}}">
+          <tr><th scope="col" class="px-5 py-3">State</th><th scope="col" class="px-5 py-3">Starts</th><th scope="col" class="px-5 py-3">Ends</th><th scope="col" class="px-5 py-3 text-right">Length</th></tr>
+        </thead>
+        <tbody class="divide-y divide-zinc-100 tabular-nums dark:divide-zinc-800">
+          {{template "span-rows" $c.Spans}}
+          {{if not $c.Spans}}<tr><td colspan="4" class="px-5 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">The door is neither in open mode nor locked this week.</td></tr>{{end}}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{{template "calendar-scripts" .}}
+{{end}}

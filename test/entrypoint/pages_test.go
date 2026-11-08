@@ -34,7 +34,7 @@ type shownSetting struct {
 // hashing cost, in order.
 var defaultSettings = []shownSetting{
 	{"site_name", "doorcode", "default"}, {"site_timezone", "UTC", "default"}, {"admin_email", "admin@example.com", "default"},
-	{"password_hash_memory_kib", "8", "environment, read-only"},
+	{"password_hash_memory_kib", "8", "environment, read-only"}, {"password_min_length", "12", "default"},
 	{"new_user_expiry_days", "1826", "default"}, {"oidc_enabled", "false", "default"}, {"oidc_auto_sign_in", "false", "default"},
 	{"oidc_issuer", "", "default"}, {"oidc_client_id", "", "default"}, {"oidc_client_secret", "", "default"},
 	{"oidc_scopes", "openid email profile", "default"}, {"oidc_claim_user_id", "", "default"}, {"oidc_claim_email", "email", "default"},
@@ -137,7 +137,7 @@ func TestHomeOffersOnlyWhatTheUserMayUse(t *testing.T) {
 
 	got := pageOf(b.Get("/"))
 
-	if diff := cmp.Diff([]string{"Home (current)", "API tokens", "API docs"}, got.Nav); diff != "" {
+	if diff := cmp.Diff(portalNav("Home"), got.Nav); diff != "" {
 		t.Errorf("nav (-want +got):\n%s", diff)
 	}
 }

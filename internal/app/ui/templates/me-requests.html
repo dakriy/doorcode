@@ -1,0 +1,42 @@
+{{define "content"}}
+{{$c := .Content}}
+<div class="max-w-2xl">
+  <h1 class="text-2xl font-semibold tracking-tight">Access requests</h1>
+  <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Ask an administrator for access to a door, other hours, or anything else about your access. You can change or withdraw a request until it is resolved; the answer appears here.</p>
+</div>
+
+<div class="mt-8 grid gap-8 lg:grid-cols-3">
+  <section aria-labelledby="new-heading" class="p-5 lg:col-span-1 {{template "card-class"}}">
+    <h2 id="new-heading" class="text-sm font-semibold">New request</h2>
+    <form method="post" action="/me/requests" class="mt-4 space-y-5" novalidate hx-disabled-elt="find button">
+      {{template "request-fields" $c}}
+      <button type="submit" class="w-full {{template "primary-class"}}">Send request</button>
+    </form>
+  </section>
+
+  <section aria-labelledby="mine-heading" class="overflow-hidden lg:col-span-2 {{template "card-class"}}">
+    <h2 id="mine-heading" class="px-5 pt-5 text-sm font-semibold">Your requests</h2>
+    <div class="mt-4 overflow-x-auto">
+      <table aria-label="Your requests" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+        <thead class="{{template "table-head-class"}}">
+          <tr><th scope="col" class="px-5 py-3">Request</th><th scope="col" class="px-5 py-3">Sent</th><th scope="col" class="px-5 py-3">Status</th></tr>
+        </thead>
+        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+          {{range $c.Rows}}
+          <tr class="align-top">
+            <td class="px-5 py-3">
+              <a href="/me/requests/{{.ID}}" class="{{template "link-class"}}">{{.Title}}</a>
+              {{with .Reply}}<p class="mt-1 max-w-md text-xs text-zinc-600 dark:text-zinc-400"><span class="font-medium text-zinc-900 dark:text-zinc-100">Reply:</span> {{.}}</p>{{end}}
+            </td>
+            <td class="px-5 py-3 whitespace-nowrap tabular-nums text-zinc-600 dark:text-zinc-400">{{.Created}}</td>
+            <td class="px-5 py-3 whitespace-nowrap">{{template "request-status" .}}</td>
+          </tr>
+          {{else}}
+          <tr><td colspan="3" class="px-5 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">You have made no requests. Use the form to ask for what you need.</td></tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{{end}}

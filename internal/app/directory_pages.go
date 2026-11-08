@@ -20,6 +20,7 @@ var pageRefusals = []struct {
 	message string
 }{
 	{directory.ErrOwnAccount, http.StatusConflict, "You cannot delete your own account. Ask another administrator to do it."},
+	{directory.ErrOwnExpiry, http.StatusConflict, "You cannot make your own account expire today or earlier. Ask another administrator to end it."},
 	{directory.ErrOwnAdmin, http.StatusConflict, "You cannot remove your own admin role. Ask another administrator to do it."},
 	{directory.ErrNotHeld, http.StatusForbidden, "You can only change groups when you hold every role they carry."},
 	{directory.ErrNotMember, http.StatusNotFound, "That user is not a member of this group."},

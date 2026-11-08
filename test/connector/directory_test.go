@@ -352,6 +352,7 @@ func TestStoreDeletesRestoresAndCodesAUser(t *testing.T) {
 			store := directory(t, impl)
 			at := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 			hash := "hash-of-123456"
+			password := "hash-of-a-password"
 
 			results := []any{}
 			for _, change := range []func() (bool, error){
@@ -361,17 +362,20 @@ func TestStoreDeletesRestoresAndCodesAUser(t *testing.T) {
 				func() (bool, error) { return store.SetCodeHash(ctx, 3, nil) },
 				func() (bool, error) { return store.SetUserDeleted(ctx, 9, &at) },
 				func() (bool, error) { return store.SetCodeHash(ctx, 9, &hash) },
+				func() (bool, error) { return store.SetPasswordHash(ctx, 4, password) },
+				func() (bool, error) { return store.SetPasswordHash(ctx, 9, password) },
 			} {
 				found, err := change()
 				results = append(results, found, testsupport.ErrorText(err))
 			}
 
-			if diff := cmp.Diff([]any{true, "<nil>", true, "<nil>", true, "<nil>", true, "<nil>", false, "<nil>", false, "<nil>"}, results); diff != "" {
+			want := []any{true, "<nil>", true, "<nil>", true, "<nil>", true, "<nil>", false, "<nil>", false, "<nil>", true, "<nil>", false, "<nil>"}
+			if diff := cmp.Diff(want, results); diff != "" {
 				t.Errorf("found and errors (-want +got):\n%s", diff)
 			}
-			got := []any{mustUser(t, store, 3).DeletedAt, mustUser(t, store, 2).DeletedAt, mustUser(t, store, 4).CodeHash}
-			if diff := cmp.Diff([]any{&at, (*time.Time)(nil), &hash}, got); diff != "" {
-				t.Errorf("deleted at, deleted at, code hash (-want +got):\n%s", diff)
+			got := []any{mustUser(t, store, 3).DeletedAt, mustUser(t, store, 2).DeletedAt, mustUser(t, store, 4).CodeHash, mustUser(t, store, 4).PasswordHash}
+			if diff := cmp.Diff([]any{&at, (*time.Time)(nil), &hash, &password}, got); diff != "" {
+				t.Errorf("deleted at, deleted at, code hash, password hash (-want +got):\n%s", diff)
 			}
 		})
 	}

@@ -1,9 +1,76 @@
 {{define "content"}}
-<div>
-  <h1 class="text-2xl font-semibold tracking-tight">Welcome, {{.Viewer.DisplayName}}</h1>
-  <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">You are signed in to {{.Site}} as {{.Viewer.Email}}.</p>
+{{$c := .Content}}
+<div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">Welcome, {{.Viewer.DisplayName}}</h1>
+    <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">You are signed in to {{.Site}} as {{.Viewer.Email}}. Here is what you can do.</p>
+  </div>
 </div>
+
+{{if not $c.Code.HasCode}}
+{{if $c.Code.Refusal}}
+<p role="note" class="mt-6 rounded-xl border border-dashed border-zinc-300 px-5 py-4 text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">You have no door code. {{$c.Code.Refusal}}</p>
+{{else}}
+<div class="mt-6 flex flex-col gap-4 rounded-xl border border-brand-200 bg-brand-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-brand-900 dark:bg-brand-950/50">
+  <p role="note" class="text-sm text-brand-900 dark:text-brand-100"><span class="font-semibold">You have no door code yet.</span> Choose one to open the doors your groups give you.</p>
+  <a href="/me/code" class="shrink-0 {{template "primary-class"}}">Choose your code</a>
+</div>
+{{end}}
+{{end}}
+
 <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  {{template "portal-card" (portalcard "/me/code" "Door code" (or (and $c.Code.HasCode "Your code is set. Choose a new one at any time.") "Choose the code you type at the keypad."))}}
+  {{if .Passwords}}{{template "portal-card" (portalcard "/me/password" "Password" "Change the password you sign in with.")}}{{end}}
+  {{template "portal-card" (portalcard "/me/access" "Access" "When each door is open and when your code works there.")}}
+  {{template "portal-card" (portalcard "/me/entries" "Entries" "Every time you entered your code, and what the door decided.")}}
+  {{template "portal-card" (portalcard "/me/requests" "Requests" (or (and $c.Open (printf "%d waiting for an answer." $c.Open)) "Ask an administrator for access to a door or a change."))}}
+  {{template "portal-card" (portalcard "/account/tokens" "API tokens" "Tokens that let your scripts call the API as you.")}}
+</div>
+
+<div class="mt-10 grid gap-8 lg:grid-cols-5">
+  <section aria-labelledby="doors-heading" class="overflow-hidden lg:col-span-3 {{template "card-class"}}">
+    <div class="flex items-start justify-between gap-3 px-5 pt-5">
+      <div>
+        <h2 id="doors-heading" class="text-sm font-semibold">Your doors at a glance</h2>
+        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">The doors this site shows everyone, and what each does for you right now.</p>
+      </div>
+      <a href="/me/access" class="shrink-0 {{template "secondary-class"}}">All access</a>
+    </div>
+    {{template "portal-doors" $c.Doors}}
+  </section>
+
+  <section aria-labelledby="entries-heading" class="overflow-hidden lg:col-span-2 {{template "card-class"}}">
+    <div class="flex items-start justify-between gap-3 px-5 pt-5">
+      <div>
+        <h2 id="entries-heading" class="text-sm font-semibold">Your recent entries</h2>
+        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">The newest codes you entered.</p>
+      </div>
+      <a href="/me/entries" class="shrink-0 {{template "secondary-class"}}">All entries</a>
+    </div>
+    <div class="mt-4 overflow-x-auto">
+      <table aria-label="Your recent entries" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+        <thead class="{{template "table-head-class"}}"><tr><th scope="col" class="px-5 py-2">When</th><th scope="col" class="px-5 py-2">Door</th><th scope="col" class="px-5 py-2">Outcome</th></tr></thead>
+        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+          {{range $c.Entries}}
+          <tr>
+            <td class="px-5 py-3 whitespace-nowrap tabular-nums text-zinc-600 dark:text-zinc-400">{{.At}}</td>
+            <td class="px-5 py-3 whitespace-nowrap">{{.Door.Name}}</td>
+            <td class="px-5 py-3 whitespace-nowrap">{{template "outcome-badge" .}}</td>
+          </tr>
+          {{else}}
+          <tr><td colspan="3" class="px-5 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">No entries yet.</td></tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+{{if .AdminEntry}}
+<section aria-labelledby="admin-heading" class="mt-10">
+  <h2 id="admin-heading" class="text-sm font-semibold">Administration</h2>
+  <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">What your roles let you manage for everyone.</p>
+  <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
   {{if .Viewer.Has "manage-users"}}
   <a href="/admin/users" class="group rounded-xl border border-zinc-200 bg-white p-5 shadow-xs transition hover:border-brand-300 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-brand-700">
     <div class="flex size-10 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-300">
@@ -49,9 +116,7 @@
     <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">Site name, timezone, and how accounts are secured.</p>
   </a>
   {{end}}
-  <div class="rounded-xl border border-dashed border-zinc-300 p-5 dark:border-zinc-700">
-    <h2 class="text-sm font-semibold">Your account</h2>
-    <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">Signed in as {{.Viewer.DisplayName}}. Sign out from the top right when you are done.</p>
   </div>
-</div>
+</section>
+{{end}}
 {{end}}

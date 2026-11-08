@@ -51,6 +51,10 @@ const (
 	minPasswordHashMemory  = 8
 	maxPasswordHashMemory  = 1048576 // 1 GiB
 	passwordHashMemoryHint = "must be a whole number of KiB from 8 to 1048576"
+	keyPasswordMinLength   = "password_min_length"
+	minPasswordLength      = 8
+	maxPasswordLength      = 128
+	passwordMinLengthHint  = "must be a whole number of characters from 8 to 128"
 	keyEnrollmentUsername  = "enrollment_username"
 	keyEnrollmentPassword  = "enrollment_password"
 	keyGraceHours          = "door_credential_grace_hours"
@@ -142,6 +146,7 @@ var siteDefinitions = []definition{
 	}},
 	{key: keyAdminEmail, fallback: "admin@example.com"},
 	{key: keyPasswordHashMemory, fallback: "19456", validate: accepting(passwordHashMemory)},
+	{key: keyPasswordMinLength, fallback: "12", validate: accepting(passwordMinLength)},
 	{key: keyNewUserExpiry, fallback: "1826", validate: accepting(newUserExpiry)},
 	{key: keyOIDCEnabled, fallback: "false", validate: accepting(boolean)},
 	{key: keyOIDCAutoSignIn, fallback: "false", validate: accepting(boolean)},
@@ -186,6 +191,9 @@ type Current struct {
 	AdminEmail string
 	// PasswordHashMemoryKiB is the memory cost of hashing a new password.
 	PasswordHashMemoryKiB uint32
+	// PasswordMinLength is how many characters a password chosen in the
+	// portal must have at least.
+	PasswordMinLength int
 	// Zone is the site timezone: weekly schedule windows and dates typed on
 	// pages are in it.
 	Zone *time.Location
@@ -391,6 +399,12 @@ func passwordHashMemory(value string) (uint32, error) {
 	return uint32(n), err
 }
 
+// passwordMinLength parses how many characters a chosen password must
+// have at least.
+func passwordMinLength(value string) (int, error) {
+	return wholeNumber(value, minPasswordLength, maxPasswordLength, passwordMinLengthHint)
+}
+
 // durationSetting parses a length of time given as a whole number of
 // units, named units, from lowest to highest, which of makes a length of
 // time.
@@ -461,7 +475,11 @@ func (s Service) Current(ctx context.Context) (Current, error) {
 	if err != nil {
 		return Current{}, err
 	}
-	c := Current{SiteName: values[keySiteName], AdminEmail: values[keyAdminEmail], PasswordHashMemoryKiB: memory, Zone: zone}
+	minLength, err := parsed(values, keyPasswordMinLength, passwordMinLength)
+	if err != nil {
+		return Current{}, err
+	}
+	c := Current{SiteName: values[keySiteName], AdminEmail: values[keyAdminEmail], PasswordHashMemoryKiB: memory, PasswordMinLength: minLength, Zone: zone}
 	for _, d := range durations {
 		if *d.at(&c), err = parsed(values, d.key, d.parse); err != nil {
 			return Current{}, err

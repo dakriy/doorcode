@@ -8,8 +8,8 @@ import (
 	"github.com/dakriy/doorcode/internal/testsupport"
 )
 
-// tokenNav is the navigation of the API tokens page for an administrator.
-var tokenNav = []string{"Home", "Users", "Groups", "Schedules", "Doors", "Zones", "Firmware", "Events", "Settings", "API tokens (current)", "API docs"}
+// tokenNav is the navigation of the API tokens page, part of the portal.
+var tokenNav = portalNav("API tokens")
 
 // tokenTableHead is the header row of the token table.
 var tokenTableHead = []string{"Name", "Created", "Expires", "Actions"}
@@ -22,10 +22,11 @@ func TestTokensPageInvitesCreatingTheFirstToken(t *testing.T) {
 	got := b.Get("/account/tokens")
 
 	want := testsupport.Page{
-		Title:   "API tokens · doorcode",
-		Heading: "API tokens",
-		Nav:     tokenNav,
-		Values:  map[string]string{"name": ""},
+		Title:       "API tokens · doorcode",
+		Heading:     "API tokens",
+		Nav:         tokenNav,
+		Values:      map[string]string{"name": ""},
+		LinkTargets: toAdministration,
 		Table: [][]string{
 			tokenTableHead,
 			{"You have no API tokens yet. Create one to call the API from a script."},
@@ -48,12 +49,13 @@ func TestTokenCreatedOnThePageShowsItsSecretOnce(t *testing.T) {
 	again := b.Get("/account/tokens")
 
 	want := testsupport.Page{
-		Title:    "API tokens · doorcode",
-		Heading:  "API tokens",
-		Nav:      tokenNav,
-		Messages: []string{"Token “deploy” created. Copy it now: it is shown only this once and cannot be recovered."},
-		Values:   map[string]string{"secret": firstSecret, "name": ""},
-		Table:    [][]string{tokenTableHead, {"deploy", "5 Jan 2026", "4 Feb 2026", "Revoke"}},
+		Title:       "API tokens · doorcode",
+		Heading:     "API tokens",
+		Nav:         tokenNav,
+		Messages:    []string{"Token “deploy” created. Copy it now: it is shown only this once and cannot be recovered."},
+		Values:      map[string]string{"secret": firstSecret, "name": ""},
+		Table:       [][]string{tokenTableHead, {"deploy", "5 Jan 2026", "4 Feb 2026", "Revoke"}},
+		LinkTargets: toAdministration,
 	}
 	if diff := cmp.Diff(want, pageOf(created)); diff != "" {
 		t.Errorf("page after creating (-want +got):\n%s", diff)

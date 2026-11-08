@@ -80,10 +80,14 @@ func TestHomeGreetsTheSignedInAdministratorAndShowsTheFlashOnce(t *testing.T) {
 	second := pageOf(b.Get("/"))
 
 	want := testsupport.Page{
-		Title:    "Home · doorcode",
-		Heading:  "Welcome, Administrator",
-		Nav:      []string{"Home (current)", "Users", "Groups", "Schedules", "Doors", "Zones", "Firmware", "Events", "Settings", "API tokens", "API docs"},
-		Messages: []string{"You are signed in."},
+		Title:       "Home · doorcode",
+		Heading:     "Welcome, Administrator",
+		Nav:         portalNav("Home"),
+		Messages:    []string{"You are signed in."},
+		Notes:       []string{"You have no door code. " + noUserIDNote},
+		Tables:      map[string][][]string{"Your doors": noPortalDoors, "Your recent entries": noEntries},
+		Details:     homeCards(false, ""),
+		LinkTargets: toAdministration,
 	}
 	if diff := cmp.Diff(want, first); diff != "" {
 		t.Errorf("first visit (-want +got):\n%s", diff)
@@ -210,7 +214,7 @@ func TestSignInRefusesCredentialsThatDoNotMatchAnAccount(t *testing.T) {
 			password: adminPassword,
 		},
 		"account whose password hash is unreadable": {
-			arrange:  func(f *testsupport.Factory) { f.StoreStub.SetPasswordHash(adminEmail, "not-a-hash") },
+			arrange:  func(f *testsupport.Factory) { f.StoreStub.ReplacePasswordHash(adminEmail, "not-a-hash") },
 			email:    adminEmail,
 			password: adminPassword,
 		},

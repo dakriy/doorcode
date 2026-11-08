@@ -206,3 +206,9 @@ func (s *Store) CodeHashing(ctx context.Context, candidate string) (string, erro
 		select parameters from code_hashing`, candidate).Scan(&stored)
 	return stored, err
 }
+
+// SetPasswordHash stores the local password hash of the user with id.
+func (s *Store) SetPasswordHash(ctx context.Context, id int64, hash string) (bool, error) {
+	tag, err := s.pool.Exec(ctx, `update users set password_hash = $2 where id = $1`, id, hash)
+	return tag.RowsAffected() == 1, err
+}

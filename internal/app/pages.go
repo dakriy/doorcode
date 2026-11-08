@@ -121,6 +121,14 @@ var (
 
 	enrollmentsTemplate = shellPage("enrollments.html")
 	approvalTemplate    = shellPage("approval.html")
+
+	codeTemplate       = shellPage("me-code.html")
+	passwordTemplate   = shellPage("me-password.html")
+	accessTemplate     = shellPage("me-access.html")
+	doorAccessTemplate = shellPage("me-door.html")
+	entriesTemplate    = shellPage("me-entries.html")
+	requestsTemplate   = shellPage("me-requests.html")
+	requestTemplate    = shellPage("me-request.html")
 )
 
 // navItem is one link in the main navigation. A Reload link loads its page
@@ -158,6 +166,16 @@ var templateFuncs = template.FuncMap{
 	"eventcells": func(row eventRow, cols string) eventCells {
 		return eventCells{Row: row, Cols: cols}
 	},
+	"portalcard": func(href, title, about string) portalCard {
+		return portalCard{Href: href, Title: title, About: about}
+	},
+}
+
+// portalCard is a card on the portal's home leading to one of its pages.
+type portalCard struct {
+	Href  string
+	Title string
+	About string
 }
 
 // eventCells is one event's row of cells, naming its door, its user, or
@@ -255,7 +273,14 @@ type pageData struct {
 	// Viewer is the signed-in person, nil on a page for signed-out people.
 	Viewer  *auth.User
 	IsAdmin bool
-	Flash   string
+	// Portal is true on the portal's pages, which every signed-in person
+	// uses, and false in the administration. Passwords is true when the
+	// portal offers choosing a password, and AdminEntry is the first part
+	// of the administration the viewer may use, empty when none.
+	Portal     bool
+	Passwords  bool
+	AdminEntry string
+	Flash      string
 	// Content is the page's own data.
 	Content any
 }
@@ -269,15 +294,20 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, status int, page *t
 		return
 	}
 	data := pageData{
-		Title:   title + " · " + current.SiteName,
-		Site:    current.SiteName,
-		Assets:  assetURLs,
-		Path:    r.URL.Path,
-		URI:     r.URL.RequestURI(),
-		Viewer:  viewer,
-		IsAdmin: viewer != nil && viewer.Has(auth.RoleAdmin),
-		Flash:   takeFlash(w, r),
-		Content: content,
+		Title:     title + " · " + current.SiteName,
+		Site:      current.SiteName,
+		Assets:    assetURLs,
+		Path:      r.URL.Path,
+		URI:       r.URL.RequestURI(),
+		Viewer:    viewer,
+		IsAdmin:   viewer != nil && viewer.Has(auth.RoleAdmin),
+		Portal:    inPortal(r.URL.Path),
+		Passwords: !current.OIDC.HidesPasswordForms(),
+		Flash:     takeFlash(w, r),
+		Content:   content,
+	}
+	if viewer != nil {
+		data.AdminEntry = adminEntry(*viewer)
 	}
 	writePage(w, status, page, data)
 }
@@ -318,10 +348,6 @@ func serveAsset(content []byte, contentType string) viewerHandler {
 		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		_, _ = w.Write(content)
 	}
-}
-
-func (a *App) home(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	a.render(w, r, http.StatusOK, homeTemplate, "Home", &viewer, nil)
 }
 
 func (a *App) apiDocsPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {

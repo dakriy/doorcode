@@ -39,6 +39,7 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 		`"public":true,"open_schedule_ids":[1],"zone_ids":[1]}`
 	zoneBody := `{"name":"Building A","description":"Every outside door of building A.","door_ids":[1]}`
 	ruleBody := `{"group_id":1,"schedule_id":1,"door_ids":[1],"zone_ids":[1]}`
+	requestBody := `{"title":"Lab access","body":"I start in the electronics lab on Monday and need to get in from 8:00."}`
 	overrideBody := `{"kind":"locked","start":"2026-12-24T18:00:00Z","end":"2026-12-27T06:00:00Z","reason":"Closed over the holiday."}`
 	want := []testsupport.APIOperation{
 		{Method: "GET", Target: "/api/v1/access-rules", ID: "listAccessRules", Statuses: []int{200, 400, 401, 403, 500}},
@@ -101,6 +102,17 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 		{Method: "GET", Target: "/api/v1/groups/1/members", ID: "listGroupMembers", Statuses: []int{200, 401, 403, 404, 500}},
 		{Method: "DELETE", Target: "/api/v1/groups/1/members/1", ID: "removeGroupMember", Statuses: []int{204, 401, 403, 404, 409, 500}},
 		{Method: "PUT", Target: "/api/v1/groups/1/members/1", ID: "addGroupMember", Statuses: []int{204, 401, 403, 404, 500}},
+		{Method: "GET", Target: "/api/v1/me/access", ID: "getMyAccess", Statuses: []int{200, 400, 401, 500}},
+		{Method: "GET", Target: "/api/v1/me/code", ID: "getMyCode", Statuses: []int{200, 401, 500}},
+		{Method: "PUT", Target: "/api/v1/me/code", ID: "setMyCode", Body: `{"digits":"4821"}`, Statuses: []int{204, 400, 401, 409, 500}},
+		{Method: "GET", Target: "/api/v1/me/entries", ID: "listMyEntries", Statuses: []int{200, 400, 401, 500}},
+		{Method: "PUT", Target: "/api/v1/me/password", ID: "setMyPassword", Body: `{"current_password":"old horse battery staple","new_password":"correct horse battery staple"}`,
+			Statuses: []int{204, 400, 401, 403, 500}},
+		{Method: "GET", Target: "/api/v1/me/requests", ID: "listMyRequests", Statuses: []int{200, 401, 500}},
+		{Method: "POST", Target: "/api/v1/me/requests", ID: "createMyRequest", Body: requestBody, Statuses: []int{201, 400, 401, 500}},
+		{Method: "DELETE", Target: "/api/v1/me/requests/1", ID: "deleteMyRequest", Statuses: []int{204, 401, 404, 409, 500}},
+		{Method: "GET", Target: "/api/v1/me/requests/1", ID: "getMyRequest", Statuses: []int{200, 401, 404, 500}},
+		{Method: "PUT", Target: "/api/v1/me/requests/1", ID: "updateMyRequest", Body: requestBody, Statuses: []int{200, 400, 401, 404, 409, 500}},
 		{Method: "GET", Target: "/api/v1/openapi.json", ID: "getOpenAPI", Statuses: []int{200}},
 		{Method: "GET", Target: "/api/v1/schedules", ID: "listSchedules", Statuses: []int{200, 401, 403, 500}},
 		{Method: "POST", Target: "/api/v1/schedules", ID: "createSchedule", Body: scheduleBody, Statuses: []int{201, 400, 401, 403, 500}},
@@ -120,7 +132,7 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 		{Method: "POST", Target: "/api/v1/users", ID: "createUser", Body: userBody, Statuses: []int{201, 400, 401, 403, 500}},
 		{Method: "DELETE", Target: "/api/v1/users/1", ID: "deleteUser", Statuses: []int{204, 401, 403, 404, 409, 500}},
 		{Method: "GET", Target: "/api/v1/users/1", ID: "getUser", Statuses: []int{200, 401, 403, 404, 500}},
-		{Method: "PUT", Target: "/api/v1/users/1", ID: "updateUser", Body: userBody, Statuses: []int{200, 400, 401, 403, 404, 500}},
+		{Method: "PUT", Target: "/api/v1/users/1", ID: "updateUser", Body: userBody, Statuses: []int{200, 400, 401, 403, 404, 409, 500}},
 		{Method: "GET", Target: "/api/v1/users/1/access", ID: "getUserAccess", Statuses: []int{200, 400, 401, 403, 404, 500}},
 		{Method: "DELETE", Target: "/api/v1/users/1/code", ID: "clearUserCode", Statuses: []int{204, 401, 403, 404, 500}},
 		{Method: "PUT", Target: "/api/v1/users/1/code", ID: "setUserCode", Body: `{"code":"73914862"}`,
@@ -325,7 +337,7 @@ func TestOpenAPIDescribesPictureUploadsAndImages(t *testing.T) {
 		{"required": true, "content": {"multipart/form-data": {"schema": {"$ref": "#/components/schemas/PictureUpload"}}}},
 		{"type": "object", "required": ["picture"], "properties": {
 			"picture": {"type": "string", "format": "binary", "description": "The image: JPEG, PNG, GIF, or WebP."}}},
-		{"description": "The image reduced to at most 320 pixels on its longest side.",
+		{"description": "The image reduced to at most 320 pixels on its longest side. Anyone signed in may read the pictures of a door the portal shows; other doors' need the manage-doors role.",
 		 "content": {"image/jpeg": {"schema": {"type": "string", "format": "binary"}}}}
 	]`)
 	if diff := cmp.Diff(want, got); diff != "" {

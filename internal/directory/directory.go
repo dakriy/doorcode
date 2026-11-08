@@ -38,6 +38,15 @@ var (
 	ErrOwnAdmin = errors.New("you cannot remove your own admin role")
 	// ErrOwnAccount reports a person deleting their own account.
 	ErrOwnAccount = errors.New("you cannot delete your own account")
+	// ErrOwnExpiry reports a person making their own account expire now
+	// or earlier.
+	ErrOwnExpiry = errors.New("you cannot make your own account expire in the past")
+	// ErrNoUserID reports a person without a user id choosing a door
+	// code, which starts with it.
+	ErrNoUserID = errors.New("you have no user id, so you cannot choose a door code; an administrator can set one for you")
+	// ErrUserIDNotDigits reports a person whose user id, without its
+	// leading zeros, is not digits choosing a door code.
+	ErrUserIDNotDigits = errors.New("your user id is not a number, so you cannot choose a door code; an administrator can set one for you")
 	// ErrNotHeld reports a change to a group carrying a role the person
 	// making it does not hold.
 	ErrNotHeld = errors.New("you can only change groups whose roles you hold")

@@ -133,6 +133,11 @@ func (a *App) listEvents(w http.ResponseWriter, r *http.Request, _ auth.User) {
 		a.internalError(w, err)
 		return
 	}
+	writeEvents(w, found, page, perPage)
+}
+
+// writeEvents answers with found, page page of perPage events.
+func writeEvents(w http.ResponseWriter, found event.Page, page, perPage int) {
 	views := []eventView{}
 	for _, e := range found.Events {
 		views = append(views, viewOfEvent(e))

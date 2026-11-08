@@ -138,6 +138,9 @@ type UsersStore interface {
 	// SetCodeHash stores hash as the door code hash of the user whose id is
 	// id, nil removing the code, and reports whether there is one.
 	SetCodeHash(ctx context.Context, id int64, hash *string) (bool, error)
+	// SetPasswordHash stores hash as the local password hash of the user
+	// whose id is id, and reports whether there is one.
+	SetPasswordHash(ctx context.Context, id int64, hash string) (bool, error)
 }
 
 // StoredGroup is a group as the store holds it. MemberCount is how many
@@ -656,6 +659,41 @@ type EventQuery struct {
 	Limit   int
 }
 
+// StoredRequest is an access request as the store holds it: what the user
+// whose id is UserID asked an administrator, under Title and in Body, and
+// when they asked and last changed it. Reply is the administrator's answer,
+// empty until there is one, and ResolvedAt when the request was resolved,
+// nil while it is open.
+type StoredRequest struct {
+	ID         int64
+	UserID     int64
+	Title      string
+	Body       string
+	Reply      string
+	ResolvedAt *time.Time
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
+// RequestsStore holds the access requests aggregate.
+type RequestsStore interface {
+	// CreateRequest stores r, ignoring r.ID, and returns the id it was
+	// given.
+	CreateRequest(ctx context.Context, r StoredRequest) (int64, error)
+	// Request returns the request whose id is id, and whether there is
+	// one.
+	Request(ctx context.Context, id int64) (StoredRequest, bool, error)
+	// UserRequests returns the requests of the user whose id is userID,
+	// newest first and then by id descending.
+	UserRequests(ctx context.Context, userID int64) ([]StoredRequest, error)
+	// UpdateRequest stores r's title, body, and update time over the
+	// request whose id is r.ID, and reports whether there is one.
+	UpdateRequest(ctx context.Context, r StoredRequest) (bool, error)
+	// DeleteRequest removes the request whose id is id, and reports
+	// whether there was one.
+	DeleteRequest(ctx context.Context, id int64) (bool, error)
+}
+
 // EventsStore holds the events aggregate, the activity log. Events are
 // only ever added; they outlive the deletion of their door and user.
 type EventsStore interface {
@@ -759,6 +797,7 @@ type Store interface {
 	EventsStore
 	TelemetryStore
 	FirmwareStore
+	RequestsStore
 }
 
 // Message is one message the broker carries: its topic, its payload, and

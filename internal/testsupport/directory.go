@@ -405,3 +405,8 @@ func (s *Store) LeaveGroup(email, slug string) {
 	m := membership{group: s.groupBySlug(slug).ID, user: s.userByEmail(email).ID}
 	s.members = slices.DeleteFunc(slices.Clone(s.members), func(other membership) bool { return other == m })
 }
+
+// SetPasswordHash stores the local password hash of the user with id.
+func (s *Store) SetPasswordHash(_ context.Context, id int64, hash string) (bool, error) {
+	return s.changeUser(id, func(u *connector.StoredUser) { u.PasswordHash = &hash })
+}

@@ -1,0 +1,47 @@
+{{define "content"}}
+{{$c := .Content}}{{$r := $c.Row}}
+{{template "back" (link "/me/requests" "Access requests")}}
+<div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">{{$r.Title}}</h1>
+    <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">Sent {{$r.Created}}{{if ne $r.Updated $r.Created}} · changed {{$r.Updated}}{{end}}</p>
+  </div>
+  {{template "request-status" $r}}
+</div>
+{{with $c.Alert}}<div class="mt-6">{{template "alert" .}}</div>{{end}}
+
+{{if $r.Reply}}
+<section aria-labelledby="reply-heading" class="mt-8 max-w-2xl rounded-xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-900/60 dark:bg-emerald-950/40">
+  <h2 id="reply-heading" class="text-sm font-semibold text-emerald-900 dark:text-emerald-100">An administrator replied</h2>
+  <dl class="mt-2 space-y-2 text-sm text-emerald-900 dark:text-emerald-100">
+    <div><dt class="sr-only">Reply</dt><dd class="whitespace-pre-line">{{$r.Reply}}</dd></div>
+    {{with $r.Resolved}}<div class="flex gap-1 text-xs text-emerald-800 dark:text-emerald-300"><dt>Resolved</dt><dd>{{.}}</dd></div>{{end}}
+  </dl>
+</section>
+{{end}}
+
+{{if $r.Resolved}}
+<section aria-labelledby="asked-heading" class="mt-8 max-w-2xl p-5 {{template "card-class"}}">
+  <h2 id="asked-heading" class="text-sm font-semibold">What you asked</h2>
+  <p class="mt-2 text-sm whitespace-pre-line text-zinc-700 dark:text-zinc-300">{{or $r.Body "No details."}}</p>
+</section>
+<p role="note" class="mt-6 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">This request is resolved, so it can no longer be changed or withdrawn. <a href="/me/requests" class="{{template "link-class"}}">Make a new request</a> if you need something else.</p>
+{{else}}
+<div class="mt-8 grid max-w-4xl gap-8 lg:grid-cols-3">
+  <section aria-labelledby="edit-heading" class="p-5 lg:col-span-2 {{template "card-class"}}">
+    <h2 id="edit-heading" class="text-sm font-semibold">Change your request</h2>
+    <form method="post" action="/me/requests/{{$r.ID}}" class="mt-4 space-y-5" novalidate hx-disabled-elt="find button">
+      {{template "request-fields" $c}}
+      <button type="submit" class="{{template "primary-class"}}">Save changes</button>
+    </form>
+  </section>
+  <section aria-labelledby="withdraw-heading" class="h-fit rounded-xl border border-red-200 p-5 dark:border-red-900/60">
+    <h2 id="withdraw-heading" class="text-sm font-semibold">Withdraw</h2>
+    <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">No longer need it? Withdrawing removes the request for good.</p>
+    <form method="post" action="/me/requests/{{$r.ID}}/delete" class="mt-4" hx-confirm="Withdraw “{{$r.Title}}”? This cannot be undone.">
+      <button type="submit" class="{{template "danger-class"}}">Withdraw request</button>
+    </form>
+  </section>
+</div>
+{{end}}
+{{end}}

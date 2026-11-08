@@ -101,6 +101,8 @@ type Begun struct {
 type Finished struct {
 	Token string
 	Next  string
+	// Created is true when the sign-in created the user.
+	Created bool
 }
 
 // Start begins a sign-in that returns to next.
@@ -147,12 +149,12 @@ func (s Service) Finish(ctx context.Context, cookie string, query url.Values) (F
 	if err != nil {
 		return Finished{}, err
 	}
-	u, err := s.account(ctx, current, claims)
+	u, created, err := s.account(ctx, current, claims)
 	if err != nil {
 		return Finished{}, err
 	}
 	token, err := s.Auth.StartSession(ctx, u.ID, true)
-	return Finished{Token: token, Next: pending.Get("next")}, err
+	return Finished{Token: token, Next: pending.Get("next"), Created: created}, err
 }
 
 // EndSession returns the address of the provider's page that ends its
@@ -232,24 +234,24 @@ func lacks(claims map[string]any, names settings.Claims) bool {
 }
 
 // account returns the user claims name, created or brought up to date,
-// with the groups the sign-in decides. A user whose account has ended is
-// refused.
-func (s Service) account(ctx context.Context, current settings.Current, claims map[string]any) (connector.StoredUser, error) {
+// with the groups the sign-in decides, and whether it created them. A user
+// whose account has ended is refused.
+func (s Service) account(ctx context.Context, current settings.Current, claims map[string]any) (connector.StoredUser, bool, error) {
 	names := current.OIDC.Claims
 	email, _ := text(claims, names.Email)
 	if email == "" {
-		return connector.StoredUser{}, ErrNoEmail
+		return connector.StoredUser{}, false, ErrNoEmail
 	}
 	if claims["email_verified"] == false {
-		return connector.StoredUser{}, ErrEmailUnverified
+		return connector.StoredUser{}, false, ErrEmailUnverified
 	}
 	userID, _ := text(claims, names.UserID)
 	u, found, err := s.Directory.Match(ctx, userID, email)
 	if err != nil {
-		return connector.StoredUser{}, err
+		return connector.StoredUser{}, false, err
 	}
 	if found && auth.AccountEnded(u, s.Clock.Now()) {
-		return connector.StoredUser{}, auth.ErrExpired
+		return connector.StoredUser{}, false, auth.ErrExpired
 	}
 	profile := profileOf(u, claims, names, email)
 	if found {
@@ -260,10 +262,10 @@ func (s Service) account(ctx context.Context, current settings.Current, claims m
 		u, err = s.Directory.CreateUser(ctx, profile)
 	}
 	if err != nil {
-		return connector.StoredUser{}, err
+		return connector.StoredUser{}, false, err
 	}
 	join, leave := memberships(current.OIDC, claims, !found)
-	return u, s.Directory.Sync(ctx, u.ID, join, leave)
+	return u, !found, s.Directory.Sync(ctx, u.ID, join, leave)
 }
 
 // profileOf is u's profile as claims, read by names, tell it: each field

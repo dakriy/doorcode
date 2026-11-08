@@ -91,6 +91,8 @@ func (a *App) routes() []route {
 	table = append(table, a.telemetryRoutes()...)
 	table = append(table, a.firmwareRoutes()...)
 	table = append(table, a.firmwarePageRoutes()...)
+	table = append(table, a.portalRoutes()...)
+	table = append(table, a.portalPageRoutes()...)
 	return append(table, a.calendarPageRoutes()...)
 }
 

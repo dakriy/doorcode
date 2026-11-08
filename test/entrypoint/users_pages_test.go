@@ -434,7 +434,7 @@ func TestYourOwnPageSaysWhyItOffersNoDeletion(t *testing.T) {
 	t.Parallel()
 	got := pageOf(signedInAdmin(t, testsupport.NewFactory()).Get("/admin/users/1"))
 
-	want := []string{"This is your own account. You cannot delete it, and you cannot remove your own admin role."}
+	want := []string{"This is your own account. You cannot delete it, make it expire today or earlier, or remove your own admin role."}
 	if diff := cmp.Diff(want, got.Notes); diff != "" {
 		t.Errorf("notes (-want +got):\n%s", diff)
 	}

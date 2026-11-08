@@ -110,14 +110,14 @@ func TestANewIdentitySignsInWithTheDefaultEntitlementAndPreassignedGroups(t *tes
 	createGroup(t, admin, `{"slug":"interns","name":"Interns","preassigned_user_ids":["100234"]}`)
 
 	b, got := viaProvider(t, f, h, annClaims())
-	home := pageOf(b.Get("/"))
+	landed := pageOf(b.Get(got.Location))
 	user := testsupport.JSON(send(t, admin, "GET", "/api/v1/users/2", "", 200).Body).(map[string]any)
 
-	want := []any{303, "/", "Welcome, Ann Smith", "ann@example.com", "100234", "Ann", "Smith", "Ann Smith", "2031-01-05T09:00:00Z",
-		[]any{"contractors", "interns", "staff", "visitors"}}
-	if diff := cmp.Diff(want, []any{got.Status, got.Location, home.Heading, user["email"], user["user_id"], user["first_name"],
+	want := []any{303, "/me/code", "Door code", []string{"Welcome! Choose your door code to finish setting up your account."},
+		"ann@example.com", "100234", "Ann", "Smith", "Ann Smith", "2031-01-05T09:00:00Z", []any{"contractors", "interns", "staff", "visitors"}}
+	if diff := cmp.Diff(want, []any{got.Status, got.Location, landed.Heading, landed.Messages, user["email"], user["user_id"], user["first_name"],
 		user["last_name"], user["display_name"], user["expires_at"], groupSlugs(t, admin, "2")}); diff != "" {
-		t.Errorf("status, location, home heading, email, user id, names, expiry, groups (-want +got):\n%s", diff)
+		t.Errorf("status, location, heading and messages where it lands, email, user id, names, expiry, groups (-want +got):\n%s", diff)
 	}
 }
 
@@ -650,7 +650,7 @@ func TestTheClientSecretIsStoredEncryptedShownMaskedAndReachesTheProvider(t *tes
 
 	shown := `{"key":"oidc_client_secret","value":"********","source":"database","read_only":false,` +
 		`"env_var":"DOORCODE_OIDC_CLIENT_SECRET","secret":true,"updated_at":"` + testsupport.DefaultNow + `"}` + "\n"
-	want := []any{shown, "s3cret", "<nil>", shown, 303, "/"}
+	want := []any{shown, "s3cret", "<nil>", shown, 303, "/me/code"}
 	if diff := cmp.Diff(want, []any{saved.Body, stored, testsupport.ErrorText(err), read.Body, signedIn.Status, signedIn.Location}); diff != "" {
 		t.Errorf("saved, decrypted, error, read, sign-in status and location (-want +got):\n%s", diff)
 	}
@@ -816,7 +816,7 @@ func TestASignInNeedsNoUserinfoWhenTheIDTokenHoldsEveryClaimRead(t *testing.T) {
 
 	_, got := viaProvider(t, f, h, annClaims())
 
-	if diff := cmp.Diff([]any{303, "/"}, []any{got.Status, got.Location}); diff != "" {
+	if diff := cmp.Diff([]any{303, "/me/code"}, []any{got.Status, got.Location}); diff != "" {
 		t.Errorf("status, location (-want +got):\n%s", diff)
 	}
 }

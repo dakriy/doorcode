@@ -166,6 +166,8 @@ type Store struct {
 	firmware     []storedFirmware
 	nextFirmware int64
 	updates      []connector.StoredUpdate
+	requests     []connector.StoredRequest
+	nextRequest  int64
 	migrateErr   error
 	failing      map[aggregate]bool
 }
@@ -203,6 +205,8 @@ const (
 	firmwareAggregate
 	updatesAggregate
 	firmwareWrites
+	requestsAggregate
+	requestWrites
 )
 
 // NewStore returns an empty, unmigrated stub store.
@@ -451,9 +455,9 @@ func (s *Store) RemovePassword(email string) {
 	s.userByEmail(email).PasswordHash = nil
 }
 
-// SetPasswordHash replaces the stored password hash of the user with email,
-// as a damaged or foreign record would hold.
-func (s *Store) SetPasswordHash(email, hash string) {
+// ReplacePasswordHash replaces the stored password hash of the user with
+// email, as a damaged or foreign record would hold.
+func (s *Store) ReplacePasswordHash(email, hash string) {
 	s.userByEmail(email).PasswordHash = &hash
 }
 
@@ -479,6 +483,7 @@ func (s *Store) Fail() {
 	s.FailTelemetry()
 	s.FailFirmware()
 	s.FailUpdates()
+	s.FailRequests()
 }
 
 // FailSettings makes the settings methods report ErrUnavailable.
