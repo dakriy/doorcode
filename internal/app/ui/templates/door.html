@@ -94,6 +94,37 @@
   {{end}}
 </section>
 {{end}}
+{{with $c.Firmware}}
+<section id="firmware-live" hx-get="{{$.URI}}" hx-trigger="live-doors from:body" hx-select="#firmware-live" hx-swap="outerHTML" aria-labelledby="firmware-heading" class="mt-6 p-6 {{template "card-class"}}">
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <h2 id="firmware-heading" class="text-sm font-semibold">Firmware</h2>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">The door runs the default version unless one is chosen for it here. The rollout sends it its target in the update window.</p>
+    </div>
+    {{if not .Note}}
+    <form method="post" action="/admin/doors/{{$d.ID}}/update" hx-confirm="Send {{$d.Name}} version {{.Target}} now? The controller restarts to install it." hx-disabled-elt="find button" class="shrink-0">
+      <button type="submit" class="{{template "secondary-class"}}">Update now</button>
+    </form>
+    {{end}}
+  </div>
+  <dl class="mt-5 grid gap-4 sm:grid-cols-4">
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Running</dt><dd class="mt-1 font-mono text-sm">{{.Running}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Target</dt><dd class="mt-1 font-mono text-sm">{{.Target}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Rollout</dt><dd class="mt-1 text-sm">{{.Status}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Latest update</dt><dd class="mt-1 text-sm">{{.LastUpdate}}</dd></div>
+  </dl>
+  {{with .Note}}<p role="note" class="mt-4 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">{{.}}</p>{{end}}
+  <form method="post" action="/admin/doors/{{$d.ID}}/firmware" hx-disabled-elt="find button" class="mt-5 flex flex-col gap-3 border-t border-zinc-200 pt-5 sm:flex-row sm:items-end dark:border-zinc-800">
+    <div class="flex-1">
+      <label for="door-firmware" class="block text-sm font-medium">Firmware for this door</label>
+      <select id="door-firmware" name="firmware_id" class="{{template "input-class"}}">
+        {{range .Options}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
+      </select>
+    </div>
+    <button type="submit" class="shrink-0 {{template "primary-class"}}">Save firmware</button>
+  </form>
+</section>
+{{end}}
 {{if $c.Manage}}{{with $d.DeletedAt}}
 <div class="mt-6 flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200">
   <p>Deleted on {{.UTC.Format "2 Jan 2006"}}. The door is listed only under deleted doors; its history stays.</p>

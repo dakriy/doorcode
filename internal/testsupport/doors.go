@@ -64,7 +64,7 @@ func (s *Store) CreateDoor(_ context.Context, d connector.StoredDoor) (int64, er
 	}
 	s.nextDoor++
 	d.ID = s.nextDoor
-	d.PrimaryPictureID, d.Controller, d.Config = nil, nil, map[string]string{}
+	d.PrimaryPictureID, d.Controller, d.Config, d.FirmwareID = nil, nil, map[string]string{}, nil
 	s.placeDoor(d.ID, d.ZoneIDs)
 	d.OpenScheduleIDs, d.ZoneIDs = slices.Clone(d.OpenScheduleIDs), nil
 	s.doors = append(s.doors, d)
@@ -123,6 +123,51 @@ func clonedController(c *connector.StoredController) *connector.StoredController
 		t := *c.Telemetry
 		copied.Telemetry = &t
 	}
+	return &copied
+}
+
+// SetDoorState stores st as the state of the controller of the door with
+// id, keeping its hardware id and online status.
+func (s *Store) SetDoorState(_ context.Context, id int64, st connector.StoredDoorState) (bool, error) {
+	if err := s.writable(doorsAggregate, doorWrites); err != nil {
+		return false, err
+	}
+	if s.failing[controllerWrites] {
+		return false, ErrUnavailable
+	}
+	held := s.doorByID(id)
+	if held == nil || held.Controller == nil {
+		return false, nil
+	}
+	c := *held.Controller
+	c.StoredDoorState = st
+	held.Controller = clonedController(&c)
+	return true, nil
+}
+
+// SetDoorFirmware stores firmwareID as the firmware the door with id runs
+// instead of the default, refusing firmware the stub does not hold.
+func (s *Store) SetDoorFirmware(_ context.Context, id int64, firmwareID *int64) (bool, error) {
+	if err := s.writable(doorsAggregate, doorWrites); err != nil {
+		return false, err
+	}
+	if firmwareID != nil && s.firmwareByID(*firmwareID) == nil {
+		return false, ErrNoSuchReference
+	}
+	held := s.doorByID(id)
+	if held == nil {
+		return false, nil
+	}
+	held.FirmwareID = cloneID(firmwareID)
+	return true, nil
+}
+
+// cloneID is a copy of id sharing nothing with it.
+func cloneID(id *int64) *int64 {
+	if id == nil {
+		return nil
+	}
+	copied := *id
 	return &copied
 }
 
@@ -195,6 +240,7 @@ func (s *Store) cloneDoor(d connector.StoredDoor) connector.StoredDoor {
 	d.OpenScheduleIDs = append([]int64{}, slices.Sorted(slices.Values(d.OpenScheduleIDs))...)
 	d.Controller = clonedController(d.Controller)
 	d.Config = maps.Clone(d.Config)
+	d.FirmwareID = cloneID(d.FirmwareID)
 	d.ZoneIDs = []int64{}
 	for _, p := range s.zoneDoors {
 		if p.door == d.ID {
@@ -445,8 +491,8 @@ func (s *Store) FailPrimaryPictures() {
 	s.failing[primaryPictureWrites] = true
 }
 
-// FailControllerWrites makes SetController report ErrUnavailable, while
-// doors can still be changed otherwise.
+// FailControllerWrites makes SetController and SetDoorState report
+// ErrUnavailable, while doors can still be changed otherwise.
 func (s *Store) FailControllerWrites() {
 	s.failing[controllerWrites] = true
 }

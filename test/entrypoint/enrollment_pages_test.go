@@ -10,7 +10,7 @@ import (
 
 // adminNav is the navigation an administrator sees on a page no link
 // leads to.
-var adminNav = []string{"Home", "Users", "Groups", "Schedules", "Doors", "Zones", "Events", "Settings", "API tokens", "API docs"}
+var adminNav = []string{"Home", "Users", "Groups", "Schedules", "Doors", "Zones", "Firmware", "Events", "Settings", "API tokens", "API docs"}
 
 // enrollmentsHead and credentialsHead are the header rows of the pending
 // enrollments and of a door's credentials.
@@ -154,7 +154,7 @@ func TestApprovingAsANewDoorFromTheFormOpensTheDoor(t *testing.T) {
 	}
 	want := []any{
 		[]string{"The controller has been approved. Its credentials are on their way, and it connects as this door once it has them."},
-		[]string{"New credentials can be sent only while the controller is connected.", openNote},
+		[]string{noTargetNote, "New credentials can be sent only while the controller is connected.", openNote},
 		[]string{"open_schedule_ids=1", "zone_ids=1"},
 		[][]string{credentialsHead, {firstUsername, "Mon 5 Jan 2026 09:00", "Issued, not yet used"}},
 	}
@@ -301,6 +301,7 @@ func TestDoorPageShowsItsControllerAndCredentials(t *testing.T) {
 			"Hardware id": "A1", "Door": "Not reported yet", "Firmware": "1.4.3", "Signal": "-58 dBm", "Latency": "Not reported yet",
 			"Uptime": "Not reported yet", "Free memory": "Not reported yet", "Reconnects": "Not reported yet",
 			"Last seen": "Mon 5 Jan 2026 09:30:00", "Last report": "Not reported yet",
+			"Running": "1.4.3", "Target": "None", "Rollout": "Not in the rollout", "Latest update": "Never sent one",
 		},
 		[][]string{credentialsHead,
 			{secondUsername, "Mon 5 Jan 2026 09:00", "In use"},

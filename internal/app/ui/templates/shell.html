@@ -13,6 +13,7 @@
         {{if .Viewer.Has "manage-schedules"}}{{template "navlink" (navlink "/admin/schedules" "Schedules" .Path)}}{{end}}
         {{if or (.Viewer.Has "manage-doors") (.Viewer.Has "door-commander")}}{{template "navlink" (navlink "/admin/doors" "Doors" .Path)}}{{end}}
         {{if .Viewer.Has "manage-doors"}}{{template "navlink" (navlink "/admin/zones" "Zones" .Path)}}{{end}}
+        {{if .Viewer.Has "manage-firmware"}}{{template "navlink" (navlink "/admin/firmware" "Firmware" .Path)}}{{end}}
         {{if .Viewer.Has "view-logs"}}{{template "navlink" (navlink "/admin/events" "Events" .Path)}}{{end}}
         {{if .IsAdmin}}{{template "navlink" (navlink "/admin/settings" "Settings" .Path)}}{{end}}
         {{template "navlink" (navlink "/account/tokens" "API tokens" .Path)}}

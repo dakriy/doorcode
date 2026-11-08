@@ -38,6 +38,8 @@ var defaultSettings = []shownSetting{
 	{"door_credential_grace_hours", "24", "default"},
 	{"telemetry_retention_days", "7", "default"}, {"telemetry_rollup_retention_days", "730", "default"},
 	{"unresponsive_minutes", "5", "default"},
+	{"public_url", "", "default"}, {"update_window_days", "daily", "default"}, {"update_window_start", "02:00", "default"},
+	{"update_window_minutes", "120", "default"}, {"update_concurrency", "5", "default"}, {"update_timeout_minutes", "30", "default"},
 	{"door_strike_pulse_ms", "3000", "default"}, {"door_keypad_idle_clear_ms", "10000", "default"},
 	{"door_min_code_length", "4", "default"}, {"door_max_code_length", "32", "default"}, {"door_submit_key", "#", "default"},
 	{"door_reply_timeout_ms", "3000", "default"}, {"door_telemetry_interval_s", "60", "default"},
@@ -53,7 +55,7 @@ var defaultSettings = []shownSetting{
 func settingsPage(shown []shownSetting, changed map[string]shownSetting, entered, refused map[string]string) testsupport.Page {
 	page := testsupport.Page{
 		Title: "Settings · doorcode", Heading: "Settings", Notes: settingsNote, Values: map[string]string{},
-		Nav:    []string{"Home", "Users", "Groups", "Schedules", "Doors", "Zones", "Events", "Settings (current)", "API tokens", "API docs"},
+		Nav:    []string{"Home", "Users", "Groups", "Schedules", "Doors", "Zones", "Firmware", "Events", "Settings (current)", "API tokens", "API docs"},
 		Tables: map[string][][]string{"Settings": {{"Setting", "Value", "Source", "Environment variable"}}},
 	}
 	for _, s := range shown {

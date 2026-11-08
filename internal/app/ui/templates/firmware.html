@@ -1,0 +1,156 @@
+{{define "content"}}
+{{$c := .Content}}{{$w := $c.Window}}
+<div>
+  <h1 class="text-2xl font-semibold tracking-tight">Firmware</h1>
+  <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">The firmware images the door controllers run. Every door runs the default version unless its page names another; the rollout sends each door its version inside the update window, a few doors at a time.</p>
+</div>
+{{if $c.NoAddress}}
+<p role="note" class="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">No update can be sent until the public_url setting gives the address doors reach this server at, since they download firmware from it.</p>
+{{end}}
+
+<section aria-labelledby="versions-heading" class="mt-8 overflow-hidden {{template "card-class"}}">
+  <div class="px-6 pt-6">
+    <h2 id="versions-heading" class="text-sm font-semibold">Versions</h2>
+    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Running counts the doors whose controllers last reported the version; targeting, the doors that should run it.</p>
+  </div>
+  <div class="mt-4 overflow-x-auto">
+    <table aria-label="Versions" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+      <thead class="{{template "table-head-class"}}">
+        <tr>
+          <th scope="col" class="px-6 py-2">Version</th>
+          <th scope="col" class="px-6 py-2">Uploaded by</th>
+          <th scope="col" class="px-6 py-2">Uploaded</th>
+          <th scope="col" class="px-6 py-2">Running</th>
+          <th scope="col" class="px-6 py-2">Targeting</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {{range $c.Versions}}
+        <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
+          <td class="px-6 py-3 whitespace-nowrap"><div class="flex items-center gap-2"><a href="/admin/firmware/{{.ID}}" class="font-mono {{template "link-class"}}">{{.Version}}</a>{{if .Default}}{{template "badge" "Default"}}{{end}}</div></td>
+          <td class="px-6 py-3 whitespace-nowrap">{{.Uploader}}</td>
+          <td class="px-6 py-3 whitespace-nowrap tabular-nums text-zinc-600 dark:text-zinc-400">{{.Uploaded}}</td>
+          <td class="px-6 py-3 tabular-nums">{{.Running}}</td>
+          <td class="px-6 py-3 tabular-nums">{{.Targeting}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="5" class="px-6 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">No firmware yet. Upload an image below, or from CI through the API.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="mt-8 grid gap-8 lg:grid-cols-3">
+  <form method="post" action="/admin/firmware" enctype="multipart/form-data" novalidate hx-disabled-elt="find button" aria-labelledby="upload-heading" class="p-6 lg:col-span-2 {{template "card-class"}}">
+    <h2 id="upload-heading" class="text-sm font-semibold">Upload firmware</h2>
+    <div class="mt-5 grid gap-5">
+      {{template "field" (field "version" "Version" "text" $c.Upload.Version $c.Errors "Unique, such as 1.4.3. Letters, digits, dots, dashes, underscores, and plus signs.")}}
+      <div>
+        <label for="notes" class="block text-sm font-medium">Notes</label>
+        <textarea id="notes" name="notes" rows="2"{{with index $c.Errors "notes"}} aria-invalid="true" aria-describedby="notes-error"{{end}} class="{{template "input-class"}}">{{$c.Upload.Notes}}</textarea>
+        {{template "field-note" (field "notes" "" "" "" $c.Errors "What changed in this version, for whoever chooses it.")}}
+      </div>
+      <div>
+        {{$error := index $c.Errors "image"}}
+        <label for="image" class="block text-sm font-medium">Image</label>
+        <input id="image" name="image" type="file" required{{if $error}} aria-invalid="true" aria-describedby="image-error"{{end}}
+          class="mt-2 block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-800 hover:file:bg-zinc-200 dark:text-zinc-400 dark:file:bg-zinc-800 dark:file:text-zinc-200 dark:hover:file:bg-zinc-700">
+        {{if $error}}<p id="image-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$error}}</p>
+        {{else}}<p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">Any file up to {{$c.MaxMiB}} MiB. Doors check its SHA-256 after downloading it.</p>{{end}}
+      </div>
+    </div>
+    <div class="mt-6 flex justify-end">
+      <button type="submit" class="{{template "primary-class"}}">Upload</button>
+    </div>
+  </form>
+
+  <form method="post" action="/admin/firmware/default" hx-disabled-elt="find button" aria-labelledby="default-heading" class="p-6 {{template "card-class"}}">
+    <h2 id="default-heading" class="text-sm font-semibold">Default version</h2>
+    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Every door runs it unless its page names another. Upgrades and downgrades alike roll out in the update window.</p>
+    <label for="firmware_id" class="sr-only">Default version</label>
+    <select id="firmware_id" name="firmware_id" class="mt-4 {{template "input-base"}}">
+      {{range $c.Defaults}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
+    </select>
+    <div class="mt-4 flex justify-end">
+      <button type="submit" class="{{template "primary-class"}}">Save default</button>
+    </div>
+  </form>
+</div>
+
+<form method="post" action="/admin/firmware/settings" novalidate hx-disabled-elt="find button" aria-labelledby="window-heading" class="mt-8 p-6 {{template "card-class"}}">
+  <h2 id="window-heading" class="text-sm font-semibold">Update window</h2>
+  <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Updates roll out only while the window is open, in the site timezone, to at most so many doors at once. Updating a door from its page ignores both.</p>
+  {{range $w.ReadOnly}}<p role="note" class="mt-3 text-xs text-zinc-500 dark:text-zinc-400">{{.}}</p>{{end}}
+  <div class="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+    <div>
+      <label for="repeat" class="block text-sm font-medium">Repeats</label>
+      <select id="repeat" name="repeat" class="{{template "input-class"}}">
+        <option value="daily"{{if not $w.Weekly}} selected{{end}}>Every day</option>
+        <option value="weekly"{{if $w.Weekly}} selected{{end}}>On the weekdays chosen</option>
+      </select>
+    </div>
+    {{$dayError := index $w.Errors "update_window_days"}}
+    <fieldset name="days" class="sm:col-span-2 lg:col-span-3"{{if $dayError}} aria-invalid="true" aria-describedby="update_window_days-error"{{end}}>
+      <legend class="text-sm font-medium">Weekdays</legend>
+      <div class="mt-2 flex flex-wrap gap-1.5">
+        {{range weekdays}}
+        <label class="cursor-pointer">
+          <input type="checkbox" name="days" value="{{.Value}}"{{if has $w.Days .Value}} checked{{end}} class="peer sr-only">
+          <span class="inline-flex w-12 justify-center rounded-md bg-white px-2 py-1.5 text-sm font-medium text-zinc-700 ring-1 ring-zinc-300 ring-inset transition select-none peer-checked:bg-brand-600 peer-checked:text-white peer-checked:ring-brand-600 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand-600 hover:bg-zinc-100 peer-checked:hover:bg-brand-500 dark:bg-zinc-900 dark:text-zinc-300 dark:ring-zinc-700 dark:hover:bg-zinc-800 dark:peer-checked:bg-brand-500 dark:peer-checked:ring-brand-500">{{.Label}}</span>
+        </label>
+        {{end}}
+      </div>
+      {{if $dayError}}<p id="update_window_days-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$dayError}}</p>
+      {{else}}<p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">Used when the window repeats on chosen weekdays: the days it opens on.</p>{{end}}
+    </fieldset>
+    {{template "field" (field "update_window_start" "Opens at" "time" (index $w.Values "update_window_start") $w.Errors "HH:MM in the site timezone.")}}
+    {{template "field" (field "update_window_minutes" "Lasts, in minutes" "number" (index $w.Values "update_window_minutes") $w.Errors "From 1 to 1440; a window may run past midnight.")}}
+    {{template "field" (field "update_concurrency" "Doors at once" "number" (index $w.Values "update_concurrency") $w.Errors "How many doors may be updating at the same time.")}}
+    {{template "field" (field "update_timeout_minutes" "Timeout, in minutes" "number" (index $w.Values "update_timeout_minutes") $w.Errors "A door that has not come back with the new version by then has failed; the rollout tries it again in the next window.")}}
+  </div>
+  <div class="mt-6 flex justify-end">
+    <button type="submit" class="{{template "primary-class"}}">Save update window</button>
+  </div>
+</form>
+
+<section id="rollout-live" hx-get="{{.URI}}" hx-trigger="live-doors from:body" hx-select="#rollout-live" hx-swap="outerHTML" aria-labelledby="rollout-heading" class="mt-8">
+  <h2 id="rollout-heading" class="text-sm font-semibold">Rollout</h2>
+  <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Every enrolled door that has firmware to run, by how far its update is. It updates as doors report.</p>
+  <div class="mt-4 grid gap-6 lg:grid-cols-2">
+    {{range $c.Rollout}}
+    <div class="overflow-hidden {{template "card-class"}}">
+      <div class="flex items-center justify-between px-6 pt-5">
+        <h3 class="text-sm font-semibold">{{.Label}}</h3>
+        <span class="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium tabular-nums text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">{{len .Rows}}</span>
+      </div>
+      <div class="mt-3 overflow-x-auto">
+        <table aria-label="{{.Label}}" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+          <thead class="{{template "table-head-class"}}">
+            <tr>
+              <th scope="col" class="px-6 py-2">Door</th>
+              <th scope="col" class="px-6 py-2">Running</th>
+              <th scope="col" class="px-6 py-2">Target</th>
+              <th scope="col" class="px-6 py-2">Latest update</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {{range .Rows}}
+            <tr>
+              <td class="px-6 py-3 whitespace-nowrap"><a href="/admin/doors/{{.DoorID}}" class="{{template "link-class"}}">{{.Door}}</a></td>
+              <td class="px-6 py-3 font-mono text-xs whitespace-nowrap">{{.Running}}</td>
+              <td class="px-6 py-3 font-mono text-xs whitespace-nowrap">{{.Target}}</td>
+              <td class="px-6 py-3 text-zinc-600 dark:text-zinc-400">{{.Update}}</td>
+            </tr>
+            {{else}}
+            <tr><td colspan="4" class="px-6 py-6 text-center text-sm text-zinc-500 dark:text-zinc-400">{{.Empty}}</td></tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {{end}}
+  </div>
+</section>
+{{template "live" .}}
+{{end}}

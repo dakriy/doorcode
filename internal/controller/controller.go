@@ -66,6 +66,9 @@ type Service struct {
 	// Changed is called whenever what a door's status or the pending
 	// enrollments show has changed.
 	Changed func()
+	// Connected is called with the id of a door whose controller has
+	// connected, once its state is stored.
+	Connected func(ctx context.Context, doorID int64) error
 }
 
 // Enrollment is a controller waiting to be approved: its hardware id, what
@@ -188,6 +191,9 @@ func (s Service) online(ctx context.Context, doorID int64, payload []byte) error
 		return err
 	}
 	if err := s.setController(ctx, doorID, &c); err != nil {
+		return err
+	}
+	if err := s.Connected(ctx, doorID); err != nil {
 		return err
 	}
 	return s.Push.Connected(ctx, doorID)
@@ -360,7 +366,7 @@ func (s Service) Rotate(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	err = s.send(ctx, id, protocol.Command{Command: protocol.CommandCredentials, Username: username, Token: token})
+	_, err = s.send(ctx, id, protocol.Command{Command: protocol.CommandCredentials, Username: username, Token: token})
 	s.Changed()
 	return err
 }
@@ -371,7 +377,18 @@ func (s Service) Open(ctx context.Context, d connector.StoredDoor, strikeMS int)
 	if !connected(d) {
 		return ErrOffline
 	}
-	return s.send(ctx, d.ID, protocol.Command{Command: protocol.CommandOpen, StrikeMS: strikeMS})
+	_, err := s.send(ctx, d.ID, protocol.Command{Command: protocol.CommandOpen, StrikeMS: strikeMS})
+	return err
+}
+
+// Update tells the connected controller of d to install the firmware
+// version whose image has the SHA-256 sha256, in hex, from url, and
+// returns the id of the command that told it.
+func (s Service) Update(ctx context.Context, d connector.StoredDoor, version, sha256, url string) (string, error) {
+	if !connected(d) {
+		return "", ErrOffline
+	}
+	return s.send(ctx, d.ID, protocol.Command{Command: protocol.CommandUpdate, Version: version, SHA256: sha256, URL: url})
 }
 
 // connected reports whether a controller enrolled as d is connected.
@@ -379,11 +396,11 @@ func connected(d connector.StoredDoor) bool {
 	return d.Controller != nil && d.Controller.Online
 }
 
-// send gives c an id of its own and publishes it on the command topic of
-// the door whose id is id.
-func (s Service) send(ctx context.Context, id int64, c protocol.Command) error {
+// send gives c an id of its own, publishes it on the command topic of the
+// door whose id is id, and returns the id.
+func (s Service) send(ctx context.Context, id int64, c protocol.Command) (string, error) {
 	c.ID = hex.EncodeToString(s.Entropy.Bytes(commandIDBytes))
-	return s.Broker.Publish(ctx, connector.Message{Topic: protocol.DoorTopic(id, protocol.LeafCommand), Payload: protocol.Encode(&c)})
+	return c.ID, s.Broker.Publish(ctx, connector.Message{Topic: protocol.DoorTopic(id, protocol.LeafCommand), Payload: protocol.Encode(&c)})
 }
 
 // Revoke stops every credential of the door whose id is id working, which
@@ -400,8 +417,10 @@ func (s Service) Revoke(ctx context.Context, id int64) error {
 	if d.Controller == nil {
 		return nil
 	}
+	// A door that is not connected is shown offline, so it is not
+	// unresponsive as well.
 	c := *d.Controller
-	c.Online = false
+	c.Online, c.Unresponsive = false, false
 	return s.setController(ctx, id, &c)
 }
 

@@ -190,9 +190,9 @@ func TestRunLogsWhenThePeriodicWorkFails(t *testing.T) {
 		},
 		"when doors cannot be read": {
 			arrange: func(_ *testing.T, f *testsupport.Factory, _ *testsupport.Browser) { f.StoreStub.FailDoors() },
-			// The rotation, the timeline refresh, and the watch over the
-			// doors' state read doors.
-			at: "2026-01-05T09:01:00Z", want: "stub: unavailable\nstub: unavailable\nstub: unavailable",
+			// The rotation, the timeline refresh, the watch over the
+			// doors' state, and the rollout read doors.
+			at: "2026-01-05T09:01:00Z", want: "stub: unavailable\nstub: unavailable\nstub: unavailable\nstub: unavailable",
 		},
 		"when a timeline cannot be sent": {
 			arrange: func(_ *testing.T, f *testsupport.Factory, _ *testsupport.Browser) { f.BrokerStub.FailPublishing() },

@@ -25,6 +25,12 @@ var brokerSettingsJSON = `{"key":"enrollment_username","value":"doorcode-enroll"
 	defaultSetting("telemetry_retention_days", "7") + `,` +
 	defaultSetting("telemetry_rollup_retention_days", "730") + `,` +
 	defaultSetting("unresponsive_minutes", "5") + `,` +
+	defaultSetting("public_url", "") + `,` +
+	defaultSetting("update_window_days", "daily") + `,` +
+	defaultSetting("update_window_start", "02:00") + `,` +
+	defaultSetting("update_window_minutes", "120") + `,` +
+	defaultSetting("update_concurrency", "5") + `,` +
+	defaultSetting("update_timeout_minutes", "30") + `,` +
 	defaultSetting("door_strike_pulse_ms", "3000") + `,` +
 	defaultSetting("door_keypad_idle_clear_ms", "10000") + `,` +
 	defaultSetting("door_min_code_length", "4") + `,` +

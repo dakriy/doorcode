@@ -117,7 +117,7 @@ func TestTheEventsPageListsEventsWithTheirOutcomesAndReasons(t *testing.T) {
 		{"Mon 5 Jan 2026 09:00:00", "Lobby", "Ann Smith", "Allowed Access rule", "Code check · rule 1 r1"},
 		{"Showing 1 to 5 of 5"},
 	}}
-	if diff := cmp.Diff(want, []any{page.Title, page.Nav[6], page.Tables["Events"]}); diff != "" {
+	if diff := cmp.Diff(want, []any{page.Title, page.Nav[7], page.Tables["Events"]}); diff != "" {
 		t.Errorf("title, navigation, events (-want +got):\n%s", diff)
 	}
 }
@@ -134,8 +134,8 @@ func TestTheEventsPageFiltersByWhatItsFormSays(t *testing.T) {
 		[]string{"User: Ann Smith ×"},
 		map[string]string{"user": "2", "from": "2026-01-05", "to": "2026-01-05"},
 		[]string{"Every door", "Dock (selected)", "Lobby"},
-		[]string{"Every type", "Code check (selected)", "Keypad command", "Opened from the UI", "Door alarm"},
-		[]string{"Every outcome", "Allowed", "Denied (selected)", "Alert"},
+		[]string{"Every type", "Code check (selected)", "Keypad command", "Opened from the UI", "Door alarm", "Firmware update"},
+		[]string{"Every outcome", "Allowed", "Denied (selected)", "Alert", "Info"},
 	}
 	got := []any{page.Tables["Events"], page.Messages, page.Values, page.Options["door"], page.Options["type"], page.Options["outcome"]}
 	if diff := cmp.Diff(want, got); diff != "" {

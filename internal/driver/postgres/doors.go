@@ -19,7 +19,7 @@ const (
 	array(select schedule_id from door_open_schedules where door_id = doors.id order by schedule_id),
 	array(select zone_id from zone_doors where door_id = doors.id order by zone_id),
 	c.hardware_id, c.firmware_version, c.signal, c.online, c.last_seen_at, c.door_state, c.opened_at, c.held_open, c.unresponsive,
-	c.telemetry, doors.config`
+	c.telemetry, doors.config, doors.firmware_id`
 	doorTables = `doors left join door_controllers c on c.door_id = doors.id`
 )
 
@@ -40,17 +40,17 @@ func doorFields(d *scannedDoor) []any {
 	c := &d.controller
 	return []any{&d.ID, &d.Name, &d.Location, &d.Notes, &d.Public, &d.PrimaryPictureID, &d.DeletedAt, &d.CreatedAt,
 		&d.OpenScheduleIDs, &d.ZoneIDs, &c.hardwareID, &c.firmwareVersion, &c.signal, &c.online, &c.lastSeenAt,
-		&c.doorState, &c.openedAt, &c.heldOpen, &c.unresponsive, &c.telemetry, &d.Config}
+		&c.doorState, &c.openedAt, &c.heldOpen, &c.unresponsive, &c.telemetry, &d.Config, &d.FirmwareID}
 }
 
 // door is the door, with its controller when the row has one.
 func (d scannedDoor) door() connector.StoredDoor {
 	c := d.controller
 	if c.hardwareID != nil {
-		d.Controller = &connector.StoredController{
-			HardwareID: *c.hardwareID, FirmwareVersion: *c.firmwareVersion, Signal: *c.signal, Online: *c.online, LastSeenAt: *c.lastSeenAt,
+		d.Controller = &connector.StoredController{HardwareID: *c.hardwareID, Online: *c.online, StoredDoorState: connector.StoredDoorState{
+			FirmwareVersion: *c.firmwareVersion, Signal: *c.signal, LastSeenAt: *c.lastSeenAt,
 			DoorState: *c.doorState, OpenedAt: c.openedAt, HeldOpen: *c.heldOpen, Unresponsive: *c.unresponsive, Telemetry: c.telemetry,
-		}
+		}}
 	}
 	return d.StoredDoor
 }
@@ -89,6 +89,23 @@ func (s *Store) SetController(ctx context.Context, id int64, c *connector.Stored
 		return replaceController(ctx, tx, id, c)
 	})
 	return updated, err
+}
+
+// SetDoorState stores st over the state columns of the door's controller,
+// leaving its hardware id and online status as they are.
+func (s *Store) SetDoorState(ctx context.Context, id int64, st connector.StoredDoorState) (bool, error) {
+	tag, err := s.pool.Exec(ctx, `
+		update door_controllers set firmware_version = $2, signal = $3, last_seen_at = $4, door_state = $5, opened_at = $6,
+			held_open = $7, unresponsive = $8, telemetry = $9
+		where door_id = $1`, id, st.FirmwareVersion, st.Signal, st.LastSeenAt, st.DoorState, st.OpenedAt, st.HeldOpen, st.Unresponsive, st.Telemetry)
+	return tag.RowsAffected() == 1, err
+}
+
+// SetDoorFirmware stores firmwareID as the firmware the door with id runs
+// instead of the default; the foreign key refuses firmware there is not.
+func (s *Store) SetDoorFirmware(ctx context.Context, id int64, firmwareID *int64) (bool, error) {
+	tag, err := s.pool.Exec(ctx, `update doors set firmware_id = $2 where id = $1`, id, firmwareID)
+	return tag.RowsAffected() == 1, err
 }
 
 // SetDoorConfig stores config as the configuration overrides of the door

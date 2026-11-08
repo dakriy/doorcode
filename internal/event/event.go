@@ -1,6 +1,7 @@
 // Package event keeps the activity log: every code check a door asked
 // about, with what was decided and why, every keypad command, every
-// opening from the admin UI, and every alarm a door's state raised.
+// opening from the admin UI, every alarm a door's state raised, and every
+// firmware update sent to a door and how it ended.
 // Events are only ever added.
 package event
 
@@ -21,20 +22,25 @@ const (
 	// Alarm is something wrong with a door's state, such as the door
 	// forced open.
 	Alarm = "alarm"
+	// Update is a firmware update sent to a door, or its end.
+	Update = "update"
 )
 
 // Types is every type, in the order pages list them.
-var Types = []string{Check, Command, Open, Alarm}
+var Types = []string{Check, Command, Open, Alarm, Update}
 
-// The outcomes of an event. An alarm's outcome is Alert.
+// The outcomes of an event. An alarm's outcome is Alert, and so is a
+// failed firmware update's; an update sent or done is Info, since it
+// lets nobody in.
 const (
 	Allowed = "allowed"
 	Denied  = "denied"
 	Alert   = "alert"
+	Info    = "info"
 )
 
 // Outcomes is every outcome, in the order pages list them.
-var Outcomes = []string{Allowed, Denied, Alert}
+var Outcomes = []string{Allowed, Denied, Alert, Info}
 
 // The reasons a code check was allowed.
 const (
@@ -95,11 +101,24 @@ const (
 	HeldOpen = "held open"
 )
 
+// The reasons of firmware update events.
+const (
+	// UpdateSent is an update command sent to a door.
+	UpdateSent = "update sent"
+	// UpdateSucceeded is a door connecting again with the version it was
+	// told to install.
+	UpdateSucceeded = "update succeeded"
+	// UpdateFailed is a door saying it could not install the version, or
+	// not connecting with it in time.
+	UpdateFailed = "update failed"
+)
+
 // Reasons is every reason, in the order pages list them.
 var Reasons = []string{
 	AccessRule, OpenMode, OpenOverride, Commander, Commanded,
 	NoRule, Locked, Expired, RateLimited, NotCommander, BadCommand, CommandFailed, Unreachable,
 	KeypadOpen, KeypadLocked, KeypadCancel, FromUI, ForcedOpen, HeldOpen,
+	UpdateSent, UpdateSucceeded, UpdateFailed,
 }
 
 // Service records and finds events.

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -123,4 +124,14 @@ func compact(raw json.RawMessage) string {
 	var out bytes.Buffer
 	_ = json.Compact(&out, raw)
 	return out.String()
+}
+
+// Target is the path and query of the absolute URL rawURL, which a test
+// can request from the handler; empty when rawURL is not one.
+func Target(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	return u.RequestURI()
 }

@@ -58,7 +58,7 @@ func (a *App) controllerRoutes() []route {
 	doors := holding(auth.RoleManageDoors)
 	doorParams := []openapi.Param{doorIDParam}
 	return []route{
-		pageRoute(http.MethodGet, "/admin/live", opensDoors, a.liveStream),
+		pageRoute(http.MethodGet, "/admin/live", watchesDoors, a.liveStream),
 		apiRoute(http.MethodGet, "/enrollments", doors, a.listEnrollments, apiDoc{
 			id: "listEnrollments", summary: "List the controllers waiting to be approved", tag: "enrollment",
 			responses: []openapi.Response{{Status: http.StatusOK, Description: "Every waiting controller.", Body: enrollmentList{}}},

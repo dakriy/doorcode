@@ -9,7 +9,7 @@ import (
 )
 
 // doorsNav is the navigation of a doors page for an administrator.
-var doorsNav = []string{"Home", "Users", "Groups", "Schedules", "Doors (current)", "Zones", "Events", "Settings", "API tokens", "API docs"}
+var doorsNav = []string{"Home", "Users", "Groups", "Schedules", "Doors (current)", "Zones", "Firmware", "Events", "Settings", "API tokens", "API docs"}
 
 // doorsHead is the header row of the door list.
 var doorsHead = []string{"Picture", "Name", "Status", "Zones", "Open mode", "Portal"}

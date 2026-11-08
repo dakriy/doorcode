@@ -18,6 +18,7 @@ import (
 	"github.com/dakriy/doorcode/internal/directory"
 	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/event"
+	"github.com/dakriy/doorcode/internal/firmware"
 	"github.com/dakriy/doorcode/internal/push"
 	"github.com/dakriy/doorcode/internal/rule"
 	"github.com/dakriy/doorcode/internal/schedule"
@@ -49,6 +50,9 @@ type App struct {
 	// telemetry follows the doors' state from what their controllers
 	// report.
 	telemetry telemetry.Service
+	// firmware keeps the firmware images and rolls updates out to the
+	// doors.
+	firmware firmware.Service
 	// enrolling says Run has set up the enrollment credentials, and
 	// nextSweep is when it next does the periodic work. Only Run reads and
 	// changes them.
@@ -95,6 +99,11 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 	a.controllers = controller.Service{
 		Store: store, Doors: a.doors, Broker: a.broker, Clock: clock, Entropy: entropy, Pending: controller.NewPending(),
 		Push: a.pushes, Changed: a.live.notify,
+		Connected: func(ctx context.Context, doorID int64) error { return a.firmware.Settle(ctx, doorID) },
+	}
+	a.firmware = firmware.Service{
+		Store: store, Doors: a.doors, Controllers: a.controllers, Events: a.events, Settings: s, Clock: clock, Entropy: entropy,
+		DownloadPath: firmwareImagePath, Changed: a.live.notify,
 	}
 	a.telemetry = telemetry.Service{
 		Store: store, Doors: a.doors, Events: a.events, Settings: s, Clock: clock, Changed: a.live.notify, Reported: a.live.report,

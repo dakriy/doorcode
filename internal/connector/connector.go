@@ -279,18 +279,25 @@ type SchedulesStore interface {
 }
 
 // StoredController is the controller enrolled as a door: its hardware id,
-// what it last reported of its firmware version and signal strength (in
-// dBm), whether it is connected to the broker, and when the server last
-// heard from it. DoorState is "open" or "closed" as the controller last
-// said, empty until it has; OpenedAt is when the door opened, nil unless
-// it is open; HeldOpen is whether it has been logged as held open since.
-// Unresponsive marks a controller the server has not heard from for too
-// long. Telemetry is its latest report, nil until its first.
+// whether it is connected to the broker, and what it last told of itself
+// and its door.
 type StoredController struct {
-	HardwareID      string
+	HardwareID string
+	Online     bool
+	StoredDoorState
+}
+
+// StoredDoorState is what a door's controller last told of itself and its
+// door: its firmware version and signal strength (in dBm), and when the
+// server last heard from it. DoorState is "open" or "closed" as the
+// controller last said, empty until it has; OpenedAt is when the door
+// opened, nil unless it is open; HeldOpen is whether it has been logged as
+// held open since. Unresponsive marks a controller the server has not
+// heard from for too long. Telemetry is its latest report, nil until its
+// first.
+type StoredDoorState struct {
 	FirmwareVersion string
 	Signal          int
-	Online          bool
 	LastSeenAt      time.Time
 	DoorState       string
 	OpenedAt        *time.Time
@@ -387,7 +394,10 @@ type TelemetryStore interface {
 // SetController and ignores it when it stores a door. Config is the door's
 // configuration overrides, each value keyed by the name of the field it
 // overrides, never nil; the store sets it only through SetDoorConfig and
-// ignores it when it stores a door.
+// ignores it when it stores a door. A nil FirmwareID is a door that runs
+// the site's default firmware; otherwise it names the firmware the door
+// runs instead, which the store sets only through SetDoorFirmware and
+// ignores when it stores a door.
 type StoredDoor struct {
 	ID               int64
 	Name             string
@@ -401,6 +411,7 @@ type StoredDoor struct {
 	CreatedAt        time.Time
 	Controller       *StoredController
 	Config           map[string]string
+	FirmwareID       *int64
 }
 
 // DoorsStore holds the doors aggregate. Doors are never removed; a deleted
@@ -424,6 +435,16 @@ type DoorsStore interface {
 	// nil detaching it, and reports whether there is such a door. Hardware
 	// ids are unique: it refuses one another door's controller has.
 	SetController(ctx context.Context, id int64, c *StoredController) (bool, error)
+	// SetDoorState stores st as what the controller of the door whose id
+	// is id last told of itself and its door, leaving its hardware id and
+	// whether it is connected as they are, and reports whether the door
+	// has a controller.
+	SetDoorState(ctx context.Context, id int64, st StoredDoorState) (bool, error)
+	// SetDoorFirmware makes the firmware whose id is firmwareID the one
+	// the door whose id is id runs instead of the default, nil making it
+	// follow the default, and reports whether there is such a door. It
+	// refuses firmware the store does not hold.
+	SetDoorFirmware(ctx context.Context, id int64, firmwareID *int64) (bool, error)
 	// SetDoorConfig stores config as the configuration overrides of the
 	// door whose id is id, replacing those it had, and reports whether
 	// there is such a door.
@@ -643,6 +664,76 @@ type EventsStore interface {
 	Events(ctx context.Context, q EventQuery) ([]StoredEvent, int, error)
 }
 
+// StoredFirmware is an uploaded firmware image as the store holds it,
+// without the image itself: its version, unique, what the uploader said
+// of it, the SHA-256 of the image in hex and its size in bytes, and who
+// uploaded it when. UploaderName is the uploader's display name, which the
+// store fills when it returns firmware and ignores when it stores it.
+// Default marks the site's default firmware, which the store sets only
+// through SetDefaultFirmware and ignores when it stores firmware.
+type StoredFirmware struct {
+	ID           int64
+	Version      string
+	Notes        string
+	SHA256       string
+	Size         int
+	UploadedBy   int64
+	UploaderName string
+	UploadedAt   time.Time
+	Default      bool
+}
+
+// StoredUpdate is the latest firmware update the server sent the
+// controller of the door whose id is DoorID: the version it was told to
+// install, the id of the command that told it, a hash of the token that
+// lets it download the image, when it was sent, and when the update stops
+// counting as under way and the token stops working. State is "updating"
+// until it "succeeded" or "failed", at FinishedAt, nil until then; Detail
+// says why it failed.
+type StoredUpdate struct {
+	DoorID     int64
+	Version    string
+	CommandID  string
+	TokenHash  []byte
+	SentAt     time.Time
+	ExpiresAt  time.Time
+	State      string
+	FinishedAt *time.Time
+	Detail     string
+}
+
+// FirmwareStore holds the firmware images and the updates the server sent
+// the doors, one per door, the latest.
+type FirmwareStore interface {
+	// AddFirmware stores f, ignoring f.ID and f.Default, with its image,
+	// and returns the id it was given. It refuses a version it holds
+	// already.
+	AddFirmware(ctx context.Context, f StoredFirmware, image []byte) (int64, error)
+	// Firmwares returns every firmware, without images, newest upload
+	// first and then by id descending.
+	Firmwares(ctx context.Context) ([]StoredFirmware, error)
+	// Firmware returns the firmware whose id is id, and whether there is
+	// one.
+	Firmware(ctx context.Context, id int64) (StoredFirmware, bool, error)
+	// FirmwareImage returns the image of the firmware whose id is id, and
+	// whether there is one.
+	FirmwareImage(ctx context.Context, id int64) ([]byte, bool, error)
+	// SetDefaultFirmware makes the firmware whose id is id the site's
+	// default, and no other, nil leaving the site without one, and
+	// reports whether there is such firmware (always, for nil).
+	SetDefaultFirmware(ctx context.Context, id *int64) (bool, error)
+	// DeleteFirmware removes the firmware whose id is id, and reports
+	// whether there was one. It refuses firmware a door runs instead of
+	// the default.
+	DeleteFirmware(ctx context.Context, id int64) (bool, error)
+	// DoorUpdates returns the latest update of every door that was sent
+	// one, ordered by door id.
+	DoorUpdates(ctx context.Context) ([]StoredUpdate, error)
+	// PutDoorUpdate stores u as the latest update of its door, replacing
+	// the one it had. It refuses a door the store does not hold.
+	PutDoorUpdate(ctx context.Context, u StoredUpdate) error
+}
+
 // Store is the application's persistent state, one interface per aggregate.
 type Store interface {
 	// Migrate brings the schema up to date. It runs once at startup, before
@@ -662,6 +753,7 @@ type Store interface {
 	CredentialsStore
 	EventsStore
 	TelemetryStore
+	FirmwareStore
 }
 
 // Message is one message the broker carries: its topic, its payload, and

@@ -34,6 +34,9 @@ const (
 	TelemetryFilter = "doorcode/doors/+/telemetry"
 	// EventFilter matches what every door says happened to it.
 	EventFilter = "doorcode/doors/+/event"
+	// AckFilter matches what every door answers the commands it was
+	// sent.
+	AckFilter = "doorcode/doors/+/ack"
 	// EnrollOwnFilter is the one topic an enrolling controller may
 	// announce itself on: the broker puts the controller's client id,
 	// which must be its hardware id, in place of %c.
@@ -60,6 +63,8 @@ const (
 	LeafTelemetry = "telemetry"
 	// LeafEvent ends the topic a door says what happened to it on.
 	LeafEvent = "event"
+	// LeafAck ends the topic a door answers its commands on.
+	LeafAck = "ack"
 )
 
 // EnrollTopic is where the controller with hardware id hwid announces
@@ -162,6 +167,8 @@ const (
 	CommandCredentials = "credentials"
 	// CommandOpen releases a door's strike.
 	CommandOpen = "open"
+	// CommandUpdate installs other firmware.
+	CommandUpdate = "update"
 )
 
 // Command is what the server tells a door to do on its command topic. ID
@@ -169,7 +176,10 @@ const (
 // carries the username and token to connect as from now on; the door
 // connects with them, publishes its online status, and then closes the
 // connection it had. An open command carries how long, in milliseconds,
-// to release the strike for.
+// to release the strike for. An update command carries the firmware
+// version to install, the SHA-256 of its image in hex, and the HTTPS URL
+// to download the image from; the door installs it, restarts, and
+// connects again reporting the version, or acknowledges that it failed.
 type Command struct {
 	Header
 	ID       string `cbor:"id"`
@@ -177,6 +187,22 @@ type Command struct {
 	Username string `cbor:"username,omitempty"`
 	Token    string `cbor:"token,omitempty"`
 	StrikeMS int    `cbor:"strike_ms,omitempty"`
+	Version  string `cbor:"version,omitempty"`
+	SHA256   string `cbor:"sha256,omitempty"`
+	URL      string `cbor:"url,omitempty"`
+}
+
+// AckFailed is the result of a command a door could not carry out.
+const AckFailed = "failed"
+
+// Ack is what a door answers a command with on its ack topic: the id the
+// command gave, its result, AckFailed when the door could not carry it
+// out, and why in words.
+type Ack struct {
+	Header
+	ID     string `cbor:"id"`
+	Result string `cbor:"result"`
+	Detail string `cbor:"detail,omitempty"`
 }
 
 // Check is what a door publishes on its check topic when someone enters a

@@ -163,6 +163,9 @@ type Store struct {
 	events       []connector.StoredEvent
 	samples      []connector.StoredSample
 	rollups      []connector.StoredRollup
+	firmware     []storedFirmware
+	nextFirmware int64
+	updates      []connector.StoredUpdate
 	migrateErr   error
 	failing      map[aggregate]bool
 }
@@ -197,6 +200,9 @@ const (
 	telemetryAggregate
 	telemetryWrites
 	sampleReads
+	firmwareAggregate
+	updatesAggregate
+	firmwareWrites
 )
 
 // NewStore returns an empty, unmigrated stub store.
@@ -471,6 +477,8 @@ func (s *Store) Fail() {
 	s.FailCredentials()
 	s.FailEvents()
 	s.FailTelemetry()
+	s.FailFirmware()
+	s.FailUpdates()
 }
 
 // FailSettings makes the settings methods report ErrUnavailable.

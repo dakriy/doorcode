@@ -257,6 +257,9 @@ type doorContent struct {
 	// State is the door's live state, nil while no controller is enrolled
 	// as it.
 	State *stateView
+	// Firmware is what the page shows of the door's firmware, nil when the
+	// viewer may not manage firmware or no controller is enrolled as it.
+	Firmware *doorFirmwareCard
 }
 
 // entrantRow is one access rule as a door's page lists who may enter.
@@ -325,8 +328,13 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 		a.pageError(w, err)
 		return
 	}
+	card, err := a.firmwareCard(r.Context(), viewer, d.StoredDoor, zone)
+	if err != nil {
+		a.pageError(w, err)
+		return
+	}
 	content := doorContent{
-		Manage: viewer.Has(auth.RoleManageDoors), Events: events, StrikeMS: config.StrikePulseMS, State: state,
+		Manage: viewer.Has(auth.RoleManageDoors), Events: events, StrikeMS: config.StrikePulseMS, State: state, Firmware: card,
 		Door: d.StoredDoor, Row: n.rowOfDoor(d.StoredDoor), Form: form, Alert: alert,
 		Entrants: []entrantRow{}, Overrides: []overrideRow{},
 		Schedules: scheduleChoices(n.schedules, form.OpenScheduleIDs), Zones: zoneChoices(n.zones, form.ZoneIDs),
@@ -415,13 +423,17 @@ func uploadRefusal(err error) (int, bool) {
 	return http.StatusUnprocessableEntity, rejected
 }
 
-// doorPageRefusals maps each refusal of a change made from a door's page
-// to the status and the message the page shows.
-var doorPageRefusals = []struct {
+// doorRefusal is a refusal of a change made from a door's page, with the
+// status and the message the page shows for it.
+type doorRefusal struct {
 	err     error
 	status  int
 	message string
-}{
+}
+
+// doorPageRefusals maps each refusal of a change made from a door's page
+// to the status and the message the page shows.
+var doorPageRefusals = []doorRefusal{
 	{door.ErrNoPicture, http.StatusNotFound, "That picture is not there any more. It may have been deleted already."},
 	{door.ErrNoOverride, http.StatusNotFound, "That override is not there any more. It may have been deleted already."},
 	{door.ErrNotActive, http.StatusConflict, "Only an override in force can be cancelled. Delete one that has not started."},
@@ -432,7 +444,14 @@ var doorPageRefusals = []struct {
 // shown on the page, a failure as an error, and success by going back to
 // the page with flash.
 func (a *App) doorChanged(w http.ResponseWriter, r *http.Request, viewer auth.User, d storedDoor, err error, flash string) {
-	for _, known := range doorPageRefusals {
+	a.doorRefused(w, r, viewer, d, err, flash, doorPageRefusals)
+}
+
+// doorRefused finishes a change to d made from its page: a refusal among
+// known is shown on the page, a failure as an error, and success by going
+// back to the page with flash.
+func (a *App) doorRefused(w http.ResponseWriter, r *http.Request, viewer auth.User, d storedDoor, err error, flash string, known []doorRefusal) {
+	for _, known := range known {
 		if errors.Is(err, known.err) {
 			a.showDoor(w, r, known.status, viewer, d, d.fresh(), known.message)
 			return

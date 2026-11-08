@@ -33,6 +33,7 @@ func (a *App) eventPageRoutes() []route {
 // typeLabels names each type of event on pages.
 var typeLabels = map[string]string{
 	event.Check: "Code check", event.Command: "Keypad command", event.Open: "Opened from the UI", event.Alarm: "Door alarm",
+	event.Update: "Firmware update",
 }
 
 // eventRow is one event as pages list it.

@@ -156,10 +156,12 @@ func closed(c connector.StoredController) connector.StoredController {
 	return c
 }
 
-// save stores c as the controller of the door whose id is id, which was
-// held, and says what changed.
+// save stores the state of c as that of the controller of the door whose
+// id is id, which was held, and says what changed. It stores only the
+// state, so a change to the controller's credentials or connection made
+// meanwhile stands.
 func (s Service) save(ctx context.Context, id int64, held, c connector.StoredController) error {
-	if _, err := s.Store.SetController(ctx, id, &c); err != nil {
+	if _, err := s.Store.SetDoorState(ctx, id, c.StoredDoorState); err != nil {
 		return err
 	}
 	if slices.Equal(Badges(held), Badges(c)) {
@@ -272,7 +274,8 @@ func (s Service) watch(ctx context.Context, unresponsiveAfter time.Duration, def
 
 // watchDoor logs d held open at now when its door has been open for
 // heldOpen, and marks its controller unresponsive when it has not been
-// heard from for unresponsiveAfter.
+// heard from for unresponsiveAfter while the broker says it is connected;
+// one that is not is shown offline instead.
 func (s Service) watchDoor(ctx context.Context, d connector.StoredDoor, heldOpen, unresponsiveAfter time.Duration, now time.Time) error {
 	held := *d.Controller
 	c := held
@@ -283,7 +286,7 @@ func (s Service) watchDoor(ctx context.Context, d connector.StoredDoor, heldOpen
 		}
 		c.HeldOpen = true
 	}
-	if !now.Before(c.LastSeenAt.Add(unresponsiveAfter)) {
+	if c.Online && !now.Before(c.LastSeenAt.Add(unresponsiveAfter)) {
 		c.Unresponsive = true
 	}
 	if c == held {

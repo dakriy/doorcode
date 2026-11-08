@@ -38,7 +38,7 @@ func (a *App) Run(ctx context.Context) error {
 		a.enrolling = true
 	}
 	inbound, err := a.broker.Subscribe(ctx, []string{
-		protocol.EnrollFilter, protocol.OnlineFilter, protocol.CheckFilter, protocol.TelemetryFilter, protocol.EventFilter,
+		protocol.EnrollFilter, protocol.OnlineFilter, protocol.CheckFilter, protocol.TelemetryFilter, protocol.EventFilter, protocol.AckFilter,
 	})
 	if err != nil {
 		return fmt.Errorf("subscribe: %w", err)
@@ -90,8 +90,8 @@ func (a *App) receive(ctx context.Context, m connector.Message) {
 }
 
 // handle handles one message from a controller: a code check, its
-// telemetry, what happened to its door, or what it says of itself while
-// it enrolls or as a door.
+// telemetry, what happened to its door, its answer to a command, or what
+// it says of itself while it enrolls or as a door.
 func (a *App) handle(ctx context.Context, m connector.Message) error {
 	t, ok := protocol.Parse(m.Topic)
 	if !ok {
@@ -102,6 +102,8 @@ func (a *App) handle(ctx context.Context, m connector.Message) error {
 		return a.checkCode(ctx, t.DoorID, m.Payload)
 	case protocol.LeafTelemetry, protocol.LeafEvent:
 		return a.telemetry.Receive(ctx, t, m.Payload)
+	case protocol.LeafAck:
+		return a.firmware.Acked(ctx, t.DoorID, m.Payload)
 	}
 	return a.controllers.Receive(ctx, t, m.Payload)
 }
@@ -122,8 +124,9 @@ func (a *App) sweepIfDue(ctx context.Context) {
 
 // sweep does the periodic work: it rotates and revokes door credentials,
 // sends doors their timelines again when they are due, removes the
-// sessions that have expired, and watches the doors' state and keeps
-// their telemetry history. A part that fails does not stop the others.
+// sessions that have expired, watches the doors' state and keeps their
+// telemetry history, and rolls firmware updates out. A part that fails
+// does not stop the others.
 func (a *App) sweep(ctx context.Context) error {
 	defaults, err := a.settings.DoorDefaults(ctx)
 	if err != nil {
@@ -138,6 +141,7 @@ func (a *App) sweep(ctx context.Context) error {
 		a.pushes.Refresh(ctx),
 		a.auth.PurgeSessions(ctx),
 		a.telemetry.Sweep(ctx, current, defaults),
+		a.firmware.Rollout(ctx, current),
 	)
 }
 

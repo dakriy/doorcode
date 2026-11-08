@@ -1421,6 +1421,274 @@
         }
       }
     },
+    "/doors/{id}/firmware": {
+      "get": {
+        "operationId": "getDoorFirmware",
+        "summary": "Show a door's firmware",
+        "tags": [
+          "firmware"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What the door runs, should run, and its latest update.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoorFirmwareView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-firmware role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setDoorFirmware",
+        "summary": "Choose the firmware a door runs",
+        "tags": [
+          "firmware"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FirmwareChoice"
+              },
+              "example": {
+                "firmware_id": 1
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The door's firmware as it is now. With null the door follows the default.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoorFirmwareView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON object with firmware_id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-firmware role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id, or no firmware has the id given.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/doors/{id}/firmware/{version}": {
+      "get": {
+        "operationId": "downloadFirmware",
+        "summary": "Download the firmware a door was told to install",
+        "tags": [
+          "firmware"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "description": "The version the door was told to install.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "1.4.3"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "description": "The token the update command's URL carries.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "c2VjcmV0"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The image. Doors call this from the URL of their update command, which needs no API token.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token is not the one the door was sent for this version, its update has ended, or it has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The version has been deleted since.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/doors/{id}/open": {
       "post": {
         "operationId": "openDoor",
@@ -3115,6 +3383,97 @@
         }
       }
     },
+    "/doors/{id}/update": {
+      "post": {
+        "operationId": "updateDoor",
+        "summary": "Send a door its firmware now",
+        "tags": [
+          "firmware"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The door was sent its target, whatever the update window and however many doors are updating.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoorFirmwareView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-firmware role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The door's controller is not connected, the door has no target, or the public_url setting is not set.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/enrollments": {
       "get": {
         "operationId": "listEnrollments",
@@ -3328,7 +3687,7 @@
             "name": "type",
             "in": "query",
             "required": false,
-            "description": "Keeps the events of this type: check, command, open, or alarm.",
+            "description": "Keeps the events of this type: check, command, open, alarm, or update.",
             "schema": {
               "type": "string"
             },
@@ -3338,7 +3697,7 @@
             "name": "outcome",
             "in": "query",
             "required": false,
-            "description": "Keeps the events with this outcome: allowed, denied, or alert.",
+            "description": "Keeps the events with this outcome: allowed, denied, alert, or info.",
             "schema": {
               "type": "string"
             },
@@ -3428,6 +3787,603 @@
           },
           "403": {
             "description": "The caller does not hold the view-logs role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/firmware": {
+      "get": {
+        "operationId": "listFirmware",
+        "summary": "List the firmware",
+        "tags": [
+          "firmware"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every firmware.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmwareList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-firmware role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "uploadFirmware",
+        "summary": "Upload firmware",
+        "tags": [
+          "firmware"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/FirmwareUpload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new firmware. Doors run it once it is the default or their own.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmwareView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a multipart form with the image in the field image, or a field is wrong; the error says which.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-firmware role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The image is larger than 16 MiB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/firmware/default": {
+      "put": {
+        "operationId": "setDefaultFirmware",
+        "summary": "Choose the default firmware",
+        "tags": [
+          "firmware"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FirmwareChoice"
+              },
+              "example": {
+                "firmware_id": 1
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The firmware is the default, or with null there is none. The rollout sends it to the doors that follow the default."
+          },
+          "400": {
+            "description": "The body is not a JSON object with firmware_id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-firmware role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No firmware has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/firmware/rollout": {
+      "get": {
+        "operationId": "getRollout",
+        "summary": "Show how far the rollout is",
+        "tags": [
+          "firmware"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The doors that take part in the rollout, by status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RolloutView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-firmware role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/firmware/settings": {
+      "get": {
+        "operationId": "listRolloutSettings",
+        "summary": "List the rollout settings",
+        "tags": [
+          "firmware"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The settings of the update window and the rollout.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-firmware role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateRolloutSettings",
+        "summary": "Change the rollout settings",
+        "tags": [
+          "firmware"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "example": {
+                "update_concurrency": "5",
+                "update_window_days": "sat,sun",
+                "update_window_start": "02:00"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The settings of the update window and the rollout as they are now. Settings the environment provides are left as they are.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON object of rollout setting keys and values, or a value is refused; the error says which.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-firmware role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/firmware/{id}": {
+      "delete": {
+        "operationId": "deleteFirmware",
+        "summary": "Delete firmware",
+        "tags": [
+          "firmware"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The firmware's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The firmware is gone."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-firmware role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No firmware has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The firmware is the default, or doors run it instead of the default.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getFirmware",
+        "summary": "Read one firmware",
+        "tags": [
+          "firmware"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The firmware's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The firmware.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmwareView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-firmware role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No firmware has this id.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6909,6 +7865,39 @@
           "log_level"
         ]
       },
+      "DoorFirmwareView": {
+        "type": "object",
+        "properties": {
+          "door": {
+            "$ref": "#/components/schemas/NameRef",
+            "description": "The door, by id and name."
+          },
+          "last_update": {
+            "$ref": "#/components/schemas/UpdateView",
+            "description": "The latest update the door was sent; absent when it was never sent one."
+          },
+          "override": {
+            "$ref": "#/components/schemas/VersionRef",
+            "description": "The firmware the door runs instead of the default; absent when it follows the default."
+          },
+          "status": {
+            "type": "string",
+            "description": "pending (it runs other firmware than its target), updating, done (it runs its target), or failed (its update to its target failed; the rollout tries again in the next window); absent for a door deleted, without a controller, or without a target."
+          },
+          "target": {
+            "$ref": "#/components/schemas/VersionRef",
+            "description": "The firmware the door should run: its own, or else the default; absent when there is neither."
+          },
+          "version": {
+            "type": "string",
+            "description": "The firmware version the door's controller last reported; empty until one enrolls."
+          }
+        },
+        "required": [
+          "door",
+          "version"
+        ]
+      },
       "DoorList": {
         "type": "object",
         "properties": {
@@ -7256,11 +8245,11 @@
           },
           "outcome": {
             "type": "string",
-            "description": "allowed or denied, or alert for an alarm."
+            "description": "allowed or denied, alert for an alarm or a failed firmware update, or info for a firmware update sent or done."
           },
           "reason": {
             "type": "string",
-            "description": "Why, such as access rule, open mode, no rule, locked, expired, rate limited, unreachable, forced open, or held open."
+            "description": "Why, such as access rule, open mode, no rule, locked, expired, rate limited, unreachable, forced open, held open, update sent, update succeeded, or update failed."
           },
           "request_id": {
             "type": "string",
@@ -7272,11 +8261,11 @@
           },
           "type": {
             "type": "string",
-            "description": "check (a code entered at the keypad), command (a keypad command carried out), open (opened from the admin UI or the API), or alarm (the door forced open or held open)."
+            "description": "check (a code entered at the keypad), command (a keypad command carried out), open (opened from the admin UI or the API), alarm (the door forced open or held open), or update (a firmware update sent, succeeded, or failed)."
           },
           "user": {
             "$ref": "#/components/schemas/NameRef",
-            "description": "The user whose code it was, or who gave the command or opened the door, by id and display name; absent for a code nobody has."
+            "description": "The user whose code it was, or who gave the command, opened the door, or sent the update, by id and display name; absent for a code nobody has and for what nobody did."
           }
         },
         "required": [
@@ -7286,6 +8275,113 @@
           "type",
           "outcome",
           "reason"
+        ]
+      },
+      "FirmwareChoice": {
+        "type": "object",
+        "properties": {
+          "firmware_id": {
+            "type": "integer",
+            "description": "The id of the firmware, or null for none."
+          }
+        },
+        "required": [
+          "firmware_id"
+        ]
+      },
+      "FirmwareList": {
+        "type": "object",
+        "properties": {
+          "firmware": {
+            "type": "array",
+            "description": "Every firmware, newest upload first.",
+            "items": {
+              "$ref": "#/components/schemas/FirmwareView"
+            }
+          }
+        },
+        "required": [
+          "firmware"
+        ]
+      },
+      "FirmwareUpload": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "format": "binary",
+            "description": "The firmware image. Any file is accepted."
+          },
+          "notes": {
+            "type": "string",
+            "description": "What to know about this version, up to 2000 characters."
+          },
+          "version": {
+            "type": "string",
+            "description": "The version, up to 64 letters, digits, dots, dashes, underscores, and plus signs, starting with a letter or digit; unique."
+          }
+        },
+        "required": [
+          "version",
+          "image"
+        ]
+      },
+      "FirmwareView": {
+        "type": "object",
+        "properties": {
+          "default": {
+            "type": "boolean",
+            "description": "True for the site's default version, which every door runs unless it names another."
+          },
+          "id": {
+            "type": "integer",
+            "description": "Names the firmware in the API."
+          },
+          "notes": {
+            "type": "string",
+            "description": "What the uploader said of it; may be empty."
+          },
+          "running": {
+            "type": "integer",
+            "description": "How many doors' controllers last reported running this version."
+          },
+          "sha256": {
+            "type": "string",
+            "description": "The SHA-256 of the image, in hex, which doors check after downloading it."
+          },
+          "size": {
+            "type": "integer",
+            "description": "The image's size in bytes."
+          },
+          "targeting": {
+            "type": "integer",
+            "description": "How many doors should run this version: those that follow the default when it is the default, and those that name it."
+          },
+          "uploaded_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it was uploaded."
+          },
+          "uploaded_by": {
+            "$ref": "#/components/schemas/NameRef",
+            "description": "Who uploaded it, by id and display name."
+          },
+          "version": {
+            "type": "string",
+            "description": "The version, unique."
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "notes",
+          "sha256",
+          "size",
+          "uploaded_by",
+          "uploaded_at",
+          "default",
+          "running",
+          "targeting"
         ]
       },
       "GroupList": {
@@ -7656,6 +8752,45 @@
           "image_url",
           "thumbnail_url",
           "created_at"
+        ]
+      },
+      "RolloutView": {
+        "type": "object",
+        "properties": {
+          "done": {
+            "type": "array",
+            "description": "The doors running their target, by id.",
+            "items": {
+              "$ref": "#/components/schemas/DoorFirmwareView"
+            }
+          },
+          "failed": {
+            "type": "array",
+            "description": "The doors whose update to their target failed, by id.",
+            "items": {
+              "$ref": "#/components/schemas/DoorFirmwareView"
+            }
+          },
+          "pending": {
+            "type": "array",
+            "description": "The doors waiting for an update, by id.",
+            "items": {
+              "$ref": "#/components/schemas/DoorFirmwareView"
+            }
+          },
+          "updating": {
+            "type": "array",
+            "description": "The doors updating, by id.",
+            "items": {
+              "$ref": "#/components/schemas/DoorFirmwareView"
+            }
+          }
+        },
+        "required": [
+          "pending",
+          "updating",
+          "done",
+          "failed"
         ]
       },
       "RollupList": {
@@ -8163,6 +9298,38 @@
           "expired"
         ]
       },
+      "UpdateView": {
+        "type": "object",
+        "properties": {
+          "detail": {
+            "type": "string",
+            "description": "Why it failed."
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it succeeded or failed; absent while it is under way."
+          },
+          "sent_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the update was sent."
+          },
+          "state": {
+            "type": "string",
+            "description": "updating until it succeeded (the door connected again with the version) or failed (the door said so, or did not come back with it in time)."
+          },
+          "version": {
+            "type": "string",
+            "description": "The version the door was told to install."
+          }
+        },
+        "required": [
+          "version",
+          "state",
+          "sent_at"
+        ]
+      },
       "UserAccessView": {
         "type": "object",
         "properties": {
@@ -8324,6 +9491,23 @@
           "expired",
           "created_at",
           "groups"
+        ]
+      },
+      "VersionRef": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "The firmware's id."
+          },
+          "version": {
+            "type": "string",
+            "description": "Its version."
+          }
+        },
+        "required": [
+          "id",
+          "version"
         ]
       },
       "WindowBody": {

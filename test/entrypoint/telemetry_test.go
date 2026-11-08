@@ -68,6 +68,7 @@ func TestADoorPageShowsTheDoorsLiveState(t *testing.T) {
 			"Hardware id": "A1", "Door": "Open since Mon 5 Jan 2026 09:00:00", "Firmware": "1.4.3", "Signal": "-61 dBm", "Latency": "40 ms",
 			"Uptime": "3 d 2 h", "Free memory": "118 KiB", "Reconnects": "2",
 			"Last seen": "Mon 5 Jan 2026 09:00:30", "Last report": "Mon 5 Jan 2026 09:00:30",
+			"Running": "1.4.3", "Target": "None", "Rollout": "Not in the rollout", "Latest update": "Never sent one",
 		},
 		[][]string{{"When", "Alarm", "Details"},
 			{"Mon 5 Jan 2026 09:01:00", "Held open", "Open for longer than 60 seconds."},

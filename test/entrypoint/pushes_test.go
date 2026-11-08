@@ -14,6 +14,14 @@ import (
 // connection.
 func enroll(t *testing.T, f *testsupport.Factory, a *app.App, b *testsupport.Browser, hwid, door string) *testsupport.Connection {
 	t.Helper()
+	conn, _ := enrollWith(t, f, a, b, hwid, door)
+	return conn
+}
+
+// enrollWith is enroll, returning the credentials the controller
+// connected with as well.
+func enrollWith(t *testing.T, f *testsupport.Factory, a *app.App, b *testsupport.Browser, hwid, door string) (*testsupport.Connection, doorCredentials) {
+	t.Helper()
 	enrolling := announce(t, f, hwid)
 	run(t, a)
 	send(t, b, "POST", "/api/v1/enrollments/"+hwid+"/approve", `{"door_id":`+door+`}`, 200)
@@ -21,7 +29,7 @@ func enroll(t *testing.T, f *testsupport.Factory, a *app.App, b *testsupport.Bro
 	enrolling.Close()
 	conn := connectAs(t, f, creds)
 	run(t, a)
-	return conn
+	return conn, creds
 }
 
 // pushSite is a broker site with what ruleSite has, where the controllers

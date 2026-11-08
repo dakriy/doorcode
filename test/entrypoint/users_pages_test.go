@@ -9,7 +9,7 @@ import (
 )
 
 // usersNav is the navigation of a users page for an administrator.
-var usersNav = []string{"Home", "Users (current)", "Groups", "Schedules", "Doors", "Zones", "Events", "Settings", "API tokens", "API docs"}
+var usersNav = []string{"Home", "Users (current)", "Groups", "Schedules", "Doors", "Zones", "Firmware", "Events", "Settings", "API tokens", "API docs"}
 
 // usersHead is the header row of the user list.
 var usersHead = []string{"Name", "Email", "User id", "Groups", "Status"}

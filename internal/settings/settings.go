@@ -8,12 +8,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/schedule"
 )
 
 // ErrUnknown reports a key that names no setting.
@@ -54,6 +57,20 @@ const (
 	keyTelemetryRetention  = "telemetry_retention_days"
 	keyRollupRetention     = "telemetry_rollup_retention_days"
 	keyUnresponsive        = "unresponsive_minutes"
+	keyPublicURL           = "public_url"
+	publicURLHint          = "must be empty or an https:// address without a query, such as https://doorcode.example.com"
+	// KeyUpdateDays is the key of the setting naming the weekdays the
+	// update window opens on, EveryDay when it opens daily.
+	KeyUpdateDays         = "update_window_days"
+	EveryDay              = "daily"
+	updateDaysHint        = "must be daily or weekdays separated by commas, such as sat,sun"
+	keyUpdateStart        = "update_window_start"
+	updateStartHint       = "must be a time of day as HH:MM, such as 02:00"
+	keyUpdateLength       = "update_window_minutes"
+	keyUpdateConcurrency  = "update_concurrency"
+	maxUpdateConcurrency  = 1000
+	updateConcurrencyHint = "must be a whole number of doors from 1 to 1000"
+	keyUpdateTimeout      = "update_timeout_minutes"
 )
 
 // The settings that are a length of time, parsed.
@@ -62,6 +79,8 @@ var (
 	telemetryRetention = durationSetting(1, 365, "days", daysOf)
 	rollupRetention    = durationSetting(1, 3650, "days", daysOf)
 	unresponsiveAfter  = durationSetting(1, 10080, "minutes", minutesOf)
+	updateLength       = durationSetting(1, 1440, "minutes", minutesOf)
+	updateTimeout      = durationSetting(1, 1440, "minutes", minutesOf)
 )
 
 // The lengths of time that are a number of minutes, hours, or days.
@@ -80,6 +99,8 @@ var durations = []struct {
 	{keyTelemetryRetention, telemetryRetention, func(c *Current) *time.Duration { return &c.TelemetryRetention }},
 	{keyRollupRetention, rollupRetention, func(c *Current) *time.Duration { return &c.RollupRetention }},
 	{keyUnresponsive, unresponsiveAfter, func(c *Current) *time.Duration { return &c.UnresponsiveAfter }},
+	{keyUpdateLength, updateLength, func(c *Current) *time.Duration { return &c.UpdateWindow.Length }},
+	{keyUpdateTimeout, updateTimeout, func(c *Current) *time.Duration { return &c.UpdateTimeout }},
 }
 
 type definition struct {
@@ -105,7 +126,17 @@ var siteDefinitions = []definition{
 	{key: keyTelemetryRetention, fallback: "7", validate: accepting(telemetryRetention)},
 	{key: keyRollupRetention, fallback: "730", validate: accepting(rollupRetention)},
 	{key: keyUnresponsive, fallback: "5", validate: accepting(unresponsiveAfter)},
+	{key: keyPublicURL, fallback: "", validate: accepting(publicURL)},
+	{key: KeyUpdateDays, fallback: EveryDay, validate: accepting(updateDays)},
+	{key: keyUpdateStart, fallback: "02:00", validate: accepting(timeOfDay)},
+	{key: keyUpdateLength, fallback: "120", validate: accepting(updateLength)},
+	{key: keyUpdateConcurrency, fallback: "5", validate: accepting(updateConcurrency)},
+	{key: keyUpdateTimeout, fallback: "30", validate: accepting(updateTimeout)},
 }
+
+// UpdateKeys are the keys of the settings that say how firmware updates
+// roll out, in display order.
+var UpdateKeys = []string{KeyUpdateDays, keyUpdateStart, keyUpdateLength, keyUpdateConcurrency, keyUpdateTimeout}
 
 // definitions is every setting the site has, in display order: the
 // site's own, then the door configuration defaults.
@@ -131,6 +162,68 @@ type Current struct {
 	// UnresponsiveAfter is how long the server goes without hearing from
 	// a door's controller before it marks it unresponsive.
 	UnresponsiveAfter time.Duration
+	// PublicURL is the address doors and browsers reach the server at,
+	// without a trailing slash; empty until an administrator gives it.
+	PublicURL string
+	// UpdateWindow is when firmware updates roll out to the doors that
+	// need one, UpdateConcurrency how many doors may be updating at once,
+	// and UpdateTimeout how long a door may take to come back with the
+	// new version before its update counts as failed.
+	UpdateWindow      UpdateWindow
+	UpdateConcurrency int
+	UpdateTimeout     time.Duration
+}
+
+// UpdateWindow is a time in the site timezone that opens on each of Days
+// at Start minutes after midnight and lasts Length.
+type UpdateWindow struct {
+	Days   []time.Weekday
+	Start  int
+	Length time.Duration
+}
+
+// publicURL parses the address the server is reached at, dropping a
+// trailing slash.
+func publicURL(value string) (string, error) {
+	if value == "" {
+		return "", nil
+	}
+	u, err := url.Parse(value)
+	if err != nil || u.Scheme != "https" || u.Host == "" || u.RawQuery != "" || u.Fragment != "" {
+		return "", errors.New(publicURLHint)
+	}
+	return strings.TrimSuffix(value, "/"), nil
+}
+
+// updateDays parses the weekdays the update window opens on: every day,
+// or the days named.
+func updateDays(value string) ([]time.Weekday, error) {
+	if value == EveryDay {
+		return []time.Weekday{time.Sunday, time.Monday, time.Tuesday, time.Wednesday, time.Thursday, time.Friday, time.Saturday}, nil
+	}
+	var days []time.Weekday
+	for _, name := range strings.Split(value, ",") {
+		i := slices.Index(schedule.DayNames, strings.TrimSpace(name))
+		if i < 0 {
+			return nil, errors.New(updateDaysHint)
+		}
+		days = append(days, schedule.Weekday(i))
+	}
+	return days, nil
+}
+
+// timeOfDay parses a time of day as minutes after midnight.
+func timeOfDay(value string) (int, error) {
+	t, err := time.Parse("15:04", value)
+	if err != nil {
+		return 0, errors.New(updateStartHint)
+	}
+	return t.Hour()*60 + t.Minute(), nil
+}
+
+// updateConcurrency parses how many doors may be updating at once.
+func updateConcurrency(value string) (int, error) {
+	return wholeNumber(value, 1, maxUpdateConcurrency, updateConcurrencyHint)
 }
 
 // siteZone loads the site timezone a value names. The empty name and
@@ -232,6 +325,24 @@ func (s Service) Current(ctx context.Context) (Current, error) {
 		if *d.at(&c), err = parsed(values, d.key, d.parse); err != nil {
 			return Current{}, err
 		}
+	}
+	return c.withUpdates(values)
+}
+
+// withUpdates is c with the settings of firmware updates among values.
+func (c Current) withUpdates(values map[string]string) (Current, error) {
+	var err error
+	if c.PublicURL, err = parsed(values, keyPublicURL, publicURL); err != nil {
+		return Current{}, err
+	}
+	if c.UpdateWindow.Days, err = parsed(values, KeyUpdateDays, updateDays); err != nil {
+		return Current{}, err
+	}
+	if c.UpdateWindow.Start, err = parsed(values, keyUpdateStart, timeOfDay); err != nil {
+		return Current{}, err
+	}
+	if c.UpdateConcurrency, err = parsed(values, keyUpdateConcurrency, updateConcurrency); err != nil {
+		return Current{}, err
 	}
 	return c, nil
 }

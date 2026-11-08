@@ -1,0 +1,64 @@
+{{define "content"}}
+{{$c := .Content}}{{$f := $c.Firmware}}
+{{template "back" (link "/admin/firmware" "All firmware")}}
+<div class="mt-4 flex flex-wrap items-center gap-3">
+  <h1 class="font-mono text-2xl font-semibold tracking-tight">{{$f.Version}}</h1>
+  {{if $f.Default}}{{template "badge" "Default"}}{{end}}
+</div>
+<p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Uploaded by {{$f.UploaderName}} on {{$c.Uploaded}}</p>
+{{with $c.Alert}}<div class="mt-6">{{template "alert" .}}</div>{{end}}
+
+<section aria-labelledby="image-heading" class="mt-8 p-6 {{template "card-class"}}">
+  <h2 id="image-heading" class="text-sm font-semibold">Image</h2>
+  <dl class="mt-4 grid gap-4 sm:grid-cols-3">
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Size</dt><dd class="mt-1 text-sm tabular-nums">{{$c.Size}}</dd></div>
+    <div class="sm:col-span-2"><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">SHA-256</dt><dd class="mt-1 font-mono text-xs break-all">{{$f.SHA256}}</dd></div>
+    <div class="sm:col-span-3"><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Notes</dt><dd class="mt-1 text-sm whitespace-pre-line">{{with $f.Notes}}{{.}}{{else}}None{{end}}</dd></div>
+  </dl>
+</section>
+
+<section aria-labelledby="doors-heading" class="mt-8 overflow-hidden {{template "card-class"}}">
+  <div class="px-6 pt-6">
+    <h2 id="doors-heading" class="text-sm font-semibold">Doors</h2>
+    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">The doors that run this version or should.</p>
+  </div>
+  <div class="mt-4 overflow-x-auto">
+    <table aria-label="Doors" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+      <thead class="{{template "table-head-class"}}">
+        <tr>
+          <th scope="col" class="px-6 py-2">Door</th>
+          <th scope="col" class="px-6 py-2">Running</th>
+          <th scope="col" class="px-6 py-2">Target</th>
+          <th scope="col" class="px-6 py-2">Rollout</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {{range $c.Doors}}
+        <tr>
+          <td class="px-6 py-3 whitespace-nowrap"><a href="/admin/doors/{{.DoorID}}" class="{{template "link-class"}}">{{.Door}}</a></td>
+          <td class="px-6 py-3 font-mono text-xs whitespace-nowrap">{{.Running}}</td>
+          <td class="px-6 py-3 font-mono text-xs whitespace-nowrap">{{.Target}}</td>
+          <td class="px-6 py-3 text-zinc-600 dark:text-zinc-400">{{.Update}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="4" class="px-6 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">No door runs this version or should.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section aria-labelledby="delete-heading" class="mt-8 rounded-xl border border-red-200 p-6 dark:border-red-900/60">
+  <h2 id="delete-heading" class="text-sm font-semibold text-red-700 dark:text-red-300">Delete firmware</h2>
+  {{with $c.InUse}}
+  <p role="note" class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{{.}}</p>
+  {{else}}
+  <div class="mt-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <p class="text-sm text-zinc-600 dark:text-zinc-400">The image is removed for good. Doors that run it keep running it. This cannot be undone.</p>
+    <form method="post" action="/admin/firmware/{{$f.ID}}/delete" hx-confirm="Delete firmware {{$f.Version}}? This cannot be undone.">
+      <button type="submit" class="{{template "danger-class"}} py-2">Delete firmware</button>
+    </form>
+  </div>
+  {{end}}
+</section>
+{{end}}
