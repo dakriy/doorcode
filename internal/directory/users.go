@@ -3,6 +3,7 @@ package directory
 import (
 	"cmp"
 	"context"
+	"fmt"
 	"net/mail"
 	"slices"
 	"strings"
@@ -171,8 +172,8 @@ func (s Service) SetCode(ctx context.Context, id int64, code string) error {
 	if err != nil {
 		return err
 	}
-	if taken && holder.ID != id {
-		return Problems{{Field: "code", Message: "Another user has this code. Choose a different one."}}
+	if problem := conflict(id, holder.ID, taken, "Another user has this code. Choose a different one."); problem != "" {
+		return Problems{{Field: "code", Message: problem}}
 	}
 	return s.changed(s.Store.SetCodeHash(ctx, id, &hash))
 }
@@ -193,7 +194,7 @@ func (s Service) changed(found bool, err error) error {
 
 func codeProblem(code string) string {
 	if strings.Trim(code, "0123456789") != "" || len(code) < minCodeDigits || len(code) > maxCodeDigits {
-		return "Enter 6 to 20 digits."
+		return fmt.Sprintf("Enter %d to %d digits.", minCodeDigits, maxCodeDigits)
 	}
 	return ""
 }
@@ -222,10 +223,9 @@ func (s Service) checkProfile(ctx context.Context, id int64, p Profile) (Profile
 	var found problems
 	found.add("email", emailProblem)
 	found.add("user_id", userIDProblem)
-	const longName = "Use at most 100 characters."
-	found.add("first_name", tooLong(p.FirstName, maxNameLength, longName))
-	found.add("last_name", tooLong(p.LastName, maxNameLength, longName))
-	found.add("display_name", tooLong(p.DisplayName, maxNameLength, longName))
+	found.add("first_name", tooLong(p.FirstName, maxNameLength, longText))
+	found.add("last_name", tooLong(p.LastName, maxNameLength, longText))
+	found.add("display_name", tooLong(p.DisplayName, maxNameLength, longText))
 	if p.DisplayName == "" {
 		found.add("display_name", "Enter a display name, or a first or last name.")
 	}
@@ -251,11 +251,11 @@ func (s Service) emailProblem(ctx context.Context, id int64, email string) (stri
 	if !validEmail(email) {
 		return "Enter an email address like name@example.com.", nil
 	}
-	if long := tooLong(email, maxEmailLength, "Use at most 254 characters for the email address."); long != "" {
+	if long := tooLong(email, maxEmailLength, "Use at most %d characters for the email address."); long != "" {
 		return long, nil
 	}
 	holder, taken, err := s.Store.UserByEmail(ctx, email)
-	return conflict(id, holder, taken, "Another user has this email address."), err
+	return conflict(id, holder.ID, taken, "Another user has this email address."), err
 }
 
 func validEmail(email string) bool {
@@ -271,16 +271,5 @@ func (s Service) userIDProblem(ctx context.Context, id int64, userID string) (st
 		return userIDHint, nil
 	}
 	holder, taken, err := s.Store.UserByUserID(ctx, userID)
-	return conflict(id, holder, taken, "Another user has this user id."), err
-}
-
-const userIDHint = "Use up to 64 letters, digits, dots, dashes, or underscores."
-
-// conflict is message when holder, who was found, is not the user whose id
-// is id.
-func conflict(id int64, holder connector.StoredUser, taken bool, message string) string {
-	if taken && holder.ID != id {
-		return message
-	}
-	return ""
+	return conflict(id, holder.ID, taken, "Another user has this user id."), err
 }

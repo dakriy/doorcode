@@ -23,9 +23,9 @@ type Token struct {
 	Expired   bool
 }
 
-// CreateToken issues the user whose id is ownerID a token called name that expires after days, or
-// never when days is nil. It returns the token and its secret, which is
-// shown once and kept only as a hash.
+// CreateToken issues the user whose id is ownerID a token called name that
+// expires after days, or never when days is nil. It returns the token and
+// its secret, which is shown once and kept only as a hash.
 func (s Service) CreateToken(ctx context.Context, ownerID int64, name string, days *int) (Token, string, error) {
 	now := s.Clock.Now()
 	secret := apiTokenPrefix + tokenEncoding.EncodeToString(s.Entropy.Bytes(apiTokenBytes))

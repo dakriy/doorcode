@@ -2,6 +2,7 @@ package directory
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 	"slices"
 	"strings"
@@ -174,8 +175,8 @@ func (s Service) checkGroup(ctx context.Context, id int64, f GroupFields) (conne
 	}
 	found.add("slug", slugProblem)
 	found.add("name", required(g.Name, "Enter a name."))
-	found.add("name", tooLong(g.Name, maxGroupNameLength, "Use at most 100 characters."))
-	found.add("description", tooLong(g.Description, maxDescriptionLength, "Use at most 1000 characters."))
+	found.add("name", tooLong(g.Name, maxGroupNameLength, longText))
+	found.add("description", tooLong(g.Description, maxDescriptionLength, longText))
 	if len(g.Roles) != len(slices.Compact(slices.Sorted(slices.Values(f.Roles)))) {
 		found.add("roles", "Choose roles from the list.")
 	}
@@ -188,13 +189,10 @@ func (s Service) slugProblem(ctx context.Context, id int64, slug string) (string
 		return "Enter a slug.", nil
 	}
 	if !slugPattern.MatchString(slug) || len(slug) > maxSlugLength {
-		return "Use up to 64 lowercase letters and digits, in words joined by single dashes.", nil
+		return fmt.Sprintf("Use up to %d lowercase letters and digits, in words joined by single dashes.", maxSlugLength), nil
 	}
 	holder, taken, err := s.Store.GroupBySlug(ctx, slug)
-	if taken && holder.ID != id {
-		return "Another group has this slug.", err
-	}
-	return "", err
+	return conflict(id, holder.ID, taken, "Another group has this slug."), err
 }
 
 func required(value, message string) string {

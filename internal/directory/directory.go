@@ -6,6 +6,7 @@ package directory
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"unicode/utf8"
 
@@ -84,12 +85,30 @@ func (p problems) err() error {
 	return Problems(p)
 }
 
-// userIDPattern is what a user id may look like.
-var userIDPattern = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
+const maxUserIDLength = 64
 
-// tooLong is message when value has more than limit characters.
+// userIDPattern is what a user id may look like.
+var userIDPattern = regexp.MustCompile(fmt.Sprintf(`^[A-Za-z0-9._-]{1,%d}$`, maxUserIDLength))
+
+// userIDHint says what a user id may look like.
+var userIDHint = fmt.Sprintf("Use up to %d letters, digits, dots, dashes, or underscores.", maxUserIDLength)
+
+// tooLong is message, with limit in place of its verb, when value has more
+// than limit characters.
 func tooLong(value string, limit int, message string) string {
 	if utf8.RuneCountInString(value) > limit {
+		return fmt.Sprintf(message, limit)
+	}
+	return ""
+}
+
+// longText is the problem with text longer than its limit.
+const longText = "Use at most %d characters."
+
+// conflict is message when the value is taken by a holder, whose id is
+// holderID, other than the user or group whose id is id.
+func conflict(id, holderID int64, taken bool, message string) string {
+	if taken && holderID != id {
 		return message
 	}
 	return ""

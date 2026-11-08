@@ -388,22 +388,14 @@ func cloneGroup(g connector.StoredGroup) connector.StoredGroup {
 	return g
 }
 
-func (s *Store) findUser(email string) *connector.StoredUser {
+// userByEmail is the user a test arranges by email, which must exist.
+func (s *Store) userByEmail(email string) *connector.StoredUser {
 	for i := range s.users {
 		if s.users[i].Email == email {
 			return &s.users[i]
 		}
 	}
-	return nil
-}
-
-// userByEmail is the user a test arranges by email, which must exist.
-func (s *Store) userByEmail(email string) *connector.StoredUser {
-	u := s.findUser(email)
-	if u == nil {
-		panic("stub: no user with email " + email)
-	}
-	return u
+	panic("stub: no user with email " + email)
 }
 
 // LeaveGroup ends the membership of the user with email in the group with

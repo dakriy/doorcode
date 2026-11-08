@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -43,7 +44,7 @@ var (
 		{Name: "q", In: "query", Description: "Keeps users whose email, user id, or names contain this text, ignoring case.", Example: "smith"},
 		{Name: "show", In: "query", Description: "current (the default) lists users who are not deleted; deleted lists those who are.", Example: "current"},
 		{Name: "page", In: "query", Description: "The page to return, from 1 (the default).", Example: 1},
-		{Name: "per_page", In: "query", Description: "How many users a page holds, from 1 to 200; 25 by default.", Example: 25},
+		{Name: "per_page", In: "query", Description: fmt.Sprintf("How many users a page holds, from 1 to %d; %d by default.", maxUsersAPIPer, usersPerPage), Example: usersPerPage},
 	}
 	userTokenParams = []openapi.Param{userIDParam, {Name: "token", In: "path", Description: "The token's id.", Example: int64(1)}}
 	noUser          = openapi.Response{Status: http.StatusNotFound, Description: "No user has this id.", Body: errorBody{}}
@@ -149,7 +150,7 @@ func (a *App) listUsers(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	perPage, perPageOK := queryNumber(r, "per_page", usersPerPage, 1, maxUsersAPIPer)
 	show := r.URL.Query().Get("show")
 	if !pageOK || !perPageOK || (show != "" && show != showCurrent && show != showDeleted) {
-		writeError(w, http.StatusBadRequest, "page must be a whole number from 1, per_page one from 1 to 200, and show current or deleted")
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("page must be a whole number from 1, per_page one from 1 to %d, and show current or deleted", maxUsersAPIPer))
 		return
 	}
 	q := directory.Query{Search: r.URL.Query().Get("q"), Deleted: show == showDeleted, Page: page, PerPage: perPage}
