@@ -1,0 +1,23 @@
+{{define "content"}}
+{{$c := .Content}}{{$z := $c.Zone}}
+{{template "back" (link "/admin/zones" "All zones")}}
+<h1 class="mt-4 text-2xl font-semibold tracking-tight">{{$z.Name}}</h1>
+<p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{{len $z.DoorIDs}} {{if eq (len $z.DoorIDs) 1}}door{{else}}doors{{end}}{{with $z.Description}} · {{.}}{{end}}</p>
+<form method="post" action="{{$c.Action}}" novalidate hx-disabled-elt="find button" class="mt-8 max-w-3xl p-6 {{template "card-class"}}">
+  <h2 class="mb-5 text-sm font-semibold">Zone settings</h2>
+  {{template "zone-fields" $c}}
+  <div class="mt-8 flex justify-end border-t border-zinc-200 pt-6 dark:border-zinc-800">
+    <button type="submit" class="{{template "primary-class"}}">Save changes</button>
+  </div>
+</form>
+
+<section aria-labelledby="delete-heading" class="mt-8 max-w-3xl rounded-xl border border-red-200 p-6 dark:border-red-900/60">
+  <h2 id="delete-heading" class="text-sm font-semibold text-red-700 dark:text-red-300">Delete zone</h2>
+  <div class="mt-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <p class="text-sm text-zinc-600 dark:text-zinc-400">The zone is removed for good. Its doors stay. This cannot be undone.</p>
+    <form method="post" action="/admin/zones/{{$z.ID}}/delete" hx-confirm="Delete the zone {{$z.Name}}? Its doors stay. This cannot be undone.">
+      <button type="submit" class="{{template "danger-class"}} py-2">Delete zone</button>
+    </form>
+  </div>
+</section>
+{{end}}

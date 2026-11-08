@@ -1,0 +1,396 @@
+package testsupport
+
+import (
+	"cmp"
+	"context"
+	"errors"
+	"slices"
+	"strings"
+	"time"
+
+	"github.com/dakriy/doorcode/internal/connector"
+)
+
+// ErrNoSuchReference is what the stub store reports for an id naming a
+// schedule, zone, door, or picture it does not hold, as a foreign key
+// would.
+var ErrNoSuchReference = errors.New("stub: no such reference")
+
+// zoneDoor is one door's place in one zone.
+type zoneDoor struct {
+	zone int64
+	door int64
+}
+
+// storedPicture is a picture with its image data.
+type storedPicture struct {
+	connector.StoredPicture
+	image     []byte
+	thumbnail []byte
+}
+
+// Doors returns every door in name order.
+func (s *Store) Doors(context.Context) ([]connector.StoredDoor, error) {
+	if err := s.usable(doorsAggregate); err != nil {
+		return nil, err
+	}
+	all := []connector.StoredDoor{}
+	for _, d := range s.doors {
+		all = append(all, s.cloneDoor(d))
+	}
+	slices.SortFunc(all, func(a, b connector.StoredDoor) int {
+		return cmp.Or(strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)), cmp.Compare(a.ID, b.ID))
+	})
+	return all, nil
+}
+
+// Door returns the door with id.
+func (s *Store) Door(_ context.Context, id int64) (connector.StoredDoor, bool, error) {
+	if err := s.usable(doorsAggregate); err != nil {
+		return connector.StoredDoor{}, false, err
+	}
+	held := s.doorByID(id)
+	if held == nil {
+		return connector.StoredDoor{}, false, nil
+	}
+	return s.cloneDoor(*held), true, nil
+}
+
+// CreateDoor stores d with the next id, without a primary picture.
+func (s *Store) CreateDoor(_ context.Context, d connector.StoredDoor) (int64, error) {
+	if err := s.storableDoor(d); err != nil {
+		return 0, err
+	}
+	s.nextDoor++
+	d.ID = s.nextDoor
+	d.PrimaryPictureID = nil
+	s.placeDoor(d.ID, d.ZoneIDs)
+	d.OpenScheduleIDs, d.ZoneIDs = slices.Clone(d.OpenScheduleIDs), nil
+	s.doors = append(s.doors, d)
+	return d.ID, nil
+}
+
+// UpdateDoor stores d over the door with d.ID, keeping its primary
+// picture, deletion, and creation time.
+func (s *Store) UpdateDoor(_ context.Context, d connector.StoredDoor) (bool, error) {
+	if err := s.storableDoor(d); err != nil {
+		return false, err
+	}
+	held := s.doorByID(d.ID)
+	if held == nil {
+		return false, nil
+	}
+	held.Name, held.Location, held.Notes, held.Public = d.Name, d.Location, d.Notes, d.Public
+	held.OpenScheduleIDs = slices.Clone(d.OpenScheduleIDs)
+	s.placeDoor(d.ID, d.ZoneIDs)
+	return true, nil
+}
+
+// SetDoorDeleted stores at as the deletion time of the door with id.
+func (s *Store) SetDoorDeleted(_ context.Context, id int64, at *time.Time) (bool, error) {
+	if err := s.writable(doorsAggregate, doorWrites); err != nil {
+		return false, err
+	}
+	held := s.doorByID(id)
+	if held == nil {
+		return false, nil
+	}
+	held.DeletedAt = at
+	return true, nil
+}
+
+// storableDoor reports why d cannot be stored, as the database's
+// constraints would.
+func (s *Store) storableDoor(d connector.StoredDoor) error {
+	if err := s.writable(doorsAggregate, doorWrites); err != nil {
+		return err
+	}
+	for _, id := range d.OpenScheduleIDs {
+		if s.scheduleByID(id) == nil {
+			return ErrNoSuchReference
+		}
+	}
+	for _, id := range d.ZoneIDs {
+		if s.zoneByID(id) == nil {
+			return ErrNoSuchReference
+		}
+	}
+	for _, held := range s.doors {
+		if held.ID != d.ID && strings.EqualFold(held.Name, d.Name) {
+			return ErrDuplicate
+		}
+	}
+	return nil
+}
+
+func (s *Store) doorByID(id int64) *connector.StoredDoor {
+	for i := range s.doors {
+		if s.doors[i].ID == id {
+			return &s.doors[i]
+		}
+	}
+	return nil
+}
+
+// cloneDoor is a copy of d sharing nothing with it, with the zones that
+// hold it.
+func (s *Store) cloneDoor(d connector.StoredDoor) connector.StoredDoor {
+	d.OpenScheduleIDs = append([]int64{}, slices.Sorted(slices.Values(d.OpenScheduleIDs))...)
+	d.ZoneIDs = []int64{}
+	for _, p := range s.zoneDoors {
+		if p.door == d.ID {
+			d.ZoneIDs = append(d.ZoneIDs, p.zone)
+		}
+	}
+	slices.Sort(d.ZoneIDs)
+	return d
+}
+
+// placeDoor makes zones the zones the door with id is in.
+func (s *Store) placeDoor(id int64, zones []int64) {
+	s.zoneDoors = slices.DeleteFunc(slices.Clone(s.zoneDoors), func(p zoneDoor) bool { return p.door == id })
+	for _, z := range zones {
+		s.zoneDoors = append(s.zoneDoors, zoneDoor{zone: z, door: id})
+	}
+}
+
+// fillZone makes doors the doors in the zone with id.
+func (s *Store) fillZone(id int64, doors []int64) {
+	s.zoneDoors = slices.DeleteFunc(slices.Clone(s.zoneDoors), func(p zoneDoor) bool { return p.zone == id })
+	for _, d := range doors {
+		s.zoneDoors = append(s.zoneDoors, zoneDoor{zone: id, door: d})
+	}
+}
+
+// AddPicture stores p with the next id.
+func (s *Store) AddPicture(_ context.Context, p connector.StoredPicture, image, thumbnail []byte) (int64, error) {
+	if err := s.writable(doorsAggregate, doorWrites); err != nil {
+		return 0, err
+	}
+	if s.doorByID(p.DoorID) == nil {
+		return 0, ErrNoSuchReference
+	}
+	if image == nil || thumbnail == nil {
+		return 0, ErrNull
+	}
+	s.nextPicture++
+	p.ID = s.nextPicture
+	s.pictures = append(s.pictures, storedPicture{StoredPicture: p, image: slices.Clone(image), thumbnail: slices.Clone(thumbnail)})
+	return p.ID, nil
+}
+
+// Pictures returns the door's pictures in id order.
+func (s *Store) Pictures(_ context.Context, doorID int64) ([]connector.StoredPicture, error) {
+	if err := s.usable(doorsAggregate); err != nil {
+		return nil, err
+	}
+	held := []connector.StoredPicture{}
+	for _, p := range s.pictures {
+		if p.DoorID == doorID {
+			held = append(held, p.StoredPicture)
+		}
+	}
+	return held, nil
+}
+
+// PictureImage returns the image of the door's picture with id.
+func (s *Store) PictureImage(_ context.Context, doorID, id int64) ([]byte, bool, error) {
+	return s.pictureData(doorID, id, func(p storedPicture) []byte { return p.image })
+}
+
+// PictureThumbnail returns the thumbnail of the door's picture with id.
+func (s *Store) PictureThumbnail(_ context.Context, doorID, id int64) ([]byte, bool, error) {
+	return s.pictureData(doorID, id, func(p storedPicture) []byte { return p.thumbnail })
+}
+
+func (s *Store) pictureData(doorID, id int64, data func(storedPicture) []byte) ([]byte, bool, error) {
+	if err := s.usable(doorsAggregate); err != nil {
+		return nil, false, err
+	}
+	p := s.pictureOf(doorID, id)
+	if p == nil {
+		return nil, false, nil
+	}
+	return slices.Clone(data(*p)), true, nil
+}
+
+// SetPrimaryPicture makes the picture with id the door's primary picture.
+func (s *Store) SetPrimaryPicture(_ context.Context, doorID, id int64) (bool, error) {
+	if err := s.writable(doorsAggregate, doorWrites); err != nil {
+		return false, err
+	}
+	if s.failing[primaryPictureWrites] {
+		return false, ErrUnavailable
+	}
+	d := s.doorByID(doorID)
+	if d == nil {
+		return false, nil
+	}
+	if s.pictureOf(doorID, id) == nil {
+		return false, ErrNoSuchReference
+	}
+	d.PrimaryPictureID = &id
+	return true, nil
+}
+
+// DeletePicture removes the door's picture with id; a door whose primary
+// picture it was has none.
+func (s *Store) DeletePicture(_ context.Context, doorID, id int64) (bool, error) {
+	if err := s.writable(doorsAggregate, doorWrites); err != nil {
+		return false, err
+	}
+	i := slices.IndexFunc(s.pictures, func(p storedPicture) bool { return p.DoorID == doorID && p.ID == id })
+	if i < 0 {
+		return false, nil
+	}
+	s.pictures = slices.Delete(slices.Clone(s.pictures), i, i+1)
+	if d := s.doorByID(doorID); d.PrimaryPictureID != nil && *d.PrimaryPictureID == id {
+		d.PrimaryPictureID = nil
+	}
+	return true, nil
+}
+
+func (s *Store) pictureOf(doorID, id int64) *storedPicture {
+	for i := range s.pictures {
+		if s.pictures[i].DoorID == doorID && s.pictures[i].ID == id {
+			return &s.pictures[i]
+		}
+	}
+	return nil
+}
+
+// Zones returns every zone in name order.
+func (s *Store) Zones(context.Context) ([]connector.StoredZone, error) {
+	if err := s.usable(zonesAggregate); err != nil {
+		return nil, err
+	}
+	all := []connector.StoredZone{}
+	for _, z := range s.zones {
+		all = append(all, s.cloneZone(z))
+	}
+	slices.SortFunc(all, func(a, b connector.StoredZone) int {
+		return cmp.Or(strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)), cmp.Compare(a.ID, b.ID))
+	})
+	return all, nil
+}
+
+// Zone returns the zone with id.
+func (s *Store) Zone(_ context.Context, id int64) (connector.StoredZone, bool, error) {
+	if err := s.usable(zonesAggregate); err != nil {
+		return connector.StoredZone{}, false, err
+	}
+	held := s.zoneByID(id)
+	if held == nil {
+		return connector.StoredZone{}, false, nil
+	}
+	return s.cloneZone(*held), true, nil
+}
+
+// CreateZone stores z with the next id.
+func (s *Store) CreateZone(_ context.Context, z connector.StoredZone) (int64, error) {
+	if err := s.storableZone(z); err != nil {
+		return 0, err
+	}
+	s.nextZone++
+	z.ID = s.nextZone
+	s.fillZone(z.ID, z.DoorIDs)
+	z.DoorIDs = nil
+	s.zones = append(s.zones, z)
+	return z.ID, nil
+}
+
+// UpdateZone stores z over the zone with z.ID.
+func (s *Store) UpdateZone(_ context.Context, z connector.StoredZone) (bool, error) {
+	if err := s.storableZone(z); err != nil {
+		return false, err
+	}
+	held := s.zoneByID(z.ID)
+	if held == nil {
+		return false, nil
+	}
+	held.Name, held.Description = z.Name, z.Description
+	s.fillZone(z.ID, z.DoorIDs)
+	return true, nil
+}
+
+// DeleteZone removes the zone with id; its doors stay.
+func (s *Store) DeleteZone(_ context.Context, id int64) (bool, error) {
+	if err := s.writable(zonesAggregate, zoneWrites); err != nil {
+		return false, err
+	}
+	i := slices.IndexFunc(s.zones, func(z connector.StoredZone) bool { return z.ID == id })
+	if i < 0 {
+		return false, nil
+	}
+	s.zones = slices.Delete(slices.Clone(s.zones), i, i+1)
+	s.fillZone(id, nil)
+	return true, nil
+}
+
+// storableZone reports why z cannot be stored, as the database's
+// constraints would.
+func (s *Store) storableZone(z connector.StoredZone) error {
+	if err := s.writable(zonesAggregate, zoneWrites); err != nil {
+		return err
+	}
+	for _, id := range z.DoorIDs {
+		if s.doorByID(id) == nil {
+			return ErrNoSuchReference
+		}
+	}
+	for _, held := range s.zones {
+		if held.ID != z.ID && strings.EqualFold(held.Name, z.Name) {
+			return ErrDuplicate
+		}
+	}
+	return nil
+}
+
+func (s *Store) zoneByID(id int64) *connector.StoredZone {
+	for i := range s.zones {
+		if s.zones[i].ID == id {
+			return &s.zones[i]
+		}
+	}
+	return nil
+}
+
+// cloneZone is z with the doors in it.
+func (s *Store) cloneZone(z connector.StoredZone) connector.StoredZone {
+	z.DoorIDs = []int64{}
+	for _, p := range s.zoneDoors {
+		if p.zone == z.ID {
+			z.DoorIDs = append(z.DoorIDs, p.door)
+		}
+	}
+	slices.Sort(z.DoorIDs)
+	return z
+}
+
+// FailDoors makes the door and picture methods report ErrUnavailable.
+func (s *Store) FailDoors() {
+	s.failing[doorsAggregate] = true
+}
+
+// FailDoorWrites makes the methods that change doors and pictures report
+// ErrUnavailable, while the ones that read them still work.
+func (s *Store) FailDoorWrites() {
+	s.failing[doorWrites] = true
+}
+
+// FailPrimaryPictures makes SetPrimaryPicture report ErrUnavailable,
+// while pictures can still be added and deleted.
+func (s *Store) FailPrimaryPictures() {
+	s.failing[primaryPictureWrites] = true
+}
+
+// FailZones makes the zone methods report ErrUnavailable.
+func (s *Store) FailZones() {
+	s.failing[zonesAggregate] = true
+}
+
+// FailZoneWrites makes the methods that change zones report
+// ErrUnavailable, while the ones that read them still work.
+func (s *Store) FailZoneWrites() {
+	s.failing[zoneWrites] = true
+}

@@ -28,7 +28,7 @@ func TestAdministratorReachesTheSettingsPage(t *testing.T) {
 	want := testsupport.Page{
 		Title:   "Settings · North Campus",
 		Heading: "Settings",
-		Nav:     []string{"Home", "Users", "Groups", "Schedules", "Settings (current)", "API tokens", "API docs"},
+		Nav:     []string{"Home", "Users", "Groups", "Schedules", "Doors", "Zones", "Settings (current)", "API tokens", "API docs"},
 		Table: [][]string{
 			{"Setting", "Value", "Source", "Environment variable"},
 			{"site_name", "North Campus", "database", "DOORCODE_SITE_NAME"},

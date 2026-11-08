@@ -9,7 +9,7 @@ import (
 )
 
 // tokenNav is the navigation of the API tokens page for an administrator.
-var tokenNav = []string{"Home", "Users", "Groups", "Schedules", "Settings", "API tokens (current)", "API docs"}
+var tokenNav = []string{"Home", "Users", "Groups", "Schedules", "Doors", "Zones", "Settings", "API tokens (current)", "API docs"}
 
 // tokenTableHead is the header row of the token table.
 var tokenTableHead = []string{"Name", "Created", "Expires", "Actions"}

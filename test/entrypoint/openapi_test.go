@@ -33,7 +33,22 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 		`"windows":[{"days":["mon","tue","wed","thu","fri"],"start":"22:00","end":"06:00"}],"excluded_dates":["2026-12-25"]}`
 	userBody := `{"email":"ann.smith@example.com","user_id":"100234","first_name":"Ann","last_name":"Smith",` +
 		`"expires_at":"2030-06-30T00:00:00Z"}`
+	doorBody := `{"name":"North entrance","location":"Building A, ground floor","notes":"Strike replaced in 2026.",` +
+		`"public":true,"open_schedule_ids":[1],"zone_ids":[1]}`
+	zoneBody := `{"name":"Building A","description":"Every outside door of building A.","door_ids":[1]}`
 	want := []testsupport.APIOperation{
+		{Method: "GET", Target: "/api/v1/doors", ID: "listDoors", Statuses: []int{200, 400, 401, 403, 500}},
+		{Method: "POST", Target: "/api/v1/doors", ID: "createDoor", Body: doorBody, Statuses: []int{201, 400, 401, 403, 500}},
+		{Method: "DELETE", Target: "/api/v1/doors/1", ID: "deleteDoor", Statuses: []int{204, 401, 403, 404, 500}},
+		{Method: "GET", Target: "/api/v1/doors/1", ID: "getDoor", Statuses: []int{200, 401, 403, 404, 500}},
+		{Method: "PUT", Target: "/api/v1/doors/1", ID: "updateDoor", Body: doorBody, Statuses: []int{200, 400, 401, 403, 404, 500}},
+		{Method: "GET", Target: "/api/v1/doors/1/pictures", ID: "listDoorPictures", Statuses: []int{200, 401, 403, 404, 500}},
+		{Method: "POST", Target: "/api/v1/doors/1/pictures", ID: "uploadDoorPicture", Statuses: []int{201, 400, 401, 403, 404, 413, 500}},
+		{Method: "DELETE", Target: "/api/v1/doors/1/pictures/1", ID: "deleteDoorPicture", Statuses: []int{204, 401, 403, 404, 500}},
+		{Method: "GET", Target: "/api/v1/doors/1/pictures/1", ID: "getDoorPicture", Statuses: []int{200, 401, 403, 404, 500}},
+		{Method: "POST", Target: "/api/v1/doors/1/pictures/1/primary", ID: "setPrimaryDoorPicture", Statuses: []int{204, 401, 403, 404, 500}},
+		{Method: "GET", Target: "/api/v1/doors/1/pictures/1/thumbnail", ID: "getDoorPictureThumbnail", Statuses: []int{200, 401, 403, 404, 500}},
+		{Method: "POST", Target: "/api/v1/doors/1/restore", ID: "restoreDoor", Statuses: []int{204, 401, 403, 404, 500}},
 		{Method: "GET", Target: "/api/v1/groups", ID: "listGroups", Statuses: []int{200, 401, 403, 500}},
 		{Method: "POST", Target: "/api/v1/groups", ID: "createGroup", Body: groupBody, Statuses: []int{201, 400, 401, 403, 500}},
 		{Method: "DELETE", Target: "/api/v1/groups/1", ID: "deleteGroup", Statuses: []int{204, 401, 403, 404, 409, 500}},
@@ -70,6 +85,11 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 		{Method: "POST", Target: "/api/v1/users/1/tokens", ID: "createUserToken", Body: `{"name":"door sync","expires_in_days":30}`,
 			Statuses: []int{201, 400, 401, 403, 404, 500}},
 		{Method: "DELETE", Target: "/api/v1/users/1/tokens/1", ID: "revokeUserToken", Statuses: []int{204, 401, 403, 404, 500}},
+		{Method: "GET", Target: "/api/v1/zones", ID: "listZones", Statuses: []int{200, 401, 403, 500}},
+		{Method: "POST", Target: "/api/v1/zones", ID: "createZone", Body: zoneBody, Statuses: []int{201, 400, 401, 403, 500}},
+		{Method: "DELETE", Target: "/api/v1/zones/1", ID: "deleteZone", Statuses: []int{204, 401, 403, 404, 500}},
+		{Method: "GET", Target: "/api/v1/zones/1", ID: "getZone", Statuses: []int{200, 401, 403, 404, 500}},
+		{Method: "PUT", Target: "/api/v1/zones/1", ID: "updateZone", Body: zoneBody, Statuses: []int{200, 400, 401, 403, 404, 500}},
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("operations (-want +got):\n%s", diff)
@@ -222,4 +242,25 @@ func listed(statuses []int, status int) bool {
 		}
 	}
 	return false
+}
+
+func TestOpenAPIDescribesPictureUploadsAndImages(t *testing.T) {
+	doc := openAPIDocument(t)
+
+	got := []any{
+		testsupport.JSONAt(doc, "/paths/~1doors~1{id}~1pictures/post/requestBody"),
+		testsupport.JSONAt(doc, "/components/schemas/PictureUpload"),
+		testsupport.JSONAt(doc, "/paths/~1doors~1{id}~1pictures~1{picture}~1thumbnail/get/responses/200"),
+	}
+
+	want := testsupport.JSON(`[
+		{"required": true, "content": {"multipart/form-data": {"schema": {"$ref": "#/components/schemas/PictureUpload"}}}},
+		{"type": "object", "required": ["picture"], "properties": {
+			"picture": {"type": "string", "format": "binary", "description": "The image: JPEG, PNG, GIF, or WebP."}}},
+		{"description": "The image reduced to at most 320 pixels on its longest side.",
+		 "content": {"image/jpeg": {"schema": {"type": "string", "format": "binary"}}}}
+	]`)
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("document (-want +got):\n%s", diff)
+	}
 }

@@ -178,3 +178,75 @@
   <button type="submit" name="add_date" value="1" hx-post="{{.Action}}" hx-target="#schedule-form" hx-select="#schedule-form" hx-swap="outerHTML" class="mt-3 {{template "secondary-class"}}">{{template "plus-icon"}}Add a date</button>
 </fieldset>
 {{end}}
+
+{{/* The door details form's fields, given a doorForm. */}}
+{{define "door-fields"}}
+<div class="grid gap-5 sm:grid-cols-2">
+  {{template "field" (field "name" "Name" "text" .Name .Errors "Unique. Lists, calendars, and events show it.")}}
+  {{template "field" (field "location" "Location" "text" .Location .Errors "Where the door is, such as a building and floor.")}}
+  <div class="sm:col-span-2">
+    <label for="notes" class="block text-sm font-medium">Notes</label>
+    <textarea id="notes" name="notes" rows="3"{{with index .Errors "notes"}} aria-invalid="true" aria-describedby="notes-error"{{end}} class="{{template "input-class"}}">{{.Notes}}</textarea>
+    {{template "field-note" (field "notes" "" "" "" .Errors "For administrators only: wiring, keys, who to call.")}}
+  </div>
+  <label class="flex items-start gap-3 rounded-lg p-3 ring-1 ring-zinc-200 ring-inset has-checked:bg-brand-50 has-checked:ring-brand-300 sm:col-span-2 dark:ring-zinc-800 dark:has-checked:bg-brand-950 dark:has-checked:ring-brand-700">
+    <input type="checkbox" name="public" value="on"{{if .Public}} checked{{end}} class="mt-0.5 size-4 rounded border-zinc-300 accent-brand-600">
+    <span>
+      <span class="block text-sm font-medium">Show in the user portal</span>
+      <span class="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">People see the door, its picture, and when their code works there.</span>
+    </span>
+  </label>
+</div>
+{{end}}
+
+{{/* A list of checkboxes named name, one per choice, given a choiceList. */}}
+{{define "choices"}}
+{{$name := .Name}}
+<fieldset name="{{.Name}}"{{with .Error}} aria-invalid="true" aria-describedby="{{$name}}-error"{{end}}>
+  <legend class="sr-only">{{.Legend}}</legend>
+  {{with .Error}}<p id="{{$name}}-error" class="mb-3 text-sm text-red-600 dark:text-red-400">{{.}}</p>{{end}}
+  <ul class="space-y-2">
+    {{range .Choices}}
+    <li>
+      <label class="flex cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5 ring-1 ring-zinc-200 ring-inset transition hover:bg-zinc-50 has-checked:bg-brand-50 has-checked:ring-brand-300 dark:ring-zinc-800 dark:hover:bg-zinc-800/40 dark:has-checked:bg-brand-950 dark:has-checked:ring-brand-700">
+        <input type="checkbox" name="{{$name}}" value="{{.ID}}"{{if .Checked}} checked{{end}} class="mt-0.5 size-4 rounded border-zinc-300 accent-brand-600">
+        <span class="min-w-0">
+          <span class="block text-sm font-medium">{{.Name}}</span>
+          {{with .Detail}}<span class="mt-0.5 block truncate text-xs text-zinc-500 dark:text-zinc-400">{{.}}</span>{{end}}
+        </span>
+      </label>
+    </li>
+    {{else}}
+    <li role="note" class="rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">{{.Empty}}</li>
+    {{end}}
+  </ul>
+</fieldset>
+{{end}}
+
+{{define "door-icon"}}<svg class="{{.}}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 21V4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21M4 21h16M14.25 12h.008v.008h-.008V12Z"/></svg>{{end}}
+
+{{/* A door's primary picture as a thumbnail, or a placeholder, given a doorRow and size classes. */}}
+{{define "door-thumbnail"}}{{if .Row.Thumbnail}}<img src="{{.Row.Thumbnail}}" alt="{{.Row.Name}}" loading="lazy" class="{{.Size}} shrink-0 rounded-lg object-cover ring-1 ring-zinc-200 dark:ring-zinc-800">{{else}}<span class="{{.Size}} flex shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-400 ring-1 ring-zinc-200 ring-inset dark:bg-zinc-800 dark:text-zinc-500 dark:ring-zinc-700">{{template "door-icon" "size-1/2"}}</span>{{end}}{{end}}
+
+{{define "badge"}}<span class="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 ring-1 ring-zinc-500/20 ring-inset dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-400/20">{{.}}</span>{{end}}
+
+{{define "public-badge"}}<span class="inline-flex rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700 ring-1 ring-sky-600/20 ring-inset dark:bg-sky-950 dark:text-sky-300 dark:ring-sky-400/20">Public</span>{{end}}
+
+{{define "names"}}{{range $i, $r := .}}{{if $i}}, {{end}}{{$r.Name}}{{end}}{{end}}
+
+{{/* The zone form's fields, given a zoneContent. */}}
+{{define "zone-fields"}}
+<div class="grid gap-5">
+  {{template "field" (field "name" "Name" "text" .Form.Name .Errors "Unique. Access rules and the door list choose zones by name.")}}
+  <div>
+    <label for="description" class="block text-sm font-medium">Description</label>
+    <textarea id="description" name="description" rows="2"{{with index .Errors "description"}} aria-invalid="true" aria-describedby="description-error"{{end}} class="{{template "input-class"}}">{{.Form.Description}}</textarea>
+    {{template "field-note" (field "description" "" "" "" .Errors "")}}
+  </div>
+  <div>
+    <p class="text-sm font-medium">Doors</p>
+    <p class="mt-1 mb-3 text-xs text-zinc-500 dark:text-zinc-400">A door may be in any number of zones.</p>
+    {{template "choices" (choicelist "door_ids" "Doors" .Doors (index .Errors "door_ids") "There are no doors yet. Create them on the doors page.")}}
+  </div>
+</div>
+{{end}}

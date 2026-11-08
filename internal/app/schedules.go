@@ -61,6 +61,7 @@ var (
 	scheduleIDParam = openapi.Param{Name: "id", In: "path", Description: "The schedule's id. The Always schedule has id 1.", Example: int64(1)}
 	noSchedule      = openapi.Response{Status: http.StatusNotFound, Description: "No schedule has this id.", Body: errorBody{}}
 	builtinRefused  = openapi.Response{Status: http.StatusConflict, Description: "The schedule is the built-in Always schedule, which cannot be changed or deleted.", Body: errorBody{}}
+	deleteRefused   = openapi.Response{Status: http.StatusConflict, Description: "The schedule is the built-in Always schedule, which cannot be deleted, or doors that are not deleted are in open mode during it; the error names them.", Body: errorBody{}}
 	badSchedule     = openapi.Response{Status: http.StatusBadRequest, Description: "The body is not a JSON schedule, or a field is wrong; the error says which.", Body: errorBody{}}
 	occurrenceRange = []openapi.Param{
 		scheduleIDParam,
@@ -97,7 +98,7 @@ func (a *App) scheduleRoutes() []route {
 		}),
 		apiRoute(http.MethodDelete, "/schedules/{id}", schedules, a.deleteSchedule, apiDoc{
 			id: "deleteSchedule", summary: "Delete a schedule", tag: "schedules", params: []openapi.Param{scheduleIDParam},
-			responses: []openapi.Response{{Status: http.StatusNoContent, Description: "The schedule is gone."}, noSchedule, builtinRefused},
+			responses: []openapi.Response{{Status: http.StatusNoContent, Description: "The schedule is gone. Deleted doors stop being in open mode during it."}, noSchedule, deleteRefused},
 		}),
 		apiRoute(http.MethodGet, "/schedules/{id}/occurrences", schedules, a.listOccurrences, apiDoc{
 			id: "listScheduleOccurrences", summary: "List when a schedule is active", tag: "schedules", params: occurrenceRange,
@@ -134,7 +135,8 @@ func (a *App) scheduleError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
-	if errors.Is(err, schedule.ErrBuiltin) {
+	var inUse schedule.InUseError
+	if errors.Is(err, schedule.ErrBuiltin) || errors.As(err, &inUse) {
 		writeError(w, http.StatusConflict, err.Error())
 		return
 	}

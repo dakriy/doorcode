@@ -5,6 +5,7 @@
 package openapi
 
 import (
+	"cmp"
 	"encoding/json"
 	"reflect"
 	"strconv"
@@ -38,10 +39,18 @@ type Operation struct {
 	Secured bool
 	Params  []Param
 	// Request is an example request body, whose type gives its schema; nil
-	// when the operation takes no body.
-	Request   any
+	// when the operation takes no JSON body.
+	Request any
+	// Form is a value of the type of a multipart form body, whose fields'
+	// json tags name the form fields; nil when the operation takes none.
+	Form      any
 	Responses []Response
 }
+
+// File is a field or body that holds a file's bytes.
+type File struct{}
+
+const formType = "multipart/form-data"
 
 // Param is a path or query parameter. Path parameters are required.
 type Param struct {
@@ -59,6 +68,8 @@ type Response struct {
 	Description string
 	// Body is a value of the body's type, nil when the response has none.
 	Body any
+	// Type is the media type of a body that is not JSON, such as a File.
+	Type string
 }
 
 // Schema is a JSON Schema as OpenAPI 3.1 uses it.
@@ -197,6 +208,10 @@ func (g generator) operation(op Operation) operation {
 		body := mediaType{Schema: g.schema(reflect.TypeOf(op.Request)), Example: op.Request}
 		out.RequestBody = &requestBody{Required: true, Content: map[string]mediaType{jsonType: body}}
 	}
+	if op.Form != nil {
+		form := mediaType{Schema: g.schema(reflect.TypeOf(op.Form))}
+		out.RequestBody = &requestBody{Required: true, Content: map[string]mediaType{formType: form}}
+	}
 	for _, r := range op.Responses {
 		out.Responses[strconv.Itoa(r.Status)] = g.response(r)
 	}
@@ -206,12 +221,15 @@ func (g generator) operation(op Operation) operation {
 func (g generator) response(r Response) response {
 	out := response{Description: r.Description}
 	if r.Body != nil {
-		out.Content = map[string]mediaType{jsonType: {Schema: g.schema(reflect.TypeOf(r.Body))}}
+		out.Content = map[string]mediaType{cmp.Or(r.Type, jsonType): {Schema: g.schema(reflect.TypeOf(r.Body))}}
 	}
 	return out
 }
 
-var timeType = reflect.TypeFor[time.Time]()
+var (
+	timeType = reflect.TypeFor[time.Time]()
+	fileType = reflect.TypeFor[File]()
+)
 
 // scalarTypes maps the Go kinds a body field may have to JSON Schema types.
 // A kind not listed gets a schema without a type, which accepts anything.
@@ -227,6 +245,9 @@ var scalarTypes = map[reflect.Kind]string{
 func (g generator) schema(t reflect.Type) Schema {
 	if t == timeType {
 		return Schema{Type: "string", Format: "date-time"}
+	}
+	if t == fileType {
+		return Schema{Type: "string", Format: "binary"}
 	}
 	switch t.Kind() {
 	case reflect.Pointer:

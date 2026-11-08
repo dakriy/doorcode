@@ -11,6 +11,7 @@ import (
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/directory"
+	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/schedule"
 	"github.com/dakriy/doorcode/internal/settings"
 )
@@ -24,6 +25,7 @@ type App struct {
 	auth      auth.Service
 	directory directory.Service
 	schedules schedule.Service
+	doors     door.Service
 	root      http.Handler
 	// openapi is the OpenAPI document of the route table's API operations.
 	openapi []byte
@@ -52,6 +54,7 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 		auth:      authService,
 		directory: directory.Service{Store: store, Auth: authService, Clock: clock},
 		schedules: schedule.Service{Store: store},
+		doors:     door.Service{Store: store, Clock: clock},
 	}
 	if err := a.auth.CreateFirstAdmin(ctx); err != nil {
 		return nil, fmt.Errorf("create first administrator: %w", err)

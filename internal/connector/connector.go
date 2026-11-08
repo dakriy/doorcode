@@ -267,8 +267,107 @@ type SchedulesStore interface {
 	// its windows, and reports whether there is one.
 	UpdateSchedule(ctx context.Context, s StoredSchedule) (bool, error)
 	// DeleteSchedule removes the schedule whose id is id, and reports
-	// whether there was one.
+	// whether there was one. Doors stop being in open mode during it.
 	DeleteSchedule(ctx context.Context, id int64) (bool, error)
+}
+
+// StoredDoor is a door as the store holds it. OpenScheduleIDs are the
+// schedules during which the door is in open mode and ZoneIDs the zones it
+// is in, each ascending. A nil PrimaryPictureID is a door without a primary
+// picture, which the store sets only through SetPrimaryPicture and clears
+// when that picture is deleted; it ignores the field when it stores a door.
+// A nil DeletedAt is a door that is not deleted.
+type StoredDoor struct {
+	ID               int64
+	Name             string
+	Location         string
+	Notes            string
+	Public           bool
+	OpenScheduleIDs  []int64
+	ZoneIDs          []int64
+	PrimaryPictureID *int64
+	DeletedAt        *time.Time
+	CreatedAt        time.Time
+}
+
+// DoorsStore holds the doors aggregate. Doors are never removed; a deleted
+// door carries DeletedAt. Door names are unique ignoring case.
+type DoorsStore interface {
+	// Doors returns every door, deleted ones included, ordered by name
+	// compared byte by byte after lowercasing and then by id.
+	Doors(ctx context.Context) ([]StoredDoor, error)
+	// Door returns the door whose id is id, and whether there is one.
+	Door(ctx context.Context, id int64) (StoredDoor, bool, error)
+	// CreateDoor stores d, ignoring d.ID, and returns the id it was given.
+	CreateDoor(ctx context.Context, d StoredDoor) (int64, error)
+	// UpdateDoor stores d's name, location, notes, public flag, open
+	// schedules, and zones over the door whose id is d.ID, and reports
+	// whether there is one.
+	UpdateDoor(ctx context.Context, d StoredDoor) (bool, error)
+	// SetDoorDeleted stores at as the deletion time of the door whose id is
+	// id, nil restoring it, and reports whether there is one.
+	SetDoorDeleted(ctx context.Context, id int64, at *time.Time) (bool, error)
+}
+
+// StoredPicture is a picture of a door as the store holds it, without its
+// image data.
+type StoredPicture struct {
+	ID        int64
+	DoorID    int64
+	Width     int
+	Height    int
+	CreatedAt time.Time
+}
+
+// PicturesStore holds the pictures of doors: each an image and a thumbnail
+// of it.
+type PicturesStore interface {
+	// AddPicture stores p, ignoring p.ID, with its image and thumbnail, and
+	// returns the id it was given.
+	AddPicture(ctx context.Context, p StoredPicture, image, thumbnail []byte) (int64, error)
+	// Pictures returns the pictures of the door whose id is doorID, oldest
+	// first.
+	Pictures(ctx context.Context, doorID int64) ([]StoredPicture, error)
+	// PictureImage returns the image of the picture whose id is id, of the
+	// door whose id is doorID, and whether there is one.
+	PictureImage(ctx context.Context, doorID, id int64) ([]byte, bool, error)
+	// PictureThumbnail returns the thumbnail of the picture whose id is id,
+	// of the door whose id is doorID, and whether there is one.
+	PictureThumbnail(ctx context.Context, doorID, id int64) ([]byte, bool, error)
+	// SetPrimaryPicture makes the picture whose id is id, which must be one
+	// of its own, the primary picture of the door whose id is doorID, and
+	// reports whether there is such a door.
+	SetPrimaryPicture(ctx context.Context, doorID, id int64) (bool, error)
+	// DeletePicture removes the picture whose id is id, of the door whose id
+	// is doorID, and reports whether there was one.
+	DeletePicture(ctx context.Context, doorID, id int64) (bool, error)
+}
+
+// StoredZone is a zone as the store holds it. DoorIDs are the doors in it,
+// ascending.
+type StoredZone struct {
+	ID          int64
+	Name        string
+	Description string
+	DoorIDs     []int64
+}
+
+// ZonesStore holds the zones aggregate. Zone names are unique ignoring
+// case.
+type ZonesStore interface {
+	// Zones returns every zone, ordered by name compared byte by byte after
+	// lowercasing and then by id.
+	Zones(ctx context.Context) ([]StoredZone, error)
+	// Zone returns the zone whose id is id, and whether there is one.
+	Zone(ctx context.Context, id int64) (StoredZone, bool, error)
+	// CreateZone stores z, ignoring z.ID, and returns the id it was given.
+	CreateZone(ctx context.Context, z StoredZone) (int64, error)
+	// UpdateZone stores z over the zone whose id is z.ID, replacing its
+	// doors, and reports whether there is one.
+	UpdateZone(ctx context.Context, z StoredZone) (bool, error)
+	// DeleteZone removes the zone whose id is id, and reports whether there
+	// was one.
+	DeleteZone(ctx context.Context, id int64) (bool, error)
 }
 
 // Store is the application's persistent state, one interface per aggregate.
@@ -282,6 +381,9 @@ type Store interface {
 	SessionsStore
 	TokensStore
 	SchedulesStore
+	DoorsStore
+	PicturesStore
+	ZonesStore
 }
 
 // Factory constructs connectors. It has one method per connector.

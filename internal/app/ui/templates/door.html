@@ -1,0 +1,128 @@
+{{define "content"}}
+{{$c := .Content}}{{$d := $c.Door}}
+{{template "back" (link "/admin/doors" "All doors")}}
+<div class="mt-4 flex items-center gap-5">
+  {{template "door-thumbnail" (thumb $c.Row "size-20")}}
+  <div class="min-w-0">
+    <div class="flex flex-wrap items-center gap-3">
+      <h1 class="text-2xl font-semibold tracking-tight">{{$d.Name}}</h1>
+      {{if $d.Public}}{{template "public-badge"}}{{end}}
+      {{if $d.DeletedAt}}{{template "status" "Deleted"}}{{end}}
+    </div>
+    <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{{with $d.Location}}{{.}} · {{end}}created {{$d.CreatedAt.UTC.Format "2 Jan 2006"}}</p>
+  </div>
+</div>
+
+{{with $c.Alert}}<div class="mt-6">{{template "alert" .}}</div>{{end}}
+{{with $d.DeletedAt}}
+<div class="mt-6 flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200">
+  <p>Deleted on {{.UTC.Format "2 Jan 2006"}}. The door is listed only under deleted doors; its history stays.</p>
+  <form method="post" action="/admin/doors/{{$d.ID}}/restore">
+    <button type="submit" class="{{template "secondary-class"}} bg-white py-1.5 dark:bg-zinc-900">Restore door</button>
+  </form>
+</div>
+{{end}}
+
+<p role="note" class="mt-6 flex items-start gap-3 rounded-lg border border-dashed border-zinc-300 px-4 py-3 text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
+  <svg class="mt-0.5 size-5 shrink-0 text-zinc-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z" clip-rule="evenodd"/></svg>
+  <span>No controller has enrolled as this door yet. Its hardware, credentials, configuration, and live state appear here once one does.</span>
+</p>
+
+<div class="mt-8 grid gap-8 lg:grid-cols-3">
+  <div class="space-y-8 lg:col-span-2">
+    <section aria-labelledby="details-heading" class="p-6 {{template "card-class"}}">
+      <h2 id="details-heading" class="text-sm font-semibold">Details</h2>
+      <form method="post" action="/admin/doors/{{$d.ID}}" novalidate hx-disabled-elt="find button" class="mt-5">
+        {{template "door-fields" $c.Form}}
+        <div class="mt-6 flex justify-end">
+          <button type="submit" class="{{template "primary-class"}}">Save changes</button>
+        </div>
+      </form>
+    </section>
+
+    <section aria-labelledby="pictures-heading" class="p-6 {{template "card-class"}}">
+      <div class="sm:flex sm:items-start sm:justify-between sm:gap-6">
+        <div>
+          <h2 id="pictures-heading" class="text-sm font-semibold">Pictures</h2>
+          <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">The primary picture is shown in lists and the user portal, so people know which door is which.</p>
+        </div>
+      </div>
+      <ul class="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
+        {{range $c.Pictures}}
+        <li>
+          <figure class="overflow-hidden rounded-lg ring-1 {{if .Primary}}ring-2 ring-brand-500{{else}}ring-zinc-200 dark:ring-zinc-800{{end}}">
+            <a href="{{.ImageURL}}" target="_blank" rel="noopener" class="block bg-zinc-100 dark:bg-zinc-800">
+              <img src="{{.ThumbnailURL}}" alt="Picture {{.Number}}{{if .Primary}}, the primary picture{{end}}" loading="lazy" class="aspect-4/3 w-full object-cover">
+            </a>
+            <figcaption class="flex items-center justify-between gap-2 px-2.5 py-2">
+              {{if .Primary}}
+              <span class="inline-flex rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 ring-1 ring-brand-600/20 ring-inset dark:bg-brand-950 dark:text-brand-300 dark:ring-brand-400/20">Primary</span>
+              {{else}}
+              <form method="post" action="/admin/doors/{{$d.ID}}/pictures/{{.ID}}/primary">
+                <button type="submit" class="{{template "row-button-class"}}">Make primary</button>
+              </form>
+              {{end}}
+              <form method="post" action="/admin/doors/{{$d.ID}}/pictures/{{.ID}}/delete" hx-confirm="Delete picture {{.Number}} of {{$d.Name}}? This cannot be undone.">
+                <button type="submit" aria-label="Delete picture {{.Number}}" title="Delete this picture" class="{{template "row-button-class"}} hover:text-red-700 dark:hover:text-red-300">
+                  <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z" clip-rule="evenodd"/></svg>
+                </button>
+              </form>
+            </figcaption>
+          </figure>
+        </li>
+        {{else}}
+        <li class="col-span-full rounded-lg border border-dashed border-zinc-300 px-4 py-10 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">No pictures yet. The first one you add becomes the primary picture.</li>
+        {{end}}
+      </ul>
+      <form method="post" action="/admin/doors/{{$d.ID}}/pictures" enctype="multipart/form-data" hx-disabled-elt="find button" class="mt-6 border-t border-zinc-200 pt-5 dark:border-zinc-800">
+        {{$error := index $c.Form.Errors "picture"}}
+        <label for="picture" class="block text-sm font-medium">Add a picture</label>
+        <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <input id="picture" name="picture" type="file" accept="image/jpeg,image/png,image/gif,image/webp" required
+            {{if $error}}aria-invalid="true" aria-describedby="picture-error"{{end}}
+            class="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-800 hover:file:bg-zinc-200 dark:text-zinc-400 dark:file:bg-zinc-800 dark:file:text-zinc-200 dark:hover:file:bg-zinc-700">
+          <button type="submit" class="shrink-0 {{template "primary-class"}}">Upload</button>
+        </div>
+        {{if $error}}<p id="picture-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$error}}</p>
+        {{else}}<p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">JPEG, PNG, GIF, or WebP, up to {{$c.MaxPictureMB}} MB. Larger pictures are reduced to {{$c.MaxPictureSide}} pixels on their longest side.</p>{{end}}
+      </form>
+    </section>
+  </div>
+
+  <div class="space-y-8">
+    <section aria-labelledby="open-heading" class="p-6 {{template "card-class"}}">
+      <h2 id="open-heading" class="text-sm font-semibold">Open mode</h2>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">While one of these schedules is active the door unlocks on any keypress, without a code.</p>
+      <form method="post" action="/admin/doors/{{$d.ID}}/open-mode" hx-disabled-elt="find button" class="mt-4">
+        {{template "choices" (choicelist "open_schedule_ids" "Open-mode schedules" $c.Schedules (index $c.Form.Errors "open_schedule_ids") "There are no schedules yet.")}}
+        <div class="mt-4 flex justify-end">
+          <button type="submit" class="{{template "primary-class"}}">Save open mode</button>
+        </div>
+      </form>
+    </section>
+
+    <section aria-labelledby="zones-heading" class="p-6 {{template "card-class"}}">
+      <h2 id="zones-heading" class="text-sm font-semibold">Zones</h2>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Access rules that name a zone reach every door in it.</p>
+      <form method="post" action="/admin/doors/{{$d.ID}}/zones" hx-disabled-elt="find button" class="mt-4">
+        {{template "choices" (choicelist "zone_ids" "Zones" $c.Zones (index $c.Form.Errors "zone_ids") "There are no zones yet. Create one on the zones page.")}}
+        <div class="mt-4 flex justify-end">
+          <button type="submit" class="{{template "primary-class"}}">Save zones</button>
+        </div>
+      </form>
+    </section>
+  </div>
+</div>
+
+{{if not $d.DeletedAt}}
+<section aria-labelledby="delete-heading" class="mt-8 rounded-xl border border-red-200 p-6 dark:border-red-900/60">
+  <h2 id="delete-heading" class="text-sm font-semibold text-red-700 dark:text-red-300">Delete door</h2>
+  <div class="mt-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <p class="text-sm text-zinc-600 dark:text-zinc-400">A deleted door leaves the lists and its name stays taken. Its history stays, and you can restore it later.</p>
+    <form method="post" action="/admin/doors/{{$d.ID}}/delete" hx-confirm="Delete the door {{$d.Name}}?">
+      <button type="submit" class="{{template "danger-class"}} py-2">Delete door</button>
+    </form>
+  </div>
+</section>
+{{end}}
+{{end}}

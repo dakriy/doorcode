@@ -9,7 +9,7 @@ import (
 )
 
 // schedulesNav is the navigation of a schedules page for an administrator.
-var schedulesNav = []string{"Home", "Users", "Groups", "Schedules (current)", "Settings", "API tokens", "API docs"}
+var schedulesNav = []string{"Home", "Users", "Groups", "Schedules (current)", "Doors", "Zones", "Settings", "API tokens", "API docs"}
 
 // schedulesHead is the header row of the schedule list.
 var schedulesHead = []string{"Name", "Windows", "In effect", "Excluded dates", "Actions"}

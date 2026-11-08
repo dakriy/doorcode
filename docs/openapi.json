@@ -11,6 +11,1094 @@
     }
   ],
   "paths": {
+    "/doors": {
+      "get": {
+        "operationId": "listDoors",
+        "summary": "List doors, a page at a time",
+        "tags": [
+          "doors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Keeps doors whose name or location contains this text, ignoring case.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "north"
+          },
+          {
+            "name": "show",
+            "in": "query",
+            "required": false,
+            "description": "current (the default) lists doors that are not deleted; deleted lists those that are.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "current"
+          },
+          {
+            "name": "zone",
+            "in": "query",
+            "required": false,
+            "description": "Keeps the doors in the zone with this id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "The page to return, from 1 (the default).",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "description": "How many doors a page holds, from 1 to 200; 25 by default.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 25
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The page of doors.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoorList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A query parameter is out of range.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createDoor",
+        "summary": "Create a door",
+        "tags": [
+          "doors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DoorRequest"
+              },
+              "example": {
+                "name": "North entrance",
+                "location": "Building A, ground floor",
+                "notes": "Strike replaced in 2026.",
+                "public": true,
+                "open_schedule_ids": [
+                  1
+                ],
+                "zone_ids": [
+                  1
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new door, waiting for its controller to enroll.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoorView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON door, or a field is wrong; the error says which.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/doors/{id}": {
+      "delete": {
+        "operationId": "deleteDoor",
+        "summary": "Delete a door",
+        "tags": [
+          "doors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The door is deleted; its history stays. Deleting a deleted door changes nothing."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getDoor",
+        "summary": "Read one door",
+        "tags": [
+          "doors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The door.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateDoor",
+        "summary": "Replace a door",
+        "tags": [
+          "doors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DoorRequest"
+              },
+              "example": {
+                "name": "North entrance",
+                "location": "Building A, ground floor",
+                "notes": "Strike replaced in 2026.",
+                "public": true,
+                "open_schedule_ids": [
+                  1
+                ],
+                "zone_ids": [
+                  1
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The door as it is now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoorView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON door, or a field is wrong; the error says which.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/doors/{id}/pictures": {
+      "get": {
+        "operationId": "listDoorPictures",
+        "summary": "List a door's pictures",
+        "tags": [
+          "doors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The door's pictures.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PictureList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "uploadDoorPicture",
+        "summary": "Add a picture to a door",
+        "tags": [
+          "doors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/PictureUpload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new picture, reduced to at most 1600 pixels on its longest side. A door's first picture becomes its primary one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PictureView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a multipart form with the file in the field picture, or the file is not an image that can be read.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The file is larger than 10 MB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/doors/{id}/pictures/{picture}": {
+      "delete": {
+        "operationId": "deleteDoorPicture",
+        "summary": "Delete a picture",
+        "tags": [
+          "doors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "picture",
+            "in": "path",
+            "required": true,
+            "description": "The picture's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The picture is gone. When it was the primary picture, the oldest one left becomes primary."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id, or the door has no picture with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getDoorPicture",
+        "summary": "Read a picture's image",
+        "tags": [
+          "doors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "picture",
+            "in": "path",
+            "required": true,
+            "description": "The picture's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The image.",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id, or the door has no picture with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/doors/{id}/pictures/{picture}/primary": {
+      "post": {
+        "operationId": "setPrimaryDoorPicture",
+        "summary": "Make a picture the door's primary one",
+        "tags": [
+          "doors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "picture",
+            "in": "path",
+            "required": true,
+            "description": "The picture's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The picture is the door's primary picture."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id, or the door has no picture with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/doors/{id}/pictures/{picture}/thumbnail": {
+      "get": {
+        "operationId": "getDoorPictureThumbnail",
+        "summary": "Read a picture's thumbnail",
+        "tags": [
+          "doors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "picture",
+            "in": "path",
+            "required": true,
+            "description": "The picture's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The image reduced to at most 320 pixels on its longest side.",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id, or the door has no picture with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/doors/{id}/restore": {
+      "post": {
+        "operationId": "restoreDoor",
+        "summary": "Restore a deleted door",
+        "tags": [
+          "doors"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The door is no longer deleted."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/groups": {
       "get": {
         "operationId": "listGroups",
@@ -901,7 +1989,7 @@
         ],
         "responses": {
           "204": {
-            "description": "The schedule is gone."
+            "description": "The schedule is gone. Deleted doors stop being in open mode during it."
           },
           "401": {
             "description": "No valid API token was sent.",
@@ -934,7 +2022,7 @@
             }
           },
           "409": {
-            "description": "The schedule is the built-in Always schedule, which cannot be changed or deleted.",
+            "description": "The schedule is the built-in Always schedule, which cannot be deleted, or doors that are not deleted are in open mode during it; the error names them.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2686,6 +3774,408 @@
           }
         }
       }
+    },
+    "/zones": {
+      "get": {
+        "operationId": "listZones",
+        "summary": "List every zone",
+        "tags": [
+          "zones"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every zone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZoneList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createZone",
+        "summary": "Create a zone",
+        "tags": [
+          "zones"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ZoneRequest"
+              },
+              "example": {
+                "name": "Building A",
+                "description": "Every outside door of building A.",
+                "door_ids": [
+                  1
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new zone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZoneView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON zone, or a field is wrong; the error says which.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/zones/{id}": {
+      "delete": {
+        "operationId": "deleteZone",
+        "summary": "Delete a zone",
+        "tags": [
+          "zones"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The zone's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The zone is gone; its doors stay."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No zone has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getZone",
+        "summary": "Read one zone",
+        "tags": [
+          "zones"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The zone's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The zone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZoneView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No zone has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateZone",
+        "summary": "Replace a zone",
+        "tags": [
+          "zones"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The zone's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ZoneRequest"
+              },
+              "example": {
+                "name": "Building A",
+                "description": "Every outside door of building A.",
+                "door_ids": [
+                  1
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The zone as it is now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZoneView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON zone, or a field is wrong; the error says which.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No zone has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2717,6 +4207,137 @@
         "required": [
           "token",
           "secret"
+        ]
+      },
+      "DoorList": {
+        "type": "object",
+        "properties": {
+          "doors": {
+            "type": "array",
+            "description": "This page of doors, by name.",
+            "items": {
+              "$ref": "#/components/schemas/DoorView"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "description": "This page's number, from 1."
+          },
+          "per_page": {
+            "type": "integer",
+            "description": "How many doors a page holds."
+          },
+          "total": {
+            "type": "integer",
+            "description": "How many doors the query selects, on every page together."
+          }
+        },
+        "required": [
+          "doors",
+          "total",
+          "page",
+          "per_page"
+        ]
+      },
+      "DoorRequest": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string",
+            "description": "Where the door is, up to 200 characters."
+          },
+          "name": {
+            "type": "string",
+            "description": "The door's name, up to 100 characters; unique, ignoring case."
+          },
+          "notes": {
+            "type": "string",
+            "description": "What administrators should know about the door, up to 2000 characters."
+          },
+          "open_schedule_ids": {
+            "type": "array",
+            "description": "The ids of the schedules during which the door is in open mode. Omit it for a door that is never in open mode.",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "public": {
+            "type": "boolean",
+            "description": "True to show the door in the user portal."
+          },
+          "zone_ids": {
+            "type": "array",
+            "description": "The ids of the zones the door is in.",
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "DoorView": {
+        "type": "object",
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the door was created."
+          },
+          "deleted_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the door was deleted; absent unless it is deleted."
+          },
+          "id": {
+            "type": "integer",
+            "description": "Names the door in the API."
+          },
+          "location": {
+            "type": "string",
+            "description": "Where the door is; may be empty."
+          },
+          "name": {
+            "type": "string",
+            "description": "The door's name."
+          },
+          "notes": {
+            "type": "string",
+            "description": "What administrators should know about the door; may be empty."
+          },
+          "open_schedules": {
+            "type": "array",
+            "description": "The schedules during which the door is in open mode and unlocks on any keypress, by name.",
+            "items": {
+              "$ref": "#/components/schemas/NameRef"
+            }
+          },
+          "primary_picture_id": {
+            "type": "integer",
+            "description": "The picture lists and the user portal show; absent when the door has no pictures."
+          },
+          "public": {
+            "type": "boolean",
+            "description": "True when the user portal shows the door."
+          },
+          "zones": {
+            "type": "array",
+            "description": "The zones the door is in, by name.",
+            "items": {
+              "$ref": "#/components/schemas/NameRef"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "location",
+          "notes",
+          "public",
+          "open_schedules",
+          "zones",
+          "created_at"
         ]
       },
       "ErrorBody": {
@@ -2870,6 +4491,23 @@
           "members"
         ]
       },
+      "NameRef": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Its id."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its name."
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
       "OccurrenceList": {
         "type": "object",
         "properties": {
@@ -2917,6 +4555,77 @@
         "required": [
           "start",
           "end"
+        ]
+      },
+      "PictureList": {
+        "type": "object",
+        "properties": {
+          "pictures": {
+            "type": "array",
+            "description": "The door's pictures, oldest first.",
+            "items": {
+              "$ref": "#/components/schemas/PictureView"
+            }
+          }
+        },
+        "required": [
+          "pictures"
+        ]
+      },
+      "PictureUpload": {
+        "type": "object",
+        "properties": {
+          "picture": {
+            "type": "string",
+            "format": "binary",
+            "description": "The image: JPEG, PNG, GIF, or WebP."
+          }
+        },
+        "required": [
+          "picture"
+        ]
+      },
+      "PictureView": {
+        "type": "object",
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the picture was uploaded."
+          },
+          "height": {
+            "type": "integer",
+            "description": "The image's height in pixels."
+          },
+          "id": {
+            "type": "integer",
+            "description": "Names the picture in the API."
+          },
+          "image_url": {
+            "type": "string",
+            "description": "Where the image is served, as JPEG."
+          },
+          "primary": {
+            "type": "boolean",
+            "description": "True for the door's primary picture, which lists and the user portal show."
+          },
+          "thumbnail_url": {
+            "type": "string",
+            "description": "Where a thumbnail of the image is served, as JPEG."
+          },
+          "width": {
+            "type": "integer",
+            "description": "The image's width in pixels."
+          }
+        },
+        "required": [
+          "id",
+          "primary",
+          "width",
+          "height",
+          "image_url",
+          "thumbnail_url",
+          "created_at"
         ]
       },
       "ScheduleList": {
@@ -3299,6 +5008,74 @@
           "days",
           "start",
           "end"
+        ]
+      },
+      "ZoneList": {
+        "type": "object",
+        "properties": {
+          "zones": {
+            "type": "array",
+            "description": "Every zone, by name.",
+            "items": {
+              "$ref": "#/components/schemas/ZoneView"
+            }
+          }
+        },
+        "required": [
+          "zones"
+        ]
+      },
+      "ZoneRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "What the zone is, up to 500 characters."
+          },
+          "door_ids": {
+            "type": "array",
+            "description": "The ids of the doors in the zone.",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "name": {
+            "type": "string",
+            "description": "The zone's name, up to 100 characters; unique, ignoring case."
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "ZoneView": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "What the zone is; may be empty."
+          },
+          "doors": {
+            "type": "array",
+            "description": "The doors in the zone, by name, deleted ones included.",
+            "items": {
+              "$ref": "#/components/schemas/NameRef"
+            }
+          },
+          "id": {
+            "type": "integer",
+            "description": "Names the zone in the API."
+          },
+          "name": {
+            "type": "string",
+            "description": "The zone's name."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "doors"
         ]
       }
     },

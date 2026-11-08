@@ -19,11 +19,14 @@ const (
 
 // pageOf reads the page a response carries, leaving out the assets every
 // page loads, which TestPagesLoadTheirAssets covers, and where navigation
-// links lead, which the few tests that follow them read themselves.
+// links lead, what checkboxes say, and what selects offer, which the few
+// tests that need them read themselves.
 func pageOf(r testsupport.Response) testsupport.Page {
 	p := testsupport.ParsePage(r.Body)
 	p.Assets = nil
 	p.NavTargets = nil
+	p.Choices = nil
+	p.Options = nil
 	return p
 }
 
@@ -75,7 +78,7 @@ func TestHomeGreetsTheSignedInAdministratorAndShowsTheFlashOnce(t *testing.T) {
 	want := testsupport.Page{
 		Title:    "Home · doorcode",
 		Heading:  "Welcome, Administrator",
-		Nav:      []string{"Home (current)", "Users", "Groups", "Schedules", "Settings", "API tokens", "API docs"},
+		Nav:      []string{"Home (current)", "Users", "Groups", "Schedules", "Doors", "Zones", "Settings", "API tokens", "API docs"},
 		Messages: []string{"You are signed in."},
 	}
 	if diff := cmp.Diff(want, first); diff != "" {

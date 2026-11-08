@@ -1,9 +1,11 @@
 package testsupport
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -93,6 +95,31 @@ func (b *Browser) Delete(target string) Response {
 	return b.Send(http.MethodDelete, target, "")
 }
 
+// Upload posts a multipart form holding content as a file named filename
+// in the field field, and then the other fields, alternating name and
+// value.
+func (b *Browser) Upload(target, field, filename string, content []byte, fields ...string) Response {
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	for i := 0; i+1 < len(fields); i += 2 {
+		_ = form.WriteField(fields[i], fields[i+1])
+	}
+	file, _ := form.CreateFormFile(field, filename)
+	_, _ = file.Write(content)
+	_ = form.Close()
+	return b.do(http.MethodPost, target, form.FormDataContentType(), &body)
+}
+
+// SendForm posts body as it is, with content type contentType.
+func (b *Browser) SendForm(target, contentType, body string) Response {
+	return b.do(http.MethodPost, target, contentType, strings.NewReader(body))
+}
+
+// Header sends a GET and returns the response's header name.
+func (b *Browser) Header(target, name string) string {
+	return b.result(http.MethodGet, target, "", nil).Header().Get(name)
+}
+
 // Send sends a request with method, and with body as JSON unless it is
 // empty.
 func (b *Browser) Send(method, target, body string) Response {
@@ -109,6 +136,19 @@ func BasicAuth(user, password string) string {
 }
 
 func (b *Browser) do(method, target, contentType string, body io.Reader) Response {
+	rec := b.result(method, target, contentType, body)
+	return Response{
+		Status:      rec.Code,
+		ContentType: rec.Header().Get("Content-Type"),
+		Location:    rec.Header().Get("Location"),
+		SetCookie:   rec.Header().Values("Set-Cookie"),
+		Body:        rec.Body.String(),
+	}
+}
+
+// result sends a request and records the reply, keeping the cookies it
+// sets.
+func (b *Browser) result(method, target, contentType string, body io.Reader) *httptest.ResponseRecorder {
 	req := httptest.NewRequestWithContext(context.Background(), method, target, body)
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
@@ -129,11 +169,5 @@ func (b *Browser) do(method, target, contentType string, body io.Reader) Respons
 			b.cookies[c.Name] = c.Value
 		}
 	}
-	return Response{
-		Status:      rec.Code,
-		ContentType: rec.Header().Get("Content-Type"),
-		Location:    rec.Header().Get("Location"),
-		SetCookie:   rec.Header().Values("Set-Cookie"),
-		Body:        rec.Body.String(),
-	}
+	return rec
 }

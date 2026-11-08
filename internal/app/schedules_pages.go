@@ -246,8 +246,13 @@ func (a *App) deleteScheduleFromForm(w http.ResponseWriter, r *http.Request, vie
 // a refusal is shown on the page, a failure as an error, and success by
 // going to location with flash.
 func (a *App) scheduleChanged(w http.ResponseWriter, r *http.Request, viewer auth.User, content scheduleContent, err error, location, flash string) {
+	var inUse schedule.InUseError
 	if errors.Is(err, schedule.ErrBuiltin) {
 		content.Alert = "Always is built in: it cannot be changed or deleted. Create another schedule for other times."
+	} else if errors.As(err, &inUse) {
+		content.Alert = "Doors are in open mode during this schedule: " + strings.Join(inUse.Doors, ", ") + ". Take it off them before deleting it."
+	}
+	if content.Alert != "" {
 		a.renderSchedule(w, r, http.StatusConflict, viewer, content)
 		return
 	}

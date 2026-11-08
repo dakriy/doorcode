@@ -23,6 +23,16 @@ var (
 	ErrBuiltin = errors.New("the Always schedule is built in and cannot be changed or deleted")
 )
 
+// InUseError reports the deletion of a schedule doors are in open mode
+// during. Doors names them, by name.
+type InUseError struct {
+	Doors []string
+}
+
+func (e InUseError) Error() string {
+	return "doors are in open mode during this schedule: " + strings.Join(e.Doors, ", ")
+}
+
 const (
 	maxNameLength = 100
 	// MaxWindows is how many windows a schedule may have.
@@ -70,9 +80,15 @@ type WindowFields struct {
 	End   string
 }
 
+// Store is the part of the store this package uses.
+type Store interface {
+	connector.SchedulesStore
+	connector.DoorsStore
+}
+
 // Service reads and changes schedules.
 type Service struct {
-	Store connector.SchedulesStore
+	Store Store
 }
 
 // Schedules returns every schedule in name order.
@@ -135,7 +151,9 @@ func (s Service) Update(ctx context.Context, id int64, f Fields) (connector.Stor
 	return s.Schedule(ctx, id)
 }
 
-// Delete removes the schedule whose id is id.
+// Delete removes the schedule whose id is id, unless a door that is not
+// deleted is in open mode during it. Deleted doors stop being in open mode
+// during it.
 func (s Service) Delete(ctx context.Context, id int64) error {
 	sch, err := s.Schedule(ctx, id)
 	if err != nil {
@@ -143,6 +161,19 @@ func (s Service) Delete(ctx context.Context, id int64) error {
 	}
 	if sch.Builtin {
 		return ErrBuiltin
+	}
+	doors, err := s.Store.Doors(ctx)
+	if err != nil {
+		return err
+	}
+	var users []string
+	for _, d := range doors {
+		if d.DeletedAt == nil && slices.Contains(d.OpenScheduleIDs, id) {
+			users = append(users, d.Name)
+		}
+	}
+	if users != nil {
+		return InUseError{Doors: users}
 	}
 	_, err = s.Store.DeleteSchedule(ctx, id)
 	return err

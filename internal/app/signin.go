@@ -35,6 +35,18 @@ var flashes = map[string]string{
 	"schedule-created": "The schedule has been created.",
 	"schedule-saved":   "The schedule's changes have been saved.",
 	"schedule-deleted": "The schedule has been deleted.",
+	"door-created":     "The door has been created. Its controller can enroll once it is connected.",
+	"door-saved":       "The door's changes have been saved.",
+	"open-mode-saved":  "The open-mode schedules have been saved.",
+	"door-zones-saved": "The door's zones have been saved.",
+	"door-deleted":     "The door has been deleted. Its history stays, and you can restore it.",
+	"door-restored":    "The door has been restored.",
+	"picture-added":    "The picture has been added.",
+	"picture-primary":  "The primary picture has been changed.",
+	"picture-deleted":  "The picture has been deleted.",
+	"zone-created":     "The zone has been created.",
+	"zone-saved":       "The zone's changes have been saved.",
+	"zone-deleted":     "The zone has been deleted. Its doors stay.",
 }
 
 // signInForm is the sign-in page's content.

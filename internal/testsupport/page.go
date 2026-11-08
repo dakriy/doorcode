@@ -30,14 +30,29 @@ type Page struct {
 	Values map[string]string
 	// Checked is each checked checkbox, as its name, "=", and its value.
 	Checked []string
+	// Choices maps each checkbox inside a label, as its name, "=", and its
+	// value, to the label's text.
+	Choices map[string]string
+	// Options maps each select to the text of its options, in order; the
+	// selected one is suffixed with " (selected)".
+	Options map[string][]string
 	// Table is the text of every cell of the first table without a label,
 	// row by row.
 	Table [][]string
 	// Tables maps the label of each labelled table to the text of its
 	// cells, row by row.
 	Tables map[string][][]string
+	// Images is every image the page shows, in order.
+	Images []Image
 	// Assets is every stylesheet and script the page loads.
 	Assets []string
+}
+
+// Image is an image a page shows: where it is served from and its
+// alternative text.
+type Image struct {
+	Src string
+	Alt string
 }
 
 // ParsePage reads a page from HTML.
@@ -109,18 +124,45 @@ func (p *Page) readRow(tr *html.Node) {
 func (p *Page) readResource(n *html.Node) {
 	switch {
 	case n.Data == "input" && attr(n, "type") == "checkbox":
-		if hasAttr(n, "checked") {
-			p.Checked = append(p.Checked, attr(n, "name")+"="+attr(n, "value"))
-		}
+		p.readCheckbox(n)
+	case n.Data == "option":
+		p.readOption(n)
 	case n.Data == "input" && attr(n, "name") != "" && attr(n, "type") != "password":
 		p.value(attr(n, "name"), attr(n, "value"))
 	case n.Data == "textarea":
 		p.value(attr(n, "name"), rawText(n))
+	case n.Data == "img":
+		p.Images = append(p.Images, Image{Src: attr(n, "src"), Alt: attr(n, "alt")})
 	case n.Data == "link" && attr(n, "rel") == "stylesheet":
 		p.Assets = append(p.Assets, attr(n, "href"))
 	case n.Data == "script" && attr(n, "src") != "":
 		p.Assets = append(p.Assets, attr(n, "src"))
 	}
+}
+
+func (p *Page) readCheckbox(n *html.Node) {
+	key := attr(n, "name") + "=" + attr(n, "value")
+	if hasAttr(n, "checked") {
+		p.Checked = append(p.Checked, key)
+	}
+	if label := enclosing(n, "label"); label != nil {
+		if p.Choices == nil {
+			p.Choices = map[string]string{}
+		}
+		p.Choices[key] = text(label)
+	}
+}
+
+func (p *Page) readOption(n *html.Node) {
+	label := text(n)
+	if hasAttr(n, "selected") {
+		label += " (selected)"
+	}
+	if p.Options == nil {
+		p.Options = map[string][]string{}
+	}
+	name := attr(enclosing(n, "select"), "name")
+	p.Options[name] = append(p.Options[name], label)
 }
 
 func (p *Page) value(name, value string) {
@@ -173,12 +215,17 @@ func firstUnlabelledTable(n *html.Node) *html.Node {
 }
 
 func within(n *html.Node, tag string) bool {
+	return enclosing(n, tag) != nil
+}
+
+// enclosing is the nearest element around n with tag, nil without one.
+func enclosing(n *html.Node, tag string) *html.Node {
 	for a := n.Parent; a != nil; a = a.Parent {
 		if a.Type == html.ElementNode && a.Data == tag {
-			return true
+			return a
 		}
 	}
-	return false
+	return nil
 }
 
 func hasAttr(n *html.Node, name string) bool {

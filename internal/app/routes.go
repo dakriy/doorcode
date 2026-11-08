@@ -29,8 +29,11 @@ type apiDoc struct {
 	summary string
 	tag     string
 	params  []openapi.Param
-	// request is an example body; nil when the operation takes none.
-	request   any
+	// request is an example JSON body; nil when the operation takes none.
+	request any
+	// form is a value of the type of a multipart form body; nil when the
+	// operation takes none.
+	form      any
 	responses []openapi.Response
 }
 
@@ -68,7 +71,12 @@ func (a *App) routes() []route {
 	table = append(table, a.groupRoutes()...)
 	table = append(table, a.groupPageRoutes()...)
 	table = append(table, a.scheduleRoutes()...)
-	return append(table, a.schedulePageRoutes()...)
+	table = append(table, a.schedulePageRoutes()...)
+	table = append(table, a.doorRoutes()...)
+	table = append(table, a.pictureRoutes()...)
+	table = append(table, a.doorPageRoutes()...)
+	table = append(table, a.zoneRoutes()...)
+	return append(table, a.zonePageRoutes()...)
 }
 
 // handler registers every route of table on a new mux.
@@ -132,6 +140,7 @@ func apiDocument(table []route) []byte {
 			Secured:   !rt.access.public,
 			Params:    rt.doc.params,
 			Request:   rt.doc.request,
+			Form:      rt.doc.form,
 			Responses: slices.Concat(refusals(rt.access), rt.doc.responses),
 		})
 	}

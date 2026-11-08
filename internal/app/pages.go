@@ -101,6 +101,13 @@ var (
 	newScheduleTemplate      = shellPage("schedule-new.html")
 	scheduleTemplate         = shellPage("schedule.html")
 	scheduleCalendarTemplate = shellPage("schedule-calendar.html")
+
+	doorsTemplate   = shellPage("doors.html")
+	newDoorTemplate = shellPage("door-new.html")
+	doorTemplate    = shellPage("door.html")
+	zonesTemplate   = shellPage("zones.html")
+	newZoneTemplate = shellPage("zone-new.html")
+	zoneTemplate    = shellPage("zone.html")
 )
 
 // navItem is one link in the main navigation. A Reload link loads its page
@@ -128,6 +135,29 @@ var templateFuncs = template.FuncMap{
 	"link": func(href, label string) navItem {
 		return navItem{Href: href, Label: label}
 	},
+	"choicelist": func(name, legend string, choices []choice, problem, empty string) choiceList {
+		return choiceList{Name: name, Legend: legend, Choices: choices, Error: problem, Empty: empty}
+	},
+	"thumb": func(row doorRow, size string) thumbnailView {
+		return thumbnailView{Row: row, Size: size}
+	},
+}
+
+// choiceList is a list of checkboxes sharing the form field Name, with
+// what is wrong with them and what to say when there is nothing to choose.
+type choiceList struct {
+	Name    string
+	Legend  string
+	Choices []choice
+	Error   string
+	Empty   string
+}
+
+// thumbnailView is a door's primary picture as a thumbnail of Size, given
+// as classes.
+type thumbnailView struct {
+	Row  doorRow
+	Size string
 }
 
 // within reports whether path is the page href or, for any page but home,
