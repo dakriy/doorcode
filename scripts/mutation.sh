@@ -8,6 +8,14 @@ set -eu
 mkdir -p build
 log=build/mutation.log
 
+# gremlins compiles the suite once per mutant. Those builds are never reused,
+# so they go in a cache of their own that is emptied when the run ends,
+# instead of growing the shared Go build cache by gigabytes per run.
+GOCACHE="${DOORCODE_MUTATION_GOCACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/doorcode-mutation}"
+export GOCACHE
+mkdir -p "$GOCACHE"
+trap 'go clean -cache' EXIT
+
 # shellcheck disable=SC2046
 go tool gremlins unleash --integration \
 	--coverpkg="$(app_pkgs)" \
