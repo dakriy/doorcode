@@ -663,10 +663,12 @@ type EventQuery struct {
 // whose id is UserID asked an administrator, under Title and in Body, and
 // when they asked and last changed it. Reply is the administrator's answer,
 // empty until there is one, and ResolvedAt when the request was resolved,
-// nil while it is open.
+// nil while it is open. UserName is the user's display name, which the
+// store fills when it returns a request and ignores when it stores one.
 type StoredRequest struct {
 	ID         int64
 	UserID     int64
+	UserName   string
 	Title      string
 	Body       string
 	Reply      string
@@ -675,8 +677,26 @@ type StoredRequest struct {
 	UpdatedAt  time.Time
 }
 
+// RequestQuery selects a page of access requests. An empty Search keeps
+// every request; otherwise a request is kept when its title or body, or
+// its user's display name or email, contains Search ignoring case. A nil
+// Resolved keeps both; otherwise a request is kept when whether it is
+// resolved is *Resolved. A zero UserID keeps every user's. The page skips
+// Offset requests and holds at most Limit.
+type RequestQuery struct {
+	Search   string
+	Resolved *bool
+	UserID   int64
+	Offset   int
+	Limit    int
+}
+
 // RequestsStore holds the access requests aggregate.
 type RequestsStore interface {
+	// Requests returns the page of requests q selects, newest first and
+	// then by id descending, and how many requests q selects on every
+	// page together.
+	Requests(ctx context.Context, q RequestQuery) ([]StoredRequest, int, error)
 	// CreateRequest stores r, ignoring r.ID, and returns the id it was
 	// given.
 	CreateRequest(ctx context.Context, r StoredRequest) (int64, error)
@@ -689,6 +709,12 @@ type RequestsStore interface {
 	// UpdateRequest stores r's title, body, and update time over the
 	// request whose id is r.ID, and reports whether there is one.
 	UpdateRequest(ctx context.Context, r StoredRequest) (bool, error)
+	// SetRequestReply stores reply as the answer to the request whose id
+	// is id, and reports whether there is one.
+	SetRequestReply(ctx context.Context, id int64, reply string) (bool, error)
+	// SetRequestResolved stores at as when the request whose id is id was
+	// resolved, nil for an open one, and reports whether there is one.
+	SetRequestResolved(ctx context.Context, id int64, at *time.Time) (bool, error)
 	// DeleteRequest removes the request whose id is id, and reports
 	// whether there was one.
 	DeleteRequest(ctx context.Context, id int64) (bool, error)

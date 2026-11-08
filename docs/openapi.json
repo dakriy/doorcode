@@ -5835,6 +5835,474 @@
         }
       }
     },
+    "/requests": {
+      "get": {
+        "operationId": "listRequests",
+        "summary": "List access requests, a page at a time",
+        "tags": [
+          "requests"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Keeps requests whose title or body, or whose user's name or email, contains this text, ignoring case.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "lab"
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "description": "open (the default) keeps requests waiting for an answer, resolved those that are resolved, and all both.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "open"
+          },
+          {
+            "name": "user",
+            "in": "query",
+            "required": false,
+            "description": "Keeps the requests of the user with this id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 2
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "The page to return, from 1 (the default).",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "description": "How many requests a page holds, from 1 to 200; 25 by default.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 25
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The page of requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRequestList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A query parameter is out of range.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-users role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/requests/{id}": {
+      "get": {
+        "operationId": "getRequest",
+        "summary": "Read an access request",
+        "tags": [
+          "requests"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The request's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request, with its user and any reply.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRequestView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-users role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No access request has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/requests/{id}/reopen": {
+      "post": {
+        "operationId": "reopenRequest",
+        "summary": "Reopen an access request",
+        "tags": [
+          "requests"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The request's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request, open again; its user may change or withdraw it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRequestView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-users role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No access request has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/requests/{id}/reply": {
+      "put": {
+        "operationId": "replyToRequest",
+        "summary": "Reply to an access request",
+        "tags": [
+          "requests"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The request's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplyBody"
+              },
+              "example": {
+                "reply": "You can enter the lab on weekdays from Monday."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The request with the reply, which its user sees from now on. Replying neither resolves nor reopens it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRequestView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON reply, or the reply is empty or too long.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-users role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No access request has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/requests/{id}/resolve": {
+      "post": {
+        "operationId": "resolveRequest",
+        "summary": "Resolve an access request",
+        "tags": [
+          "requests"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The request's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request, resolved; its user can no longer change or withdraw it. A resolved request keeps when it was resolved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRequestView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-users role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No access request has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/schedules": {
       "get": {
         "operationId": "listSchedules",
@@ -7006,6 +7474,184 @@
           },
           "403": {
             "description": "The caller does not hold the manage-users role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/import": {
+      "post": {
+        "operationId": "importUsers",
+        "summary": "Import users and their groups from CSV",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportUpload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What importing the file did, row by row: users created with no door code and no password until they sign in, existing users added to groups, and skipped rows with their problems. Importing the same file again is safe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportReport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a multipart form with the file in the field file, or the file cannot be read as an import: it is not CSV, its header lacks user_id or groups or names another column, or it has no rows or more than 5000.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-users role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The file is larger than 1024 KiB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/import/preview": {
+      "post": {
+        "operationId": "previewUserImport",
+        "summary": "Preview importing users and their groups from CSV",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportUpload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What importing the file would do, row by row. Nothing is changed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportReport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a multipart form with the file in the field file, or the file cannot be read as an import: it is not CSV, its header lacks user_id or groups or names another column, or it has no rows or more than 5000.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-users role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The file is larger than 1024 KiB.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8333,6 +8979,89 @@
   },
   "components": {
     "schemas": {
+      "AdminRequestList": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "description": "This page's number, from 1."
+          },
+          "per_page": {
+            "type": "integer",
+            "description": "How many requests a page holds."
+          },
+          "requests": {
+            "type": "array",
+            "description": "This page of requests, newest first.",
+            "items": {
+              "$ref": "#/components/schemas/AdminRequestView"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "description": "How many requests the filters select, on every page together."
+          }
+        },
+        "required": [
+          "requests",
+          "total",
+          "page",
+          "per_page"
+        ]
+      },
+      "AdminRequestView": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "The request in the user's words; may be empty."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the user made the request."
+          },
+          "id": {
+            "type": "integer",
+            "description": "Names the request."
+          },
+          "reply": {
+            "type": "string",
+            "description": "The answer the user sees; absent until there is one."
+          },
+          "resolved": {
+            "type": "boolean",
+            "description": "True once the request is resolved, which its user can then no longer change."
+          },
+          "resolved_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the request was resolved; absent while it is open."
+          },
+          "title": {
+            "type": "string",
+            "description": "What the request is about."
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the user last changed it."
+          },
+          "user": {
+            "$ref": "#/components/schemas/NameRef",
+            "description": "Who made the request, by id and display name."
+          }
+        },
+        "required": [
+          "id",
+          "user",
+          "title",
+          "body",
+          "resolved",
+          "created_at",
+          "updated_at"
+        ]
+      },
       "ApprovalRequest": {
         "type": "object",
         "properties": {
@@ -9240,6 +9969,145 @@
           "member_count"
         ]
       },
+      "ImportProblem": {
+        "type": "object",
+        "properties": {
+          "column": {
+            "type": "string",
+            "description": "The column the problem is in; absent for the row as a whole."
+          },
+          "message": {
+            "type": "string",
+            "description": "What is wrong."
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "ImportReport": {
+        "type": "object",
+        "properties": {
+          "applied": {
+            "type": "boolean",
+            "description": "True when the import was applied, false for a preview, which changes nothing."
+          },
+          "rows": {
+            "type": "array",
+            "description": "Every row below the header, in the file's order.",
+            "items": {
+              "$ref": "#/components/schemas/ImportRowView"
+            }
+          },
+          "totals": {
+            "$ref": "#/components/schemas/ImportTotals",
+            "description": "How many rows have each outcome."
+          }
+        },
+        "required": [
+          "applied",
+          "rows",
+          "totals"
+        ]
+      },
+      "ImportRowView": {
+        "type": "object",
+        "properties": {
+          "applied": {
+            "type": "boolean",
+            "description": "True when applying the import made the row's change."
+          },
+          "email": {
+            "type": "string",
+            "description": "The email the row gives, lowercase; used only to create a user."
+          },
+          "groups": {
+            "type": "array",
+            "description": "The group slugs the row lists.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "joins": {
+            "type": "array",
+            "description": "The slugs of the groups the user joins: those listed they are not in and, for a new user, those whose pre-assigned user ids hold theirs.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "line": {
+            "type": "integer",
+            "description": "The line of the file the row starts on; the header is line 1."
+          },
+          "outcome": {
+            "type": "string",
+            "description": "create (a new user who joins the groups), update (an existing user joins the groups), unchanged (an existing user in every group already), or skip (the row has problems)."
+          },
+          "problems": {
+            "type": "array",
+            "description": "Why a skipped row is skipped.",
+            "items": {
+              "$ref": "#/components/schemas/ImportProblem"
+            }
+          },
+          "user": {
+            "$ref": "#/components/schemas/NameRef",
+            "description": "The user, by id and display name: the existing user, or the new one once created; absent otherwise."
+          },
+          "user_id": {
+            "type": "string",
+            "description": "The user id the row names."
+          }
+        },
+        "required": [
+          "line",
+          "user_id",
+          "groups",
+          "joins",
+          "outcome",
+          "applied"
+        ]
+      },
+      "ImportTotals": {
+        "type": "object",
+        "properties": {
+          "create": {
+            "type": "integer",
+            "description": "How many rows create a user."
+          },
+          "skip": {
+            "type": "integer",
+            "description": "How many rows are skipped for their problems."
+          },
+          "unchanged": {
+            "type": "integer",
+            "description": "How many rows name a user in every group listed already."
+          },
+          "update": {
+            "type": "integer",
+            "description": "How many rows add an existing user to groups."
+          }
+        },
+        "required": [
+          "create",
+          "update",
+          "unchanged",
+          "skip"
+        ]
+      },
+      "ImportUpload": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "The CSV file. Its first line names the columns: user_id and groups (slugs separated by semicolons), and optionally email, first_name, last_name, and expires_at (YYYY-MM-DD in the site timezone)."
+          }
+        },
+        "required": [
+          "file"
+        ]
+      },
       "MemberList": {
         "type": "object",
         "properties": {
@@ -9608,6 +10476,18 @@
           "reached",
           "works",
           "spans"
+        ]
+      },
+      "ReplyBody": {
+        "type": "object",
+        "properties": {
+          "reply": {
+            "type": "string",
+            "description": "The answer the user sees on their request, up to 4000 characters."
+          }
+        },
+        "required": [
+          "reply"
         ]
       },
       "RequestBody": {

@@ -129,7 +129,19 @@ var (
 	entriesTemplate    = shellPage("me-entries.html")
 	requestsTemplate   = shellPage("me-requests.html")
 	requestTemplate    = shellPage("me-request.html")
+
+	adminRequestsTemplate = shellPage("requests.html")
+	adminRequestTemplate  = shellPage("request.html")
+	importTemplate        = shellPage("import.html")
+	importedTemplate      = shellPage("imported.html")
 )
+
+// livePages are the pages with regions that follow the live stream
+// whoever views them; the rest follow it only for the navigation's count
+// of access requests.
+var livePages = map[*template.Template]bool{
+	doorsTemplate: true, doorTemplate: true, enrollmentsTemplate: true, firmwareTemplate: true,
+}
 
 // navItem is one link in the main navigation. A Reload link loads its page
 // in full rather than through htmx, for a page whose scripts must run in
@@ -289,7 +301,13 @@ type pageData struct {
 	Portal     bool
 	Passwords  bool
 	AdminEntry string
-	Flash      string
+	// Counted is true when the navigation shows Waiting, how many access
+	// requests wait for an answer, to a viewer who manages users. Live is
+	// true when the page follows the live stream.
+	Counted bool
+	Waiting int
+	Live    bool
+	Flash   string
 	// Content is the page's own data.
 	Content any
 }
@@ -317,7 +335,16 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, status int, page *t
 	}
 	if viewer != nil {
 		data.AdminEntry = adminEntry(*viewer)
+		data.Counted = !data.Portal && viewer.Has(auth.RoleManageUsers)
 	}
+	if data.Counted {
+		data.Waiting, err = a.requests.Waiting(r.Context())
+		if err != nil {
+			a.pageError(w, err)
+			return
+		}
+	}
+	data.Live = livePages[page] || data.Counted
 	writePage(w, status, page, data)
 }
 

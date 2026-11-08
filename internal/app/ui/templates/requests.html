@@ -1,0 +1,72 @@
+{{define "content"}}
+{{$c := .Content}}{{$f := $c.Filters}}
+<div class="max-w-2xl">
+  <h1 class="text-2xl font-semibold tracking-tight">Access requests</h1>
+  <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">What people ask for from the portal. Reply to tell them the answer, and resolve a request once it is dealt with; they see both on their request, and cannot change it once it is resolved.</p>
+</div>
+
+{{with $c.Alert}}<div class="mt-6">{{template "alert" .}}</div>{{end}}
+
+<form method="get" action="/admin/requests" role="search" aria-label="Filter requests" class="mt-8 flex flex-col gap-3 sm:flex-row sm:items-end">
+  {{with $c.User}}<input type="hidden" name="user" value="{{.ID}}">{{end}}
+  <div class="flex-1">
+    <label for="q" class="sr-only">Search requests</label>
+    <input id="q" name="q" type="search" value="{{$f.Search}}" placeholder="Search by title, details, or who asked" class="{{template "input-base"}}">
+  </div>
+  <div>
+    <label for="state" class="sr-only">Show</label>
+    <select id="state" name="state" class="{{template "input-base"}}">
+      {{range $c.States}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
+    </select>
+  </div>
+  <button type="submit" class="{{template "secondary-class"}}">Search</button>
+</form>
+{{with $c.User}}
+<p class="mt-3 text-sm"><span role="status" class="inline-flex items-center gap-2 rounded-full bg-brand-50 py-0.5 pr-1 pl-3 text-xs font-medium text-brand-700 ring-1 ring-brand-600/20 ring-inset dark:bg-brand-950 dark:text-brand-300 dark:ring-brand-400/20">User: {{.Name}}<a href="{{$c.WithoutUser}}" aria-label="Stop filtering by user" class="rounded-full px-1.5 hover:bg-brand-100 dark:hover:bg-brand-900">×</a></span></p>
+{{end}}
+
+<div id="requests-list" hx-get="{{.URI}}" hx-select="#requests-list" hx-swap="outerHTML" hx-trigger="live-requests from:body" class="mt-6 overflow-hidden {{template "card-class"}}">
+  <div class="overflow-x-auto">
+    <table aria-label="Access requests" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+      <thead class="{{template "table-head-class"}}">
+        <tr>
+          <th scope="col" class="px-4 py-3">Request</th>
+          <th scope="col" class="px-4 py-3">From</th>
+          <th scope="col" class="px-4 py-3">Sent</th>
+          <th scope="col" class="px-4 py-3">Status</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {{range $c.Rows}}
+        <tr class="align-top hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
+          <td class="px-4 py-3">
+            <a href="/admin/requests/{{.ID}}" class="{{template "link-class"}}">{{.Title}}</a>
+            {{with .Body}}<p class="mt-1 line-clamp-2 max-w-md text-xs text-zinc-600 dark:text-zinc-400">{{.}}</p>{{end}}
+          </td>
+          <td class="px-4 py-3 whitespace-nowrap"><a href="/admin/users/{{.User.ID}}" class="text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100">{{.User.Name}}</a></td>
+          <td class="px-4 py-3 whitespace-nowrap tabular-nums text-zinc-600 dark:text-zinc-400">{{.Created}}</td>
+          <td class="px-4 py-3 whitespace-nowrap">{{template "request-status" .}}</td>
+        </tr>
+        {{else}}
+        <tr>
+          <td colspan="4" class="px-4 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">{{$c.Empty}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+      {{if $c.Rows}}
+      <tfoot class="border-t border-zinc-200 dark:border-zinc-800">
+        <tr><td colspan="4" class="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">Showing {{$c.From}} to {{$c.To}} of {{$c.Total}}</td></tr>
+      </tfoot>
+      {{end}}
+    </table>
+  </div>
+  {{if or $c.Previous $c.Next}}
+  <div class="flex justify-end border-t border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800">
+    <nav aria-label="Pages" class="flex gap-2">
+      {{if $c.Previous}}<a href="{{$c.Previous}}" rel="prev" class="{{template "secondary-class"}} py-1.5">Previous</a>{{end}}
+      {{if $c.Next}}<a href="{{$c.Next}}" rel="next" class="{{template "secondary-class"}} py-1.5">Next</a>{{end}}
+    </nav>
+  </div>
+  {{end}}
+</div>
+{{end}}

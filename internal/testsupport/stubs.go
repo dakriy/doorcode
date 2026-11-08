@@ -207,6 +207,7 @@ const (
 	firmwareWrites
 	requestsAggregate
 	requestWrites
+	emailLookups
 )
 
 // NewStore returns an empty, unmigrated stub store.

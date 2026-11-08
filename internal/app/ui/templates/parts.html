@@ -308,8 +308,9 @@
 {{end}}
 
 {{/* Opens the page's live stream, which reloads every region marked with
-     hx-trigger="live-doors from:body" when doors or enrollments change.
-     Given the page data. */}}
+     hx-trigger="live-doors from:body" when doors or enrollments change,
+     and with "live-requests from:body" when access requests do. The shell
+     includes it on pages whose data says Live. Given the page data. */}}
 {{define "live"}}
 <div hidden data-live-stream="/admin/live"></div>
 <script src="{{index .Assets "LiveJS"}}"></script>

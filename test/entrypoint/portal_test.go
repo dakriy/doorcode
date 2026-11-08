@@ -616,9 +616,11 @@ func TestARequestIsCreatedChangedAndWithdrawnWhileItIsOpen(t *testing.T) {
 func TestAResolvedRequestShowsTheReplyAndCanNoLongerChange(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	_, ann := portalSite(t, f)
+	admin, ann := portalSite(t, f)
 	send(t, ann, "POST", "/api/v1/me/requests", labAccess, 201)
-	f.StoreStub.ResolveRequest(1, "Granted until June.", "2026-01-06T15:30:00Z")
+	f.ClockStub.Set("2026-01-05T15:30:00Z")
+	send(t, admin, "PUT", "/api/v1/requests/1/reply", `{"reply":"Granted until June."}`, 200)
+	send(t, admin, "POST", "/api/v1/requests/1/resolve", "", 200)
 
 	read := ann.Get("/api/v1/me/requests/1")
 	changed := ann.PutJSON("/api/v1/me/requests/1", `{"title":"Something else"}`)
@@ -629,7 +631,7 @@ func TestAResolvedRequestShowsTheReplyAndCanNoLongerChange(t *testing.T) {
 	listed := pageOf(ann.Get("/me/requests")).Tables["Your requests"]
 
 	resolvedJSON := `{"id":1,"title":"Lab access","body":"I start in the lab on Monday.","reply":"Granted until June.","resolved":true,` +
-		`"resolved_at":"2026-01-06T15:30:00Z","created_at":"2026-01-05T09:00:00Z","updated_at":"2026-01-05T09:00:00Z"}`
+		`"resolved_at":"2026-01-05T15:30:00Z","created_at":"2026-01-05T09:00:00Z","updated_at":"2026-01-05T09:00:00Z"}`
 	refused := `{"error":"this access request is resolved and can no longer be changed"}` + "\n"
 	if diff := cmp.Diff([]any{testsupport.JSON(resolvedJSON), 409, refused, 409, refused},
 		[]any{testsupport.JSON(read.Body), changed.Status, changed.Body, withdrawn.Status, withdrawn.Body}); diff != "" {
@@ -638,7 +640,7 @@ func TestAResolvedRequestShowsTheReplyAndCanNoLongerChange(t *testing.T) {
 	note := "This request is resolved, so it can no longer be changed or withdrawn. Make a new request if you need something else."
 	shown := testsupport.Page{
 		Title: "Lab access · doorcode", Heading: "Lab access", Nav: portalNav("Requests"), Notes: []string{note},
-		Details: map[string]string{"Reply": "Granted until June.", "Resolved": "6 Jan 2026 15:30"},
+		Details: map[string]string{"Reply": "Granted until June.", "Resolved": "5 Jan 2026 15:30"},
 	}
 	alert := "This request is resolved, so it can no longer be changed or withdrawn. Make a new request instead."
 	refusedPage := shown
@@ -647,7 +649,7 @@ func TestAResolvedRequestShowsTheReplyAndCanNoLongerChange(t *testing.T) {
 		[]any{page.Status, pageOf(page), saved.Status, pageOf(saved), deleted.Status, pageOf(deleted)}); diff != "" {
 		t.Errorf("page, saving, withdrawing (-want +got):\n%s", diff)
 	}
-	wantListed := [][]string{{"Request", "Sent", "Status"}, {"Lab access Reply: Granted until June.", "5 Jan 2026 09:00", "Resolved 6 Jan 2026 15:30"}}
+	wantListed := [][]string{{"Request", "Sent", "Status"}, {"Lab access Reply: Granted until June.", "5 Jan 2026 09:00", "Resolved 5 Jan 2026 15:30"}}
 	if diff := cmp.Diff(wantListed, listed); diff != "" {
 		t.Errorf("list (-want +got):\n%s", diff)
 	}
@@ -817,7 +819,7 @@ func TestHomeShowsTheUsersCodeDoorsRequestsAndEntries(t *testing.T) {
 	send(t, ann, "POST", "/api/v1/me/requests", labAccess, 201)
 	send(t, ann, "POST", "/api/v1/me/requests", `{"title":"Store access"}`, 201)
 	send(t, ann, "POST", "/api/v1/me/requests", `{"title":"Weekend hours"}`, 201)
-	k.f.StoreStub.ResolveRequest(3, "No.", "2026-01-06T09:00:00Z")
+	send(t, k.b, "POST", "/api/v1/requests/3/resolve", "", 200)
 
 	got := pageOf(ann.Get("/"))
 

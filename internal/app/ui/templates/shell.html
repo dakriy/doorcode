@@ -33,6 +33,7 @@
       <nav aria-label="Main" class="flex flex-1 items-center gap-1 text-sm font-medium">
         {{template "navlink" (navlink "/" "Home" .Path)}}
         {{if .Viewer.Has "manage-users"}}{{template "navlink" (navlink "/admin/users" "Users" .Path)}}{{end}}
+        {{if .Counted}}{{template "requests-navlink" .}}{{end}}
         {{if .Viewer.Has "manage-groups"}}{{template "navlink" (navlink "/admin/groups" "Groups" .Path)}}{{end}}
         {{if .Viewer.Has "manage-schedules"}}{{template "navlink" (navlink "/admin/schedules" "Schedules" .Path)}}{{end}}
         {{if or (.Viewer.Has "manage-doors") (.Viewer.Has "door-commander")}}{{template "navlink" (navlink "/admin/doors" "Doors" .Path)}}{{end}}
@@ -52,10 +53,20 @@
     {{template "content" .}}
   </main>
 </div>
+{{if .Live}}{{template "live" .}}{{end}}
 {{end}}
 
 {{define "navlink"}}
-<a href="{{.Href}}"{{if .Current}} aria-current="page"{{end}}{{if .Reload}} hx-boost="false"{{end}} class="rounded-md px-3 py-2 text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 aria-[current=page]:bg-brand-50 aria-[current=page]:text-brand-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:aria-[current=page]:bg-brand-950 dark:aria-[current=page]:text-brand-300">{{.Label}}</a>
+<a href="{{.Href}}"{{if .Current}} aria-current="page"{{end}}{{if .Reload}} hx-boost="false"{{end}} class="{{template "navlink-class"}}">{{.Label}}</a>
+{{end}}
+
+{{define "navlink-class"}}rounded-md px-3 py-2 text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 aria-[current=page]:bg-brand-50 aria-[current=page]:text-brand-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:aria-[current=page]:bg-brand-950 dark:aria-[current=page]:text-brand-300{{end}}
+
+{{/* The link to the access requests, with how many wait for an answer,
+     which reloads itself when the live stream says requests changed.
+     Given the page data. */}}
+{{define "requests-navlink"}}{{$n := navlink "/admin/requests" "Requests" .Path}}
+<a href="{{$n.Href}}"{{if $n.Current}} aria-current="page"{{end}} class="inline-flex items-center gap-1.5 {{template "navlink-class"}}">{{$n.Label}}<span id="waiting-requests" hx-get="{{.URI}}" hx-select="#waiting-requests" hx-swap="outerHTML" hx-trigger="live-requests from:body">{{with .Waiting}}<span class="inline-flex min-w-5 justify-center rounded-full bg-amber-500 px-1.5 py-0.5 text-[0.6875rem] leading-none font-semibold text-white tabular-nums dark:bg-amber-400 dark:text-zinc-950">{{.}}<span class="sr-only"> waiting</span></span>{{end}}</span></a>
 {{end}}
 
 {{define "portallink"}}

@@ -223,7 +223,7 @@ func TestAPIDocsPageLoadsSwaggerUI(t *testing.T) {
 	}
 
 	css, js := "text/css; charset=utf-8", "text/javascript; charset=utf-8"
-	if diff := cmp.Diff([]string{css, js, css, js, js}, got); diff != "" {
+	if diff := cmp.Diff([]string{css, js, css, js, js, js}, got); diff != "" {
 		t.Errorf("asset types (-want +got):\n%s", diff)
 	}
 }

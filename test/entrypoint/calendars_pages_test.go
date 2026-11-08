@@ -75,7 +75,7 @@ func TestDoorCalendarLoadsTheCalendarLibrary(t *testing.T) {
 		got = append(got, testsupport.Response{Status: response.Status, ContentType: response.ContentType})
 	}
 	js := testsupport.Response{Status: 200, ContentType: "text/javascript; charset=utf-8"}
-	if diff := cmp.Diff([]testsupport.Response{js, js}, got); diff != "" {
+	if diff := cmp.Diff([]testsupport.Response{js, js, js}, got); diff != "" {
 		t.Errorf("calendar scripts (-want +got):\n%s", diff)
 	}
 }

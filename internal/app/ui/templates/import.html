@@ -1,0 +1,47 @@
+{{define "content"}}
+{{$c := .Content}}
+{{template "back" (link "/admin/users" "All users")}}
+<div class="mt-4 max-w-2xl">
+  <h1 class="text-2xl font-semibold tracking-tight">Import users</h1>
+  <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Add people to groups from a CSV file. You see what every row would do before anything changes: new users are created in their groups, and people who exist already join the groups they are not in yet, keeping the ones they have.</p>
+</div>
+
+<div class="mt-8 grid gap-8 lg:grid-cols-3">
+  <form method="post" action="/admin/users/import" enctype="multipart/form-data" novalidate hx-disabled-elt="find button" aria-labelledby="upload-heading" class="h-fit p-6 lg:col-span-1 {{template "card-class"}}">
+    <h2 id="upload-heading" class="text-sm font-semibold">Choose a file</h2>
+    <div class="mt-5">
+      <label for="file" class="block text-sm font-medium">CSV file</label>
+      <input id="file" name="file" type="file" accept=".csv,text/csv" required{{with $c.Error}} aria-invalid="true" aria-describedby="file-error"{{end}}
+        class="mt-2 block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-800 hover:file:bg-zinc-200 dark:text-zinc-400 dark:file:bg-zinc-800 dark:file:text-zinc-200 dark:hover:file:bg-zinc-700">
+      {{with $c.Error}}<p id="file-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{.}}</p>
+      {{else}}<p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">Up to {{$c.MaxKiB}} KiB and 5000 rows.</p>{{end}}
+    </div>
+    <button type="submit" class="mt-6 w-full {{template "primary-class"}}">Preview import</button>
+    <p class="mt-3 text-xs text-zinc-500 dark:text-zinc-400">Previewing changes nothing.</p>
+  </form>
+
+  <section aria-labelledby="format-heading" class="p-6 lg:col-span-2 {{template "card-class"}}">
+    <h2 id="format-heading" class="text-sm font-semibold">The file</h2>
+    <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">The first line names the columns, in any order. Each row after it is one person, found by their user id.</p>
+    <div class="mt-4 overflow-x-auto rounded-lg ring-1 ring-zinc-200 dark:ring-zinc-800">
+      <table aria-label="Columns" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+        <thead class="{{template "table-head-class"}}">
+          <tr><th scope="col" class="px-4 py-2">Column</th><th scope="col" class="px-4 py-2">Holds</th></tr>
+        </thead>
+        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+          <tr><td class="px-4 py-2 font-mono text-xs">user_id</td><td class="px-4 py-2 text-zinc-600 dark:text-zinc-400">Required. The person's user id, such as an employee or student number.</td></tr>
+          <tr><td class="px-4 py-2 font-mono text-xs">groups</td><td class="px-4 py-2 text-zinc-600 dark:text-zinc-400">Required. The slugs of the groups they join, separated by semicolons; may be empty.</td></tr>
+          <tr><td class="px-4 py-2 font-mono text-xs">email</td><td class="px-4 py-2 text-zinc-600 dark:text-zinc-400">Needed to create a user; ignored for someone who exists.</td></tr>
+          <tr><td class="px-4 py-2 font-mono text-xs">first_name, last_name</td><td class="px-4 py-2 text-zinc-600 dark:text-zinc-400">Optional names for a new user, who is otherwise called by their email.</td></tr>
+          <tr><td class="px-4 py-2 font-mono text-xs">expires_at</td><td class="px-4 py-2 text-zinc-600 dark:text-zinc-400">Optional date, like 2030-06-30, when a new user's account ends; empty for never.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="mt-4 text-xs font-medium text-zinc-500 dark:text-zinc-400">For example</p>
+    <pre class="mt-1 overflow-x-auto rounded-lg bg-zinc-50 p-3 font-mono text-xs text-zinc-700 ring-1 ring-zinc-200 ring-inset dark:bg-zinc-950 dark:text-zinc-300 dark:ring-zinc-800">user_id,groups,email,first_name,last_name
+100234,staff;lab,ann.smith@example.com,Ann,Smith
+100871,staff,,,</pre>
+    <p class="mt-4 text-sm text-zinc-600 dark:text-zinc-400">New users have no door code and no password: they choose a code when they first sign in. A new user whose user id is on a group's pre-assigned list joins that group too. Importing the same file twice is safe.</p>
+  </section>
+</div>
+{{end}}

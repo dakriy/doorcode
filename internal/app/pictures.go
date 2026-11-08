@@ -129,27 +129,36 @@ var errTooBig = errors.New(picture.TooBig())
 // for a file over the limit and notUpload for a body that is not such a
 // form. Nothing is written to disk.
 func readUpload(w http.ResponseWriter, r *http.Request) ([]byte, error) {
-	r.Body = http.MaxBytesReader(w, r.Body, picture.MaxBytes+uploadOverhead)
+	data, ok := readFile(w, r, picture.Field, picture.MaxBytes)
+	if !ok {
+		return nil, notUpload
+	}
+	if len(data) > picture.MaxBytes {
+		return nil, errTooBig
+	}
+	return data, nil
+}
+
+// readFile reads the file in field of r's multipart form, of which it
+// reads no more than one byte past most, so a file longer than most is
+// longer than most when read. It reports whether r's body is such a form.
+// Nothing is written to disk.
+func readFile(w http.ResponseWriter, r *http.Request, field string, most int) ([]byte, bool) {
+	r.Body = http.MaxBytesReader(w, r.Body, int64(most)+uploadOverhead)
 	parts, err := r.MultipartReader()
 	if err != nil {
-		return nil, notUpload
+		return nil, false
 	}
 	for {
 		part, err := parts.NextPart()
 		if err != nil {
-			return nil, notUpload
+			return nil, false
 		}
-		if part.FormName() != picture.Field {
+		if part.FormName() != field {
 			continue
 		}
-		data, err := io.ReadAll(io.LimitReader(part, picture.MaxBytes+1))
-		if err != nil {
-			return nil, notUpload
-		}
-		if len(data) > picture.MaxBytes {
-			return nil, errTooBig
-		}
-		return data, nil
+		data, err := io.ReadAll(io.LimitReader(part, int64(most)+1))
+		return data, err == nil
 	}
 }
 

@@ -146,18 +146,28 @@ func (a *App) sweep(ctx context.Context) error {
 }
 
 // hub tells every page watching live updates what changed: what is shown
-// of doors and enrollments, or only the state of one door.
+// of doors and enrollments, only the state of one door, or how many access
+// requests wait for an answer.
 type hub struct {
 	mu        sync.Mutex
 	listeners map[*listener]bool
 }
 
 // listener is one page watching live updates: wake receives when there
-// is news, which doors and reported hold until the page takes it.
+// is news, which news holds until the page takes it.
 type listener struct {
-	wake     chan struct{}
+	wake chan struct{}
+	news news
+}
+
+// news is what changed since a page last looked: doors is true when what
+// is shown of doors or enrollments changed, reported holds the doors whose
+// state alone changed, and requests is true when access requests were
+// made, withdrawn, resolved, or reopened.
+type news struct {
 	doors    bool
 	reported []int64
+	requests bool
 }
 
 func newHub() *hub {
@@ -182,25 +192,31 @@ func (h *hub) listen() (*listener, func()) {
 // notify tells every listener that what is shown of doors or enrollments
 // changed.
 func (h *hub) notify() {
-	h.tell(func(l *listener) { l.doors = true })
+	h.tell(func(n *news) { n.doors = true })
 }
 
 // report tells every listener that the state of the door whose id is id
 // changed.
 func (h *hub) report(id int64) {
-	h.tell(func(l *listener) {
-		if !slices.Contains(l.reported, id) {
-			l.reported = append(l.reported, id)
+	h.tell(func(n *news) {
+		if !slices.Contains(n.reported, id) {
+			n.reported = append(n.reported, id)
 		}
 	})
 }
 
+// requested tells every listener that how many access requests wait for
+// an answer may have changed.
+func (h *hub) requested() {
+	h.tell(func(n *news) { n.requests = true })
+}
+
 // tell gives every listener news and wakes it.
-func (h *hub) tell(news func(l *listener)) {
+func (h *hub) tell(add func(n *news)) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for l := range h.listeners {
-		news(l)
+		add(&l.news)
 		select {
 		case l.wake <- struct{}{}:
 		default:
@@ -208,43 +224,51 @@ func (h *hub) tell(news func(l *listener)) {
 	}
 }
 
-// take returns l's news, whether doors changed and which doors reported,
-// and clears it.
-func (h *hub) take(l *listener) (bool, []int64) {
+// take returns l's news and clears it.
+func (h *hub) take(l *listener) news {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	doors, reported := l.doors, l.reported
-	l.doors, l.reported = false, nil
-	return doors, reported
+	n := l.news
+	l.news = news{}
+	return n
 }
 
 // liveEvent is the server-sent event that tells a page what it shows of
-// doors and enrollments has changed.
-const liveEvent = "event: doors\ndata: changed\n\n"
+// doors and enrollments has changed, and requestsEvent the one that tells
+// it access requests have.
+const (
+	liveEvent     = "event: doors\ndata: changed\n\n"
+	requestsEvent = "event: requests\ndata: changed\n\n"
+)
 
 // liveNews is the server-sent events that tell a page what changed: what
 // it shows of doors, which covers every door, or else each door whose
-// state changed, by id.
-func liveNews(doors bool, reported []int64) string {
-	if doors {
-		return liveEvent
-	}
+// state changed, by id; and then the access requests.
+func liveNews(n news) string {
 	var b strings.Builder
-	for _, id := range reported {
-		fmt.Fprintf(&b, "event: door\ndata: %d\n\n", id)
+	if n.doors {
+		b.WriteString(liveEvent)
+	} else {
+		for _, id := range n.reported {
+			fmt.Fprintf(&b, "event: door\ndata: %d\n\n", id)
+		}
+	}
+	if n.requests {
+		b.WriteString(requestsEvent)
 	}
 	return b.String()
 }
 
 // liveStream sends server-sent events each time a door's status, its
-// state, or the pending enrollments change, until the browser goes away.
+// state, the pending enrollments, or the access requests waiting for an
+// answer change, until the browser goes away.
 func (a *App) liveStream(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	l, stop := a.live.listen()
 	defer stop()
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	flush := http.NewResponseController(w).Flush
-	_, _ = io.WriteString(w, ": watching doors and enrollments\n\n")
+	_, _ = io.WriteString(w, ": watching doors, enrollments, and access requests\n\n")
 	_ = flush()
 	for {
 		select {

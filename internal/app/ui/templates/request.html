@@ -1,0 +1,56 @@
+{{define "content"}}
+{{$c := .Content}}{{$r := $c.Row}}
+{{template "back" (link $c.Waiting "Access requests")}}
+<div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">{{$r.Title}}</h1>
+    <dl class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-600 dark:text-zinc-400">
+      <div class="flex gap-1"><dt>From</dt><dd><a href="/admin/users/{{$r.User.ID}}" aria-label="Requester" class="{{template "link-class"}}">{{$r.User.Name}}</a></dd></div>
+      <div class="flex gap-1"><dt>Sent</dt><dd class="tabular-nums">{{$r.Created}}</dd></div>
+      {{if ne $r.Updated $r.Created}}<div class="flex gap-1"><dt>Changed</dt><dd class="tabular-nums">{{$r.Updated}}</dd></div>{{end}}
+    </dl>
+  </div>
+  {{template "request-status" $r}}
+</div>
+
+<div class="mt-8 grid gap-8 lg:grid-cols-3">
+  <div class="space-y-8 lg:col-span-2">
+    <section aria-labelledby="asked-heading" class="p-6 {{template "card-class"}}">
+      <h2 id="asked-heading" class="text-sm font-semibold">What they asked</h2>
+      <p class="mt-2 text-sm whitespace-pre-line text-zinc-700 dark:text-zinc-300">{{or $r.Body "No details."}}</p>
+    </section>
+
+    <section aria-labelledby="reply-heading" class="p-6 {{template "card-class"}}">
+      <h2 id="reply-heading" class="text-sm font-semibold">Reply</h2>
+      <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{{$r.User.Name}} sees the reply on their request in the portal. Saving another replaces it.</p>
+      <form method="post" action="/admin/requests/{{$r.ID}}/reply" novalidate hx-disabled-elt="find button" class="mt-4 space-y-4">
+        <div>
+          <label for="reply" class="sr-only">Reply</label>
+          <textarea id="reply" name="reply" rows="6" maxlength="{{$c.MaxReply}}" placeholder="What you decided, and what happens next."
+            {{with index $c.Form.Errors "reply"}}aria-invalid="true" aria-describedby="reply-error" autofocus{{end}} class="{{template "input-class"}}">{{$c.Form.Reply}}</textarea>
+          {{with index $c.Form.Errors "reply"}}<p id="reply-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{.}}</p>{{end}}
+        </div>
+        <div class="flex flex-wrap justify-end gap-2">
+          <button type="submit" class="{{template "secondary-class"}}">Save reply</button>
+          {{if not $r.Resolved}}<button type="submit" name="resolve" value="yes" class="{{template "primary-class"}}">Save reply and resolve</button>{{end}}
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <section aria-labelledby="state-heading" class="h-fit p-6 {{template "card-class"}}">
+    <h2 id="state-heading" class="text-sm font-semibold">{{if $r.Resolved}}Resolved{{else}}Waiting for an answer{{end}}</h2>
+    {{if $r.Resolved}}
+    <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">Resolved {{$r.Resolved}}. {{$r.User.Name}} can no longer change or withdraw it. Reopen it to let them.</p>
+    <form method="post" action="/admin/requests/{{$r.ID}}/reopen" class="mt-4">
+      <button type="submit" class="w-full {{template "secondary-class"}}">Reopen request</button>
+    </form>
+    {{else}}
+    <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">Resolve the request once it is dealt with. {{$r.User.Name}} can change or withdraw it until then.</p>
+    <form method="post" action="/admin/requests/{{$r.ID}}/resolve" class="mt-4">
+      <button type="submit" class="w-full {{template "primary-class"}}">Resolve request</button>
+    </form>
+    {{end}}
+  </section>
+</div>
+{{end}}

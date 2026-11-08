@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/dakriy/doorcode/internal/connector"
@@ -20,6 +21,7 @@ func (s *Store) CreateRequest(_ context.Context, r connector.StoredRequest) (int
 	s.nextRequest++
 	r.ID = s.nextRequest
 	r.ResolvedAt = clonedTime(r.ResolvedAt)
+	r.UserName = ""
 	s.requests = append(s.requests, r)
 	return r.ID, nil
 }
@@ -33,24 +35,49 @@ func (s *Store) Request(_ context.Context, id int64) (connector.StoredRequest, b
 	if held == nil {
 		return connector.StoredRequest{}, false, nil
 	}
-	return clonedRequest(*held), true, nil
+	return s.returnedRequest(*held), true, nil
 }
 
 // UserRequests returns the requests of the user with userID, newest first.
-func (s *Store) UserRequests(_ context.Context, userID int64) ([]connector.StoredRequest, error) {
+func (s *Store) UserRequests(ctx context.Context, userID int64) ([]connector.StoredRequest, error) {
+	mine, _, err := s.Requests(ctx, connector.RequestQuery{UserID: userID, Limit: len(s.requests)})
+	return mine, err
+}
+
+// Requests returns the page of requests q selects, newest first, and how
+// many it selects in all.
+func (s *Store) Requests(_ context.Context, q connector.RequestQuery) ([]connector.StoredRequest, int, error) {
 	if err := s.usable(requestsAggregate); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	mine := []connector.StoredRequest{}
+	selected := []connector.StoredRequest{}
 	for _, r := range s.requests {
-		if r.UserID == userID {
-			mine = append(mine, clonedRequest(r))
+		if s.selects(q, r) {
+			selected = append(selected, s.returnedRequest(r))
 		}
 	}
-	slices.SortFunc(mine, func(a, b connector.StoredRequest) int {
+	slices.SortFunc(selected, func(a, b connector.StoredRequest) int {
 		return cmp.Or(b.CreatedAt.Compare(a.CreatedAt), cmp.Compare(b.ID, a.ID))
 	})
-	return mine, nil
+	end := min(q.Offset+q.Limit, len(selected))
+	start := min(q.Offset, end)
+	return slices.Clone(selected[start:end]), len(selected), nil
+}
+
+// selects reports whether q keeps r.
+func (s *Store) selects(q connector.RequestQuery, r connector.StoredRequest) bool {
+	u := s.userByID(r.UserID)
+	text := strings.ToLower(strings.Join([]string{r.Title, r.Body, u.DisplayName, u.Email}, " "))
+	return strings.Contains(text, strings.ToLower(q.Search)) &&
+		(q.Resolved == nil || (r.ResolvedAt != nil) == *q.Resolved) &&
+		(q.UserID == 0 || r.UserID == q.UserID)
+}
+
+// returnedRequest is r as the store returns it, with its user's name.
+func (s *Store) returnedRequest(r connector.StoredRequest) connector.StoredRequest {
+	r.ResolvedAt = clonedTime(r.ResolvedAt)
+	r.UserName = s.userByID(r.UserID).DisplayName
+	return r
 }
 
 // UpdateRequest stores r's title, body, and update time over the request
@@ -64,6 +91,32 @@ func (s *Store) UpdateRequest(_ context.Context, r connector.StoredRequest) (boo
 		return false, nil
 	}
 	held.Title, held.Body, held.UpdatedAt = r.Title, r.Body, r.UpdatedAt
+	return true, nil
+}
+
+// SetRequestReply stores reply as the answer to the request with id.
+func (s *Store) SetRequestReply(_ context.Context, id int64, reply string) (bool, error) {
+	if err := s.writable(requestsAggregate, requestWrites); err != nil {
+		return false, err
+	}
+	held := s.requestByID(id)
+	if held == nil {
+		return false, nil
+	}
+	held.Reply = reply
+	return true, nil
+}
+
+// SetRequestResolved stores at as when the request with id was resolved.
+func (s *Store) SetRequestResolved(_ context.Context, id int64, at *time.Time) (bool, error) {
+	if err := s.writable(requestsAggregate, requestWrites); err != nil {
+		return false, err
+	}
+	held := s.requestByID(id)
+	if held == nil {
+		return false, nil
+	}
+	held.ResolvedAt = clonedTime(at)
 	return true, nil
 }
 
@@ -84,19 +137,6 @@ func (s *Store) requestByID(id int64) *connector.StoredRequest {
 		}
 	}
 	return nil
-}
-
-func clonedRequest(r connector.StoredRequest) connector.StoredRequest {
-	r.ResolvedAt = clonedTime(r.ResolvedAt)
-	return r
-}
-
-// ResolveRequest gives the request with id an administrator's reply and
-// resolves it at an RFC 3339 time, as an administrator would.
-func (s *Store) ResolveRequest(id int64, reply, at string) {
-	resolved := mustTime(at)
-	held := s.requestByID(id)
-	held.Reply, held.ResolvedAt = reply, &resolved
 }
 
 // FailRequests makes the access request methods report ErrUnavailable.

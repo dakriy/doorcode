@@ -3,8 +3,10 @@
 // hx-trigger="live-doors from:body" and reloads when the stream says what
 // it shows of doors and enrollments has changed, and a region showing one
 // door's state also with "live-door-<id> from:body", which the stream
-// triggers when only that door's state changed. Navigating to a page
-// without a stream closes it.
+// triggers when only that door's state changed. A region counting access
+// requests listens for "live-requests from:body", which the stream
+// triggers when one is made, withdrawn, resolved, or reopened. Navigating
+// to a page without a stream closes it.
 (() => {
   if (window.doorcodeLive) {
     window.doorcodeLive();
@@ -27,6 +29,7 @@
       source = new EventSource(wanted);
       source.addEventListener("doors", () => htmx.trigger(document.body, "live-doors"));
       source.addEventListener("door", (e) => htmx.trigger(document.body, "live-door-" + e.data));
+      source.addEventListener("requests", () => htmx.trigger(document.body, "live-requests"));
     }
   };
   window.doorcodeLive = connect;

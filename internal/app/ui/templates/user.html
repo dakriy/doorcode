@@ -10,6 +10,7 @@
     </div>
     <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{{$u.Email}}{{with $u.UserID}} · user id <span class="font-mono">{{.}}</span>{{end}} · created {{$u.CreatedAt.Format "2 Jan 2006"}}</p>
   </div>
+  <a href="/admin/requests?state=all&amp;user={{$u.ID}}" class="mt-4 shrink-0 sm:mt-0 {{template "secondary-class"}}">Access requests</a>
 </div>
 
 {{if $c.Alert}}<div class="mt-6">{{template "alert" $c.Alert}}</div>{{end}}

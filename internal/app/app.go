@@ -91,6 +91,7 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 	clock := f.Clock()
 	s := settings.Service{Store: store, Env: env, Clock: clock, Zones: f.TimeZones(), Secrets: secrets}
 	authService := auth.Service{Store: store, Settings: s, Clock: clock, Entropy: entropy, Log: log}
+	live := newHub()
 	a := &App{
 		log:       log,
 		entropy:   entropy,
@@ -102,10 +103,10 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 		doors:     door.Service{Store: store, Clock: clock},
 		rules:     rule.Service{Store: store},
 		events:    event.Service{Store: store},
-		requests:  request.Service{Store: store, Clock: clock},
+		requests:  request.Service{Store: store, Clock: clock, Changed: live.requested},
 		decisions: decision.Service{Store: store, Auth: authService, Settings: s, Clock: clock, Limits: decision.NewLimiter()},
 		broker:    f.Broker(),
-		live:      newHub(),
+		live:      live,
 	}
 	a.pushes = push.Service{Store: store, Settings: s, Broker: a.broker, Clock: clock, Sent: push.NewSent()}
 	a.controllers = controller.Service{

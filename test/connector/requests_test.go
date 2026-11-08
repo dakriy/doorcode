@@ -45,9 +45,9 @@ func TestStoreListsAUsersRequestsNewestFirst(t *testing.T) {
 
 			resolved := requestsStart.Add(2 * time.Hour)
 			want := []any{[]connector.StoredRequest{
-				{ID: 2, UserID: 4, Title: "Weekend hours", Reply: "Granted until June.", ResolvedAt: &resolved,
+				{ID: 2, UserID: 4, UserName: "Ann", Title: "Weekend hours", Reply: "Granted until June.", ResolvedAt: &resolved,
 					CreatedAt: requestsStart.Add(time.Hour), UpdatedAt: requestsStart.Add(time.Hour)},
-				{ID: 1, UserID: 4, Title: "Lab access", Body: "I start in the lab on Monday.", CreatedAt: requestsStart, UpdatedAt: requestsStart},
+				{ID: 1, UserID: 4, UserName: "Ann", Title: "Lab access", Body: "I start in the lab on Monday.", CreatedAt: requestsStart, UpdatedAt: requestsStart},
 			}, nil}
 			if diff := cmp.Diff(want, []any{got, err}); diff != "" {
 				t.Errorf("requests, error (-want +got):\n%s", diff)
@@ -70,11 +70,96 @@ func TestStoreUpdatesOnlyARequestsTitleBodyAndUpdateTime(t *testing.T) {
 
 			resolved := requestsStart.Add(2 * time.Hour)
 			want := []any{true, nil, false, nil, connector.StoredRequest{
-				ID: 2, UserID: 4, Title: "Weekend and evening hours", Body: "Saturdays too.", Reply: "Granted until June.", ResolvedAt: &resolved,
+				ID: 2, UserID: 4, UserName: "Ann", Title: "Weekend and evening hours", Body: "Saturdays too.", Reply: "Granted until June.", ResolvedAt: &resolved,
 				CreatedAt: requestsStart.Add(time.Hour), UpdatedAt: later,
 			}, true, nil}
 			if diff := cmp.Diff(want, []any{found, err, missing, missingErr, got, held, readErr}); diff != "" {
 				t.Errorf("found, error, missing, error, request, held, error (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestStoreListsAPageOfRequests(t *testing.T) {
+	open, resolved := false, true
+	cases := map[string]struct {
+		query connector.RequestQuery
+		ids   []int64
+		total int
+	}{
+		"every request, newest first":          {query: connector.RequestQuery{Limit: 10}, ids: []int64{2, 3, 1}, total: 3},
+		"one page":                             {query: connector.RequestQuery{Offset: 1, Limit: 1}, ids: []int64{3}, total: 3},
+		"past the end":                         {query: connector.RequestQuery{Offset: 9, Limit: 2}, ids: []int64{}, total: 3},
+		"open ones":                            {query: connector.RequestQuery{Resolved: &open, Limit: 10}, ids: []int64{3, 1}, total: 2},
+		"resolved ones":                        {query: connector.RequestQuery{Resolved: &resolved, Limit: 10}, ids: []int64{2}, total: 1},
+		"one user's":                           {query: connector.RequestQuery{UserID: 1, Limit: 10}, ids: []int64{3}, total: 1},
+		"by title, ignoring case":              {query: connector.RequestQuery{Search: "LAB", Limit: 10}, ids: []int64{1}, total: 1},
+		"by body":                              {query: connector.RequestQuery{Search: "visitors", Limit: 10}, ids: []int64{3}, total: 1},
+		"by the user's name":                   {query: connector.RequestQuery{Search: "ann", Limit: 10}, ids: []int64{2, 1}, total: 2},
+		"by the user's email":                  {query: connector.RequestQuery{Search: "admin@", Limit: 10}, ids: []int64{3}, total: 1},
+		"every filter together, matching none": {query: connector.RequestQuery{Search: "lab", Resolved: &resolved, UserID: 4, Limit: 10}, ids: []int64{}, total: 0},
+		"every filter together, matching one":  {query: connector.RequestQuery{Search: "lab", Resolved: &open, UserID: 4, Limit: 10}, ids: []int64{1}, total: 1},
+	}
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			store := requestWorld(t, impl)
+			for name, c := range cases {
+				t.Run(name, func(t *testing.T) {
+					got, total, err := store.Requests(context.Background(), c.query)
+
+					ids := []int64{}
+					for _, r := range got {
+						ids = append(ids, r.ID)
+					}
+					if diff := cmp.Diff([]any{c.ids, c.total, nil}, []any{ids, total, err}); diff != "" {
+						t.Errorf("ids, total, error (-want +got):\n%s", diff)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestStoreListsARequestWithItsUsersName(t *testing.T) {
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			store := requestWorld(t, impl)
+
+			got, total, err := store.Requests(context.Background(), connector.RequestQuery{UserID: 1, Limit: 1})
+
+			want := []any{[]connector.StoredRequest{
+				{ID: 3, UserID: 1, UserName: "Administrator", Title: "Spare badge", Body: "For visitors.", CreatedAt: requestsStart, UpdatedAt: requestsStart},
+			}, 1, nil}
+			if diff := cmp.Diff(want, []any{got, total, err}); diff != "" {
+				t.Errorf("requests, total, error (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestStoreRepliesToAndResolvesARequest(t *testing.T) {
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			store := requestWorld(t, impl)
+			at := requestsStart.Add(3 * time.Hour)
+
+			replied, replyErr := store.SetRequestReply(context.Background(), 1, "Granted.")
+			resolved, resolveErr := store.SetRequestResolved(context.Background(), 1, &at)
+			first, _, firstErr := store.Request(context.Background(), 1)
+			reopened, reopenErr := store.SetRequestResolved(context.Background(), 1, nil)
+			second, _, secondErr := store.Request(context.Background(), 1)
+			missingReply, missingReplyErr := store.SetRequestReply(context.Background(), 9, "None.")
+			missingResolve, missingResolveErr := store.SetRequestResolved(context.Background(), 9, &at)
+
+			answered := connector.StoredRequest{ID: 1, UserID: 4, UserName: "Ann", Title: "Lab access", Body: "I start in the lab on Monday.",
+				Reply: "Granted.", ResolvedAt: &at, CreatedAt: requestsStart, UpdatedAt: requestsStart}
+			open := answered
+			open.ResolvedAt = nil
+			want := []any{true, nil, true, nil, answered, nil, true, nil, open, nil, false, nil, false, nil}
+			got := []any{replied, replyErr, resolved, resolveErr, first, firstErr, reopened, reopenErr, second, secondErr,
+				missingReply, missingReplyErr, missingResolve, missingResolveErr}
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Errorf("replied, resolved, read, reopened, read, missing reply, missing resolution (-want +got):\n%s", diff)
 			}
 		})
 	}

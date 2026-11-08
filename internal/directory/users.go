@@ -105,6 +105,12 @@ func (s Service) Match(ctx context.Context, userID, email string) (connector.Sto
 // pre-assigned list joins that group as they are created; every way of
 // creating a user goes through here.
 func (s Service) CreateUser(ctx context.Context, p Profile) (connector.StoredUser, error) {
+	return s.create(ctx, p, nil)
+}
+
+// create creates a user from p, who joins the groups whose ids are
+// groupIDs as well as the pre-assigned ones as they are created.
+func (s Service) create(ctx context.Context, p Profile, groupIDs []int64) (connector.StoredUser, error) {
 	p, err := s.checkProfile(ctx, 0, p)
 	if err != nil {
 		return connector.StoredUser{}, err
@@ -115,7 +121,7 @@ func (s Service) CreateUser(ctx context.Context, p Profile) (connector.StoredUse
 	}
 	u := stored(p)
 	u.CreatedAt = s.Clock.Now()
-	id, err := s.Store.CreateUser(ctx, u, groups)
+	id, err := s.Store.CreateUser(ctx, u, check.Distinct(append(groups, groupIDs...)))
 	if err != nil {
 		return connector.StoredUser{}, err
 	}

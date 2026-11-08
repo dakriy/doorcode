@@ -10,7 +10,7 @@ import (
 
 // adminNav is the navigation an administrator sees on a page no link
 // leads to.
-var adminNav = []string{"Home", "Users", "Groups", "Schedules", "Doors", "Zones", "Firmware", "Events", "Settings", "API tokens", "API docs"}
+var adminNav = []string{"Home", "Users", "Requests", "Groups", "Schedules", "Doors", "Zones", "Firmware", "Events", "Settings", "API tokens", "API docs"}
 
 // enrollmentsHead and credentialsHead are the header rows of the pending
 // enrollments and of a door's credentials.
@@ -407,7 +407,7 @@ func TestLiveStreamTellsPagesWhenDoorsOrEnrollmentsChange(t *testing.T) {
 	run(t, a)
 
 	got := []any{stream.Status(), stream.ContentType(), opened, stream.Next()}
-	want := []any{200, "text/event-stream", ": watching doors and enrollments\n\n", "event: doors\ndata: changed\n\n"}
+	want := []any{200, "text/event-stream", ": watching doors, enrollments, and access requests\n\n", "event: doors\ndata: changed\n\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("status, type, opening, event (-want +got):\n%s", diff)
 	}

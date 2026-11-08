@@ -9,7 +9,7 @@ import (
 )
 
 // schedulesNav is the navigation of a schedules page for an administrator.
-var schedulesNav = []string{"Home", "Users", "Groups", "Schedules (current)", "Doors", "Zones", "Firmware", "Events", "Settings", "API tokens", "API docs"}
+var schedulesNav = []string{"Home", "Users", "Requests", "Groups", "Schedules (current)", "Doors", "Zones", "Firmware", "Events", "Settings", "API tokens", "API docs"}
 
 // schedulesHead is the header row of the schedule list.
 var schedulesHead = []string{"Name", "Windows", "In effect", "Excluded dates", "Actions"}
@@ -401,7 +401,7 @@ func TestScheduleCalendarLoadsTheCalendarLibrary(t *testing.T) {
 		got = append(got, testsupport.Response{Status: response.Status, ContentType: response.ContentType})
 	}
 	js := testsupport.Response{Status: 200, ContentType: "text/javascript; charset=utf-8"}
-	if diff := cmp.Diff([]testsupport.Response{js, js}, got); diff != "" {
+	if diff := cmp.Diff([]testsupport.Response{js, js, js}, got); diff != "" {
 		t.Errorf("calendar scripts (-want +got):\n%s", diff)
 	}
 }

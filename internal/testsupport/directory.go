@@ -84,6 +84,9 @@ func (s *Store) User(_ context.Context, id int64) (connector.StoredUser, bool, e
 
 // UserByEmail returns the user stored under email.
 func (s *Store) UserByEmail(_ context.Context, email string) (connector.StoredUser, bool, error) {
+	if s.failing[emailLookups] {
+		return connector.StoredUser{}, false, ErrUnavailable
+	}
 	return s.oneUser(func(u connector.StoredUser) bool { return u.Email == email })
 }
 
@@ -409,4 +412,10 @@ func (s *Store) LeaveGroup(email, slug string) {
 // SetPasswordHash stores the local password hash of the user with id.
 func (s *Store) SetPasswordHash(_ context.Context, id int64, hash string) (bool, error) {
 	return s.changeUser(id, func(u *connector.StoredUser) { u.PasswordHash = &hash })
+}
+
+// FailEmailLookups makes UserByEmail report ErrUnavailable, while users
+// can still be read otherwise.
+func (s *Store) FailEmailLookups() {
+	s.failing[emailLookups] = true
 }
