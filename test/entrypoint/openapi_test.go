@@ -80,7 +80,7 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 		{Method: "GET", Target: "/api/v1/doors/1/telemetry", ID: "listDoorTelemetry", Statuses: []int{200, 400, 401, 403, 404, 500}},
 		{Method: "GET", Target: "/api/v1/doors/1/telemetry/hourly", ID: "listDoorTelemetryHourly", Statuses: []int{200, 400, 401, 403, 404, 500}},
 		{Method: "GET", Target: "/api/v1/doors/1/timeline", ID: "getDoorTimeline", Statuses: []int{200, 400, 401, 403, 404, 500}},
-		{Method: "POST", Target: "/api/v1/doors/1/update", ID: "updateDoor", Statuses: []int{200, 401, 403, 404, 409, 500}},
+		{Method: "POST", Target: "/api/v1/doors/1/update", ID: "updateDoorNow", Statuses: []int{200, 401, 403, 404, 409, 500}},
 		{Method: "GET", Target: "/api/v1/enrollments", ID: "listEnrollments", Statuses: []int{200, 401, 403, 500}},
 		{Method: "POST", Target: "/api/v1/enrollments/a4cf12f00e3b/approve", ID: "approveEnrollment", Body: `{"door_id":1}`,
 			Statuses: []int{200, 400, 401, 403, 404, 409, 500}},
@@ -165,6 +165,20 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("operations (-want +got):\n%s", diff)
+	}
+}
+
+func TestOpenAPIGivesEveryOperationItsOwnID(t *testing.T) {
+	t.Parallel()
+	got := map[string]int{}
+	want := map[string]int{}
+	for _, op := range testsupport.OpenAPIOperations(openAPIDocument(t)) {
+		got[op.ID]++
+		want[op.ID] = 1
+	}
+
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("operations per id (-want +got):\n%s", diff)
 	}
 }
 
