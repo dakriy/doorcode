@@ -226,9 +226,10 @@ Updates roll out inside an *update window* (daily or weekly, with start
 time and duration, in the site timezone), at most N doors at a time. A door
 can also be updated immediately from its page. The server sends an update
 command over MQTT with an authenticated HTTPS download URL; the door fetches,
-installs, reboots, reconnects, and acknowledges. If it cannot reconnect it
-reverts on its own and reappears with the old version. Rollout continues in
-the next window until every door matches its target.
+installs, restarts, and reconnects reporting the new version, or acknowledges
+that it failed. If it cannot reconnect it reverts on its own and reappears
+with the old version. Rollout continues in the next window until every door
+matches its target.
 
 ## 9. MQTT protocol
 
@@ -239,17 +240,22 @@ controller online and offline are in [controller.md](controller.md).
 
 | Direction | Topic | Content |
 | --- | --- | --- |
-| door → server | `enroll/<hwid>` | hardware id, firmware version, signal |
+| door → server | `enroll/<hwid>` | retained, with a last will of offline: online, firmware version, signal |
 | server → door | `enroll/<hwid>/credentials` | door id, username, token |
+| door → server | `doors/<id>/online` | retained, with a last will of offline: online, username, firmware version, signal |
+| server → door | `doors/<id>/config` | retained effective config, including the broker host to connect to (empty: keep the current one) |
+| server → door | `doors/<id>/timeline` | retained merged intervals |
 | door → server | `doors/<id>/check` | request id, digits entered |
 | server → door | `doors/<id>/reply` | request id, allow or deny, strike duration |
-| door → server | `doors/<id>/event` | door opened, door closed, command result, update result |
 | door → server | `doors/<id>/telemetry` | the telemetry fields above |
-| door → server | `doors/<id>/online` | retained, with a last-will of offline |
-| server → door | `doors/<id>/timeline` | retained merged intervals |
-| server → door | `doors/<id>/config` | retained effective config, including the broker host to connect to (empty: keep the current one) |
-| server → door | `doors/<id>/command` | open, update (url, version, hash), reboot, new credentials |
-| door → server | `doors/<id>/ack` | command id, result |
+| door → server | `doors/<id>/event` | door opened or door closed |
+| server → door | `doors/<id>/command` | command id and one of open (strike duration), update (version, hash, url), new credentials |
+| door → server | `doors/<id>/ack` | command id, result (`failed` when the door could not carry it out), detail |
+
+The server subscribes to the enroll topics and to each door's online,
+check, telemetry, event, and ack topics. Command results travel only in
+acks; a firmware update succeeds when the door reconnects reporting the new
+version, and fails with a `failed` ack.
 
 The broker is Mosquitto with its dynamic-security plugin; the server manages
 clients and ACLs over `$CONTROL`. All connections use TLS.

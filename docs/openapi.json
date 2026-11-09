@@ -3373,7 +3373,7 @@
     },
     "/doors/{id}/update": {
       "post": {
-        "operationId": "updateDoor",
+        "operationId": "updateDoorNow",
         "summary": "Send a door its firmware now",
         "tags": [
           "firmware"

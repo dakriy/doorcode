@@ -149,7 +149,7 @@ func (a *App) firmwareRoutes() []route {
 			},
 		}),
 		apiRoute(http.MethodPost, "/doors/{id}/update", manage, a.updateDoorNow, apiDoc{
-			id: "updateDoor", summary: "Send a door its firmware now", tag: "firmware", params: []openapi.Param{doorIDParam},
+			id: "updateDoorNow", summary: "Send a door its firmware now", tag: "firmware", params: []openapi.Param{doorIDParam},
 			responses: []openapi.Response{
 				{Status: http.StatusOK, Description: "The door was sent its target, whatever the update window and however many doors are updating.", Body: doorFirmwareView{}},
 				noDoor,
