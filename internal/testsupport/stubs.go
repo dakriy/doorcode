@@ -183,6 +183,7 @@ type Store struct {
 	requests     []connector.StoredRequest
 	nextRequest  int64
 	migrateErr   error
+	pingErr      error
 	failing      map[aggregate]bool
 }
 
@@ -239,6 +240,11 @@ func NewStore() *Store {
 var AdministratorsGroup = connector.StoredGroup{
 	ID: 1, Slug: "administrators", Name: "Administrators", Description: "Members may do everything.",
 	Roles: []string{"admin"}, PreassignedUserIDs: []string{},
+}
+
+// Ping reports ErrUnavailable once FailPing was called.
+func (s *Store) Ping(context.Context) error {
+	return s.pingErr
 }
 
 // Migrate marks the schema as present and, the first time, seeds the
@@ -513,6 +519,12 @@ func (s *Store) ReplacePasswordHash(email, hash string) {
 // FailMigration makes Migrate report ErrUnavailable.
 func (s *Store) FailMigration() {
 	s.migrateErr = ErrUnavailable
+}
+
+// FailPing makes Ping report ErrUnavailable, as a database that does not
+// answer would.
+func (s *Store) FailPing() {
+	s.pingErr = ErrUnavailable
 }
 
 // FailSignInImageReads makes SignInImage report ErrUnavailable, while

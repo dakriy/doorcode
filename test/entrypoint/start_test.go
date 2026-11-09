@@ -208,6 +208,68 @@ func TestStartupFails(t *testing.T) {
 	}
 }
 
+func TestHealthzReportsOKWhileTheStoreAndBrokerAreNotReady(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	a := start(t, f)
+	f.StoreStub.FailPing()
+	f.BrokerStub.Disconnect()
+
+	got := testsupport.Get(a.Handler(), "/healthz")
+
+	want := testsupport.Response{Status: 200, ContentType: "text/plain; charset=utf-8", Body: "ok\n"}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("response (-want +got):\n%s", diff)
+	}
+}
+
+func TestReadyzReportsWhatIsNotReady(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name    string
+		arrange func(f *testsupport.Factory)
+		want    testsupport.Response
+	}{
+		{
+			name:    "both ready",
+			arrange: func(*testsupport.Factory) {},
+			want:    testsupport.Response{Status: 200, ContentType: "text/plain; charset=utf-8", Body: "ok\n"},
+		},
+		{
+			name:    "store not answering",
+			arrange: func(f *testsupport.Factory) { f.StoreStub.FailPing() },
+			want:    testsupport.Response{Status: 503, ContentType: "text/plain; charset=utf-8", Body: "store: stub: unavailable\n"},
+		},
+		{
+			name:    "broker disconnected",
+			arrange: func(f *testsupport.Factory) { f.BrokerStub.Disconnect() },
+			want:    testsupport.Response{Status: 503, ContentType: "text/plain; charset=utf-8", Body: "broker: not connected\n"},
+		},
+		{
+			name: "neither ready",
+			arrange: func(f *testsupport.Factory) {
+				f.StoreStub.FailPing()
+				f.BrokerStub.Disconnect()
+			},
+			want: testsupport.Response{Status: 503, ContentType: "text/plain; charset=utf-8", Body: "store: stub: unavailable\nbroker: not connected\n"},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			f := testsupport.NewFactory()
+			a := start(t, f)
+			c.arrange(f)
+
+			got := testsupport.Get(a.Handler(), "/readyz")
+
+			if diff := cmp.Diff(c.want, got); diff != "" {
+				t.Errorf("response (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestHealthzReportsOK(t *testing.T) {
 	t.Parallel()
 	got := testsupport.Get(start(t, testsupport.NewFactory()).Handler(), "/healthz")

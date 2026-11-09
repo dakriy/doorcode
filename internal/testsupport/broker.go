@@ -53,6 +53,8 @@ type Broker struct {
 	filters  []string
 	queue    []connector.Message
 	failing  map[brokerMethod]bool
+	// lost says the application's connection to the broker is down.
+	lost bool
 	// Published is every message the application published, in order.
 	Published []connector.Message
 }
@@ -205,6 +207,14 @@ func (b *Broker) Topics(since int, leaf string) []string {
 func (b *Broker) RetainedDecoded(topic string) any {
 	return Decoded(b.retained[topic].Payload)
 }
+
+// Connected reports whether the application's connection is up, which it
+// is until Disconnect.
+func (b *Broker) Connected() bool { return !b.lost }
+
+// Disconnect makes Connected report false, as when the application loses
+// its connection to the broker.
+func (b *Broker) Disconnect() { b.lost = true }
 
 // FailPublishing makes Publish report ErrUnavailable.
 func (b *Broker) FailPublishing() { b.failing[publishing] = true }

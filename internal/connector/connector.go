@@ -961,6 +961,9 @@ type Store interface {
 	// Migrate brings the schema up to date. It runs once at startup, before
 	// any other method.
 	Migrate(ctx context.Context) error
+	// Ping asks the database a trivial question, reporting why it could
+	// not answer.
+	Ping(ctx context.Context) error
 	SettingsStore
 	UsersStore
 	GroupsStore
@@ -1018,6 +1021,9 @@ type Broker interface {
 	// DeleteClient removes the client named username, disconnecting it.
 	// It refuses a username the broker does not have.
 	DeleteClient(ctx context.Context, username string) error
+	// Connected reports whether the application's connection to the
+	// broker is up.
+	Connected() bool
 }
 
 // IdentityClient is the site as a client an OpenID Connect provider knows:

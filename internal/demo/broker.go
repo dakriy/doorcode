@@ -38,6 +38,12 @@ func NewBroker() *Broker {
 
 var _ connector.Broker = (*Broker)(nil)
 
+// Connected reports true: the application's connection is in memory and
+// never drops.
+func (b *Broker) Connected() bool {
+	return true
+}
+
 // listener is one subscription: the filters it matches and where its
 // messages wait to be taken.
 type listener struct {
