@@ -168,7 +168,7 @@
 .viz-mark { transition: opacity 120ms; }
 .viz-mark:hover { opacity: 0.75; }
 
-/* Searchable selects (static/combobox.js): the list of options below the
+/* Searchable selects (static/search.js): the list of options below the
    input, the option the keyboard is on, the input narrowing a list of
    checkboxes, and the note that nothing matches. */
 @layer components {

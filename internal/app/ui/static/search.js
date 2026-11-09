@@ -1,21 +1,58 @@
-// Searchable selects. A select marked data-combobox becomes a text input
-// that narrows its options as you type, in a list below it: arrow keys move
-// through what is left, Enter or a click chooses, Escape puts back what was
-// chosen. The select stays in the form, hidden, and is what submits. A
-// fieldset of checkboxes marked data-combobox gets an input above it that
-// hides the checkboxes whose label does not hold what was typed. Without
-// this script both stay as they are.
+// Narrowing as you type, in two kinds of list.
+//
+// A search input names the element holding a list's rows in data-filter,
+// and the message to show when none is left in data-filter-none; each row
+// marked data-filter-row stays shown while the text of its element marked
+// data-filter-text, or its own, holds what was typed, ignoring case and
+// runs of spaces. Without this script the list shows every row, and
+// submitting the search form narrows it on the server.
+//
+// A select marked data-combobox becomes a text input that narrows its
+// options as you type, in a list below it: arrow keys move through what is
+// left, Enter or a click chooses, Escape puts back what was chosen. The
+// select stays in the form, hidden, and is what submits. A fieldset of
+// checkboxes marked data-combobox gets a search input above it that
+// narrows its checkboxes as above. Without this script both stay as they
+// are.
 (() => {
-  if (window.doorcodeCombobox) {
+  if (window.doorcodeSearch) {
     return;
   }
-  window.doorcodeCombobox = true;
+  window.doorcodeSearch = true;
   const words = (text) => text.toLowerCase().replace(/\s+/g, " ").trim();
+
+  function narrow(input) {
+    const list = document.getElementById(input.dataset.filter);
+    if (!list) {
+      return;
+    }
+    const wanted = words(input.value);
+    let shown = 0;
+    for (const row of list.querySelectorAll("[data-filter-row]")) {
+      const text = row.querySelector("[data-filter-text]") || row;
+      const keep = words(text.textContent).includes(wanted);
+      row.hidden = !keep;
+      if (keep) {
+        shown++;
+      }
+    }
+    const none = document.getElementById(input.dataset.filterNone);
+    if (none) {
+      none.hidden = shown > 0 || list.querySelector("[data-filter-row]") === null;
+    }
+  }
+
+  document.addEventListener("input", (e) => {
+    if (e.target.matches && e.target.matches("[data-filter]")) {
+      narrow(e.target);
+    }
+  });
+
   let made = 0;
 
   const element = (tag, props) => Object.assign(document.createElement(tag), props);
 
-  const none = (text) => element("p", { className: "combobox-none", hidden: true, textContent: text });
+  const none = () => element("p", { className: "combobox-none", hidden: true, textContent: "Nothing matches what you typed." });
 
   function selectBox(select) {
     const id = select.id || `combobox-${++made}`;
@@ -34,7 +71,7 @@
     select.id = `${id}-select`;
     select.hidden = true;
     select.tabIndex = -1;
-    const empty = none("Nothing matches what you typed.");
+    const empty = none();
     const box = element("div", { className: "combobox" });
     select.replaceWith(box);
     box.append(select, input, list, empty);
@@ -137,21 +174,17 @@
     if (rows.length === 0) {
       return;
     }
+    const list = rows[0].parentElement;
+    list.id ||= `combobox-${++made}`;
+    rows.forEach((row) => row.setAttribute("data-filter-row", ""));
     const label = `Search ${legend ? legend.textContent.trim().toLowerCase() : "choices"}`;
     const input = element("input", { type: "search", placeholder: label, autocomplete: "off", spellcheck: false, className: "combobox-search" });
     input.setAttribute("aria-label", label);
-    const empty = none("Nothing matches what you typed.");
-    input.addEventListener("input", () => {
-      const wanted = words(input.value);
-      let left = 0;
-      for (const row of rows) {
-        row.hidden = !words(row.textContent).includes(wanted);
-        left += row.hidden ? 0 : 1;
-      }
-      empty.hidden = left > 0;
-    });
+    const empty = none();
+    empty.id = `${list.id}-none`;
+    input.dataset.filter = list.id;
+    input.dataset.filterNone = empty.id;
     input.addEventListener("keydown", (e) => e.key === "Enter" && e.preventDefault());
-    const list = rows[0].parentElement;
     list.before(input);
     list.after(empty);
   }

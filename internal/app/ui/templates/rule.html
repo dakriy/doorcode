@@ -31,4 +31,5 @@
 {{if $c.Rule.ID}}
 {{template "delete-section" (deletion "Delete access rule" (printf "Members of %s stop getting in by this rule at once. This cannot be undone." $g.Name) (printf "%s/delete" $c.Action) (printf "Delete this access rule? Members of %s stop getting in by it at once." $g.Name) "" "max-w-3xl")}}
 {{end}}
+{{template "search-script" .}}
 {{end}}

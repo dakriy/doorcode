@@ -340,8 +340,8 @@ func TestTheEventsPageShowsTheFirstPageKeepingItsFiltersWhenThePageNumberCannotB
 	}
 }
 
-// The events page loads its two searchable selects' script, once for
-// each, and the live script.
+// The events page loads the script of its two searchable selects once,
+// and the live script.
 func TestTheEventsPageLoadsTheScriptOfItsSearchableSelects(t *testing.T) {
 	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
@@ -355,7 +355,7 @@ func TestTheEventsPageLoadsTheScriptOfItsSearchableSelects(t *testing.T) {
 		got = append(got, testsupport.Response{Status: response.Status, ContentType: response.ContentType})
 	}
 	js := testsupport.Response{Status: 200, ContentType: "text/javascript; charset=utf-8"}
-	if diff := cmp.Diff([]testsupport.Response{js, js, js}, got); diff != "" {
+	if diff := cmp.Diff([]testsupport.Response{js, js}, got); diff != "" {
 		t.Errorf("scripts (-want +got):\n%s", diff)
 	}
 }

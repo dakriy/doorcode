@@ -413,4 +413,5 @@
 {{if and $c.Manage (not $d.DeletedAt)}}
 {{template "delete-section" (deletion "Delete door" "A deleted door leaves the lists and its name stays taken. Its history stays, and you can restore it later." (printf "/admin/doors/%d/delete" $d.ID) (printf "Delete the door %s?" $d.Name) "" "")}}
 {{end}}
+{{template "search-script" .}}
 {{end}}

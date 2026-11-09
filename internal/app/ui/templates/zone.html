@@ -12,4 +12,5 @@
 </form>
 
 {{template "delete-section" (deletion "Delete zone" "The zone is removed for good. Its doors stay. This cannot be undone." (printf "/admin/zones/%d/delete" $z.ID) (printf "Delete the zone %s? Its doors stay. This cannot be undone." $z.Name) "" "max-w-3xl")}}
+{{template "search-script" .}}
 {{end}}

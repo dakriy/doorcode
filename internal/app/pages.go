@@ -40,10 +40,8 @@ var (
 	calendarJS []byte
 	//go:embed ui/static/live.js
 	liveJS []byte
-	//go:embed ui/static/filter.js
-	filterJS []byte
-	//go:embed ui/static/combobox.js
-	comboboxJS []byte
+	//go:embed ui/static/search.js
+	searchJS []byte
 )
 
 const (
@@ -68,8 +66,7 @@ var assets = []asset{
 	{name: "FullCalendarJS", path: "/static/fullcalendar/index.global.min.js", contentType: jsType, content: fullCalendarJS},
 	{name: "CalendarJS", path: "/static/calendar.js", contentType: jsType, content: calendarJS},
 	{name: "LiveJS", path: "/static/live.js", contentType: jsType, content: liveJS},
-	{name: "FilterJS", path: "/static/filter.js", contentType: jsType, content: filterJS},
-	{name: "ComboboxJS", path: "/static/combobox.js", contentType: jsType, content: comboboxJS},
+	{name: "SearchJS", path: "/static/search.js", contentType: jsType, content: searchJS},
 }
 
 // assetURLs maps each asset's name to a URL carrying a hash of its content,
@@ -185,10 +182,10 @@ var templateFuncs = template.FuncMap{
 		return navItem{Href: href, Label: label}
 	},
 	"choicelist": func(name, legend string, choices []choice, problem, empty string) choiceList {
-		return choiceList{Name: name, Legend: legend, Choices: choices, Error: problem, Empty: empty, Script: assetURLs["ComboboxJS"]}
+		return choiceList{Name: name, Legend: legend, Choices: choices, Error: problem, Empty: empty}
 	},
 	"combobox": func(id, name, none string, options []selectOption, problem, class string) comboboxView {
-		v := comboboxView{ID: id, Name: name, None: none, NoneSelected: true, Options: options, Error: problem, Class: class, Script: assetURLs["ComboboxJS"]}
+		v := comboboxView{ID: id, Name: name, None: none, NoneSelected: true, Options: options, Error: problem, Class: class}
 		for _, o := range options {
 			v.NoneSelected = v.NoneSelected && !o.Selected
 		}
@@ -295,15 +292,13 @@ func pagerOf(page, perPage, shown, total int, link func(page int) string) pager 
 }
 
 // choiceList is a list of checkboxes sharing the form field Name, with
-// what is wrong with them, what to say when there is nothing to choose,
-// and the script that lets you narrow the list as you type.
+// what is wrong with them and what to say when there is nothing to choose.
 type choiceList struct {
 	Name    string
 	Legend  string
 	Choices []choice
 	Error   string
 	Empty   string
-	Script  string
 }
 
 // selectOption is one option of a select.
@@ -331,8 +326,7 @@ func labelled(name, detail string) string {
 // comboboxView is a select of Options with the id ID and the field name
 // Name, first offering None, when set, which is selected when no option
 // is, with what is wrong with the choice and the classes Class beside
-// the input's own. Script enhances it into a combobox, an input that
-// narrows the options as you type.
+// the input's own.
 type comboboxView struct {
 	ID           string
 	Name         string
@@ -341,7 +335,6 @@ type comboboxView struct {
 	Options      []selectOption
 	Error        string
 	Class        string
-	Script       string
 }
 
 // thumbnailView is a door's primary picture as a thumbnail of Size, given

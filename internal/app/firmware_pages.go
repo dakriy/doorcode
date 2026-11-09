@@ -156,7 +156,7 @@ func firmwareOptions(all []connector.StoredFirmware, none string, chosen *int64)
 	options := []selectOption{{Label: none, Selected: chosen == nil}}
 	for _, f := range all {
 		selected := chosen != nil && *chosen == f.ID
-		options = append(options, selectOption{Value: strconv.FormatInt(f.ID, 10), Label: f.Version, Selected: selected})
+		options = append(options, idOption(f.ID, f.Version, selected))
 	}
 	return options
 }
