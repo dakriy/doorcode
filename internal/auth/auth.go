@@ -35,6 +35,18 @@ var Roles = []string{
 	RoleManageSchedules, RoleManageFirmware, RoleViewLogs, RoleDoorCommander,
 }
 
+// RoleDescriptions says in one line what each role lets its holders do.
+var RoleDescriptions = map[string]string{
+	RoleAdmin:           "Everything, including the site settings and every other role.",
+	RoleManageUsers:     "Add, import, and change users and their codes, and answer access requests.",
+	RoleManageDoors:     "Add and change doors, zones, and overrides, enroll controllers, and open doors remotely.",
+	RoleManageGroups:    "Add and change groups, their members, and the access rules that let them in.",
+	RoleManageSchedules: "Add and change the schedules access rules and open mode follow.",
+	RoleManageFirmware:  "Upload controller firmware and roll it out to doors.",
+	RoleViewLogs:        "Read every door's events.",
+	RoleDoorCommander:   "Get in at any door at any time, even while it is locked, and open doors remotely.",
+}
+
 // AdministratorsSlug is the slug of the group the schema seeds with the
 // admin role. The first administrator joins it.
 const AdministratorsSlug = "administrators"

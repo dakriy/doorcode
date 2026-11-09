@@ -63,6 +63,27 @@ func TestNewGroupPageOffersAnEmptyForm(t *testing.T) {
 	}
 }
 
+func TestTheGroupFormSaysWhatEachRoleLetsItsHoldersDo(t *testing.T) {
+	t.Parallel()
+	b := signedInAdmin(t, testsupport.NewFactory())
+
+	got := testsupport.ParsePage(b.Get("/admin/groups/new").Body).Choices
+
+	want := map[string]string{
+		"roles=admin":            "admin Everything, including the site settings and every other role.",
+		"roles=manage-users":     "manage-users Add, import, and change users and their codes, and answer access requests.",
+		"roles=manage-doors":     "manage-doors Add and change doors, zones, and overrides, enroll controllers, and open doors remotely.",
+		"roles=manage-groups":    "manage-groups Add and change groups, their members, and the access rules that let them in.",
+		"roles=manage-schedules": "manage-schedules Add and change the schedules access rules and open mode follow.",
+		"roles=manage-firmware":  "manage-firmware Upload controller firmware and roll it out to doors.",
+		"roles=view-logs":        "view-logs Read every door's events.",
+		"roles=door-commander":   "door-commander Get in at any door at any time, even while it is locked, and open doors remotely.",
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("role choices (-want +got):\n%s", diff)
+	}
+}
+
 func TestCreatingAGroupFromTheFormOpensItsPage(t *testing.T) {
 	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())

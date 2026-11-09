@@ -89,10 +89,26 @@ group's page lists its rules; a door's page derives who may enter and when
 from every rule that reaches it. Renaming or deleting a group never changes
 when a door is unlocked.
 
-Roles: `admin` (everything), `manage-users`, `manage-doors`,
-`manage-groups`, `manage-schedules`, `manage-firmware`, `view-logs`,
-`door-commander`. A user holds a role if any of their groups carries it.
-Group lists show role badges. Users cannot remove their own admin role.
+Roles, each with the one-line description the group form shows beside it
+(and role badges show on hover), named once in `internal/auth`:
+
+- `admin`: everything, including the site settings and every other role.
+- `manage-users`: add, import, and change users and their codes, and answer
+  access requests.
+- `manage-doors`: add and change doors, zones, and overrides, enroll
+  controllers, and open doors remotely.
+- `manage-groups`: add and change groups, their members, and the access
+  rules that let them in.
+- `manage-schedules`: add and change the schedules access rules and open
+  mode follow.
+- `manage-firmware`: upload controller firmware and roll it out to doors.
+- `view-logs`: read every door's events.
+- `door-commander`: get in at any door at any time, even while it is
+  locked, and open doors remotely.
+
+A user holds a role if any of their groups carries it. Group lists show role
+badges, which wrap inside their cell. Users cannot remove their own admin
+role.
 
 ## 5. Schedules
 

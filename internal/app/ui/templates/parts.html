@@ -36,7 +36,7 @@
 </div>
 {{end}}{{end}}
 
-{{define "roles"}}<div class="flex flex-wrap gap-1">{{range .}}<span class="inline-flex rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 ring-1 ring-brand-600/20 ring-inset dark:bg-brand-950 dark:text-brand-300 dark:ring-brand-400/20">{{.}}</span>
+{{define "roles"}}<div class="flex flex-wrap gap-1">{{range .}}<span title="{{describe .}}" class="inline-flex whitespace-nowrap rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 ring-1 ring-brand-600/20 ring-inset dark:bg-brand-950 dark:text-brand-300 dark:ring-brand-400/20">{{.}}</span>
 {{else}}<span class="text-xs text-zinc-400 dark:text-zinc-500">No roles</span>{{end}}</div>{{end}}
 
 {{define "status"}}{{if eq . "Active"}}<span class="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-600/20 ring-inset dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-400/20">Active</span>
@@ -67,12 +67,12 @@
   </div>
   <fieldset name="roles" class="sm:col-span-2"{{with index .Errors "roles"}} aria-invalid="true" aria-describedby="roles-error"{{end}}>
     <legend class="text-sm font-medium">Roles</legend>
-    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Every member holds these roles. admin may do everything.</p>
-    <div class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Every member holds these roles.</p>
+    <div class="mt-3 grid gap-2 sm:grid-cols-2">
       {{$roles := .Roles}}{{range .Choices}}
-      <label class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm ring-1 ring-zinc-200 ring-inset has-checked:bg-brand-50 has-checked:ring-brand-300 dark:ring-zinc-800 dark:has-checked:bg-brand-950 dark:has-checked:ring-brand-700">
-        <input type="checkbox" name="roles" value="{{.}}"{{if has $roles .}} checked{{end}} class="size-4 rounded border-zinc-300 accent-brand-600">
-        <span class="font-mono text-xs">{{.}}</span>
+      <label class="flex items-start gap-3 rounded-lg px-3 py-2.5 text-sm ring-1 ring-zinc-200 ring-inset has-checked:bg-brand-50 has-checked:ring-brand-300 dark:ring-zinc-800 dark:has-checked:bg-brand-950 dark:has-checked:ring-brand-700">
+        <input type="checkbox" name="roles" value="{{.}}"{{if has $roles .}} checked{{end}} class="mt-0.5 size-4 shrink-0 rounded border-zinc-300 accent-brand-600">
+        <span class="min-w-0"><span class="block font-mono text-xs font-medium">{{.}}</span> <span class="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">{{describe .}}</span></span>
       </label>
       {{end}}
     </div>

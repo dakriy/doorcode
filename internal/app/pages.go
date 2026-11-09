@@ -175,6 +175,7 @@ var templateFuncs = template.FuncMap{
 		return fieldView{Name: name, Label: label, Type: kind, Value: value, Error: errors[name], Help: help}
 	},
 	"has":      slices.Contains[[]string],
+	"describe": func(role string) string { return auth.RoleDescriptions[role] },
 	"weekdays": func() []dayChoice { return dayChoices },
 	"link": func(href, label string) navItem {
 		return navItem{Href: href, Label: label}
