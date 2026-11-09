@@ -188,6 +188,7 @@ The list of non-application directories lives once, in `scripts/scope.sh`; the c
 | --- | --- |
 | `verify-fast` | `make verify-fast` |
 | `verify-mutation` | `make verify-mutation` |
+| `verify-mutation-diff` | `make verify-mutation-diff BASE=<git ref>` (default `main`) |
 | `verify-integration` | `make verify-integration` |
 | `verify-all` | `make verify-all` |
 
@@ -196,6 +197,8 @@ The list of non-application directories lives once, in `scripts/scope.sh`; the c
 `make openapi` rewrites `docs/openapi.json` from the route table. Run it after changing a route, a wire struct, or an `apiDoc`, read the diff, and commit it. The entrypoint suite asserts the document's operations, statuses, and schemas by hand-written expectations, never by comparing with this file.
 
 `verify-mutation` runs `scripts/mutation.sh`: gremlins with every optional mutator enabled and `--timeout-coefficient=100`, then prints every `LIVED`, `NOT COVERED`, and `TIMED OUT` line and fails if there is one. The log is `build/mutation.log`, the JSON report `build/mutation.json`. The run uses its own `GOCACHE` (`DOORCODE_MUTATION_GOCACHE`, default `~/.cache/doorcode-mutation`) and empties it on exit, because per-mutant builds are never reused and would otherwise grow the shared build cache by gigabytes per run.
+
+`verify-mutation-diff` runs the same script with `DOORCODE_MUTATION_BASE` set, so gremlins mutates only the lines changed since that ref (`--diff`), typically in seconds. It is the gate a change is developed against; the full `verify-mutation` runs once over a batch of changes before they reach `main` (see Deviations).
 
 Runtime budget for `verify-fast` tests: 10 seconds (`FAST_BUDGET_SECONDS` in the Makefile), measured over both test invocations with `-count=1` so the cache does not hide the cost. Measured at bootstrap: about 0.7 seconds; after the foundation work about 0.6 seconds; after local sign-in and the UI shell about 1.1 seconds; after the route table, OpenAPI, and API tokens about 1.3 seconds; after users, groups, and roles about 2.1 seconds; after schedules about 2.2 seconds; after doors, zones, and pictures about 2.5 seconds; after building the OpenAPI document on first request and running entrypoint tests in parallel about 1.1 seconds (the prebuilt entrypoint test binary alone about 0.15 seconds wall, down from about 1.9); after access rules, overrides, and timelines about 1.5 seconds; after the broker connector and enrollment about 1.9 seconds; after door configuration and pushes about 1.4 seconds; after code checks and events about 1.45 seconds; after telemetry and door state about 1.35 seconds; after firmware and OTA about 1.7 seconds; after OIDC sign-in and secret settings about 1.4 seconds; after the user portal about 2.0 seconds; after access requests administration and bulk import about 1.6 seconds; after importing without email about 1.7 seconds; after the dashboard about 2.2 seconds; after the settings page, theme, sign-in picture, and EXIF orientation about 2.0 seconds; after the demo binary (no test changes) about 1.5 seconds.
 
@@ -283,7 +286,7 @@ None.
 
 Intentional departures from the judgment rules, each with scope and reason.
 
-None.
+- **Mutation gate per batch, not per commit.** A change is developed against `verify-mutation-diff` (the mutants on its own changed lines) and `verify-fast`; the full `verify-mutation` runs once over each batch of changes before it is merged to `main`, and `main` is never left with a surviving mutant. Reason: a full run takes about seven minutes at about 2200 mutants and reruns every mutant a change cannot have affected; the diff run covers the changed lines in seconds. Coverage stays at 100% on every commit.
 
 ## Known gaps
 

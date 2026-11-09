@@ -3,6 +3,9 @@
 # the score, then every mutant that LIVED, was NOT COVERED, or TIMED OUT, and
 # fails if that list is not empty. The efficacy percentage is reported, never
 # gated on.
+#
+# With DOORCODE_MUTATION_BASE set to a git ref, only the lines changed since
+# that ref are mutated (verify-mutation-diff); the full run is verify-mutation.
 set -eu
 . "$(dirname "$0")/scope.sh"
 mkdir -p build
@@ -16,8 +19,14 @@ export GOCACHE
 mkdir -p "$GOCACHE"
 trap 'go clean -cache' EXIT
 
-# shellcheck disable=SC2046
-go tool gremlins unleash --integration \
+diff=""
+if [ -n "${DOORCODE_MUTATION_BASE:-}" ]; then
+	diff="--diff=$DOORCODE_MUTATION_BASE"
+	echo "mutating only lines changed since $DOORCODE_MUTATION_BASE"
+fi
+
+# shellcheck disable=SC2046,SC2086
+go tool gremlins unleash --integration $diff \
 	--coverpkg="$(app_pkgs)" \
 	$(mutation_excludes) \
 	--timeout-coefficient=100 \
