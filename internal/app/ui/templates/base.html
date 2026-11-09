@@ -5,13 +5,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <meta name="htmx-config" content='{"responseHandling":[{"code":"204","swap":false},{"code":"...","swap":true}]}'>
+  <meta name="htmx-config" content='{"disableInheritance":true,"responseHandling":[{"code":"204","swap":false},{"code":"...","swap":true}]}'>
   <title>{{.Title}}</title>
   <link rel="stylesheet" href="{{index .Assets "CSS"}}">
   {{with .Theme.Accent}}<style>:root { --accent: {{.}};{{with $.Theme.AccentDark}} --accent-dark: {{.}};{{end}} }</style>{{end}}
   <script src="{{index .Assets "HTMX"}}" defer></script>
 </head>
-<body class="h-full bg-zinc-50 font-sans text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100" hx-boost="true">
+{{/* htmx attribute inheritance is off: a live region's hx-select and
+     hx-swap would otherwise reach the boosted links inside it, which then
+     select the region's id out of the page they open, find nothing, and
+     leave the page blank. An element whose descendants should share its
+     attributes names them in hx-inherit, as the body does for hx-boost. */}}
+<body class="h-full bg-zinc-50 font-sans text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100" hx-boost="true" hx-inherit="hx-boost">
 {{template "body" .}}
 </body>
 </html>

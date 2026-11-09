@@ -26,7 +26,7 @@
 
 <div id="dashboard-body">
 {{if $c.Ranged}}
-<div hx-target="#dashboard-body" hx-select="#dashboard-body" hx-swap="outerHTML" hx-push-url="true" class="mt-10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+<div hx-target="#dashboard-body" hx-select="#dashboard-body" hx-swap="outerHTML" hx-push-url="true" hx-inherit="hx-target hx-select hx-swap hx-push-url" class="mt-10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
   <div>
     <p class="text-xs font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">Range</p>
     <p class="mt-1 text-lg font-semibold tracking-tight">{{$c.Span}}</p>
