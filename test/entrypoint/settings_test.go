@@ -175,6 +175,22 @@ func TestUpdatingASettingRespondsWithTheNewValueAndTheClockTime(t *testing.T) {
 	}
 }
 
+func TestUpdatedSettingTimeIsKeptToTheMicrosecondAsTheStoreKeepsIt(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	f.ClockStub.Set("2026-02-10T14:30:00.123456789Z")
+	b := signedInAdmin(t, f)
+
+	echoed := b.PutJSON("/api/v1/settings/site_name", `{"value":"North Campus"}`)
+	read := b.Get("/api/v1/settings/site_name")
+
+	want := testsupport.Response{Status: 200, ContentType: jsonType, Body: `{"key":"site_name","value":"North Campus","source":"database",` +
+		`"read_only":false,"env_var":"DOORCODE_SITE_NAME","updated_at":"2026-02-10T14:30:00.123456Z"}` + "\n"}
+	if diff := cmp.Diff([]testsupport.Response{want, want}, []testsupport.Response{echoed, read}); diff != "" {
+		t.Errorf("echoed and read back (-want +got):\n%s", diff)
+	}
+}
+
 func TestUpdatedSettingIsReadBackFromTheStore(t *testing.T) {
 	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())

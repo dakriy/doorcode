@@ -165,11 +165,7 @@ func (a *App) withdrawToken(w http.ResponseWriter, r *http.Request, ownerID int6
 // revoke revokes the token of the user whose id is ownerID that the path
 // parameter param names, and reports whether there was one.
 func (a *App) revoke(r *http.Request, ownerID int64, param string) (bool, error) {
-	id, err := strconv.ParseInt(r.PathValue(param), 10, 64)
-	if err != nil {
-		return false, nil
-	}
-	return a.auth.RevokeToken(r.Context(), ownerID, id)
+	return a.auth.RevokeToken(r.Context(), ownerID, pathID(r, param))
 }
 
 // tokensContent is the API tokens page's content.

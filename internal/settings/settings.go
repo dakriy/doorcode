@@ -732,7 +732,8 @@ func (s Service) put(ctx context.Context, key, value string, clearing bool) (Set
 			return Setting{}, fmt.Errorf("%w for %s: %w", ErrInvalid, key, err)
 		}
 	}
-	row := connector.StoredSetting{Value: s.storable(def, value), UpdatedAt: s.Clock.Now()}
+	// Postgres keeps microseconds, so the value echoed is the value read back.
+	row := connector.StoredSetting{Value: s.storable(def, value), UpdatedAt: s.Clock.Now().Truncate(time.Microsecond)}
 	if err := s.Store.PutSetting(ctx, def.key, row.Value, row.UpdatedAt); err != nil {
 		return Setting{}, err
 	}
