@@ -84,6 +84,21 @@ var brokerSettingsJSON = `{"key":"enrollment_username","value":"doorcode-enroll"
 	defaultSetting("door_rate_limit_burst", "10") + `,` +
 	defaultSetting("door_ntp_server", "pool.ntp.org") + `,` +
 	defaultSetting("door_broker_host", "") + `,` +
+	defaultSetting("door_broker_port", "8883") + `,` +
+	defaultSetting("door_broker_tls", "true") + `,` +
+	defaultSetting("door_broker_ca_pem", "") + `,` +
+	defaultSetting("door_wifi_ssid", "") + `,` +
+	`{"key":"door_wifi_password","value":"","source":"default","read_only":false,"env_var":"DOORCODE_DOOR_WIFI_PASSWORD","secret":true},` +
+	defaultSetting("door_wifi_roam_rssi", "-70") + `,` +
+	defaultSetting("door_keepalive_s", "30") + `,` +
+	defaultSetting("door_reconnect_max_s", "60") + `,` +
+	defaultSetting("door_mesh_enabled", "false") + `,` +
+	defaultSetting("door_mesh_ssid", "") + `,` +
+	`{"key":"door_mesh_password","value":"","source":"default","read_only":false,"env_var":"DOORCODE_DOOR_MESH_PASSWORD","secret":true},` +
+	defaultSetting("door_mesh_min_router_rssi", "-75") + `,` +
+	defaultSetting("door_mesh_max_layer", "4") + `,` +
+	defaultSetting("door_update_connect_timeout_s", "300") + `,` +
+	defaultSetting("door_accept_unsigned_firmware", "false") + `,` +
 	defaultSetting("door_log_level", "info")
 
 // defaultSetting is how the settings API shows the setting named key

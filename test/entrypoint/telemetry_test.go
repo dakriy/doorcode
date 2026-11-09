@@ -422,7 +422,7 @@ func TestADoorPageChartsTheLast24HoursUnlessAskedForAnotherRange(t *testing.T) {
 		testsupport.Chart{Labels: []string{"Nothing reported in the last 24 hours.", "Sun 4 Jan 09:00", "Mon 5 Jan 09:00"}},
 		map[string]string{
 			"Show the last 6 hours": "/admin/doors/1?range=6h", "Show the last 7 days": "/admin/doors/1?range=7d",
-			"Show the last 30 days": "/admin/doors/1?range=30d",
+			"Show the last 30 days": "/admin/doors/1?range=30d", "Download provisioning file": "/api/v1/doors/1/provisioning",
 		},
 	}
 	if diff := cmp.Diff(want, []any{page.Charts["Signal over the last 24 hours"], page.LinkTargets}); diff != "" {

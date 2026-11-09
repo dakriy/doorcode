@@ -52,7 +52,7 @@ func TestFirmwarePageShowsTheVersionsAndTheRollout(t *testing.T) {
 	updated := "Updated to 1.5.0 on Tue 6 Jan 2026 02:00:00"
 	failed := "Failed to update to 1.5.0 on Tue 6 Jan 2026 02:00:00: The door could not install it."
 	want := testsupport.Page{
-		Title: "Firmware · doorcode", Heading: "Firmware", Nav: firmwareNav, Notes: []string{concurrencyNote}, Values: windowValues(nil),
+		Title: "Firmware · doorcode", Heading: "Firmware", Nav: firmwareNav, Notes: []string{hostNote, brokerNote, concurrencyNote}, Values: windowValues(nil),
 		Tables: map[string][][]string{
 			"Versions": {versionsHead, {"1.5.0 Default", "Administrator", "Mon 5 Jan 2026 09:00:00", "1", "3"}},
 			"Pending":  {rolloutHead, {"Attic", "1.4.3", "1.5.0", "Never sent one"}},
@@ -60,7 +60,8 @@ func TestFirmwarePageShowsTheVersionsAndTheRollout(t *testing.T) {
 			"Done":     {rolloutHead, {"Lobby", "1.5.0", "1.5.0", updated}},
 			"Failed":   {rolloutHead, {"Dock", "1.4.3", "1.5.0", failed}},
 		},
-		Comboboxes: []string{"firmware_id"},
+		Comboboxes:  []string{"firmware_id"},
+		LinkTargets: provisioningLink("/api/v1/firmware/provisioning"),
 	}
 	if diff := cmp.Diff([]any{200, want}, []any{got.Status, pageOf(got)}); diff != "" {
 		t.Errorf("status, page (-want +got):\n%s", diff)
@@ -76,7 +77,7 @@ func TestFirmwarePageOfANewSiteSaysWhatIsMissing(t *testing.T) {
 
 	addressNote := "No update can be sent until the public_url setting gives the address doors reach this server at, since they download firmware from it."
 	want := []any{
-		[]string{addressNote},
+		[]string{hostNote, brokerNote, addressNote},
 		map[string][][]string{
 			"Versions": {versionsHead, {"No firmware yet. Upload an image below, or from CI through the API."}},
 			"Pending":  {rolloutHead, {"No door is waiting for an update."}},
@@ -331,7 +332,7 @@ func TestADoorPageSaysWhenAnOfflineDoorCanBeUpdated(t *testing.T) {
 
 	got := pageOf(b.Get("/admin/doors/1")).Notes
 
-	want := []string{"The door can be updated once its controller is connected.", "New credentials can be sent only while the controller is connected.", picturesNote, openNote,
+	want := []string{"The door can be updated once its controller is connected.", "New credentials can be sent only while the controller is connected.", hostNote, brokerNote, picturesNote, openNote,
 		neverOpenNote, "There are no zones yet. Create one on the zones page."}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("notes (-want +got):\n%s", diff)

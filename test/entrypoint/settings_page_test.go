@@ -100,7 +100,7 @@ func TestTheDarkAccentColorFollowsTheAccentWhileItsBoxIsTicked(t *testing.T) {
 	picked := f.StoreStub.StoredSetting("theme_accent_dark")
 	b.Post("/admin/settings", "clear", "theme_accent_dark", "theme_accent_dark", "#112233")
 
-	want := []any{"#112233", "", []string{"clear=theme_accent_dark"}}
+	want := []any{"#112233", "", []string{"clear=theme_accent_dark", "door_broker_tls=true"}}
 	got := []any{picked, f.StoreStub.StoredSetting("theme_accent_dark"), testsupport.ParsePage(b.Get("/admin/settings").Body).Checked}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("stored when picked, stored when ticked, ticked boxes (-want +got):\n%s", diff)

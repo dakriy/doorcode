@@ -75,6 +75,7 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 		{Method: "GET", Target: "/api/v1/doors/1/pictures/1", ID: "getDoorPicture", Statuses: []int{200, 401, 403, 404, 500}},
 		{Method: "POST", Target: "/api/v1/doors/1/pictures/1/primary", ID: "setPrimaryDoorPicture", Statuses: []int{204, 401, 403, 404, 500}},
 		{Method: "GET", Target: "/api/v1/doors/1/pictures/1/thumbnail", ID: "getDoorPictureThumbnail", Statuses: []int{200, 401, 403, 404, 500}},
+		{Method: "GET", Target: "/api/v1/doors/1/provisioning", ID: "getDoorProvisioning", Statuses: []int{200, 401, 403, 404, 409, 500}},
 		{Method: "POST", Target: "/api/v1/doors/1/reboot", ID: "rebootDoor", Statuses: []int{200, 401, 403, 404, 409, 500}},
 		{Method: "POST", Target: "/api/v1/doors/1/restore", ID: "restoreDoor", Statuses: []int{204, 401, 403, 404, 500}},
 		{Method: "GET", Target: "/api/v1/doors/1/state", ID: "getDoorState", Statuses: []int{200, 401, 403, 404, 500}},
@@ -89,6 +90,7 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 		{Method: "GET", Target: "/api/v1/firmware", ID: "listFirmware", Statuses: []int{200, 401, 403, 500}},
 		{Method: "POST", Target: "/api/v1/firmware", ID: "uploadFirmware", Statuses: []int{201, 400, 401, 403, 413, 500}},
 		{Method: "PUT", Target: "/api/v1/firmware/default", ID: "setDefaultFirmware", Body: `{"firmware_id":1}`, Statuses: []int{204, 400, 401, 403, 404, 500}},
+		{Method: "GET", Target: "/api/v1/firmware/provisioning", ID: "getProvisioning", Statuses: []int{200, 401, 403, 409, 500}},
 		{Method: "GET", Target: "/api/v1/firmware/rollout", ID: "getRollout", Statuses: []int{200, 401, 403, 500}},
 		{Method: "GET", Target: "/api/v1/firmware/settings", ID: "listRolloutSettings", Statuses: []int{200, 401, 403, 500}},
 		{Method: "PUT", Target: "/api/v1/firmware/settings", ID: "updateRolloutSettings",
@@ -237,7 +239,7 @@ func TestOpenAPIDerivesBodySchemasFromTheWireTypes(t *testing.T) {
 				"description": "Every setting, in display order."}}},
 		{"type": "object", "required": ["overrides"], "properties": {
 			"overrides": {"type": "object", "additionalProperties": {"type": "string"},
-				"description": "The door's own values, each keyed by the name of a field of the effective configuration; the site's defaults apply to the fields left out. They replace the overrides the door had."}}}
+				"description": "The door's own values, each keyed by the name of a field of the effective configuration; the site's defaults apply to the fields left out. They replace the overrides the door had. A secret given as ******** keeps the value the door has for it."}}}
 	]`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("schemas (-want +got):\n%s", diff)

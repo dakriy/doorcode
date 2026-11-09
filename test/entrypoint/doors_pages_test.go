@@ -239,12 +239,13 @@ func TestCreatingADoorFromTheFormOpensItsPage(t *testing.T) {
 	}
 	want := testsupport.Page{
 		Title: "Lobby · doorcode", Heading: "Lobby", Nav: doorsNav,
-		Messages:   []string{"The door has been created. Its controller can enroll once it is connected."},
-		Notes:      doorNote,
-		Values:     map[string]string{"name": "Lobby", "location": "Building A", "notes": "Side entrance.", "picture": ""},
-		Checked:    []string{"public=on"},
-		Tables:     freshDoorTables,
-		Comboboxes: doorComboboxes,
+		Messages:    []string{"The door has been created. Its controller can enroll once it is connected."},
+		Notes:       doorNote,
+		Values:      map[string]string{"name": "Lobby", "location": "Building A", "notes": "Side entrance.", "picture": ""},
+		Checked:     []string{"public=on"},
+		Tables:      freshDoorTables,
+		Comboboxes:  doorComboboxes,
+		LinkTargets: provisioningLink("/api/v1/doors/1/provisioning"),
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("page (-want +got):\n%s", diff)
@@ -282,10 +283,11 @@ func TestDoorPageShowsTheDoorItsChoicesAndItsOpenModeThroughItsZones(t *testing.
 		Title: "Lobby · doorcode", Heading: "Lobby", Nav: doorsNav,
 		Notes: []string{doorNote[0], picturesNote, openNote,
 			"In open mode during Always, Nights, through its zones. Open-mode schedules are set on each zone's page."},
-		Values:     map[string]string{"name": "Lobby", "location": "Building A", "notes": "Side.", "picture": ""},
-		Checked:    []string{"zone_ids=2"},
-		Tables:     freshDoorTables,
-		Comboboxes: doorComboboxes,
+		Values:      map[string]string{"name": "Lobby", "location": "Building A", "notes": "Side.", "picture": ""},
+		Checked:     []string{"zone_ids=2"},
+		Tables:      freshDoorTables,
+		Comboboxes:  doorComboboxes,
+		LinkTargets: provisioningLink("/api/v1/doors/1/provisioning"),
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("page (-want +got):\n%s", diff)

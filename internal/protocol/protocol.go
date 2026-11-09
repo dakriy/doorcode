@@ -235,8 +235,14 @@ type Reply struct {
 // telemetry, how long it may stay open, how often it expects a new
 // timeline, how often its credentials rotate, how many codes a minute
 // (and in a burst) the server checks, where it gets the time, which
-// broker it connects to (empty to keep the one it has), and how much it
-// logs.
+// broker it connects to (empty to keep the one it has) on which port,
+// whether over TLS and verifying it against which certificate, which
+// Wi-Fi network it joins (empty to keep the one it has) and when it roams,
+// its MQTT keep-alive and longest reconnect pause, whether and how it
+// meshes with other doors, how long new firmware may take to connect
+// before it reverts, whether it installs unsigned firmware, and how much
+// it logs. Wi-Fi and mesh passwords travel in the clear here, the one
+// place they leave the server.
 type DoorConfig struct {
 	StrikePulseMS          int    `cbor:"strike_pulse_ms"`
 	KeypadIdleClearMS      int    `cbor:"keypad_idle_clear_ms"`
@@ -252,6 +258,21 @@ type DoorConfig struct {
 	RateLimitBurst         int    `cbor:"rate_limit_burst"`
 	NTPServer              string `cbor:"ntp_server"`
 	BrokerHost             string `cbor:"broker_host"`
+	BrokerPort             int    `cbor:"broker_port"`
+	BrokerTLS              bool   `cbor:"broker_tls"`
+	BrokerCAPEM            string `cbor:"broker_ca_pem"`
+	WifiSSID               string `cbor:"wifi_ssid"`
+	WifiPassword           string `cbor:"wifi_password"`
+	WifiRoamRSSI           int    `cbor:"wifi_roam_rssi"`
+	KeepaliveS             int    `cbor:"keepalive_s"`
+	ReconnectMaxS          int    `cbor:"reconnect_max_s"`
+	MeshEnabled            bool   `cbor:"mesh_enabled"`
+	MeshSSID               string `cbor:"mesh_ssid"`
+	MeshPassword           string `cbor:"mesh_password"`
+	MeshMinRouterRSSI      int    `cbor:"mesh_min_router_rssi"`
+	MeshMaxLayer           int    `cbor:"mesh_max_layer"`
+	UpdateConnectTimeoutS  int    `cbor:"update_connect_timeout_s"`
+	AcceptUnsignedFirmware bool   `cbor:"accept_unsigned_firmware"`
 	LogLevel               string `cbor:"log_level"`
 }
 

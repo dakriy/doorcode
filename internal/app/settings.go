@@ -211,6 +211,8 @@ type settingRow struct {
 	settings.Setting
 	Entered string
 	Options []selectOption
+	// Warning is what the page warns of the value entered.
+	Warning string
 }
 
 // showSettings shows the settings page with status, its inputs holding
@@ -256,6 +258,14 @@ func (a *App) sectionsOf(all []settings.Setting, entered map[string]string) []se
 		row := settingRow{Setting: s, Entered: held[s.Key]}
 		if choices := a.settings.Choices(s); len(choices) > 0 {
 			row.Options = choiceOptions(choices, row.Entered)
+		}
+		switch s.Key {
+		case settings.KeyConnectTimeout:
+			row.Warning = settings.RevertWarning(row.Entered, held[settings.KeyUpdateTimeout])
+		case settings.KeyBrokerHost:
+			row.Warning = settings.HostWarning(row.Entered)
+		case settings.KeyBrokerCA:
+			row.Warning = settings.BrokerWarning(held[settings.KeyBrokerTLS], row.Entered)
 		}
 		sections[last].Rows = append(sections[last].Rows, row)
 	}

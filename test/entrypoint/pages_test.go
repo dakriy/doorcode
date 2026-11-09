@@ -24,6 +24,16 @@ var settingsNote = "Every setting can also be given by an environment variable, 
 	"a setting the environment gives is read-only here. Secret settings are stored encrypted and never shown: leave one blank " +
 	"to keep it, enter a new value to replace it, or tick Clear to remove it."
 
+// brokerNote is what pages warn of while controllers would connect to the
+// broker over TLS with no certificate to verify it against, as they do on
+// a new site.
+var brokerNote = "Controllers connect to the broker over TLS, but door_broker_ca_pem gives no CA certificate: " +
+	"a controller could not verify the broker, so no provisioning file can be made."
+
+// hostNote is what pages warn of while controllers are given no broker to
+// connect to, as they are on a new site.
+var hostNote = "door_broker_host is empty: a controller needs an address to reach the broker, so no provisioning file can be made."
+
 // shownSetting is a setting as the settings page shows it.
 type shownSetting struct {
 	key, value, source string
@@ -53,7 +63,13 @@ var defaultSettings = []shownSetting{
 	{"door_reply_timeout_ms", "3000", "default"}, {"door_telemetry_interval_s", "60", "default"},
 	{"door_held_open_s", "60", "default"}, {"door_timeline_refresh_hours", "6", "default"}, {"door_credential_rotation_days", "30", "default"},
 	{"door_rate_limit_per_minute", "30", "default"}, {"door_rate_limit_burst", "10", "default"},
-	{"door_ntp_server", "pool.ntp.org", "default"}, {"door_broker_host", "", "default"}, {"door_log_level", "info", "default"},
+	{"door_ntp_server", "pool.ntp.org", "default"}, {"door_broker_host", "", "default"}, {"door_broker_port", "8883", "default"},
+	{"door_broker_tls", "true", "default"}, {"door_broker_ca_pem", "", "default"}, {"door_wifi_ssid", "", "default"},
+	{"door_wifi_password", "", "default"}, {"door_wifi_roam_rssi", "-70", "default"}, {"door_keepalive_s", "30", "default"},
+	{"door_reconnect_max_s", "60", "default"}, {"door_mesh_enabled", "false", "default"}, {"door_mesh_ssid", "", "default"},
+	{"door_mesh_password", "", "default"}, {"door_mesh_min_router_rssi", "-75", "default"}, {"door_mesh_max_layer", "4", "default"},
+	{"door_update_connect_timeout_s", "300", "default"}, {"door_accept_unsigned_firmware", "false", "default"},
+	{"door_log_level", "info", "default"},
 }
 
 // settingRows is the section each setting is shown in, and its label and
@@ -108,12 +124,27 @@ var settingRows = map[string]struct{ section, label, help string }{
 	"door_rate_limit_burst":           {"Door defaults", "Code checks in a burst", "A whole number of checks from 1 to 1000."},
 	"door_ntp_server":                 {"Door defaults", "Time server", "A host name of up to 253 letters, digits, dots, and hyphens."},
 	"door_broker_host":                {"Door defaults", "Broker host", "A host name of up to 253 letters, digits, dots, and hyphens, an IP address, or nothing to keep the door's broker."},
+	"door_broker_port":                {"Door defaults", "Broker port", "A port from 1 to 65535."},
+	"door_broker_tls":                 {"Door defaults", "Broker over TLS", "True to connect to the broker over TLS, false for a development broker only."},
+	"door_broker_ca_pem":              {"Door defaults", "Broker CA certificate", "The PEM certificate of the broker's CA or of the broker itself, or nothing."},
+	"door_wifi_ssid":                  {"Door defaults", "Wi-Fi network", "A network name of up to 32 bytes, or nothing to keep the door's network."},
+	"door_wifi_password":              {"Door defaults", "Wi-Fi password", "A password of up to 63 bytes."},
+	"door_wifi_roam_rssi":             {"Door defaults", "Roam below", "A whole number of dBm from -100 to 0."},
+	"door_keepalive_s":                {"Door defaults", "Keep-alive", "A whole number of seconds from 10 to 300."},
+	"door_reconnect_max_s":            {"Door defaults", "Longest reconnect pause", "A whole number of seconds from 5 to 600."},
+	"door_mesh_enabled":               {"Door defaults", "Mesh", "True to let the door join or form a mesh with other doors when its signal is poor."},
+	"door_mesh_ssid":                  {"Door defaults", "Mesh network", "A network name of up to 32 bytes, or nothing."},
+	"door_mesh_password":              {"Door defaults", "Mesh password", "A password of 8 to 63 bytes, or nothing."},
+	"door_mesh_min_router_rssi":       {"Door defaults", "Mesh below", "A whole number of dBm from -100 to 0."},
+	"door_mesh_max_layer":             {"Door defaults", "Deepest mesh hop", "A whole number of hops from 1 to 10."},
+	"door_update_connect_timeout_s":   {"Door defaults", "Revert new firmware after", "A whole number of seconds from 60 to 1800."},
+	"door_accept_unsigned_firmware":   {"Door defaults", "Unsigned firmware", "True to install firmware without a valid signature, on bench and development boards only."},
 	"door_log_level":                  {"Door defaults", "Log level", "One of error, warn, info, debug."},
 }
 
 // secretSettings are the settings the settings page offers as password
 // fields, which are left blank.
-var secretSettings = map[string]bool{"oidc_client_secret": true, "enrollment_password": true}
+var secretSettings = map[string]bool{"oidc_client_secret": true, "enrollment_password": true, "door_wifi_password": true, "door_mesh_password": true}
 
 // settingChoices is what the settings page offers to choose from for each
 // setting it asks for with a select: the zones the stub lists for the
@@ -126,7 +157,10 @@ var settingChoices = map[string][]string{
 
 // yesNoSettings are the settings the settings page asks for with a
 // checkbox.
-var yesNoSettings = map[string]bool{"oidc_enabled": true, "oidc_auto_sign_in": true, "portal_door_pictures": true}
+var yesNoSettings = map[string]bool{
+	"oidc_enabled": true, "oidc_auto_sign_in": true, "portal_door_pictures": true,
+	"door_broker_tls": true, "door_mesh_enabled": true, "door_accept_unsigned_firmware": true,
+}
 
 // settingCell adds what page reads from the cell showing the setting s
 // whose input holds value, and is the cell's text: a read-only setting's
@@ -196,12 +230,31 @@ func words(a, b string) string {
 	return a + " " + b
 }
 
+// settingWarning adds to page the warning the setting key shows while the
+// inputs hold held, and is its text: the broker's certificate warns while
+// it is missing though controllers connect over TLS, and the broker's host
+// while it is empty.
+func settingWarning(page *testsupport.Page, held map[string]string, key string) string {
+	warning := ""
+	switch {
+	case key == "door_broker_host" && held[key] == "":
+		warning = hostNote
+	case key == "door_broker_ca_pem" && held["door_broker_tls"] == "true" && held[key] == "":
+		warning = brokerNote
+	default:
+		return ""
+	}
+	page.Notes = append(page.Notes, warning)
+	return warning
+}
+
 // settingsPage is the settings page showing shown, where changed replaces
 // the value and source of the settings it names, entered the value an
 // input holds, and refused what is wrong with a value; a read-only
 // setting shows its value in place of an input, and a secret that has a
 // value offers to clear it. The sections of single sign-on are open while
-// it is enabled.
+// it is enabled, and the broker's certificate warns while it is missing
+// though controllers connect over TLS.
 func settingsPage(shown []shownSetting, changed map[string]shownSetting, entered, refused map[string]string) testsupport.Page {
 	page := testsupport.Page{
 		Title: "Settings · doorcode", Heading: "Settings", Notes: []string{settingsNote}, Values: map[string]string{"picture": ""},
@@ -209,6 +262,7 @@ func settingsPage(shown []shownSetting, changed map[string]shownSetting, entered
 		Tables:     map[string][][]string{},
 		Comboboxes: []string{"site_timezone"},
 	}
+	held := map[string]string{}
 	for _, s := range shown {
 		if c, ok := changed[s.key]; ok {
 			s = c
@@ -218,7 +272,8 @@ func settingsPage(shown []shownSetting, changed map[string]shownSetting, entered
 		if entered[s.key] != "" || refused[s.key] != "" {
 			value = entered[s.key]
 		}
-		cell := words(settingCell(&page, s, value), refused[s.key])
+		held[s.key] = value
+		cell := words(words(settingCell(&page, s, value), refused[s.key]), settingWarning(&page, held, s.key))
 		if s.key == "oidc_enabled" {
 			page.Disclosures = map[string]bool{"Single sign-on": value == "true", "Identity claims": value == "true"}
 		}

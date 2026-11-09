@@ -1,9 +1,15 @@
 {{define "content"}}
 {{$c := .Content}}{{$w := $c.Window}}
-<div>
-  <h1 class="text-2xl font-semibold tracking-tight">Firmware</h1>
-  <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">The firmware images the door controllers run. Every door runs the default version unless its page names another; the rollout sends each door its version inside the update window, a few doors at a time.</p>
+<div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">Firmware</h1>
+    <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">The firmware images the door controllers run. Every door runs the default version unless its page names another; the rollout sends each door its version inside the update window, a few doors at a time.</p>
+  </div>
+  {{template "provisioning" "/api/v1/firmware/provisioning"}}
 </div>
+{{range $c.Unprovisionable}}
+<p role="note" class="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">{{.}}</p>
+{{end}}
 {{if $c.NoAddress}}
 <p role="note" class="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">No update can be sent until the public_url setting gives the address doors reach this server at, since they download firmware from it.</p>
 {{end}}

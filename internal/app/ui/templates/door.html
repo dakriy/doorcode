@@ -13,7 +13,10 @@
       <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{{with $d.Location}}{{.}} · {{end}}created {{date $.Zone $d.CreatedAt}}</p>
     </div>
   </div>
-  {{if $c.Opens}}<a href="/admin/doors/{{$d.ID}}/calendar" hx-boost="false" class="shrink-0 {{template "secondary-class"}}">{{template "calendar-icon"}}View timeline</a>{{end}}
+  <div class="flex flex-wrap gap-3">
+    {{if $c.Provisions}}{{template "provisioning" (printf "/api/v1/doors/%d/provisioning" $d.ID)}}{{end}}
+    {{if $c.Opens}}<a href="/admin/doors/{{$d.ID}}/calendar" hx-boost="false" class="shrink-0 {{template "secondary-class"}}">{{template "calendar-icon"}}View timeline</a>{{end}}
+  </div>
 </div>
 
 {{with $c.Alert}}<div class="mt-6">{{template "alert" .}}</div>{{end}}
@@ -192,12 +195,21 @@
         {{range $c.Config}}{{$error := index $errors .Name}}
         <tr>
           <td class="px-6 py-3 align-top"><label for="config-{{.Name}}" class="font-medium">{{.Label}}</label><span class="block text-xs text-zinc-500 dark:text-zinc-400">{{.Hint}}</span></td>
-          <td class="px-6 py-3 align-top font-mono text-xs whitespace-nowrap text-zinc-600 dark:text-zinc-400">{{.Default}}</td>
+          <td class="px-6 py-3 align-top font-mono text-xs whitespace-nowrap text-zinc-600 dark:text-zinc-400"><span class="block max-w-48 truncate">{{.Default}}</span></td>
           <td class="w-48 px-6 py-3 align-top">
+            {{if .Secret}}
+            <input id="config-{{.Name}}" name="{{.Name}}" type="password" value="" autocomplete="new-password" placeholder="{{if .Set}}Set; leave blank to keep it{{else}}Follows the default{{end}}"{{if $error}} aria-invalid="true" aria-describedby="{{.Name}}-error"{{end}} class="{{template "input-base"}} font-mono">
+            {{if .Set}}<label class="mt-2 inline-flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400"><input type="checkbox" name="clear" value="{{.Name}}" class="size-4 rounded border-zinc-300 accent-brand-600 dark:border-zinc-700">Clear</label>{{end}}
+            {{else if eq .Input.Kind "long-text"}}
+            <textarea id="config-{{.Name}}" name="{{.Name}}" rows="4" placeholder="{{if .Default}}The site default{{else}}-----BEGIN CERTIFICATE-----{{end}}" spellcheck="false"{{if $error}} aria-invalid="true" aria-describedby="{{.Name}}-error"{{end}} class="{{template "input-base"}} font-mono text-xs">{{.Entered}}</textarea>
+            {{else}}
             <input id="config-{{.Name}}" name="{{.Name}}" type="text" value="{{.Entered}}" placeholder="{{.Default}}" spellcheck="false"{{if $error}} aria-invalid="true" aria-describedby="{{.Name}}-error"{{end}} class="{{template "input-base"}} font-mono">
+            {{end}}
             {{if $error}}<p id="{{.Name}}-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$error}}</p>{{end}}
           </td>
-          <td class="px-6 py-3 align-top font-mono text-xs whitespace-nowrap">{{.Effective}}</td>
+          <td class="px-6 py-3 align-top font-mono text-xs whitespace-nowrap"><span class="block max-w-48 truncate">{{.Effective}}</span>
+            {{with .Warning}}<p role="note" class="mt-2 max-w-64 font-sans text-xs whitespace-normal text-amber-700 dark:text-amber-300">{{.}}</p>{{end}}
+          </td>
         </tr>
         {{end}}
       </tbody>
