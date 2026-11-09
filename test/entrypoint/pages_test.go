@@ -66,7 +66,7 @@ var secretSettings = map[string]bool{"oidc_client_secret": true, "enrollment_pas
 func settingsPage(shown []shownSetting, changed map[string]shownSetting, entered, refused map[string]string) testsupport.Page {
 	page := testsupport.Page{
 		Title: "Settings · doorcode", Heading: "Settings", Notes: settingsNote, Values: map[string]string{},
-		Nav:    []string{"Home", "Users", "Requests", "Groups", "Schedules", "Doors", "Zones", "Firmware", "Events", "Settings (current)", "API tokens", "API docs"},
+		Nav:    []string{"Home", "Dashboard", "Users", "Requests", "Groups", "Schedules", "Doors", "Zones", "Firmware", "Events", "Settings (current)", "API tokens", "API docs"},
 		Tables: map[string][][]string{"Settings": {{"Setting", "Value", "Source", "Environment variable"}}},
 	}
 	for _, s := range shown {

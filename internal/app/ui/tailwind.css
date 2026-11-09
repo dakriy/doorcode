@@ -79,3 +79,75 @@
   background-color: var(--fc-event-bg-color);
   border-color: var(--fc-event-border-color);
 }
+
+/* Charts. Doors take the categorical palette in a fixed order, one color
+   each; allowed and denied entries take its first two; the heatmap takes
+   one blue ramp, light to dark (dark to light on a dark surface). Every
+   step is chosen for its theme rather than flipped. */
+:root {
+  --viz-1: #2a78d6;
+  --viz-2: #eb6834;
+  --viz-3: #1baf7a;
+  --viz-4: #eda100;
+  --viz-5: #e87ba4;
+  --viz-6: #008300;
+  --viz-7: #6250d6;
+  --viz-8: #e34948;
+  --viz-heat-0: var(--color-zinc-100);
+  --viz-heat-1: #cde2fb;
+  --viz-heat-2: #9ec5f4;
+  --viz-heat-3: #6da7ec;
+  --viz-heat-4: #3987e5;
+  --viz-heat-5: #1c5cab;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --viz-1: #3987e5;
+    --viz-2: #d95926;
+    --viz-3: #199e70;
+    --viz-4: #c98500;
+    --viz-5: #d55181;
+    --viz-6: #008300;
+    --viz-7: #9085e9;
+    --viz-8: #e66767;
+    --viz-heat-0: var(--color-zinc-800);
+    --viz-heat-1: #104281;
+    --viz-heat-2: #1c5cab;
+    --viz-heat-3: #2a78d6;
+    --viz-heat-4: #5598e7;
+    --viz-heat-5: #9ec5f4;
+  }
+}
+.viz-fill-allowed { fill: var(--viz-1); }
+.viz-fill-denied { fill: var(--viz-2); }
+.viz-bg-allowed { background-color: var(--viz-1); }
+.viz-bg-denied { background-color: var(--viz-2); }
+.viz-bg-1 { background-color: var(--viz-1); }
+.viz-bg-2 { background-color: var(--viz-2); }
+.viz-bg-3 { background-color: var(--viz-3); }
+.viz-bg-4 { background-color: var(--viz-4); }
+.viz-bg-5 { background-color: var(--viz-5); }
+.viz-bg-6 { background-color: var(--viz-6); }
+.viz-bg-7 { background-color: var(--viz-7); }
+.viz-bg-8 { background-color: var(--viz-8); }
+.viz-line-1 { stroke: var(--viz-1); }
+.viz-line-2 { stroke: var(--viz-2); }
+.viz-line-3 { stroke: var(--viz-3); }
+.viz-line-4 { stroke: var(--viz-4); }
+.viz-line-5 { stroke: var(--viz-5); }
+.viz-line-6 { stroke: var(--viz-6); }
+.viz-line-7 { stroke: var(--viz-7); }
+.viz-line-8 { stroke: var(--viz-8); }
+.viz-heat-0 { fill: var(--viz-heat-0); }
+.viz-heat-1 { fill: var(--viz-heat-1); }
+.viz-heat-2 { fill: var(--viz-heat-2); }
+.viz-heat-3 { fill: var(--viz-heat-3); }
+.viz-heat-4 { fill: var(--viz-heat-4); }
+.viz-heat-5 { fill: var(--viz-heat-5); }
+.viz-bg-heat-1 { background-color: var(--viz-heat-1); }
+.viz-bg-heat-2 { background-color: var(--viz-heat-2); }
+.viz-bg-heat-3 { background-color: var(--viz-heat-3); }
+.viz-bg-heat-4 { background-color: var(--viz-heat-4); }
+.viz-bg-heat-5 { background-color: var(--viz-heat-5); }
+.viz-mark { transition: opacity 120ms; }
+.viz-mark:hover { opacity: 0.75; }

@@ -1,0 +1,254 @@
+{{define "content"}}
+{{$c := .Content}}
+<div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">Dashboard</h1>
+    <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">What waits for attention at {{.Site}} now, and how the doors were used.</p>
+  </div>
+</div>
+
+{{with $c.Counts}}
+<section id="counts-live" hx-get="{{$.URI}}" hx-trigger="live-doors from:body, live-requests from:body" hx-select="#counts-live" hx-swap="outerHTML" aria-labelledby="counts-heading" class="mt-8">
+  <h2 id="counts-heading" class="sr-only">Now</h2>
+  <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+    {{range .}}
+    <div class="relative flex flex-col justify-between gap-3 p-5 {{template "card-class"}}">
+      <div>
+        <dt class="flex items-center gap-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">{{if .Alarm}}<span class="size-2 rounded-full bg-red-500" aria-hidden="true"></span>{{end}}{{.Label}}</dt>
+        <dd class="mt-2 text-3xl font-semibold tracking-tight{{if .Alarm}} text-red-700 dark:text-red-300{{end}}">{{.Value}}{{if .Alarm}}<span class="sr-only"> (needs attention)</span>{{end}}</dd>
+      </div>
+      <a href="{{.Href}}" class="text-xs font-medium {{template "link-class"}}">{{.Action}}<span aria-hidden="true"> →</span></a>
+    </div>
+    {{end}}
+  </dl>
+</section>
+{{end}}
+
+<div id="dashboard-body">
+{{if $c.Ranged}}
+<div hx-target="#dashboard-body" hx-select="#dashboard-body" hx-swap="outerHTML" hx-push-url="true" class="mt-10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+  <div>
+    <p class="text-xs font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">Range</p>
+    <p class="mt-1 text-lg font-semibold tracking-tight">{{$c.Span}}</p>
+    <p class="text-xs text-zinc-500 dark:text-zinc-400">Whole days in {{$c.Zone}}.</p>
+  </div>
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+    <div role="group" aria-label="Range" class="inline-flex shrink-0 overflow-hidden rounded-lg bg-white ring-1 ring-zinc-300 dark:bg-zinc-900 dark:ring-zinc-700">
+      {{range $c.Ranges}}{{if .Current}}<span aria-current="true" class="bg-zinc-900 px-3 py-2 text-xs font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">{{.Label}}</span>{{else}}<a href="{{.Href}}" aria-label="Show {{.Label}}" class="px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800">{{.Label}}</a>{{end}}{{end}}
+    </div>
+    <form method="get" action="/admin" novalidate aria-label="Custom range" class="flex items-end gap-2">
+      {{range list "from" "to"}}{{$error := index $c.Problems .}}
+      <div>
+        <label for="range-{{.}}" class="block text-xs font-medium text-zinc-500 dark:text-zinc-400">{{if eq . "from"}}From{{else}}To{{end}}</label>
+        <input id="range-{{.}}" name="{{.}}" type="date" value="{{if eq . "from"}}{{$c.From}}{{else}}{{$c.To}}{{end}}"{{if $error}} aria-invalid="true" aria-describedby="range-{{.}}-error"{{end}} class="mt-1 {{template "input-base"}} py-1.5">
+        {{if $error}}<p id="range-{{.}}-error" class="sr-only">{{$error}}</p>{{end}}
+      </div>
+      {{end}}
+      <button type="submit" class="{{template "secondary-class"}} py-1.5">Show</button>
+    </form>
+  </div>
+</div>
+{{with $c.Alert}}<div class="mt-4">{{template "alert" .}}</div>{{end}}
+{{with $c.Problems}}<ul class="mt-2 text-sm text-red-600 dark:text-red-400">{{range $field, $message := .}}<li>{{if eq $field "from"}}From{{else}}To{{end}}: {{$message}}</li>{{end}}</ul>{{end}}
+{{end}}
+
+{{with $c.Activity}}
+<section aria-labelledby="activity-heading" class="mt-8">
+  <div class="flex items-end justify-between gap-3">
+    <div>
+      <h2 id="activity-heading" class="text-base font-semibold">Entries</h2>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Every code entered at a keypad that the server checked. Open mode lets people in without a check; the doors' own open counts are under Doors.</p>
+    </div>
+    <a href="/admin/events?type=check" class="shrink-0 {{template "secondary-class"}}">All entries</a>
+  </div>
+  <dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="p-5 {{template "card-class"}}"><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Entries</dt><dd class="mt-2 text-3xl font-semibold tracking-tight">{{.Total}}</dd></div>
+    <div class="p-5 {{template "card-class"}}"><dt class="flex items-center gap-2 text-xs font-medium text-zinc-500 dark:text-zinc-400"><span class="size-2.5 rounded-sm viz-bg-allowed" aria-hidden="true"></span>Allowed</dt><dd class="mt-2 text-3xl font-semibold tracking-tight">{{.Allowed}}{{with .Share}}<span class="ml-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">{{.}}</span>{{end}}</dd></div>
+    <div class="p-5 {{template "card-class"}}"><dt class="flex items-center gap-2 text-xs font-medium text-zinc-500 dark:text-zinc-400"><span class="size-2.5 rounded-sm viz-bg-denied" aria-hidden="true"></span>Denied</dt><dd class="mt-2 text-3xl font-semibold tracking-tight">{{.Denied}}</dd></div>
+    <div class="p-5 {{template "card-class"}}"><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">People</dt><dd class="mt-2 text-3xl font-semibold tracking-tight">{{.Users}}</dd></div>
+  </dl>
+
+  {{with .Days}}
+  <figure class="mt-6 p-6 {{template "card-class"}}">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <figcaption class="text-sm font-semibold">{{.Label}}</figcaption>
+      <div class="flex items-center gap-4 text-xs text-zinc-600 dark:text-zinc-400" aria-hidden="true">
+        <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-sm viz-bg-allowed"></span>Allowed</span>
+        <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-sm viz-bg-denied"></span>Denied</span>
+      </div>
+    </div>
+    <svg role="img" aria-label="{{.Label}}" viewBox="0 0 650 190" class="mt-4 w-full">
+      {{range .Ticks}}<line x1="0" y1="{{.At}}" x2="600" y2="{{.At}}" class="stroke-zinc-200 dark:stroke-zinc-800" stroke-width="1"/><text x="608" y="{{.At}}" dy="4" class="fill-zinc-500 text-[11px] tabular-nums dark:fill-zinc-400">{{.Text}}</text>{{end}}
+      {{range .Columns}}<g class="viz-mark"><rect x="{{.X}}" y="{{.AllowedY}}" width="{{.W}}" height="{{.AllowedH}}" rx="2" class="viz-fill-allowed"><title>{{.Title}}</title></rect><rect x="{{.X}}" y="{{.DeniedY}}" width="{{.W}}" height="{{.DeniedH}}" rx="2" class="viz-fill-denied"><title>{{.Title}}</title></rect></g>{{end}}
+      {{if not .Columns}}<line x1="0" y1="160" x2="600" y2="160" class="stroke-zinc-200 dark:stroke-zinc-800" stroke-width="1"/><text x="300" y="90" text-anchor="middle" class="fill-zinc-400 text-[13px] dark:fill-zinc-500">{{.Empty}}</text>{{end}}
+      <text x="0" y="182" class="fill-zinc-500 text-[11px] dark:fill-zinc-400">{{.Start}}</text>
+      <text x="600" y="182" text-anchor="end" class="fill-zinc-500 text-[11px] dark:fill-zinc-400">{{.End}}</text>
+    </svg>
+  </figure>
+  {{end}}
+  <details class="mt-2 text-sm">
+    <summary class="cursor-pointer text-xs font-medium text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200">Entries per day as a table</summary>
+    <div class="mt-2 overflow-x-auto {{template "card-class"}}">
+      <table aria-label="Entries per day" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+        <thead class="{{template "table-head-class"}}"><tr><th scope="col" class="px-5 py-2">Day</th><th scope="col" class="px-5 py-2">Allowed</th><th scope="col" class="px-5 py-2">Denied</th><th scope="col" class="px-5 py-2">Entries</th></tr></thead>
+        <tbody class="divide-y divide-zinc-100 tabular-nums dark:divide-zinc-800">
+          {{range .DayRows}}<tr><td class="px-5 py-2 whitespace-nowrap">{{.Day}}</td><td class="px-5 py-2">{{.Allowed}}</td><td class="px-5 py-2">{{.Denied}}</td><td class="px-5 py-2">{{.Total}}</td></tr>{{end}}
+        </tbody>
+      </table>
+    </div>
+  </details>
+
+  <div class="mt-6 grid gap-6 lg:grid-cols-5">
+    <figure class="p-6 lg:col-span-3 {{template "card-class"}}">
+      <figcaption class="text-sm font-semibold">By weekday and hour of day</figcaption>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Darker cells had more entries. Each row ends with its weekday's total.</p>
+      {{with .Heat}}
+      <svg role="img" aria-label="Entries by weekday and hour of day" viewBox="0 0 690 190" class="mt-4 w-full">
+        <text x="40" y="12" class="fill-zinc-500 text-[11px] tabular-nums dark:fill-zinc-400">00:00</text><text x="190" y="12" class="fill-zinc-500 text-[11px] tabular-nums dark:fill-zinc-400">06:00</text><text x="340" y="12" class="fill-zinc-500 text-[11px] tabular-nums dark:fill-zinc-400">12:00</text><text x="490" y="12" class="fill-zinc-500 text-[11px] tabular-nums dark:fill-zinc-400">18:00</text>
+        {{range .Rows}}
+        <text x="34" y="{{.Y}}" dy="15" text-anchor="end" class="fill-zinc-500 text-[11px] dark:fill-zinc-400">{{.Day}}</text>
+        {{$y := .Y}}{{range .Cells}}<rect x="{{.X}}" y="{{$y}}" width="23" height="22" rx="3" class="viz-mark viz-heat-{{.Level}}"><title>{{.Title}}</title></rect>{{end}}
+        <text x="648" y="{{.Y}}" dy="15" class="fill-zinc-600 text-[11px] font-medium tabular-nums dark:fill-zinc-300">{{.Total}}</text>
+        {{end}}
+      </svg>
+      <div class="mt-3 flex items-center justify-end gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400" aria-hidden="true">Fewer{{range list "1" "2" "3" "4" "5"}}<span class="size-3 rounded-sm viz-bg-heat-{{.}}"></span>{{end}}More</div>
+      <details class="mt-2 text-sm">
+        <summary class="cursor-pointer text-xs font-medium text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200">As a table</summary>
+        <div class="mt-2 overflow-x-auto">
+          <table aria-label="Entries by weekday and hour of day" class="min-w-full text-xs tabular-nums">
+            <thead class="{{template "table-head-class"}}"><tr><th scope="col" class="px-2 py-1">Weekday</th>{{range $h, $n := .Totals}}<th scope="col" class="px-1 py-1">{{printf "%02d" $h}}</th>{{end}}<th scope="col" class="px-2 py-1">Total</th></tr></thead>
+            <tbody>
+              {{range .Rows}}<tr><th scope="row" class="px-2 py-1 text-left font-medium">{{.Day}}</th>{{range .Counts}}<td class="px-1 py-1 text-center">{{.}}</td>{{end}}<td class="px-2 py-1 font-medium">{{.Total}}</td></tr>{{end}}
+              <tr><th scope="row" class="px-2 py-1 text-left font-medium">All days</th>{{range .Totals}}<td class="px-1 py-1 text-center font-medium">{{.}}</td>{{end}}<td class="px-2 py-1 font-semibold">{{.Total}}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+      {{end}}
+    </figure>
+
+    <section aria-labelledby="denials-heading" class="overflow-hidden lg:col-span-2 {{template "card-class"}}">
+      <div class="px-6 pt-6">
+        <h3 id="denials-heading" class="text-sm font-semibold">Why entries were denied</h3>
+        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Each reason the server gave, most often first.</p>
+      </div>
+      {{template "bar-table" (bartable "Denial reasons" "Reason" "Entries" "viz-bg-denied" .Reasons "No entry was denied in this range.")}}
+    </section>
+  </div>
+
+  <div class="mt-6 grid gap-6 lg:grid-cols-2">
+    {{template "door-ranking" .Busiest}}
+    {{template "door-ranking" .Quietest}}
+  </div>
+</section>
+{{end}}
+
+{{with $c.Health}}
+<section aria-labelledby="health-heading" class="mt-10">
+  <div class="flex items-end justify-between gap-3">
+    <div>
+      <h2 id="health-heading" class="text-base font-semibold">Doors</h2>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Uptime is the share of the range's ended hours in which a door's controller sent telemetry: the server keeps no history of being online, and a report is what shows a door reached it. Trends are means per {{.Unit}}, from the hourly telemetry.</p>
+    </div>
+    <a href="/admin/doors" class="shrink-0 {{template "secondary-class"}}">All doors</a>
+  </div>
+  <div class="mt-4 overflow-hidden {{template "card-class"}}">
+    <div class="overflow-x-auto">
+      <table aria-label="Door uptime" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+        <thead class="{{template "table-head-class"}}"><tr><th scope="col" class="px-6 py-2">Door</th><th scope="col" class="px-6 py-2">Uptime</th><th scope="col" class="px-6 py-2">Reported</th><th scope="col" class="px-6 py-2">Opens</th><th scope="col" class="px-6 py-2">Signal</th><th scope="col" class="px-6 py-2">Latency</th></tr></thead>
+        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+          {{range .Rows}}
+          <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
+            <td class="px-6 py-3 whitespace-nowrap"><a href="/admin/doors/{{.ID}}" class="font-medium {{template "link-class"}}">{{.Name}}</a></td>
+            <td class="px-6 py-3 whitespace-nowrap"><div class="flex items-center gap-3"><span class="w-14 tabular-nums">{{.Uptime}}</span><span class="hidden h-1.5 w-28 overflow-hidden rounded-full bg-zinc-100 sm:block dark:bg-zinc-800" aria-hidden="true"><span class="block h-full rounded-full viz-bg-1" style="width: {{.Percent}}%"></span></span></div></td>
+            <td class="px-6 py-3 whitespace-nowrap tabular-nums text-zinc-600 dark:text-zinc-400">{{.Reported}}</td>
+            <td class="px-6 py-3 tabular-nums">{{.Opens}}</td>
+            <td class="px-6 py-3 whitespace-nowrap tabular-nums">{{.Signal}}</td>
+            <td class="px-6 py-3 whitespace-nowrap tabular-nums">{{.Latency}}</td>
+          </tr>
+          {{else}}
+          <tr><td colspan="6" class="px-6 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">No controller is enrolled as a door yet. Approve one on the pending enrollments page.</td></tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{if .Rows}}
+    <div class="border-t border-zinc-200 px-6 py-5 dark:border-zinc-800">
+      <ul aria-label="Doors in the charts" class="flex flex-wrap gap-x-5 gap-y-2 text-xs text-zinc-600 dark:text-zinc-400">
+        {{range .Legend}}<li class="inline-flex items-center gap-1.5"><span class="h-0.5 w-4 rounded-full {{.Class}}" aria-hidden="true"></span>{{.Name}}</li>{{end}}
+      </ul>
+      {{with .More}}<p role="note" class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">The charts draw the first 8 doors; the table lists {{.}} more.</p>{{end}}
+      <div class="mt-4 grid gap-6 lg:grid-cols-2">
+        {{range .Charts}}{{template "line-chart" .}}{{end}}
+      </div>
+    </div>
+    {{end}}
+  </div>
+</section>
+{{end}}
+
+{{with $c.Versions}}
+<section aria-labelledby="versions-heading" class="mt-10 overflow-hidden {{template "card-class"}}">
+  <div class="flex items-start justify-between gap-3 px-6 pt-6">
+    <div>
+      <h2 id="versions-heading" class="text-sm font-semibold">Firmware versions</h2>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">What the doors' controllers last reported running, now.</p>
+    </div>
+    <a href="/admin/firmware" class="shrink-0 {{template "secondary-class"}}">Firmware</a>
+  </div>
+  {{template "bar-table" (bartable "Firmware versions" "Version" "Doors" "viz-bg-1" .Rows "No controller is enrolled as a door yet.")}}
+</section>
+{{end}}
+
+{{if not (or $c.Activity $c.Health $c.Versions)}}
+<p role="note" class="mt-10 rounded-xl border border-dashed border-zinc-300 px-5 py-4 text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">The entries, door, and firmware figures need the view-logs, manage-doors or door-commander, and manage-firmware roles. Your roles reach the pages in the navigation above.</p>
+{{end}}
+</div>
+{{end}}
+
+{{/* A table of labelled values, each drawn as a bar; given a barTable. */}}
+{{define "bar-table"}}
+<div class="mt-4 overflow-x-auto">
+  <table aria-label="{{.Label}}" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+    <thead class="{{template "table-head-class"}}"><tr><th scope="col" class="px-6 py-2">{{.Name}}</th><th scope="col" class="px-6 py-2 text-right">{{.Unit}}</th></tr></thead>
+    <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+      {{$class := .Class}}
+      {{range .Rows}}
+      <tr>
+        <td class="px-6 py-2.5"><div class="flex flex-col gap-1.5"><span>{{.Label}}</span><span class="block h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800" aria-hidden="true"><span class="block h-full rounded-full {{$class}}" style="width: {{.Percent}}%"></span></span></div></td>
+        <td class="px-6 py-2.5 text-right tabular-nums">{{.Value}}</td>
+      </tr>
+      {{else}}
+      <tr><td colspan="2" class="px-6 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">{{.Empty}}</td></tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{end}}
+
+{{/* A ranking of doors by their entries; given a doorRanking. */}}
+{{define "door-ranking"}}
+<section aria-label="{{.Label}}" class="overflow-hidden {{template "card-class"}}">
+  <div class="px-6 pt-6">
+    <h3 class="text-sm font-semibold">{{.Label}}</h3>
+    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{.About}}</p>
+  </div>
+  <div class="mt-4 overflow-x-auto">
+    <table aria-label="{{.Label}}" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+      <thead class="{{template "table-head-class"}}"><tr><th scope="col" class="px-6 py-2">Door</th><th scope="col" class="px-6 py-2 text-right">Allowed</th><th scope="col" class="px-6 py-2 text-right">Denied</th><th scope="col" class="px-6 py-2 text-right">Entries</th></tr></thead>
+      <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {{range .Doors}}
+        <tr>
+          <td class="px-6 py-2.5"><div class="flex flex-col gap-1.5"><span>{{if .Deleted}}{{.Name}} <span class="text-xs text-zinc-500 dark:text-zinc-400">(deleted)</span>{{else}}<a href="/admin/doors/{{.ID}}" class="{{template "link-class"}}">{{.Name}}</a>{{end}}</span><span class="flex h-1.5 w-full max-w-xs gap-0.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800" aria-hidden="true"><span class="block h-full viz-bg-1" style="width: {{.Percent}}%"></span></span></div></td>
+          <td class="px-6 py-2.5 text-right tabular-nums">{{.Allowed}}</td>
+          <td class="px-6 py-2.5 text-right tabular-nums">{{.Denied}}</td>
+          <td class="px-6 py-2.5 text-right font-medium tabular-nums">{{.Total}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="4" class="px-6 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">{{.Empty}}</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</section>
+{{end}}

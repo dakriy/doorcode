@@ -9,7 +9,7 @@ import (
 )
 
 // groupsNav is the navigation of a groups page for an administrator.
-var groupsNav = []string{"Home", "Users", "Requests", "Groups (current)", "Schedules", "Doors", "Zones", "Firmware", "Events", "Settings", "API tokens", "API docs"}
+var groupsNav = []string{"Home", "Dashboard", "Users", "Requests", "Groups (current)", "Schedules", "Doors", "Zones", "Firmware", "Events", "Settings", "API tokens", "API docs"}
 
 // groupsHead is the header row of the group list.
 var groupsHead = []string{"Name", "Slug", "Roles", "Members", "Pre-assigned"}
@@ -319,7 +319,7 @@ func TestGroupManagerWithoutUserManagementSeesMembersWithoutLinks(t *testing.T) 
 
 	got := pageOf(b.Get("/admin/groups/2"))
 
-	want := []any{[]string{"Home", "Groups (current)", "API tokens", "API docs"},
+	want := []any{[]string{"Home", "Dashboard", "Groups (current)", "API tokens", "API docs"},
 		[][]string{membersHead, {"Administrator", "admin@example.com", "Active", "Remove"}}}
 	if diff := cmp.Diff(want, []any{got.Nav, got.Tables["Members"]}); diff != "" {
 		t.Errorf("nav, members (-want +got):\n%s", diff)

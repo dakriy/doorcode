@@ -9,7 +9,7 @@ import (
 )
 
 // firmwareNav is the navigation of the firmware page.
-var firmwareNav = []string{"Home", "Users", "Requests", "Groups", "Schedules", "Doors", "Zones", "Firmware (current)", "Events", "Settings", "API tokens", "API docs"}
+var firmwareNav = []string{"Home", "Dashboard", "Users", "Requests", "Groups", "Schedules", "Doors", "Zones", "Firmware (current)", "Events", "Settings", "API tokens", "API docs"}
 
 // The heads of the firmware page's tables.
 var (

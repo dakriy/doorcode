@@ -25,6 +25,7 @@ import (
 	"github.com/dakriy/doorcode/internal/rule"
 	"github.com/dakriy/doorcode/internal/schedule"
 	"github.com/dakriy/doorcode/internal/settings"
+	"github.com/dakriy/doorcode/internal/stats"
 	"github.com/dakriy/doorcode/internal/telemetry"
 )
 
@@ -56,6 +57,8 @@ type App struct {
 	// firmware keeps the firmware images and rolls updates out to the
 	// doors.
 	firmware firmware.Service
+	// stats sums up the dashboard's figures.
+	stats stats.Service
 	// identity signs people in through the OpenID Connect provider.
 	identity identity.Service
 	// enrolling says Run has set up the enrollment credentials, and
@@ -103,6 +106,7 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 		doors:     door.Service{Store: store, Clock: clock},
 		rules:     rule.Service{Store: store},
 		events:    event.Service{Store: store},
+		stats:     stats.Service{Store: store},
 		requests:  request.Service{Store: store, Clock: clock, Changed: live.requested},
 		decisions: decision.Service{Store: store, Auth: authService, Settings: s, Clock: clock, Limits: decision.NewLimiter()},
 		broker:    f.Broker(),

@@ -8,7 +8,7 @@ import (
 
 // Page is what a person sees on an HTML page, read from its markup.
 type Page struct {
-	// Title is the document title.
+	// Title is the document title, not that of a mark on a chart.
 	Title string
 	// Heading is the text of the first h1.
 	Heading string
@@ -53,6 +53,10 @@ type Page struct {
 	// Charts maps the label of each chart, an image drawn in SVG, to what
 	// it draws.
 	Charts map[string]Chart
+	// Bars maps the label of each labelled table to the style of each
+	// element in its rows that sets one, such as a bar's "width: 40%", in
+	// order.
+	Bars map[string][]string
 	// Assets is every stylesheet and script the page loads.
 	Assets []string
 }
@@ -64,11 +68,22 @@ type Image struct {
 	Alt string
 }
 
-// Chart is what a chart draws: the points of each line, in order, and
-// each piece of text on it.
+// Chart is what a chart draws: the points of each line, the class that
+// colors each line that has one, each rectangle, and each piece of text
+// on it, in order.
 type Chart struct {
 	Lines  []string
+	Series []string
+	Marks  []Mark
 	Labels []string
+}
+
+// Mark is a rectangle a chart draws: where, how large, its class, which
+// colors it, and the title a pointer over it shows.
+type Mark struct {
+	X, Y, Width, Height string
+	Class               string
+	Title               string
 }
 
 // ParsePage reads a page from HTML.
@@ -103,7 +118,7 @@ func ParsePage(body string) Page {
 
 func (p *Page) read(n *html.Node) {
 	switch {
-	case n.Data == "title":
+	case n.Data == "title" && !within(n, "svg"):
 		p.Title = text(n)
 	case n.Data == "h1" && p.Heading == "":
 		p.Heading = text(n)
@@ -146,6 +161,11 @@ func (p *Page) readChart(svg *html.Node) {
 		case d.Type != html.ElementNode:
 		case d.Data == "polyline":
 			c.Lines = append(c.Lines, attr(d, "points"))
+			if hasAttr(d, "class") {
+				c.Series = append(c.Series, attr(d, "class"))
+			}
+		case d.Data == "rect":
+			c.Marks = append(c.Marks, markOf(d))
 		case d.Data == "text":
 			c.Labels = append(c.Labels, text(d))
 		}
@@ -154,6 +174,17 @@ func (p *Page) readChart(svg *html.Node) {
 		p.Charts = map[string]Chart{}
 	}
 	p.Charts[attr(svg, "aria-label")] = c
+}
+
+// markOf is the rectangle rect, with the text of its title.
+func markOf(rect *html.Node) Mark {
+	m := Mark{X: attr(rect, "x"), Y: attr(rect, "y"), Width: attr(rect, "width"), Height: attr(rect, "height"), Class: attr(rect, "class")}
+	for d := range rect.Descendants() {
+		if d.Data == "title" {
+			m.Title = text(d)
+		}
+	}
+	return m
 }
 
 // readRow reads a table row into the table it belongs to.
@@ -166,8 +197,21 @@ func (p *Page) readRow(tr *html.Node) {
 			p.Tables = map[string][][]string{}
 		}
 		p.Tables[label] = append(p.Tables[label], rowText(tr))
+		p.readBars(label, tr)
 	case table == firstUnlabelledTable(tr):
 		p.Table = append(p.Table, rowText(tr))
+	}
+}
+
+// readBars reads the styles set in tr, a row of the table labelled label.
+func (p *Page) readBars(label string, tr *html.Node) {
+	for d := range tr.Descendants() {
+		if d.Type == html.ElementNode && hasAttr(d, "style") {
+			if p.Bars == nil {
+				p.Bars = map[string][]string{}
+			}
+			p.Bars[label] = append(p.Bars[label], attr(d, "style"))
+		}
 	}
 }
 

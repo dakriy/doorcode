@@ -9,7 +9,7 @@ import (
 )
 
 // doorsNav is the navigation of a doors page for an administrator.
-var doorsNav = []string{"Home", "Users", "Requests", "Groups", "Schedules", "Doors (current)", "Zones", "Firmware", "Events", "Settings", "API tokens", "API docs"}
+var doorsNav = []string{"Home", "Dashboard", "Users", "Requests", "Groups", "Schedules", "Doors (current)", "Zones", "Firmware", "Events", "Settings", "API tokens", "API docs"}
 
 // doorsHead is the header row of the door list.
 var doorsHead = []string{"Picture", "Name", "Status", "Zones", "Open mode", "Portal"}
@@ -547,7 +547,7 @@ func TestDoorPagesAskForTheRole(t *testing.T) {
 	doors := b.Get("/admin/doors")
 	got := []any{doors.Status, b.Get("/admin/zones").Status, testsupport.ParsePage(doors.Body).Nav}
 
-	want := []any{403, 403, []string{"Home", "Schedules", "API tokens", "API docs"}}
+	want := []any{403, 403, []string{"Home", "Dashboard", "Schedules", "API tokens", "API docs"}}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("doors, zones, navigation (-want +got):\n%s", diff)
 	}

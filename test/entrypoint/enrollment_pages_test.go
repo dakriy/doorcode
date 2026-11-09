@@ -10,7 +10,7 @@ import (
 
 // adminNav is the navigation an administrator sees on a page no link
 // leads to.
-var adminNav = []string{"Home", "Users", "Requests", "Groups", "Schedules", "Doors", "Zones", "Firmware", "Events", "Settings", "API tokens", "API docs"}
+var adminNav = []string{"Home", "Dashboard", "Users", "Requests", "Groups", "Schedules", "Doors", "Zones", "Firmware", "Events", "Settings", "API tokens", "API docs"}
 
 // enrollmentsHead and credentialsHead are the header rows of the pending
 // enrollments and of a door's credentials.

@@ -23,7 +23,7 @@ func portalNav(current string) []string {
 
 // toAdministration is where the portal's Administration link leads the
 // first administrator.
-var toAdministration = map[string]string{"Administration": "/admin/users"}
+var toAdministration = map[string]string{"Administration": "/admin"}
 
 // noUserIDNote is what the portal says to a user without a user id about
 // their door code.
@@ -858,29 +858,19 @@ func TestHomeAsksAUserWithoutACodeToChooseOne(t *testing.T) {
 	}
 }
 
-func TestThePortalLeadsARoleHolderToTheirPartOfTheAdministration(t *testing.T) {
+func TestThePortalLeadsEveryRoleHolderToTheDashboard(t *testing.T) {
 	t.Parallel()
-	cases := map[string]struct {
-		roles string
-		want  string
-	}{
-		"users":     {`["manage-users"]`, "/admin/users"},
-		"groups":    {`["manage-groups"]`, "/admin/groups"},
-		"schedules": {`["manage-schedules"]`, "/admin/schedules"},
-		"doors":     {`["manage-doors"]`, "/admin/doors"},
-		"commands":  {`["door-commander"]`, "/admin/doors"},
-		"firmware":  {`["manage-firmware"]`, "/admin/firmware"},
-		"logs":      {`["view-logs"]`, "/admin/events"},
-		"several":   {`["view-logs","manage-groups"]`, "/admin/groups"},
-	}
-	for name, c := range cases {
-		t.Run(name, func(t *testing.T) {
+	for _, roles := range []string{
+		`["manage-users"]`, `["manage-groups"]`, `["manage-schedules"]`, `["manage-doors"]`, `["door-commander"]`, `["manage-firmware"]`,
+		`["view-logs"]`, `["view-logs","manage-groups"]`,
+	} {
+		t.Run(roles, func(t *testing.T) {
 			t.Parallel()
-			_, b := adminHolding(t, testsupport.NewFactory(), c.roles)
+			_, b := adminHolding(t, testsupport.NewFactory(), roles)
 
 			got := pageOf(b.Get("/me/entries")).LinkTargets
 
-			if diff := cmp.Diff(map[string]string{"Administration": c.want}, got); diff != "" {
+			if diff := cmp.Diff(toAdministration, got); diff != "" {
 				t.Errorf("links (-want +got):\n%s", diff)
 			}
 		})

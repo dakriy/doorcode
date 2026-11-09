@@ -44,22 +44,7 @@
   </dl>
   <div class="mt-6 grid gap-6 border-t border-zinc-200 px-6 py-5 lg:grid-cols-2 dark:border-zinc-800">
     {{range .Charts}}
-    <figure>
-      <figcaption class="text-xs font-medium text-zinc-500 dark:text-zinc-400">{{.Label}}</figcaption>
-      <svg role="img" aria-label="{{.Label}}" viewBox="0 0 680 150" class="mt-2 w-full text-brand-600 dark:text-brand-400">
-        <line x1="0" y1="5" x2="600" y2="5" class="stroke-zinc-200 dark:stroke-zinc-800" stroke-width="1"/>
-        <line x1="0" y1="125" x2="600" y2="125" class="stroke-zinc-200 dark:stroke-zinc-800" stroke-width="1"/>
-        {{if .Points}}
-        <polyline points="{{.Points}}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-        <text x="608" y="12" class="fill-zinc-500 text-[11px] dark:fill-zinc-400">{{.Top}}</text>
-        <text x="608" y="129" class="fill-zinc-500 text-[11px] dark:fill-zinc-400">{{.Bottom}}</text>
-        {{else}}
-        <text x="300" y="70" text-anchor="middle" class="fill-zinc-400 text-[13px] dark:fill-zinc-500">{{.Empty}}</text>
-        {{end}}
-        <text x="0" y="145" class="fill-zinc-500 text-[11px] dark:fill-zinc-400">{{.Start}}</text>
-        <text x="600" y="145" text-anchor="end" class="fill-zinc-500 text-[11px] dark:fill-zinc-400">{{.End}}</text>
-      </svg>
-    </figure>
+    {{template "line-chart" .}}
     {{end}}
   </div>
   {{with .Alarms}}

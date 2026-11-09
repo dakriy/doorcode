@@ -30,8 +30,9 @@
         <span>{{.Site}}</span>
         <span class="rounded-md bg-zinc-900 px-1.5 py-0.5 text-[0.6875rem] font-semibold tracking-wide text-white uppercase dark:bg-zinc-100 dark:text-zinc-900">Admin</span>
       </a>
-      <nav aria-label="Main" class="flex flex-1 items-center gap-1 text-sm font-medium">
+      <nav aria-label="Main" class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto text-sm font-medium">
         {{template "navlink" (navlink "/" "Home" .Path)}}
+        {{with .AdminEntry}}{{template "navlink" (navlink . "Dashboard" $.Path)}}{{end}}
         {{if .Viewer.Has "manage-users"}}{{template "navlink" (navlink "/admin/users" "Users" .Path)}}{{end}}
         {{if .Counted}}{{template "requests-navlink" .}}{{end}}
         {{if .Viewer.Has "manage-groups"}}{{template "navlink" (navlink "/admin/groups" "Groups" .Path)}}{{end}}
@@ -60,7 +61,7 @@
 <a href="{{.Href}}"{{if .Current}} aria-current="page"{{end}}{{if .Reload}} hx-boost="false"{{end}} class="{{template "navlink-class"}}">{{.Label}}</a>
 {{end}}
 
-{{define "navlink-class"}}rounded-md px-3 py-2 text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 aria-[current=page]:bg-brand-50 aria-[current=page]:text-brand-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:aria-[current=page]:bg-brand-950 dark:aria-[current=page]:text-brand-300{{end}}
+{{define "navlink-class"}}shrink-0 rounded-md px-3 py-2 whitespace-nowrap text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 aria-[current=page]:bg-brand-50 aria-[current=page]:text-brand-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:aria-[current=page]:bg-brand-950 dark:aria-[current=page]:text-brand-300{{end}}
 
 {{/* The link to the access requests, with how many wait for an answer,
      which reloads itself when the live stream says requests changed.

@@ -13,7 +13,7 @@ import (
 // page labelled current.
 func requestsNav(waiting, current string) []string {
 	nav := []string{}
-	for _, label := range []string{"Home", "Users", "Requests" + waiting, "Groups", "Schedules", "Doors", "Zones", "Firmware", "Events", "Settings", "API tokens", "API docs"} {
+	for _, label := range []string{"Home", "Dashboard", "Users", "Requests" + waiting, "Groups", "Schedules", "Doors", "Zones", "Firmware", "Events", "Settings", "API tokens", "API docs"} {
 		if label == current || label == "Requests"+waiting && current == "Requests" {
 			label += " (current)"
 		}
@@ -94,7 +94,7 @@ func TestARepliedRequestStaysOpenUntilResolvedAndCanBeReopened(t *testing.T) {
 
 	got := []any{
 		replied.Status, afterReply.Messages, afterReply.Values, resolved.Status, again.Status, afterResolve.Messages,
-		reopened.Status, afterReopen.Messages, afterReopen.Nav[2], changed.Status,
+		reopened.Status, afterReopen.Messages, afterReopen.Nav[3], changed.Status,
 	}
 	want := []any{
 		303, []string{"The reply has been saved. The user sees it on their request."}, map[string]string{"reply": "Which lab?"},
@@ -354,7 +354,7 @@ func TestAccessRequestsNeedTheManageUsersRole(t *testing.T) {
 		pageOf(b.Get("/admin/groups")).Nav,
 	}
 
-	want := []any{403, 403, 403, 403, 403, []string{"Home", "Groups (current)", "API tokens", "API docs"}}
+	want := []any{403, 403, 403, 403, 403, []string{"Home", "Dashboard", "Groups (current)", "API tokens", "API docs"}}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("pages, API, navigation (-want +got):\n%s", diff)
 	}

@@ -136,11 +136,11 @@ var (
 	importedTemplate      = shellPage("imported.html")
 )
 
-// livePages are the pages with regions that follow the live stream
-// whoever views them; the rest follow it only for the navigation's count
-// of access requests.
+// livePages are the pages with regions that follow the live stream for
+// whoever views them and may watch it; the rest follow it only for the
+// navigation's count of access requests.
 var livePages = map[*template.Template]bool{
-	doorsTemplate: true, doorTemplate: true, enrollmentsTemplate: true, firmwareTemplate: true,
+	doorsTemplate: true, doorTemplate: true, enrollmentsTemplate: true, firmwareTemplate: true, dashboardTemplate: true,
 }
 
 // watchesLive may watch the live stream: whoever may see one of livePages
@@ -189,6 +189,9 @@ var templateFuncs = template.FuncMap{
 	},
 	"spantable": func(label string, rows []spanRow) spanTable {
 		return spanTable{Label: label, Rows: rows}
+	},
+	"bartable": func(label, name, unit, class string, rows []barRow, empty string) barTable {
+		return barTable{Label: label, Name: name, Unit: unit, Class: class, Rows: rows, Empty: empty}
 	},
 }
 
@@ -253,10 +256,10 @@ type thumbnailView struct {
 	Size string
 }
 
-// within reports whether path is the page href or, for any page but home,
-// one below it.
+// within reports whether path is the page href or, for any page but a
+// home (the portal's and the administration's), one below it.
 func within(path, href string) bool {
-	return path == href || (href != "/" && strings.HasPrefix(path, href+"/"))
+	return path == href || (href != "/" && href != dashboardPath && strings.HasPrefix(path, href+"/"))
 }
 
 // fieldView is one labelled input of a form, with its problem or, without
@@ -350,7 +353,7 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, status int, page *t
 			return
 		}
 	}
-	data.Live = livePages[page] || data.Counted
+	data.Live = livePages[page] && holds(*viewer, watchesLive) || data.Counted
 	writePage(w, status, page, data)
 }
 

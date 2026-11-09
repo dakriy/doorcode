@@ -392,6 +392,40 @@ type TelemetryStore interface {
 	// DeleteRollupsBefore removes every rollup whose hour starts before
 	// before, and returns how many it removed.
 	DeleteRollupsBefore(ctx context.Context, before time.Time) (int, error)
+	// Trends sums up the rollups q selects, ordered by door id and then by
+	// start.
+	Trends(ctx context.Context, q TrendQuery) ([]StoredTrend, error)
+}
+
+// The units a TrendQuery sums rollups up by.
+const (
+	ByHour = "hour"
+	ByDay  = "day"
+)
+
+// TrendQuery selects the rollups whose hour starts at or after From and
+// before To, summed up by door and by the hour or day (Unit, ByHour or
+// ByDay) of Zone they start in.
+type TrendQuery struct {
+	From time.Time
+	To   time.Time
+	Zone *time.Location
+	Unit string
+}
+
+// StoredTrend sums up the rollups of the door whose id is DoorID whose
+// hour starts in the hour or day that starts at Start: how many there are
+// (the hours its controller reported in), how many reports they sum up,
+// the means of their signal strength and latency means weighted by their
+// reports, and how often the door was opened in all.
+type StoredTrend struct {
+	DoorID  int64
+	Start   time.Time
+	Hours   int
+	Samples int
+	Signal  float64
+	Latency float64
+	Opens   int
 }
 
 // StoredDoor is a door as the store holds it. OpenScheduleIDs are the
@@ -459,6 +493,17 @@ type DoorsStore interface {
 	// door whose id is id, replacing those it had, and reports whether
 	// there is such a door.
 	SetDoorConfig(ctx context.Context, id int64, config map[string]string) (bool, error)
+	// FirmwareVersions returns how many doors that are not deleted have a
+	// controller that last reported each firmware version, most doors
+	// first and then by version.
+	FirmwareVersions(ctx context.Context) ([]StoredVersionCount, error)
+}
+
+// StoredVersionCount is how many doors' controllers last reported
+// firmware Version.
+type StoredVersionCount struct {
+	Version string
+	Doors   int
 }
 
 // StoredCredential is one set of broker credentials issued to the
@@ -733,6 +778,67 @@ type EventsStore interface {
 	// by id descending, and how many events q selects on every page
 	// together.
 	Events(ctx context.Context, q EventQuery) ([]StoredEvent, int, error)
+	// EventStats sums up the events q selects.
+	EventStats(ctx context.Context, q EventRange) (StoredEventStats, error)
+}
+
+// EventRange selects the events of type Type at or after From and before
+// To, whose days, weekdays, and hours of day are read in Zone.
+type EventRange struct {
+	Type string
+	From time.Time
+	To   time.Time
+	Zone *time.Location
+}
+
+// StoredEventStats sums up a range of events: how many fell on each day
+// with each outcome, in each hour of each weekday, had each outcome and
+// reason, and happened at each door with each outcome, and how many users
+// they named. A day, weekday, or hour without events, and a door without
+// any, is left out.
+type StoredEventStats struct {
+	// Days are ordered by day and then by outcome.
+	Days []StoredDayCount
+	// Hours are ordered by weekday, Sunday first, and then by hour.
+	Hours []StoredHourCount
+	// Reasons are ordered by outcome and then by reason.
+	Reasons []StoredReasonCount
+	// Doors are ordered by door id and then by outcome.
+	Doors []StoredDoorCount
+	// Users is how many users the events name, each counted once.
+	Users int
+}
+
+// StoredDayCount is how many events with Outcome fell on Day, the date as
+// midnight UTC on it.
+type StoredDayCount struct {
+	Day     time.Time
+	Outcome string
+	Count   int
+}
+
+// StoredHourCount is how many events fell in the hour of day that starts
+// at Hour (0 to 23) on a Weekday.
+type StoredHourCount struct {
+	Weekday time.Weekday
+	Hour    int
+	Count   int
+}
+
+// StoredReasonCount is how many events had Outcome for Reason.
+type StoredReasonCount struct {
+	Outcome string
+	Reason  string
+	Count   int
+}
+
+// StoredDoorCount is how many events with Outcome happened at the door
+// whose id is DoorID, named DoorName.
+type StoredDoorCount struct {
+	DoorID   int64
+	DoorName string
+	Outcome  string
+	Count    int
 }
 
 // StoredFirmware is an uploaded firmware image as the store holds it,

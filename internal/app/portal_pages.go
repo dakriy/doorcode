@@ -58,27 +58,11 @@ func inPortal(path string) bool {
 	return path == "/" || within(path, "/me") || within(path, "/account")
 }
 
-// adminAreas is each part of the administration, in the order its
-// navigation lists them, with the roles that reach it.
-var adminAreas = []struct {
-	path  string
-	roles []string
-}{
-	{"/admin/users", []string{auth.RoleManageUsers}},
-	{"/admin/groups", []string{auth.RoleManageGroups}},
-	{"/admin/schedules", []string{auth.RoleManageSchedules}},
-	{"/admin/doors", []string{auth.RoleManageDoors, auth.RoleDoorCommander}},
-	{"/admin/firmware", []string{auth.RoleManageFirmware}},
-	{"/admin/events", []string{auth.RoleViewLogs}},
-}
-
-// adminEntry is the first part of the administration viewer may use, empty
-// when there is none.
+// adminEntry is where the administration starts for viewer, its
+// dashboard, empty when viewer holds no role that reaches it.
 func adminEntry(viewer auth.User) string {
-	for _, area := range adminAreas {
-		if slices.ContainsFunc(area.roles, viewer.Has) {
-			return area.path
-		}
+	if holds(viewer, administers) {
+		return dashboardPath
 	}
 	return ""
 }

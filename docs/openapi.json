@@ -7116,6 +7116,326 @@
         }
       }
     },
+    "/stats/doors": {
+      "get": {
+        "operationId": "getDoorStats",
+        "summary": "Sum up the doors' uptime and telemetry over a range",
+        "tags": [
+          "stats"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "required": false,
+            "description": "today, 7d (the default), 30d, or 90d: that many days, today included, in the site timezone.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "30d"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "description": "With to, in place of range: the first day of a range of up to 366 days, YYYY-MM-DD, in the site timezone.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-03-01"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "description": "With from: the range's last day, YYYY-MM-DD.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-03-31"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Each door's uptime and telemetry trends over the range, from the hourly rollups.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoorStats"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "range names no range, from or to is not a date, to is before from, or the range spans more than 366 days.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors or door-commander role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stats/entries": {
+      "get": {
+        "operationId": "getEntryStats",
+        "summary": "Sum up the entries at the doors over a range",
+        "tags": [
+          "stats"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "required": false,
+            "description": "today, 7d (the default), 30d, or 90d: that many days, today included, in the site timezone.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "30d"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "description": "With to, in place of range: the first day of a range of up to 366 days, YYYY-MM-DD, in the site timezone.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-03-01"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "description": "With from: the range's last day, YYYY-MM-DD.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-03-31"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The code checks of the range summed up.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryStats"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "range names no range, from or to is not a date, to is before from, or the range spans more than 366 days.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the view-logs role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stats/firmware": {
+      "get": {
+        "operationId": "getFirmwareStats",
+        "summary": "Count the doors running each firmware version",
+        "tags": [
+          "stats"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The firmware versions the doors run.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmwareStats"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-firmware role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stats/now": {
+      "get": {
+        "operationId": "getLiveCounts",
+        "summary": "Count what waits for attention now",
+        "tags": [
+          "stats"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The dashboard's live counts, each only for the roles that see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveCounts"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-users or manage-groups or manage-schedules or manage-doors or door-commander or manage-firmware or view-logs role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/tokens": {
       "get": {
         "operationId": "listTokens",
@@ -9190,6 +9510,28 @@
           "status"
         ]
       },
+      "DayView": {
+        "type": "object",
+        "properties": {
+          "allowed": {
+            "type": "integer",
+            "description": "Entries allowed that day."
+          },
+          "date": {
+            "type": "string",
+            "description": "The day, YYYY-MM-DD."
+          },
+          "denied": {
+            "type": "integer",
+            "description": "Entries denied that day."
+          }
+        },
+        "required": [
+          "date",
+          "allowed",
+          "denied"
+        ]
+      },
       "DoorAccessView": {
         "type": "object",
         "properties": {
@@ -9330,6 +9672,38 @@
           "log_level"
         ]
       },
+      "DoorEntriesView": {
+        "type": "object",
+        "properties": {
+          "allowed": {
+            "type": "integer",
+            "description": "Entries allowed at the door."
+          },
+          "deleted": {
+            "type": "boolean",
+            "description": "True for a deleted door, listed only when it had entries."
+          },
+          "denied": {
+            "type": "integer",
+            "description": "Entries denied at the door."
+          },
+          "door": {
+            "$ref": "#/components/schemas/NameRef",
+            "description": "The door, by id and name."
+          },
+          "total": {
+            "type": "integer",
+            "description": "Entries at the door in all."
+          }
+        },
+        "required": [
+          "door",
+          "deleted",
+          "allowed",
+          "denied",
+          "total"
+        ]
+      },
       "DoorFirmwareView": {
         "type": "object",
         "properties": {
@@ -9361,6 +9735,53 @@
         "required": [
           "door",
           "version"
+        ]
+      },
+      "DoorHealthView": {
+        "type": "object",
+        "properties": {
+          "door": {
+            "$ref": "#/components/schemas/NameRef",
+            "description": "The door, by id and name."
+          },
+          "hours": {
+            "type": "integer",
+            "description": "How many of the range's hours the controller reported in."
+          },
+          "latency_ms": {
+            "type": "number",
+            "description": "The mean round trip over the reports, in milliseconds; absent without reports."
+          },
+          "opens": {
+            "type": "integer",
+            "description": "How often the door was opened, as the controller counted, open mode included."
+          },
+          "samples": {
+            "type": "integer",
+            "description": "How many reports the controller made."
+          },
+          "signal": {
+            "type": "number",
+            "description": "The mean signal strength over the reports, in dBm; absent without reports."
+          },
+          "trend": {
+            "type": "array",
+            "description": "Each hour (ranges of up to 7 days) or day in which the controller reported, oldest first.",
+            "items": {
+              "$ref": "#/components/schemas/TrendView"
+            }
+          },
+          "uptime": {
+            "type": "number",
+            "description": "The share, from 0 to 1, of the range's ended hours in which the controller reported telemetry; absent until an hour of the range has ended."
+          }
+        },
+        "required": [
+          "door",
+          "hours",
+          "samples",
+          "opens",
+          "trend"
         ]
       },
       "DoorList": {
@@ -9480,6 +9901,36 @@
           "held_open",
           "unresponsive",
           "firmware_version"
+        ]
+      },
+      "DoorStats": {
+        "type": "object",
+        "properties": {
+          "doors": {
+            "type": "array",
+            "description": "Every door that is not deleted and has a controller, in id order.",
+            "items": {
+              "$ref": "#/components/schemas/DoorHealthView"
+            }
+          },
+          "hours": {
+            "type": "integer",
+            "description": "How many whole hours of the range have ended, which uptime is a share of."
+          },
+          "range": {
+            "$ref": "#/components/schemas/RangeView",
+            "description": "The range summed up."
+          },
+          "unit": {
+            "type": "string",
+            "description": "hour or day: how long each step of the trends is."
+          }
+        },
+        "required": [
+          "range",
+          "unit",
+          "hours",
+          "doors"
         ]
       },
       "DoorView": {
@@ -9642,6 +10093,78 @@
           "zones"
         ]
       },
+      "EntryStats": {
+        "type": "object",
+        "properties": {
+          "allowed": {
+            "type": "integer",
+            "description": "How many entries were allowed."
+          },
+          "days": {
+            "type": "array",
+            "description": "Every day of the range, oldest first.",
+            "items": {
+              "$ref": "#/components/schemas/DayView"
+            }
+          },
+          "denied": {
+            "type": "integer",
+            "description": "How many entries were denied."
+          },
+          "doors": {
+            "type": "array",
+            "description": "Every door, most entries first; deleted doors only when they had entries.",
+            "items": {
+              "$ref": "#/components/schemas/DoorEntriesView"
+            }
+          },
+          "hours": {
+            "type": "array",
+            "description": "Entries in each hour of the day over every weekday, from 00:00 to 23:00.",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "range": {
+            "$ref": "#/components/schemas/RangeView",
+            "description": "The range summed up."
+          },
+          "reasons": {
+            "type": "array",
+            "description": "Why entries were denied, most often first.",
+            "items": {
+              "$ref": "#/components/schemas/ReasonView"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "description": "How many codes were entered at the doors, each a code check."
+          },
+          "users": {
+            "type": "integer",
+            "description": "How many people entered a code that is theirs, each counted once."
+          },
+          "weekdays": {
+            "type": "array",
+            "description": "Every weekday, Monday first, with its entries by hour of day.",
+            "items": {
+              "$ref": "#/components/schemas/WeekdayView"
+            }
+          }
+        },
+        "required": [
+          "range",
+          "total",
+          "allowed",
+          "denied",
+          "users",
+          "days",
+          "weekdays",
+          "hours",
+          "reasons",
+          "doors"
+        ]
+      },
       "ErrorBody": {
         "type": "object",
         "properties": {
@@ -9767,6 +10290,21 @@
         },
         "required": [
           "firmware"
+        ]
+      },
+      "FirmwareStats": {
+        "type": "object",
+        "properties": {
+          "versions": {
+            "type": "array",
+            "description": "Each version the doors that are not deleted run, most doors first.",
+            "items": {
+              "$ref": "#/components/schemas/VersionView"
+            }
+          }
+        },
+        "required": [
+          "versions"
         ]
       },
       "FirmwareUpload": {
@@ -10148,6 +10686,31 @@
           "file"
         ]
       },
+      "LiveCounts": {
+        "type": "object",
+        "properties": {
+          "doors_open": {
+            "type": "integer",
+            "description": "Doors open now, as their controllers said; only for manage-doors or door-commander."
+          },
+          "open_requests": {
+            "type": "integer",
+            "description": "Access requests waiting for an answer; only for manage-users."
+          },
+          "pending_enrollments": {
+            "type": "integer",
+            "description": "Controllers waiting to be approved as doors; only for manage-doors."
+          },
+          "pending_updates": {
+            "type": "integer",
+            "description": "Doors whose controller does not run its target firmware yet; only for manage-firmware."
+          },
+          "unresponsive_doors": {
+            "type": "integer",
+            "description": "Doors whose controller is connected but has not been heard from for the unresponsive_minutes setting; only for manage-doors or door-commander."
+          }
+        }
+      },
       "MemberList": {
         "type": "object",
         "properties": {
@@ -10516,6 +11079,62 @@
           "reached",
           "works",
           "spans"
+        ]
+      },
+      "RangeView": {
+        "type": "object",
+        "properties": {
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the day after the last starts; the range ends just before."
+          },
+          "from": {
+            "type": "string",
+            "description": "The range's first day, YYYY-MM-DD, in the site timezone."
+          },
+          "range": {
+            "type": "string",
+            "description": "today, 7d, 30d, 90d, or custom."
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the first day starts."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "The site timezone, in which days, weekdays, and hours are read."
+          },
+          "to": {
+            "type": "string",
+            "description": "The range's last day, YYYY-MM-DD, in the site timezone."
+          }
+        },
+        "required": [
+          "range",
+          "from",
+          "to",
+          "start",
+          "end",
+          "timezone"
+        ]
+      },
+      "ReasonView": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "description": "How many were denied for it."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why entries were denied."
+          }
+        },
+        "required": [
+          "reason",
+          "count"
         ]
       },
       "ReplyBody": {
@@ -11157,6 +11776,44 @@
           "expired"
         ]
       },
+      "TrendView": {
+        "type": "object",
+        "properties": {
+          "hours": {
+            "type": "integer",
+            "description": "How many of its hours the controller reported in."
+          },
+          "latency_ms": {
+            "type": "number",
+            "description": "The mean round trip to the server over the reports, in milliseconds."
+          },
+          "opens": {
+            "type": "integer",
+            "description": "How often the door was opened in it."
+          },
+          "samples": {
+            "type": "integer",
+            "description": "How many reports the controller made in it."
+          },
+          "signal": {
+            "type": "number",
+            "description": "The mean signal strength over the reports, in dBm."
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the hour or day starts."
+          }
+        },
+        "required": [
+          "start",
+          "hours",
+          "samples",
+          "signal",
+          "latency_ms",
+          "opens"
+        ]
+      },
       "UpdateView": {
         "type": "object",
         "properties": {
@@ -11367,6 +12024,48 @@
         "required": [
           "id",
           "version"
+        ]
+      },
+      "VersionView": {
+        "type": "object",
+        "properties": {
+          "doors": {
+            "type": "integer",
+            "description": "How many doors' controllers last reported it."
+          },
+          "version": {
+            "type": "string",
+            "description": "A firmware version, as the controllers report it."
+          }
+        },
+        "required": [
+          "version",
+          "doors"
+        ]
+      },
+      "WeekdayView": {
+        "type": "object",
+        "properties": {
+          "hours": {
+            "type": "array",
+            "description": "Entries in each hour of the day, from 00:00 to 23:00.",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "description": "Entries on the weekday in all."
+          },
+          "weekday": {
+            "type": "string",
+            "description": "The weekday: mon, tue, wed, thu, fri, sat, or sun."
+          }
+        },
+        "required": [
+          "weekday",
+          "hours",
+          "total"
         ]
       },
       "WindowBody": {

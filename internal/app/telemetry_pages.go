@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -97,7 +98,7 @@ func (a *App) stateOf(r *http.Request, viewer auth.User, d connector.StoredDoor,
 	if err != nil {
 		return nil, err
 	}
-	frame := chartFrame{from: from, to: to, zone: zone, label: chosen.Label}
+	frame := chartFrame{from: from, to: to, zone: zone, over: "over the last " + chosen.Label, during: "in the last " + chosen.Label}
 	view.Charts = []chartView{frame.chart("Signal", "dBm", signal), frame.chart("Latency", "ms", latency)}
 	view.Alarms, err = a.recent(r.Context(), viewer, connector.EventQuery{DoorID: d.ID, Type: event.Alarm}, zone)
 	return &view, err
@@ -177,13 +178,12 @@ const (
 // chartLayout is how a chart writes the times its range starts and ends.
 const chartLayout = "Mon 2 Jan 15:04"
 
-// chartView is a chart as a door's page draws it: what it shows, the
-// points of its line in its view box, the highest and lowest values,
-// when its range starts and ends, and what it says when it has nothing
-// to draw.
+// chartView is a chart as a page draws it: what it shows, its lines, the
+// highest and lowest values, when its range starts and ends, and what it
+// says when it has nothing to draw.
 type chartView struct {
 	Label  string
-	Points string
+	Lines  []chartLine
 	Top    string
 	Bottom string
 	Start  string
@@ -191,27 +191,50 @@ type chartView struct {
 	Empty  string
 }
 
-// chartFrame is the range of time a door's charts span, from from up to
-// to, written in zone and named label.
-type chartFrame struct {
-	from, to time.Time
-	zone     *time.Location
-	label    string
+// chartLine is one line of a chart: its points in the chart's view box,
+// and the class that colors it, empty for the page's accent color.
+type chartLine struct {
+	Points string
+	Class  string
 }
 
-// chart is the chart of points, values of what name names in unit.
-func (f chartFrame) chart(name, unit string, points []point) chartView {
+// chartFrame is the range of time charts span, from from up to to,
+// written in zone; over names the range after a chart's name ("over the
+// last 24 hours") and during names it after "Nothing reported". A
+// palette frame colors each line as its series, in order.
+type chartFrame struct {
+	from, to     time.Time
+	zone         *time.Location
+	over, during string
+	palette      bool
+}
+
+// chart is the chart of series, each a line of values of what name names
+// in unit, all on one scale. A series without points draws no line.
+func (f chartFrame) chart(name, unit string, series ...[]point) chartView {
 	view := chartView{
-		Label: name + " over the last " + f.label, Start: f.from.In(f.zone).Format(chartLayout), End: f.to.In(f.zone).Format(chartLayout),
-		Empty: "Nothing reported in the last " + f.label + ".",
+		Label: name + " " + f.over, Start: f.from.In(f.zone).Format(chartLayout), End: f.to.In(f.zone).Format(chartLayout),
+		Empty: "Nothing reported " + f.during + ".",
 	}
-	if len(points) == 0 {
+	all := slices.Concat(series...)
+	if len(all) == 0 {
 		return view
 	}
-	low, high := points[0].Value, points[0].Value
-	for _, p := range points {
+	low, high := all[0].Value, all[0].Value
+	for _, p := range all {
 		low, high = math.Min(low, p.Value), math.Max(high, p.Value)
 	}
+	for i, points := range series {
+		if len(points) > 0 {
+			view.Lines = append(view.Lines, chartLine{Points: f.line(points, low, high), Class: f.lineClass(i)})
+		}
+	}
+	view.Top, view.Bottom = valueText(high, unit), valueText(low, unit)
+	return view
+}
+
+// line is points in a chart's view box, scaled from low to high.
+func (f chartFrame) line(points []point, low, high float64) string {
 	span := f.to.Sub(f.from).Seconds()
 	coordinates := []string{}
 	for _, p := range points {
@@ -222,8 +245,15 @@ func (f chartFrame) chart(name, unit string, points []point) chartView {
 		}
 		coordinates = append(coordinates, fmt.Sprintf("%.1f,%.1f", x, y))
 	}
-	view.Points, view.Top, view.Bottom = strings.Join(coordinates, " "), valueText(high, unit), valueText(low, unit)
-	return view
+	return strings.Join(coordinates, " ")
+}
+
+// lineClass is the class of the line of series i.
+func (f chartFrame) lineClass(i int) string {
+	if !f.palette {
+		return ""
+	}
+	return seriesClass("viz-line", i)
 }
 
 // valueText is value in unit as a chart writes it, to a tenth.
