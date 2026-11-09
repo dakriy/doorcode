@@ -41,9 +41,9 @@ var dashboardNav = mainNav("Dashboard", "")
 // its columns.
 func twoDigits(hour int) string {
 	if hour < 10 {
-		return "0" + itoa(hour)
+		return "0" + testsupport.Itoa(hour)
 	}
-	return itoa(hour)
+	return testsupport.Itoa(hour)
 }
 
 // heatTable is the table of entries by weekday and hour of day, where
@@ -59,15 +59,15 @@ func heatTable(busy map[string]map[int]int) [][]string {
 	for _, day := range []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"} {
 		row, sum := []string{day}, 0
 		for hour := range 24 {
-			row, sum, totals[hour] = append(row, itoa(busy[day][hour])), sum+busy[day][hour], totals[hour]+busy[day][hour]
+			row, sum, totals[hour] = append(row, testsupport.Itoa(busy[day][hour])), sum+busy[day][hour], totals[hour]+busy[day][hour]
 		}
-		rows, all = append(rows, append(row, itoa(sum))), all+sum
+		rows, all = append(rows, append(row, testsupport.Itoa(sum))), all+sum
 	}
 	last := []string{"All days"}
 	for _, n := range totals {
-		last = append(last, itoa(n))
+		last = append(last, testsupport.Itoa(n))
 	}
-	return append(rows, append(last, itoa(all)))
+	return append(rows, append(last, testsupport.Itoa(all)))
 }
 
 // The heads of the dashboard's tables.
@@ -163,13 +163,13 @@ func TestTheEntryStatsAPIAnswersTheDashboardsFigures(t *testing.T) {
 			if hour > 0 {
 				out += ","
 			}
-			out += itoa(busy[hour])
+			out += testsupport.Itoa(busy[hour])
 		}
 		return "[" + out + "]"
 	}
 	quiet := hours(nil)
 	weekday := func(day, counts string, total int) string {
-		return `{"weekday":"` + day + `","hours":` + counts + `,"total":` + itoa(total) + `}`
+		return `{"weekday":"` + day + `","hours":` + counts + `,"total":` + testsupport.Itoa(total) + `}`
 	}
 	want := testsupport.JSON(`{"range":{"range":"today","from":"2026-01-05","to":"2026-01-05","start":"2026-01-04T23:00:00Z",` +
 		`"end":"2026-01-05T23:00:00Z","timezone":"Europe/Berlin"},"total":4,"allowed":2,"denied":2,"users":3,` +
@@ -480,7 +480,7 @@ func TestTheDashboardRanksTheMostAndLeastActiveDoors(t *testing.T) {
 	entries := map[string]int{"1": 3, "2": 2, "3": 1}
 	for door, n := range entries {
 		for i := range n {
-			f.BrokerStub.Inject("doorcode/doors/"+door+"/check", testsupport.CBOR(map[string]any{"v": 1, "request_id": "d" + door + itoa(i), "digits": "999999"}))
+			f.BrokerStub.Inject("doorcode/doors/"+door+"/check", testsupport.CBOR(map[string]any{"v": 1, "request_id": "d" + door + testsupport.Itoa(i), "digits": "999999"}))
 			run(t, k.a)
 		}
 	}
@@ -574,8 +574,8 @@ func TestTheTrendChartsDrawEachOfTheFirstEightDoorsOnOneScale(t *testing.T) {
 	a, b := brokerSite(t, f)
 	var conns []*testsupport.Connection
 	for i := 1; i <= 10; i++ {
-		createDoor(t, b, `{"name":"Door `+itoa(i)+`"}`)
-		conn, _ := enrollWith(t, f, a, b, "HW"+itoa(i), itoa(i))
+		createDoor(t, b, `{"name":"Door `+testsupport.Itoa(i)+`"}`)
+		conn, _ := enrollWith(t, f, a, b, "HW"+testsupport.Itoa(i), testsupport.Itoa(i))
 		conns = append(conns, conn)
 	}
 	f.ClockStub.Set("2026-01-05T09:10:00Z")
@@ -589,7 +589,7 @@ func TestTheTrendChartsDrawEachOfTheFirstEightDoorsOnOneScale(t *testing.T) {
 		{"2026-01-05T10:10:00Z", 1, map[string]any{"signal": -64, "latency_ms": 44, "opens": 2}},
 	} {
 		f.ClockStub.Set(report.at)
-		if err := conns[report.door-1].Publish("doorcode/doors/"+itoa(report.door)+"/telemetry", reportOf(report.says), false); err != nil {
+		if err := conns[report.door-1].Publish("doorcode/doors/"+testsupport.Itoa(report.door)+"/telemetry", reportOf(report.says), false); err != nil {
 			t.Fatal(err)
 		}
 		run(t, a)

@@ -232,8 +232,7 @@ func (a *App) listDoors(w http.ResponseWriter, r *http.Request, _ auth.User) {
 // readDoor reads a JSON door request.
 func readDoor(w http.ResponseWriter, r *http.Request) (door.Fields, bool) {
 	var body doorRequest
-	if err := decodeJSON(w, r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, `body must be a JSON object with a string "name"`)
+	if !readJSON(w, r, &body, `a JSON object with a string "name"`) {
 		return door.Fields{}, false
 	}
 	return door.Fields(body), true

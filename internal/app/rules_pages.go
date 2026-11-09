@@ -3,7 +3,6 @@ package app
 import (
 	"errors"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -100,9 +99,7 @@ func (a *App) showRule(w http.ResponseWriter, r *http.Request, status int, viewe
 	for _, sch := range n.schedules {
 		content.Schedules = append(content.Schedules, idOption(sch.ID, sch.Name, sch.ID == f.ScheduleID))
 	}
-	for _, z := range n.zones {
-		content.Zones = append(content.Zones, choice{ID: z.ID, Name: z.Name, Detail: z.Description, Checked: slices.Contains(f.ZoneIDs, z.ID)})
-	}
+	content.Zones = zoneChoices(n.zones, f.ZoneIDs)
 	title := "New access rule"
 	if stored.ID != 0 {
 		title, content.Action = "Access rule", rulePath(g.ID, stored.ID)

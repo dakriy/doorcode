@@ -102,8 +102,7 @@ func (a *App) listGroups(w http.ResponseWriter, r *http.Request, _ auth.User) {
 // readGroup reads a JSON group request.
 func readGroup(w http.ResponseWriter, r *http.Request) (directory.GroupFields, bool) {
 	var body groupRequest
-	if err := decodeJSON(w, r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, `body must be a JSON object with a string "slug" and "name"`)
+	if !readJSON(w, r, &body, `a JSON object with a string "slug" and "name"`) {
 		return directory.GroupFields{}, false
 	}
 	return directory.GroupFields(body), true

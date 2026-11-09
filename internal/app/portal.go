@@ -174,8 +174,7 @@ func (a *App) getOwnCode(w http.ResponseWriter, r *http.Request, caller auth.Use
 
 func (a *App) setOwnCode(w http.ResponseWriter, r *http.Request, caller auth.User) {
 	var body ownCodeRequest
-	if err := decodeJSON(w, r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, `body must be a JSON object with a string "digits"`)
+	if !readJSON(w, r, &body, `a JSON object with a string "digits"`) {
 		return
 	}
 	a.portalDone(w, r, a.directory.SetOwnCode(r.Context(), caller.ID, body.Digits))
@@ -193,8 +192,7 @@ func (a *App) portalDone(w http.ResponseWriter, r *http.Request, err error) {
 
 func (a *App) setOwnPassword(w http.ResponseWriter, r *http.Request, caller auth.User) {
 	var body passwordRequest
-	if err := decodeJSON(w, r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, `body must be a JSON object with a string "new_password"`)
+	if !readJSON(w, r, &body, `a JSON object with a string "new_password"`) {
 		return
 	}
 	a.portalDone(w, r, a.auth.ChoosePassword(r.Context(), caller.ID, body.CurrentPassword, body.NewPassword))
@@ -274,8 +272,7 @@ func (a *App) listOwnRequests(w http.ResponseWriter, r *http.Request, caller aut
 // readRequest reads a JSON access request.
 func readRequest(w http.ResponseWriter, r *http.Request) (request.Fields, bool) {
 	var body requestBody
-	if err := decodeJSON(w, r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, `body must be a JSON object with a string "title"`)
+	if !readJSON(w, r, &body, `a JSON object with a string "title"`) {
 		return request.Fields{}, false
 	}
 	return request.Fields{Title: body.Title, Body: body.Body}, true

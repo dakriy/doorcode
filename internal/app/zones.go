@@ -99,8 +99,7 @@ func (a *App) listZones(w http.ResponseWriter, r *http.Request, _ auth.User) {
 // readZone reads a JSON zone request.
 func readZone(w http.ResponseWriter, r *http.Request) (door.ZoneFields, bool) {
 	var body zoneRequest
-	if err := decodeJSON(w, r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, `body must be a JSON object with a string "name"`)
+	if !readJSON(w, r, &body, `a JSON object with a string "name"`) {
 		return door.ZoneFields{}, false
 	}
 	return door.ZoneFields(body), true

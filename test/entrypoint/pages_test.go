@@ -135,7 +135,7 @@ var yesNoSettings = map[string]bool{"oidc_enabled": true, "oidc_auto_sign_in": t
 func settingCell(page *testsupport.Page, s shownSetting, value string) string {
 	switch {
 	case s.source == "environment, read-only":
-		note := "Set by DOORCODE_" + upper(s.key) + " in the environment; change it there."
+		note := "Set by DOORCODE_" + testsupport.Upper(s.key) + " in the environment; change it there."
 		page.Notes = append(page.Notes, note)
 		return s.value + " " + note
 	case secretSettings[s.key] && s.value != "":

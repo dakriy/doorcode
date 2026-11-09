@@ -24,14 +24,10 @@ const concurrencyNote = "update_concurrency is set by DOORCODE_UPDATE_CONCURRENC
 // windowValues is what the update window form holds on a fleet site, but
 // for the values changed names.
 func windowValues(changed map[string]string) map[string]string {
-	values := map[string]string{
+	return with(map[string]string{
 		"version": "", "notes": "", "image": "", "update_window_start": "02:00", "update_window_minutes": "120", "update_concurrency": "2",
 		"update_timeout_minutes": "30",
-	}
-	for key, value := range changed {
-		values[key] = value
-	}
-	return values
+	}, changed)
 }
 
 // browser is a browser signed in as the administrator on fl's site, its

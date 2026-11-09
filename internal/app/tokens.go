@@ -125,8 +125,7 @@ func (a *App) createToken(w http.ResponseWriter, r *http.Request, caller auth.Us
 // is ownerID.
 func (a *App) issueToken(w http.ResponseWriter, r *http.Request, ownerID int64) {
 	var body tokenRequest
-	if err := decodeJSON(w, r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, `body must be a JSON object with a string "name"`)
+	if !readJSON(w, r, &body, `a JSON object with a string "name"`) {
 		return
 	}
 	name := strings.TrimSpace(body.Name)

@@ -13,7 +13,7 @@ import (
 func holdingOnly(t *testing.T, f *testsupport.Factory, b *testsupport.Browser, roles string) {
 	t.Helper()
 	created := send(t, b, "POST", "/api/v1/groups", `{"slug":"holding","name":"Holding","roles":`+roles+`}`, 201)
-	join(t, b, itoa(int(testsupport.JSONAt(created.Body, "/id").(float64))), "1")
+	join(t, b, testsupport.Itoa(int(testsupport.JSONAt(created.Body, "/id").(float64))), "1")
 	f.StoreStub.LeaveGroup(adminEmail, "administrators")
 }
 

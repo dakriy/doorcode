@@ -131,7 +131,7 @@ func manyDoors(t *testing.T) *testsupport.Browser {
 	createZone(t, b, `{"name":"Even"}`)
 	createZone(t, b, `{"name":"Attic"}`)
 	for i := 1; i <= 30; i++ {
-		createDoor(t, b, `{"name":"Door `+itoa(i/10)+itoa(i%10)+`","zone_ids":[1]}`)
+		createDoor(t, b, `{"name":"Door `+testsupport.Itoa(i/10)+testsupport.Itoa(i%10)+`","zone_ids":[1]}`)
 	}
 	return b
 }
@@ -179,7 +179,7 @@ func TestDoorsPageLinksKeepTheDeletedFilter(t *testing.T) {
 	t.Parallel()
 	b := manyDoors(t)
 	for i := 1; i <= 30; i++ {
-		send(t, b, "DELETE", "/api/v1/doors/"+itoa(i), "", 204)
+		send(t, b, "DELETE", "/api/v1/doors/"+testsupport.Itoa(i), "", 204)
 	}
 
 	got := doorPagerOf(b.Get("/admin/doors?show=deleted"))

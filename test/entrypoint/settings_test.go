@@ -89,18 +89,7 @@ var brokerSettingsJSON = `{"key":"enrollment_username","value":"doorcode-enroll"
 // defaultSetting is how the settings API shows the setting named key
 // holding its default value.
 func defaultSetting(key, value string) string {
-	return `{"key":"` + key + `","value":"` + value + `","source":"default","read_only":false,"env_var":"DOORCODE_` + upper(key) + `"}`
-}
-
-// upper is s with its ASCII letters upper-cased.
-func upper(s string) string {
-	out := []byte(s)
-	for i, c := range out {
-		if 'a' <= c && c <= 'z' {
-			out[i] = c - 'a' + 'A'
-		}
-	}
-	return string(out)
+	return `{"key":"` + key + `","value":"` + value + `","source":"default","read_only":false,"env_var":"DOORCODE_` + testsupport.Upper(key) + `"}`
 }
 
 func TestSettingsListShowsDefaultsAndTheEnvironmentWhenNothingIsStored(t *testing.T) {

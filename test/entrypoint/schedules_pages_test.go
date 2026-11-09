@@ -166,9 +166,9 @@ var oneWindow = []string{"name", "Nights", "windows", "2", "dates", "2",
 var bothExcluded = map[string]string{"excluded-0-first": "2026-12-24", "excluded-0-last": "", "excluded-1-first": "2026-12-25", "excluded-1-last": "2026-12-31"}
 
 // with is values and more together, as a new map.
-func with(values, more map[string]string) map[string]string {
-	out := map[string]string{}
-	for _, m := range []map[string]string{values, more} {
+func with[V any](values, more map[string]V) map[string]V {
+	out := map[string]V{}
+	for _, m := range []map[string]V{values, more} {
 		for k, v := range m {
 			out[k] = v
 		}

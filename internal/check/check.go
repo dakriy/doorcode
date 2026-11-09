@@ -27,6 +27,9 @@ func Slug(s string) bool {
 // MaxHostLength is the longest a host name may be.
 const MaxHostLength = 253
 
+// HostHint says what a host name may be, as HostName takes it.
+var HostHint = fmt.Sprintf("a host name of up to %d letters, digits, dots, and hyphens", MaxHostLength)
+
 // HostName reports whether s is a host name: 1 to MaxHostLength letters,
 // digits, dots, and hyphens.
 func HostName(s string) bool {

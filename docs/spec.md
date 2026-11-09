@@ -132,8 +132,8 @@ zone's open mode or an access rule uses cannot be deleted.
 The server expands the open-mode schedules of a door's zones and its
 overrides into absolute intervals: the door's *timeline*. Locked overrides win over open
 overrides, which win over schedules. Calendars in the UI render the same
-timeline, and a user's access calendar overlays the intervals of the access
-rules that reach them.
+timeline; a door's calendar overlays the intervals of the access rules that
+reach it, and a user's access calendar when their code works (section 12).
 
 ## 6. Overrides
 
@@ -178,8 +178,8 @@ size, and stored in the database.
 
 Door configuration has site defaults editable in settings and per-door
 overrides. Fields: strike pulse duration, keypad idle clear time, minimum and
-maximum code length, submit key, reply timeout, telemetry interval, timeline
-refresh interval, credential rotation interval, rate limit (checks per minute
+maximum code length, submit key, reply timeout, telemetry interval,
+held-open duration, timeline refresh interval, credential rotation interval, rate limit (checks per minute
 and burst), NTP server, broker host (the host name or IP address of the
 broker the door connects to; empty keeps the one it has), log level. The
 server pushes the effective config on connect and on change. Pin mappings
@@ -189,7 +189,7 @@ are firmware concerns and are not here.
 
 The server pushes the next 25 hours of the door's timeline on connect,
 whenever its zones, the open-mode schedules of its zones, those schedules,
-or its overrides change, and at least every 6 hours. A disconnected door follows its cached timeline. Codes are never
+its overrides, or the site timezone change, and at least every 6 hours. A disconnected door follows its cached timeline. Codes are never
 stored on the door; without a connection, code entry is denied and nothing is
 logged until the door reconnects.
 

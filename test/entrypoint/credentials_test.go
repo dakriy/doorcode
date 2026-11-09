@@ -34,7 +34,7 @@ func statuses(t *testing.T, b *testsupport.Browser, id string) []string {
 	body := b.Get("/api/v1/doors/" + id + "/credentials").Body
 	creds, _ := testsupport.JSONAt(body, "/credentials").([]any)
 	for i := range creds {
-		out = append(out, testsupport.JSONString(body, "/credentials/"+itoa(i)+"/status"))
+		out = append(out, testsupport.JSONString(body, "/credentials/"+testsupport.Itoa(i)+"/status"))
 	}
 	return out
 }

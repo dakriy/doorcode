@@ -111,8 +111,7 @@ func (a *App) listOverrides(w http.ResponseWriter, r *http.Request, _ auth.User)
 // readOverride reads a JSON override request.
 func readOverride(w http.ResponseWriter, r *http.Request) (override.Fields, bool) {
 	var body overrideRequest
-	if err := decodeJSON(w, r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, `body must be a JSON object with a string "kind" and RFC 3339 times "start" and "end"`)
+	if !readJSON(w, r, &body, `a JSON object with a string "kind" and RFC 3339 times "start" and "end"`) {
 		return override.Fields{}, false
 	}
 	return override.Fields(body), true

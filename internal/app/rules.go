@@ -183,8 +183,7 @@ func (a *App) listRules(w http.ResponseWriter, r *http.Request, _ auth.User) {
 // readRule reads a JSON access rule request.
 func readRule(w http.ResponseWriter, r *http.Request) (rule.Fields, bool) {
 	var body ruleRequest
-	if err := decodeJSON(w, r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, `body must be a JSON object with a "group_id" and a "schedule_id"`)
+	if !readJSON(w, r, &body, `a JSON object with a "group_id" and a "schedule_id"`) {
 		return rule.Fields{}, false
 	}
 	return rule.Fields(body), true

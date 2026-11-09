@@ -21,6 +21,16 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, v any) error {
 	return json.NewDecoder(http.MaxBytesReader(w, r.Body, maxJSONBody)).Decode(v)
 }
 
+// readJSON reads r's JSON body into v and reports whether it could; when
+// it cannot, it answers 400 saying the body must be want.
+func readJSON(w http.ResponseWriter, r *http.Request, v any, want string) bool {
+	if err := decodeJSON(w, r, v); err != nil {
+		writeError(w, http.StatusBadRequest, "body must be "+want)
+		return false
+	}
+	return true
+}
+
 type errorBody struct {
 	Error     string `json:"error" doc:"What went wrong."`
 	RequestID string `json:"request_id,omitempty" doc:"Names the failure in the server log; present only when the server failed."`

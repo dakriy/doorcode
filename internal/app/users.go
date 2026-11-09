@@ -173,8 +173,7 @@ const (
 // readUser reads a JSON user request as a profile.
 func readUser(w http.ResponseWriter, r *http.Request) (directory.Profile, bool) {
 	var body userRequest
-	if err := decodeJSON(w, r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, `body must be a JSON object with a string "email"`)
+	if !readJSON(w, r, &body, `a JSON object with a string "email"`) {
 		return directory.Profile{}, false
 	}
 	return directory.Profile{
@@ -238,8 +237,7 @@ func (a *App) restoreUser(w http.ResponseWriter, r *http.Request, _ auth.User) {
 
 func (a *App) setCode(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	var body codeRequest
-	if err := decodeJSON(w, r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, `body must be a JSON object with a string "code"`)
+	if !readJSON(w, r, &body, `a JSON object with a string "code"`) {
 		return
 	}
 	a.noContent(w, r, a.directory.SetCode(r.Context(), pathID(r, "id"), body.Code))

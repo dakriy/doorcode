@@ -176,8 +176,7 @@ func (a *App) getRequest(w http.ResponseWriter, r *http.Request, _ auth.User) {
 
 func (a *App) replyToRequest(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	var body replyBody
-	if err := decodeJSON(w, r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, `body must be a JSON object with a string "reply"`)
+	if !readJSON(w, r, &body, `a JSON object with a string "reply"`) {
 		return
 	}
 	one, err := a.requests.Reply(r.Context(), pathID(r, "id"), body.Reply)

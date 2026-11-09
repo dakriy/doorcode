@@ -317,6 +317,7 @@ Requirements are Go, Make, and a POSIX shell; every tool is pinned in
 ```sh
 make verify-fast        # build, vet, lint, entrypoint and fast connector tests with coverage, dead code, OpenAPI drift
 make verify-mutation    # mutation testing of the application code
+make verify-mutation-diff  # the same, only on the lines changed since main
 ```
 
 The slow connector tests need a local Postgres and Mosquitto, which compose

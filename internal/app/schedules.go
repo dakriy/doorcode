@@ -161,8 +161,7 @@ func (a *App) listSchedules(w http.ResponseWriter, r *http.Request, _ auth.User)
 // readSchedule reads a JSON schedule request.
 func readSchedule(w http.ResponseWriter, r *http.Request) (schedule.Fields, bool) {
 	var body scheduleRequest
-	if err := decodeJSON(w, r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, `body must be a JSON object with a string "name" and a "windows" array`)
+	if !readJSON(w, r, &body, `a JSON object with a string "name" and a "windows" array`) {
 		return schedule.Fields{}, false
 	}
 	f := schedule.Fields{Name: body.Name, StartsOn: body.StartsOn, EndsOn: body.EndsOn}

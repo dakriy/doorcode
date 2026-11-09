@@ -97,7 +97,7 @@ func manyUsers(t *testing.T) *testsupport.Browser {
 	t.Helper()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	for i := 1; i <= 30; i++ {
-		n := itoa(i/10) + itoa(i%10)
+		n := testsupport.Itoa(i/10) + testsupport.Itoa(i%10)
 		createUser(t, b, `{"email":"user`+n+`@example.com","display_name":"User `+n+`"}`)
 	}
 	return b
@@ -117,7 +117,7 @@ func TestUsersPageIsPaged(t *testing.T) {
 	t.Parallel()
 	deleteAll := func(t *testing.T, b *testsupport.Browser) {
 		for i := 2; i <= 31; i++ {
-			send(t, b, "DELETE", "/api/v1/users/"+itoa(i), "", 204)
+			send(t, b, "DELETE", "/api/v1/users/"+testsupport.Itoa(i), "", 204)
 		}
 	}
 	cases := map[string]struct {

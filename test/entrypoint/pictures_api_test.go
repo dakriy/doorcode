@@ -350,7 +350,7 @@ func TestUploadAnswersWithARequestIDWhenThePictureCannotBeStored(t *testing.T) {
 func TestPicturesAreTurnedUprightAsTheirEXIFOrientationSays(t *testing.T) {
 	t.Parallel()
 	for o := range uint16(8) {
-		t.Run("orientation "+itoa(int(o+1)), func(t *testing.T) {
+		t.Run("orientation "+testsupport.Itoa(int(o+1)), func(t *testing.T) {
 			t.Parallel()
 			b := signedInAdmin(t, testsupport.NewFactory())
 			createDoor(t, b, frontDoor)

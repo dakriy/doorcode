@@ -40,7 +40,7 @@ func pushSite(t *testing.T, f *testsupport.Factory) (*app.App, *testsupport.Brow
 	a, b := brokerSite(t, f)
 	furnishRuleSite(t, furnishDoorSite(t, b))
 	for i, hwid := range []string{"A1", "B2", "C3"} {
-		enroll(t, f, a, b, hwid, itoa(i+1))
+		enroll(t, f, a, b, hwid, testsupport.Itoa(i+1))
 	}
 	return a, b
 }
@@ -63,16 +63,12 @@ func topicsOf(leaf string, ids ...string) []string {
 // configWith is the configuration message of a door that follows the
 // site's defaults, but for the fields changed names.
 func configWith(changed map[string]any) map[string]any {
-	m := map[string]any{
+	return with(map[string]any{
 		"v": int64(1), "strike_pulse_ms": int64(3000), "keypad_idle_clear_ms": int64(10000), "min_code_length": int64(4),
 		"max_code_length": int64(32), "submit_key": "#", "reply_timeout_ms": int64(3000), "telemetry_interval_s": int64(60),
 		"held_open_s": int64(60), "timeline_refresh_hours": int64(6), "credential_rotation_days": int64(30), "rate_limit_per_minute": int64(30),
 		"rate_limit_burst": int64(10), "ntp_server": "pool.ntp.org", "broker_host": "", "log_level": "info",
-	}
-	for key, value := range changed {
-		m[key] = value
-	}
-	return m
+	}, changed)
 }
 
 // span is a span of a timeline message.

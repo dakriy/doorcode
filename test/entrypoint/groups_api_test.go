@@ -48,7 +48,7 @@ func TestGroupsAreListedByName(t *testing.T) {
 
 	var names []any
 	for i := range 4 {
-		names = append(names, testsupport.JSONAt(got.Body, "/groups/"+itoa(i)+"/name"))
+		names = append(names, testsupport.JSONAt(got.Body, "/groups/"+testsupport.Itoa(i)+"/name"))
 	}
 	if diff := cmp.Diff([]any{"Administrators", "Ann", "Day", "night"}, names); diff != "" {
 		t.Errorf("names (-want +got):\n%s", diff)
@@ -202,7 +202,7 @@ func TestGroupMembersAreListedByName(t *testing.T) {
 
 	var names []any
 	for i := range 3 {
-		names = append(names, testsupport.JSONAt(got.Body, "/members/"+itoa(i)+"/display_name"))
+		names = append(names, testsupport.JSONAt(got.Body, "/members/"+testsupport.Itoa(i)+"/display_name"))
 	}
 	if diff := cmp.Diff([]any{"Administrator", "Ann Smith", "Bo"}, names); diff != "" {
 		t.Errorf("members (-want +got):\n%s", diff)

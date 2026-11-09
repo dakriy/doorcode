@@ -57,7 +57,7 @@ func fleetSite(t *testing.T, f *testsupport.Factory) *fleet {
 	fl := &fleet{t: t, f: f, a: a, b: b}
 	for i, hwid := range []string{"A1", "B2", "C3"} {
 		createDoor(t, b, `{"name":"`+[]string{"Lobby", "Dock", "Attic"}[i]+`"}`)
-		conn, creds := enrollWith(t, f, a, b, hwid, itoa(i+1))
+		conn, creds := enrollWith(t, f, a, b, hwid, testsupport.Itoa(i+1))
 		fl.conns, fl.creds = append(fl.conns, conn), append(fl.creds, creds)
 	}
 	// A token outlasts the session, which ends before the days the tests
@@ -103,7 +103,7 @@ func (fl *fleet) acks(door int, result, detail string) {
 // on its topic ending in leaf, and the server handle it.
 func (fl *fleet) publish(door int, leaf string, payload []byte) {
 	fl.t.Helper()
-	if err := fl.conns[door-1].Publish(doorTopic(itoa(door), leaf), payload, leaf == "online"); err != nil {
+	if err := fl.conns[door-1].Publish(doorTopic(testsupport.Itoa(door), leaf), payload, leaf == "online"); err != nil {
 		fl.t.Fatal(err)
 	}
 	run(fl.t, fl.a)
@@ -121,7 +121,7 @@ func (fl *fleet) download(door int) testsupport.Response {
 // shows it.
 func (fl *fleet) status(door int) any {
 	fl.t.Helper()
-	return testsupport.JSONAt(send(fl.t, fl.b, "GET", "/api/v1/doors/"+itoa(door)+"/firmware", "", 200).Body, "/status")
+	return testsupport.JSONAt(send(fl.t, fl.b, "GET", "/api/v1/doors/"+testsupport.Itoa(door)+"/firmware", "", 200).Body, "/status")
 }
 
 // updateEvents is the reason and detail of every firmware update event,
@@ -813,7 +813,7 @@ func TestTheRolloutSettingsCanBeReadAndChanged(t *testing.T) {
 	got := send(t, b, "PUT", "/api/v1/firmware/settings", `{"update_window_days":"sat,sun","update_window_start":"03:15","update_timeout_minutes":"10"}`, 200)
 
 	stored := func(key, value string) string {
-		return `{"key":"` + key + `","value":"` + value + `","source":"database","read_only":false,"env_var":"DOORCODE_` + upper(key) +
+		return `{"key":"` + key + `","value":"` + value + `","source":"database","read_only":false,"env_var":"DOORCODE_` + testsupport.Upper(key) +
 			`","updated_at":"2026-01-05T09:00:00Z"}`
 	}
 	want := testsupport.JSON(`{"settings":[` + stored("update_window_days", "sat,sun") + `,` + stored("update_window_start", "03:15") + `,` +

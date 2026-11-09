@@ -17,13 +17,9 @@ import (
 // default; the rest of the key is the field's name.
 const doorPrefix = "door_"
 
-// hostHint is what a time server must be, a host name as check.HostName
-// takes it. brokerHint is what a broker host must be: empty tells the door
-// to keep the broker it connects to.
-const (
-	hostHint   = "a host name of up to 253 letters, digits, dots, and hyphens"
-	brokerHint = "a host name of up to 253 letters, digits, dots, and hyphens, an IP address, or nothing to keep the door's broker"
-)
+// brokerHint is what a broker host must be: empty tells the door to keep
+// the broker it connects to.
+var brokerHint = fmt.Sprintf("%s, an IP address, or nothing to keep the door's broker", check.HostHint)
 
 // DoorConfig is the configuration a door runs with. Durations are whole
 // numbers of the unit their name ends in.
@@ -101,7 +97,7 @@ var DoorFields = []DoorField{
 	wholeField("rate_limit_per_minute", "Code checks a minute", "30", 1, 6000, "checks", func(c *DoorConfig) *int { return &c.RateLimitPerMinute }),
 	wholeField("rate_limit_burst", "Code checks in a burst", "10", 1, 1000, "checks", func(c *DoorConfig) *int { return &c.RateLimitBurst }),
 	{
-		Name: "ntp_server", Label: "Time server", Hint: hostHint, fallback: "pool.ntp.org", set: setHost},
+		Name: "ntp_server", Label: "Time server", Hint: check.HostHint, fallback: "pool.ntp.org", set: setHost},
 	{Name: "broker_host", Label: "Broker host", Hint: brokerHint, fallback: "", set: setBrokerHost},
 	choiceField("log_level", "Log level", "info", []string{"error", "warn", "info", "debug"}, func(c *DoorConfig) *string { return &c.LogLevel }),
 }
@@ -134,7 +130,7 @@ func choiceField(name, label, fallback string, choices []string, at func(*DoorCo
 func setHost(c *DoorConfig, value string) error {
 	c.NTPServer = value
 	if !check.HostName(value) {
-		return errors.New("must be " + hostHint)
+		return errors.New("must be " + check.HostHint)
 	}
 	return nil
 }

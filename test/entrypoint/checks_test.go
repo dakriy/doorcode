@@ -54,7 +54,7 @@ func keypadSite(t *testing.T, f *testsupport.Factory) *keypad {
 func (k *keypad) press(digits string) {
 	k.t.Helper()
 	k.checks++
-	check := testsupport.CBOR(map[string]any{"v": 1, "request_id": "r" + itoa(k.checks), "digits": digits})
+	check := testsupport.CBOR(map[string]any{"v": 1, "request_id": "r" + testsupport.Itoa(k.checks), "digits": digits})
 	if err := k.conn.Publish("doorcode/doors/1/check", check, false); err != nil {
 		k.t.Fatal(err)
 	}

@@ -161,3 +161,13 @@ func scheduleChoices(schedules []connector.StoredSchedule, checked []int64) []ch
 	}
 	return out
 }
+
+// zoneChoices are the zones to offer, as for a door or a rule to name,
+// with those among checked checked.
+func zoneChoices(zones []connector.StoredZone, checked []int64) []choice {
+	out := []choice{}
+	for _, z := range zones {
+		out = append(out, choice{ID: z.ID, Name: z.Name, Detail: z.Description, Checked: slices.Contains(checked, z.ID)})
+	}
+	return out
+}

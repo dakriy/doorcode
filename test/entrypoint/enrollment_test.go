@@ -88,7 +88,7 @@ func credentialsOf(t *testing.T, conn *testsupport.Connection) doorCredentials {
 	id, _ := m["door_id"].(int64)
 	username, _ := m["username"].(string)
 	token, _ := m["token"].(string)
-	return doorCredentials{door: itoa(int(id)), username: username, token: token}
+	return doorCredentials{door: testsupport.Itoa(int(id)), username: username, token: token}
 }
 
 // onlineAs is the online status a door's controller connected as username

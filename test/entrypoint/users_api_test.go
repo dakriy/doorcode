@@ -138,8 +138,8 @@ func TestUserListIsPagedAndOrderedByName(t *testing.T) {
 			got := b.Get("/api/v1/users" + c.query)
 
 			var names []any
-			for i := 0; testsupport.JSONAt(got.Body, "/users/"+itoa(i)) != nil; i++ {
-				names = append(names, testsupport.JSONAt(got.Body, "/users/"+itoa(i)+"/display_name"))
+			for i := 0; testsupport.JSONAt(got.Body, "/users/"+testsupport.Itoa(i)) != nil; i++ {
+				names = append(names, testsupport.JSONAt(got.Body, "/users/"+testsupport.Itoa(i)+"/display_name"))
 			}
 			if names == nil {
 				names = []any{}
@@ -508,12 +508,4 @@ func TestUserStoreFailureAnswersWithARequestID(t *testing.T) {
 			}
 		})
 	}
-}
-
-// itoa is n in decimal.
-func itoa(n int) string {
-	if n < 10 {
-		return string(rune('0' + n))
-	}
-	return itoa(n/10) + itoa(n%10)
 }

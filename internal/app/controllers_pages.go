@@ -218,13 +218,3 @@ func credentialRows(creds []connector.StoredCredential, zone *time.Location) []c
 	}
 	return rows
 }
-
-// zoneChoices are the zones to put a door in, with those among checked
-// checked.
-func zoneChoices(zones []connector.StoredZone, checked []int64) []choice {
-	out := []choice{}
-	for _, z := range zones {
-		out = append(out, choice{ID: z.ID, Name: z.Name, Detail: z.Description, Checked: slices.Contains(checked, z.ID)})
-	}
-	return out
-}

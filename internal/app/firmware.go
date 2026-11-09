@@ -355,8 +355,7 @@ func (a *App) deleteFirmware(w http.ResponseWriter, r *http.Request, _ auth.User
 // readChoice reads a JSON firmware choice.
 func readChoice(w http.ResponseWriter, r *http.Request) (*int64, bool) {
 	var body firmwareChoice
-	if err := decodeJSON(w, r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, `body must be a JSON object with "firmware_id", a firmware's id or null`)
+	if !readJSON(w, r, &body, `a JSON object with "firmware_id", a firmware's id or null`) {
 		return nil, false
 	}
 	return body.FirmwareID, true
