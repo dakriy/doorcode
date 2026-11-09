@@ -99,10 +99,10 @@ func TestDoorFieldsAreChecked(t *testing.T) {
 	}{
 		"not json":            {`{"name":1}`, `body must be a JSON object with a string \"name\"`},
 		"no name":             {`{"name":" "}`, "Enter a name."},
-		"a long name":         {`{"name":"` + repeat("x", 101) + `"}`, "Use at most 100 characters."},
+		"a long name":         {`{"name":"` + testsupport.Repeat("x", 101) + `"}`, "Use at most 100 characters."},
 		"a taken name":        {`{"name":"FRONT DOOR"}`, "Another door has this name."},
-		"a long location":     {`{"name":"A","location":"` + repeat("x", 201) + `"}`, "Use at most 200 characters."},
-		"long notes":          {`{"name":"A","notes":"` + repeat("x", 2001) + `"}`, "Use at most 2000 characters."},
+		"a long location":     {`{"name":"A","location":"` + testsupport.Repeat("x", 201) + `"}`, "Use at most 200 characters."},
+		"long notes":          {`{"name":"A","notes":"` + testsupport.Repeat("x", 2001) + `"}`, "Use at most 2000 characters."},
 		"an unknown schedule": {`{"name":"A","open_schedule_ids":[2,4]}`, "No schedule has id 4."},
 		"an unknown zone":     {`{"name":"A","zone_ids":[0]}`, "No zone has id 0."},
 	}
@@ -123,7 +123,7 @@ func TestDoorFieldsAreChecked(t *testing.T) {
 
 func TestDoorAtTheLimitsIsAccepted(t *testing.T) {
 	t.Parallel()
-	body := `{"name":"` + repeat("x", 100) + `","location":"` + repeat("y", 200) + `","notes":"` + repeat("z", 2000) + `"}`
+	body := `{"name":"` + testsupport.Repeat("x", 100) + `","location":"` + testsupport.Repeat("y", 200) + `","notes":"` + testsupport.Repeat("z", 2000) + `"}`
 
 	got := signedInAdmin(t, testsupport.NewFactory()).PostJSON("/api/v1/doors", body)
 

@@ -320,22 +320,13 @@ func TestEveryDocumentedOperationAnswersWithADocumentedStatus(t *testing.T) {
 			for _, op := range ops {
 				got := c.Send(op.Method, op.Target, op.Body)
 
-				if !listed(op.Statuses, got.Status) {
+				if !testsupport.Listed(op.Statuses, got.Status) {
 					t.Errorf("%s %s (%s) answered %d, which the document does not list among %v:\n%s",
 						op.Method, op.Target, op.ID, got.Status, op.Statuses, got.Body)
 				}
 			}
 		})
 	}
-}
-
-func listed(statuses []int, status int) bool {
-	for _, s := range statuses {
-		if s == status {
-			return true
-		}
-	}
-	return false
 }
 
 func TestOpenAPIDescribesPictureUploadsAndImages(t *testing.T) {

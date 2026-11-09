@@ -619,7 +619,7 @@ func TestAFirmwareUploadThatIsWrongIsRefused(t *testing.T) {
 		},
 		"with a version too long": {
 			upload: func(b *testsupport.Browser) testsupport.Response {
-				return b.Upload("/api/v1/firmware", "image", "a.bin", imageOf("1"), "version", repeat("1", 65))
+				return b.Upload("/api/v1/firmware", "image", "a.bin", imageOf("1"), "version", testsupport.Repeat("1", 65))
 			},
 			status: 400, error: "Use at most 64 characters.",
 		},
@@ -638,7 +638,7 @@ func TestAFirmwareUploadThatIsWrongIsRefused(t *testing.T) {
 		},
 		"with notes too long": {
 			upload: func(b *testsupport.Browser) testsupport.Response {
-				return b.Upload("/api/v1/firmware", "image", "a.bin", imageOf("1"), "version", "1.5.0", "notes", repeat("n", 2001))
+				return b.Upload("/api/v1/firmware", "image", "a.bin", imageOf("1"), "version", "1.5.0", "notes", testsupport.Repeat("n", 2001))
 			},
 			status: 400, error: "Use at most 2000 characters.",
 		},

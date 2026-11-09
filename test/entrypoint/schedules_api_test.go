@@ -110,14 +110,14 @@ func TestScheduleFieldsAreChecked(t *testing.T) {
 	}{
 		"not json":         {`windows`, `body must be a JSON object with a string \"name\" and a \"windows\" array`},
 		"no name":          {`{"name":" ","windows":[` + window + `]}`, "Enter a name."},
-		"a long name":      {`{"name":"` + repeat("x", 101) + `","windows":[` + window + `]}`, "Use at most 100 characters."},
+		"a long name":      {`{"name":"` + testsupport.Repeat("x", 101) + `","windows":[` + window + `]}`, "Use at most 100 characters."},
 		"a taken name":     {`{"name":"ALWAYS","windows":[` + window + `]}`, "Another schedule has this name."},
 		"a bad start date": {`{"name":"A","starts_on":"2026-02-30","windows":[` + window + `]}`, "Enter the date as YYYY-MM-DD, or leave it empty."},
 		"a bad end date":   {`{"name":"A","ends_on":"soon","windows":[` + window + `]}`, "Enter the date as YYYY-MM-DD, or leave it empty."},
 		"a backwards range": {`{"name":"A","starts_on":"2026-03-02","ends_on":"2026-03-01","windows":[` + window + `]}`,
 			"End the range on or after the day it starts."},
 		"no windows":       {`{"name":"A","windows":[]}`, "Add at least one window."},
-		"too many windows": {`{"name":"A","windows":[` + repeat(window+",", 20) + window + `]}`, "Use at most 20 windows."},
+		"too many windows": {`{"name":"A","windows":[` + testsupport.Repeat(window+",", 20) + window + `]}`, "Use at most 20 windows."},
 		"a window without days": {`{"name":"A","windows":[{"days":[],"start":"09:00","end":"17:00"}]}`,
 			"Choose at least one day for window 1."},
 		"an unknown day": {`{"name":"A","windows":[{"days":["mon","moon"],"start":"09:00","end":"17:00"}]}`,
@@ -128,7 +128,7 @@ func TestScheduleFieldsAreChecked(t *testing.T) {
 			"Enter the end of window 2 as HH:MM."},
 		"a bad excluded date": {`{"name":"A","windows":[` + window + `],"excluded_dates":["2026-12-25","2026-13-01"]}`,
 			"Enter excluded dates as YYYY-MM-DD; “2026-13-01” is not one."},
-		"too many excluded dates": {`{"name":"A","windows":[` + window + `],"excluded_dates":[` + repeat(`"2026-12-25",`, 366) + `"2026-12-25"]}`,
+		"too many excluded dates": {`{"name":"A","windows":[` + window + `],"excluded_dates":[` + testsupport.Repeat(`"2026-12-25",`, 366) + `"2026-12-25"]}`,
 			"Exclude at most 366 dates."},
 	}
 	for name, c := range cases {
@@ -146,8 +146,8 @@ func TestScheduleFieldsAreChecked(t *testing.T) {
 func TestScheduleAtTheLimitsIsAccepted(t *testing.T) {
 	t.Parallel()
 	window := `{"days":["mon"],"start":"09:00","end":"17:00"}`
-	body := `{"name":"` + repeat("x", 100) + `","windows":[` + repeat(window+",", 19) + window + `],` +
-		`"excluded_dates":[` + repeat(`"2026-12-25",`, 365) + `"2026-12-25"]}`
+	body := `{"name":"` + testsupport.Repeat("x", 100) + `","windows":[` + testsupport.Repeat(window+",", 19) + window + `],` +
+		`"excluded_dates":[` + testsupport.Repeat(`"2026-12-25",`, 365) + `"2026-12-25"]}`
 
 	got := signedInAdmin(t, testsupport.NewFactory()).PostJSON("/api/v1/schedules", body)
 

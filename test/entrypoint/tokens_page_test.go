@@ -113,7 +113,7 @@ func TestTokenFormSaysWhatIsWrong(t *testing.T) {
 	}{
 		"blank name": {fields: []string{"name", "  ", "expires_in_days", "30"},
 			want: map[string]string{"name": "Enter a name for the token."}},
-		"name too long": {fields: []string{"name", repeat("x", 101), "expires_in_days", "30"},
+		"name too long": {fields: []string{"name", testsupport.Repeat("x", 101), "expires_in_days", "30"},
 			want: map[string]string{"name": "Use at most 100 characters for the name."}},
 		"expiry not a number": {fields: []string{"name", "ci", "expires_in_days", "soon"},
 			want: map[string]string{"expires_in_days": "Choose when the token expires."}},

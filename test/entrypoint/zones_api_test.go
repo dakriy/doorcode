@@ -87,9 +87,9 @@ func TestZoneFieldsAreChecked(t *testing.T) {
 	}{
 		"not json":           {`{"door_ids":"all"}`, `body must be a JSON object with a string \"name\"`},
 		"no name":            {`{"name":""}`, "Enter a name."},
-		"a long name":        {`{"name":"` + repeat("x", 101) + `"}`, "Use at most 100 characters."},
+		"a long name":        {`{"name":"` + testsupport.Repeat("x", 101) + `"}`, "Use at most 100 characters."},
 		"a taken name":       {`{"name":"EAST"}`, "Another zone has this name."},
-		"a long description": {`{"name":"A","description":"` + repeat("x", 501) + `"}`, "Use at most 500 characters."},
+		"a long description": {`{"name":"A","description":"` + testsupport.Repeat("x", 501) + `"}`, "Use at most 500 characters."},
 		"an unknown door":    {`{"name":"A","door_ids":[1,3]}`, "No door has id 3."},
 	}
 	for name, c := range cases {
@@ -110,9 +110,9 @@ func TestZoneFieldsAreChecked(t *testing.T) {
 func TestZoneAtTheLimitsIsAcceptedAndKeepsItsOwnName(t *testing.T) {
 	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
-	createZone(t, b, `{"name":"`+repeat("x", 100)+`","description":"`+repeat("y", 500)+`"}`)
+	createZone(t, b, `{"name":"`+testsupport.Repeat("x", 100)+`","description":"`+testsupport.Repeat("y", 500)+`"}`)
 
-	got := b.PutJSON("/api/v1/zones/1", `{"name":"`+repeat("X", 100)+`"}`)
+	got := b.PutJSON("/api/v1/zones/1", `{"name":"`+testsupport.Repeat("X", 100)+`"}`)
 
 	if diff := cmp.Diff(200, got.Status); diff != "" {
 		t.Errorf("status (-want +got):\n%s\n%s", diff, got.Body)

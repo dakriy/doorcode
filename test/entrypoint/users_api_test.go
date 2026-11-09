@@ -41,7 +41,7 @@ func TestCreatedUserIsTidied(t *testing.T) {
 
 func TestUserRequestIsChecked(t *testing.T) {
 	t.Parallel()
-	long := repeat("x", 101)
+	long := testsupport.Repeat("x", 101)
 	cases := map[string]struct {
 		body string
 		want string
@@ -50,10 +50,10 @@ func TestUserRequestIsChecked(t *testing.T) {
 		"no email":              {body: `{"display_name":"A"}`, want: "Enter an email address."},
 		"not an email":          {body: `{"email":"ann","display_name":"A"}`, want: "Enter an email address like name@example.com."},
 		"email with a name":     {body: `{"email":"Ann <ann@example.com>","display_name":"A"}`, want: "Enter an email address like name@example.com."},
-		"email too long":        {body: `{"email":"` + repeat("a", 243) + `@example.com","display_name":"A"}`, want: "Use at most 254 characters for the email address."},
+		"email too long":        {body: `{"email":"` + testsupport.Repeat("a", 243) + `@example.com","display_name":"A"}`, want: "Use at most 254 characters for the email address."},
 		"email taken":           {body: `{"email":"ADMIN@example.com","display_name":"A"}`, want: "Another user has this email address."},
 		"user id with a space":  {body: `{"email":"a@example.com","display_name":"A","user_id":"1 2"}`, want: "Use up to 64 letters, digits, dots, dashes, or underscores."},
-		"user id too long":      {body: `{"email":"a@example.com","display_name":"A","user_id":"` + repeat("1", 65) + `"}`, want: "Use up to 64 letters, digits, dots, dashes, or underscores."},
+		"user id too long":      {body: `{"email":"a@example.com","display_name":"A","user_id":"` + testsupport.Repeat("1", 65) + `"}`, want: "Use up to 64 letters, digits, dots, dashes, or underscores."},
 		"user id taken":         {body: `{"email":"a@example.com","display_name":"A","user_id":"100234"}`, want: "Another user has this user id."},
 		"first name too long":   {body: `{"email":"a@example.com","first_name":"` + long + `"}`, want: "Use at most 100 characters."},
 		"last name too long":    {body: `{"email":"a@example.com","last_name":"` + long + `"}`, want: "Use at most 100 characters."},
@@ -78,10 +78,10 @@ func TestUserRequestIsChecked(t *testing.T) {
 func TestUserRequestAcceptsTheEdgesOfItsRanges(t *testing.T) {
 	t.Parallel()
 	bodies := map[string]string{
-		"254 character email":      `{"email":"` + repeat("a", 242) + `@example.com","display_name":"A"}`,
-		"64 character user id":     `{"email":"a@example.com","display_name":"A","user_id":"` + repeat("9", 64) + `"}`,
-		"100 character names":      `{"email":"a@example.com","first_name":"` + repeat("é", 100) + `","last_name":"` + repeat("é", 100) + `","display_name":"A"}`,
-		"100 character first name": `{"email":"a@example.com","first_name":"` + repeat("é", 100) + `"}`,
+		"254 character email":      `{"email":"` + testsupport.Repeat("a", 242) + `@example.com","display_name":"A"}`,
+		"64 character user id":     `{"email":"a@example.com","display_name":"A","user_id":"` + testsupport.Repeat("9", 64) + `"}`,
+		"100 character names":      `{"email":"a@example.com","first_name":"` + testsupport.Repeat("é", 100) + `","last_name":"` + testsupport.Repeat("é", 100) + `","display_name":"A"}`,
+		"100 character first name": `{"email":"a@example.com","first_name":"` + testsupport.Repeat("é", 100) + `"}`,
 		"only a last name":         `{"email":"a@example.com","last_name":"Smith"}`,
 		"user id with symbols":     `{"email":"a@example.com","display_name":"A","user_id":"A-1_b.2"}`,
 		"another user's user id":   `{"email":"a@example.com","display_name":"A","user_id":"100235"}`,
