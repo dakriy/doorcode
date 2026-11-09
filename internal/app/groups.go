@@ -21,7 +21,7 @@ type groupRequest struct {
 	Name               string   `json:"name" doc:"The group's name, up to 100 characters."`
 	Description        string   `json:"description,omitempty" doc:"What the group is for, up to 1000 characters."`
 	Roles              []string `json:"roles,omitempty" doc:"The roles the group carries: admin, manage-users, manage-doors, manage-groups, manage-schedules, manage-firmware, view-logs, door-commander. The caller must hold each."`
-	PreassignedUserIDs []string `json:"preassigned_user_ids,omitempty" doc:"User ids whose users join the group when they are created."`
+	PreassignedUserIDs []string `json:"preassigned_user_ids,omitempty" doc:"User ids whose users join the group when they are created; an id leaves the list as its user joins."`
 }
 
 var (

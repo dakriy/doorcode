@@ -81,7 +81,8 @@ sign in. Deleting a user or a door is a soft delete; its events stay.
 A group has a slug (unique, URL-safe), a name, a description, members,
 roles, and a list of pre-assigned user ids: a user whose user id is listed
 joins the group on first sign-in (unless entitlements decide groups, see
-section 10) or import. Groups contain people only.
+section 10) or import, and the id then leaves the list. Groups contain
+people only.
 
 A zone has a name, a description, a set of doors, and a set of open-mode
 schedules. A door may be in many zones and is in open mode during the

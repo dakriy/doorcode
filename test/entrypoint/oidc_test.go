@@ -145,6 +145,38 @@ func TestWithoutAnEntitlementsClaimNameANewIdentityJoinsTheDefaultAndPreassigned
 	}
 }
 
+func TestAFirstSignInTakesTheUserIDOffTheListsOfTheGroupsItJoins(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	h, admin := unentitledSite(t, f)
+	createInterns(t, admin)
+	createGroup(t, admin, `{"slug":"night","name":"Night","preassigned_user_ids":["100877","100234"]}`)
+
+	viaProvider(t, f, h, annClaims())
+	interns := testsupport.JSONAt(send(t, admin, "GET", "/api/v1/groups/6", "", 200).Body, "/preassigned_user_ids")
+	night := pageOf(admin.Get("/admin/groups/7")).Values["preassigned_user_ids"]
+
+	if diff := cmp.Diff([]any{[]any{}, "100877", []any{"interns", "night", "visitors"}}, []any{interns, night, groupSlugs(t, admin, "2")}); diff != "" {
+		t.Errorf("Interns' pre-assigned ids, Night's on its page, Ann's groups (-want +got):\n%s", diff)
+	}
+}
+
+func TestAFirstSignInThatCannotTakeTheUserIDOffAListSeesTheErrorPage(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	h, admin := unentitledSite(t, f)
+	createInterns(t, admin)
+	b := testsupport.NewBrowser(h)
+	back := f.IdentityStub.Authorize(b.Get("/sign-in/oidc").Location, annClaims())
+	f.StoreStub.FailGroupWrites()
+
+	got := b.Get(back)
+
+	if diff := cmp.Diff([]any{500, "stub: unavailable"}, []any{got.Status, lastLog(f).Fields["error"]}); diff != "" {
+		t.Errorf("status, log (-want +got):\n%s", diff)
+	}
+}
+
 func TestASignInMakesTheUserAMemberOfExactlyTheExistingGroupsItsEntitlementsName(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
@@ -181,9 +213,10 @@ func TestANewIdentityWithoutTheEntitlementsClaimJoinsNoDefaultOrPreassignedGroup
 	createInterns(t, admin)
 
 	_, got := viaProvider(t, f, h, annClaims("groups", nil))
+	interns := testsupport.JSONAt(send(t, admin, "GET", "/api/v1/groups/6", "", 200).Body, "/preassigned_user_ids")
 
-	if diff := cmp.Diff([]any{303, []any(nil)}, []any{got.Status, groupSlugs(t, admin, "2")}); diff != "" {
-		t.Errorf("status, groups (-want +got):\n%s", diff)
+	if diff := cmp.Diff([]any{303, []any(nil), []any{"100234"}}, []any{got.Status, groupSlugs(t, admin, "2"), interns}); diff != "" {
+		t.Errorf("status, groups, Interns' pre-assigned ids (-want +got):\n%s", diff)
 	}
 }
 

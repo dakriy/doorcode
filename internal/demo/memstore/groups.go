@@ -178,3 +178,16 @@ func (s *Store) Preassign(_ context.Context, groupID int64, userID string) error
 	s.groups[groupID] = g
 	return nil
 }
+
+// RemovePreassigned takes userID off the group's pre-assigned user ids.
+func (s *Store) RemovePreassigned(_ context.Context, groupID int64, userID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	g, ok := s.groups[groupID]
+	if !ok {
+		return nil
+	}
+	g.PreassignedUserIDs = slices.DeleteFunc(list(g.PreassignedUserIDs), func(id string) bool { return id == userID })
+	s.groups[groupID] = g
+	return nil
+}

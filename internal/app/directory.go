@@ -92,7 +92,7 @@ type groupView struct {
 	Name               string   `json:"name" doc:"The group's name."`
 	Description        string   `json:"description" doc:"What the group is for; may be empty."`
 	Roles              []string `json:"roles" doc:"The roles the group carries; every member holds them."`
-	PreassignedUserIDs []string `json:"preassigned_user_ids" doc:"User ids whose users join the group when they are created."`
+	PreassignedUserIDs []string `json:"preassigned_user_ids" doc:"User ids whose users join the group when they are created; an id leaves the list as its user joins."`
 	MemberCount        int      `json:"member_count" doc:"How many users are members."`
 }
 

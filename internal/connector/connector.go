@@ -203,6 +203,10 @@ type GroupsStore interface {
 	// group whose id is groupID; adding one it holds already changes
 	// nothing, and so does naming a group there is not.
 	Preassign(ctx context.Context, groupID int64, userID string) error
+	// RemovePreassigned takes userID off the pre-assigned user ids of the
+	// group whose id is groupID; removing one it does not hold changes
+	// nothing, and so does naming a group there is not.
+	RemovePreassigned(ctx context.Context, groupID int64, userID string) error
 }
 
 // StoredSession is a sign-in session as the store holds it. The store keeps

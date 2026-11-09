@@ -81,7 +81,7 @@
   <div class="sm:col-span-2">
     <label for="preassigned_user_ids" class="block text-sm font-medium">Pre-assigned user ids</label>
     <textarea id="preassigned_user_ids" name="preassigned_user_ids" rows="4" spellcheck="false"{{with index .Errors "preassigned_user_ids"}} aria-invalid="true" aria-describedby="preassigned_user_ids-error"{{end}} class="{{template "input-class"}} font-mono">{{.Preassigned}}</textarea>
-    {{template "field-note" (field "preassigned_user_ids" "" "" "" .Errors "One per line. A user with one of these user ids joins the group when they are created.")}}
+    {{template "field-note" (field "preassigned_user_ids" "" "" "" .Errors "One per line. A user with one of these user ids joins the group when they are created, and the id leaves this list.")}}
   </div>
 </div>
 {{end}}

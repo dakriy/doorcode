@@ -10659,7 +10659,7 @@
           },
           "preassigned_user_ids": {
             "type": "array",
-            "description": "User ids whose users join the group when they are created.",
+            "description": "User ids whose users join the group when they are created; an id leaves the list as its user joins.",
             "items": {
               "type": "string"
             }
@@ -10702,7 +10702,7 @@
           },
           "preassigned_user_ids": {
             "type": "array",
-            "description": "User ids whose users join the group when they are created.",
+            "description": "User ids whose users join the group when they are created; an id leaves the list as its user joins.",
             "items": {
               "type": "string"
             }

@@ -137,7 +137,8 @@ func TestGroupPageListsItsMembers(t *testing.T) {
 
 	want := testsupport.Page{
 		Title: "Night · doorcode", Heading: "Night", Nav: groupsNav,
-		Values:  nightForm,
+		Values: map[string]string{"name": "Night", "slug": "night", "description": "Late shifts.",
+			"preassigned_user_ids": "100877", "member": ""},
 		Checked: []string{"roles=view-logs", "roles=door-commander"},
 		Tables: map[string][][]string{
 			"Members": {
