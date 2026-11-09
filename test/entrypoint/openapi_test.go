@@ -352,7 +352,7 @@ func TestOpenAPIDescribesPictureUploadsAndImages(t *testing.T) {
 		{"required": true, "content": {"multipart/form-data": {"schema": {"$ref": "#/components/schemas/PictureUpload"}}}},
 		{"type": "object", "required": ["picture"], "properties": {
 			"picture": {"type": "string", "format": "binary", "description": "The image: JPEG, PNG, GIF, or WebP."}}},
-		{"description": "The image reduced to at most 320 pixels on its longest side. Anyone signed in may read the pictures of a door the portal shows; other doors' need the manage-doors or door-commander or manage-firmware role.",
+		{"description": "The image reduced to at most 320 pixels on its longest side. While the setting portal_door_pictures is true, anyone signed in may read the pictures of a door the portal shows; otherwise, and for other doors, they need the manage-doors or door-commander or manage-firmware role.",
 		 "content": {"image/jpeg": {"schema": {"type": "string", "format": "binary"}}}}
 	]`)
 	if diff := cmp.Diff(want, got); diff != "" {

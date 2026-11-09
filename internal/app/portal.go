@@ -31,7 +31,7 @@ type passwordRequest struct {
 type portalDoorView struct {
 	Door         nameRef          `json:"door" doc:"The door."`
 	Location     string           `json:"location" doc:"Where the door is; may be empty."`
-	ThumbnailURL string           `json:"thumbnail_url,omitempty" doc:"Where a thumbnail of the door's primary picture is served; absent without one."`
+	ThumbnailURL string           `json:"thumbnail_url,omitempty" doc:"Where a thumbnail of the door's primary picture is served; absent without one, and while the setting portal_door_pictures is false."`
 	Reached      bool             `json:"reached" doc:"True when an access rule naming one of your groups reaches the door."`
 	Works        []occurrenceView `json:"works" doc:"When your code opens the door during the days asked for: while such a rule's schedule is active and the door is not locked."`
 	Spans        []spanView       `json:"spans" doc:"When the door is in open mode, and anyone gets in, or locked during those days, in order."`
@@ -216,11 +216,15 @@ func viewOfPortalDoor(d rule.DoorAccess, zone *time.Location) portalDoorView {
 }
 
 func (a *App) getOwnAccess(w http.ResponseWriter, r *http.Request, caller auth.User) {
-	days, ok := a.apiDays(w, r)
+	current, ok := a.apiSettings(w, r)
 	if !ok {
 		return
 	}
-	doors, err := a.publicDoors(r, caller, days.zone, days.from(), days.to())
+	days, ok := a.daysIn(w, r, current.Zone)
+	if !ok {
+		return
+	}
+	doors, err := a.publicDoors(r, caller, current, days.from(), days.to())
 	if err != nil {
 		a.internalError(w, err)
 		return

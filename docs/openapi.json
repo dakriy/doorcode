@@ -2654,7 +2654,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The image. Anyone signed in may read the pictures of a door the portal shows; other doors' need the manage-doors or door-commander or manage-firmware role.",
+            "description": "The image. While the setting portal_door_pictures is true, anyone signed in may read the pictures of a door the portal shows; otherwise, and for other doors, they need the manage-doors or door-commander or manage-firmware role.",
             "content": {
               "image/jpeg": {
                 "schema": {
@@ -2675,7 +2675,7 @@
             }
           },
           "403": {
-            "description": "The door is not one the portal shows, and the caller does not hold the manage-doors or door-commander or manage-firmware role.",
+            "description": "The caller does not hold the manage-doors or door-commander or manage-firmware role, and the door is not one the portal shows or the portal shows no door pictures.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2830,7 +2830,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The image reduced to at most 320 pixels on its longest side. Anyone signed in may read the pictures of a door the portal shows; other doors' need the manage-doors or door-commander or manage-firmware role.",
+            "description": "The image reduced to at most 320 pixels on its longest side. While the setting portal_door_pictures is true, anyone signed in may read the pictures of a door the portal shows; otherwise, and for other doors, they need the manage-doors or door-commander or manage-firmware role.",
             "content": {
               "image/jpeg": {
                 "schema": {
@@ -2851,7 +2851,7 @@
             }
           },
           "403": {
-            "description": "The door is not one the portal shows, and the caller does not hold the manage-doors or door-commander or manage-firmware role.",
+            "description": "The caller does not hold the manage-doors or door-commander or manage-firmware role, and the door is not one the portal shows or the portal shows no door pictures.",
             "content": {
               "application/json": {
                 "schema": {
@@ -10169,7 +10169,7 @@
           },
           "primary_picture_id": {
             "type": "integer",
-            "description": "The picture lists and the user portal show; absent when the door has no pictures."
+            "description": "The picture lists and the door page show, and the user portal while the setting portal_door_pictures is true; absent when the door has no pictures."
           },
           "public": {
             "type": "boolean",
@@ -11210,7 +11210,7 @@
           },
           "primary": {
             "type": "boolean",
-            "description": "True for the door's primary picture, which lists and the user portal show."
+            "description": "True for the door's primary picture, which lists and the door page show, and the user portal while the setting portal_door_pictures is true."
           },
           "thumbnail_url": {
             "type": "string",
@@ -11285,7 +11285,7 @@
           },
           "thumbnail_url": {
             "type": "string",
-            "description": "Where a thumbnail of the door's primary picture is served; absent without one."
+            "description": "Where a thumbnail of the door's primary picture is served; absent without one, and while the setting portal_door_pictures is false."
           },
           "works": {
             "type": "array",

@@ -9,6 +9,7 @@ import (
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/openapi"
 	"github.com/dakriy/doorcode/internal/schedule"
+	"github.com/dakriy/doorcode/internal/settings"
 )
 
 // maxOccurrenceSpan is how many days after from the last day of one
@@ -266,16 +267,31 @@ func (d dayRange) lastText() string {
 // the site timezone could not be read or that they are not a range it may
 // ask for.
 func (a *App) apiDays(w http.ResponseWriter, r *http.Request) (dayRange, bool) {
+	current, ok := a.apiSettings(w, r)
+	if !ok {
+		return dayRange{}, false
+	}
+	return a.daysIn(w, r, current.Zone)
+}
+
+// apiSettings reads the settings the application acts on, after answering
+// that they could not be read.
+func (a *App) apiSettings(w http.ResponseWriter, r *http.Request) (settings.Current, bool) {
 	current, err := a.settings.Current(r.Context())
 	if err != nil {
 		a.internalError(w, err)
-		return dayRange{}, false
 	}
-	first, last, ok := occurrenceDays(r, a.today(current.Zone))
+	return current, err == nil
+}
+
+// daysIn reads the days an API request covers in zone, as apiDays does,
+// after answering that they are not a range it may ask for.
+func (a *App) daysIn(w http.ResponseWriter, r *http.Request, zone *time.Location) (dayRange, bool) {
+	first, last, ok := occurrenceDays(r, a.today(zone))
 	if !ok {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("from and to must be dates as YYYY-MM-DD, with to on or after from and at most %d days after it", maxOccurrenceSpan))
 	}
-	return dayRange{zone: current.Zone, first: first, last: last}, ok
+	return dayRange{zone: zone, first: first, last: last}, ok
 }
 
 // occurrenceDays reads the days an occurrences request covers, first to

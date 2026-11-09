@@ -49,7 +49,8 @@ var signInSettingsJSON = defaultSetting("password_min_length", "12") + `,` +
 	defaultSetting("oidc_claim_last_name", "family_name") + `,` +
 	defaultSetting("oidc_claim_display_name", "name") + `,` +
 	defaultSetting("oidc_claim_entitlements", "") + `,` +
-	defaultSetting("oidc_default_groups", "")
+	defaultSetting("oidc_default_groups", "") + `,` +
+	defaultSetting("portal_door_pictures", "false")
 
 // brokerSettingsJSON is how the settings API shows the broker settings
 // and the door configuration defaults when nothing sets them.

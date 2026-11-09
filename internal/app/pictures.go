@@ -26,7 +26,7 @@ const pictureCache = "private, max-age=31536000, immutable"
 
 type pictureView struct {
 	ID           int64     `json:"id" doc:"Names the picture in the API."`
-	Primary      bool      `json:"primary" doc:"True for the door's primary picture, which lists and the user portal show."`
+	Primary      bool      `json:"primary" doc:"True for the door's primary picture, which lists and the door page show, and the user portal while the setting portal_door_pictures is true."`
 	Width        int       `json:"width" doc:"The image's width in pixels."`
 	Height       int       `json:"height" doc:"The image's height in pixels."`
 	ImageURL     string    `json:"image_url" doc:"Where the image is served, as JPEG."`
@@ -51,8 +51,8 @@ func (a *App) pictureRoutes() []route {
 	doors := holding(auth.RoleManageDoors)
 	image := func(what string) []openapi.Response {
 		return []openapi.Response{
-			{Status: http.StatusOK, Description: what + " Anyone signed in may read the pictures of a door the portal shows; other doors' need the " + seesDoors.roleNames() + " role.", Body: openapi.File{}, Type: picture.ContentType},
-			{Status: http.StatusForbidden, Description: "The door is not one the portal shows, and the caller does not hold the " + seesDoors.roleNames() + " role.", Body: errorBody{}},
+			{Status: http.StatusOK, Description: what + " While the setting portal_door_pictures is true, anyone signed in may read the pictures of a door the portal shows; otherwise, and for other doors, they need the " + seesDoors.roleNames() + " role.", Body: openapi.File{}, Type: picture.ContentType},
+			{Status: http.StatusForbidden, Description: "The caller does not hold the " + seesDoors.roleNames() + " role, and the door is not one the portal shows or the portal shows no door pictures.", Body: errorBody{}},
 			noPicture,
 		}
 	}
@@ -182,8 +182,9 @@ func (a *App) uploadPicture(w http.ResponseWriter, r *http.Request, _ auth.User)
 }
 
 // servePicture serves what read returns for the picture the path names, as
-// JPEG that browsers may keep. Anyone signed in sees the pictures of a door
-// the portal shows; only those who manage doors see the others.
+// JPEG that browsers may keep. While the portal shows door pictures,
+// anyone signed in sees the pictures of a door the portal shows; otherwise
+// only those who see doors in the administration see them.
 func (a *App) servePicture(read func(ctx context.Context, doorID, id int64) ([]byte, error)) viewerHandler {
 	return func(w http.ResponseWriter, r *http.Request, caller auth.User) {
 		d, err := a.doors.Door(r.Context(), pathID(r, "id"))
@@ -191,8 +192,13 @@ func (a *App) servePicture(read func(ctx context.Context, doorID, id int64) ([]b
 			a.doorError(w, err)
 			return
 		}
-		if !holds(caller, seesDoors) && !door.InPortal(d) {
-			writeError(w, http.StatusForbidden, "the "+seesDoors.roleNames()+" role is required for the pictures of a door the portal does not show")
+		shown, err := a.seesPictures(r, caller, d)
+		if err != nil {
+			a.internalError(w, err)
+			return
+		}
+		if !shown {
+			writeError(w, http.StatusForbidden, "the "+seesDoors.roleNames()+" role is required for the pictures of a door the portal does not show, and for every door's while the portal shows no door pictures")
 			return
 		}
 		data, err := read(r.Context(), d.ID, pathID(r, "picture"))
@@ -204,6 +210,19 @@ func (a *App) servePicture(read func(ctx context.Context, doorID, id int64) ([]b
 		w.Header().Set("Cache-Control", pictureCache)
 		_, _ = w.Write(data)
 	}
+}
+
+// seesPictures reports whether caller may see d's pictures: they see
+// doors in the administration, or the portal shows d and door pictures.
+func (a *App) seesPictures(r *http.Request, caller auth.User, d connector.StoredDoor) (bool, error) {
+	if holds(caller, seesDoors) {
+		return true, nil
+	}
+	if !door.InPortal(d) {
+		return false, nil
+	}
+	current, err := a.settings.Current(r.Context())
+	return current.PortalDoorPictures, err
 }
 
 func (a *App) makePrimary(w http.ResponseWriter, r *http.Request, _ auth.User) {

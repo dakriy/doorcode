@@ -36,6 +36,11 @@ var (
 	noDoorEvents   = [][]string{doorEventsHead, {"Nothing has happened here yet."}}
 )
 
+// picturesNote is what a door's page says of where its primary picture is
+// shown while the portal shows no door pictures.
+const picturesNote = "The primary picture is shown in the door list and at the top of this page. " +
+	"People see it in the portal only while the setting Door pictures in the portal is on; it is off."
+
 // openNote is what a door's page says while it cannot be opened.
 const openNote = "The door can be opened from here once its controller is connected."
 
@@ -46,7 +51,8 @@ const neverOpenNote = "Never in open mode: none of its zones has an open-mode sc
 // doorNote is what a door's page says about what enrollment adds, why it
 // cannot be opened yet, and that it is never in open mode.
 var doorNote = []string{
-	"No controller has enrolled as this door yet. Its hardware, credentials, configuration, and live state appear here once one does.", openNote, neverOpenNote,
+	"No controller has enrolled as this door yet. Its hardware, credentials, configuration, and live state appear here once one does.",
+	picturesNote, openNote, neverOpenNote,
 }
 
 // doorPage is the page at target, after the flash of signing in is
@@ -269,7 +275,7 @@ func TestDoorPageShowsTheDoorItsChoicesAndItsOpenModeThroughItsZones(t *testing.
 
 	want := testsupport.Page{
 		Title: "Lobby · doorcode", Heading: "Lobby", Nav: doorsNav,
-		Notes: []string{doorNote[0], openNote,
+		Notes: []string{doorNote[0], picturesNote, openNote,
 			"In open mode during Always, Nights, through its zones. Open-mode schedules are set on each zone's page."},
 		Values:  map[string]string{"name": "Lobby", "location": "Building A", "notes": "Side.", "picture": ""},
 		Checked: []string{"zone_ids=2"},
@@ -454,7 +460,7 @@ func TestSavingADoorsZonesFromItsPage(t *testing.T) {
 
 	want := []any{"/admin/doors/1", []string{"The door's zones have been saved."}, []string{"zone_ids=2"},
 		"In open mode during Nights, through its zones. Open-mode schedules are set on each zone's page."}
-	if diff := cmp.Diff(want, []any{saved.Location, got.Messages, got.Checked, got.Notes[2]}); diff != "" {
+	if diff := cmp.Diff(want, []any{saved.Location, got.Messages, got.Checked, got.Notes[3]}); diff != "" {
 		t.Errorf("redirect, messages, checked, open mode (-want +got):\n%s", diff)
 	}
 }
@@ -495,7 +501,7 @@ func TestDeletingAndRestoringADoorFromItsPage(t *testing.T) {
 	afterwards := pageOf(b.Get(restored.Location))
 
 	want := []any{"/admin/doors/1", []string{"The door has been deleted. Its history stays, and you can restore it."},
-		"/admin/doors/1", []string{"The door has been restored."}, []string{doorNote[0], openNote, neverOpenNote, "There are no zones yet. Create one on the zones page."}}
+		"/admin/doors/1", []string{"The door has been restored."}, []string{doorNote[0], picturesNote, openNote, neverOpenNote, "There are no zones yet. Create one on the zones page."}}
 	if diff := cmp.Diff(want, []any{deleted.Location, whileDeleted.Messages, restored.Location, afterwards.Messages, afterwards.Notes}); diff != "" {
 		t.Errorf("delete, restore (-want +got):\n%s", diff)
 	}

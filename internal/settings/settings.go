@@ -94,6 +94,7 @@ const (
 	keyClaimDisplayName   = "oidc_claim_display_name"
 	keyClaimEntitlements  = "oidc_claim_entitlements"
 	keyDefaultGroups      = "oidc_default_groups"
+	keyPortalDoorPictures = "portal_door_pictures"
 	slugsHint             = "must be group slugs separated by commas, such as staff,contractors"
 )
 
@@ -202,6 +203,10 @@ var sections = []section{
 		{key: keyDefaultGroups, fallback: "", validate: accepting(slugs), label: "Groups new users join",
 			help: "Group slugs separated by commas. New users join these, and the groups whose pre-assigned list holds their user id, only while the entitlements claim is empty."},
 	}},
+	{Section{Name: "User portal", About: "What people see of the doors when they sign in to the portal."}, []definition{
+		{key: keyPortalDoorPictures, fallback: "false", validate: accepting(boolean), label: "Door pictures in the portal",
+			help: "true shows each public door's primary picture in the portal; false shows none there. The administration always shows them."},
+	}},
 	{Section{Name: "Door enrollment", About: "The broker account every new controller enrolls with. A door's old credentials keep working until its controller connects with the new ones, which stops the old ones working. A changed enrollment username or password takes effect when the server next starts."}, []definition{
 		{key: keyEnrollmentUsername, fallback: "doorcode-enroll", label: "Enrollment username"},
 		{key: keyEnrollmentPassword, fallback: "", secret: true, label: "Enrollment password",
@@ -287,6 +292,9 @@ type Current struct {
 	OIDC OIDC
 	// Theme is the colors pages are drawn in.
 	Theme Theme
+	// PortalDoorPictures is true when the portal shows the primary
+	// pictures of the doors it lists.
+	PortalDoorPictures bool
 }
 
 // Theme is the colors pages are drawn in: Accent, as #rrggbb, and
@@ -582,6 +590,9 @@ func (s Service) Current(ctx context.Context) (Current, error) {
 		return Current{}, err
 	}
 	if c.Theme.AccentDark, err = parsed(values, keyThemeAccentDark, optionalColor); err != nil {
+		return Current{}, err
+	}
+	if c.PortalDoorPictures, err = parsed(values, keyPortalDoorPictures, boolean); err != nil {
 		return Current{}, err
 	}
 	return c.withSignIn(values)

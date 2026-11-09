@@ -10,6 +10,7 @@ import (
 	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/directory"
 	"github.com/dakriy/doorcode/internal/schedule"
+	"github.com/dakriy/doorcode/internal/settings"
 )
 
 // pageRefusals maps each refusal the directory reports for a change made
@@ -112,12 +113,18 @@ func inputDate(t *time.Time, zone *time.Location) string {
 // siteZone returns the site timezone, after showing that it could not be
 // read.
 func (a *App) siteZone(w http.ResponseWriter, r *http.Request) (*time.Location, bool) {
+	current, ok := a.siteSettings(w, r)
+	return current.Zone, ok
+}
+
+// siteSettings reads the settings the application acts on, after showing
+// the error page when they could not be read.
+func (a *App) siteSettings(w http.ResponseWriter, r *http.Request) (settings.Current, bool) {
 	current, err := a.settings.Current(r.Context())
 	if err != nil {
 		a.pageError(w, err)
-		return nil, false
 	}
-	return current.Zone, true
+	return current, err == nil
 }
 
 func userPath(id int64) string {

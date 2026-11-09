@@ -525,7 +525,7 @@ func TestMyAccessAnswersWithThePortalsDoorsAndWhenTheUsersCodeWorks(t *testing.T
 
 	want := testsupport.JSON(`{"time_zone":"UTC","from":"2026-01-05","to":"2026-01-05","doors":[` +
 		`{"door":{"id":3,"name":"Attic"},"location":"","reached":false,"works":[],"spans":[]},` +
-		`{"door":{"id":1,"name":"Lobby"},"location":"Building A","thumbnail_url":"/api/v1/doors/1/pictures/1/thumbnail","reached":true,` +
+		`{"door":{"id":1,"name":"Lobby"},"location":"Building A","reached":true,` +
 		`"works":[{"start":"2026-01-05T08:00:00Z","end":"2026-01-05T18:00:00Z"}],` +
 		`"spans":[{"start":"2026-01-05T22:00:00Z","end":"2026-01-06T00:00:00Z","state":"open"}]}]}`)
 	if diff := cmp.Diff(want, got); diff != "" {
@@ -790,9 +790,11 @@ func TestMakingYourOwnAccountExpireInThePastIsRefused(t *testing.T) {
 	}
 }
 
-func TestAnyoneSignedInSeesThePicturesOfDoorsThePortalShows(t *testing.T) {
+func TestWhileThePortalShowsDoorPicturesAnyoneSignedInSeesThoseOfTheDoorsItShows(t *testing.T) {
 	t.Parallel()
-	admin, ann := portalSite(t, testsupport.NewFactory())
+	f := testsupport.NewFactory()
+	f.EnvStub["DOORCODE_PORTAL_DOOR_PICTURES"] = "true"
+	admin, ann := portalSite(t, f)
 	uploadPicture(t, admin, "1", testsupport.PNG(30, 20))
 	uploadPicture(t, admin, "2", testsupport.PNG(30, 20))
 	createDoor(t, admin, `{"name":"Gone","public":true}`)
@@ -806,9 +808,103 @@ func TestAnyoneSignedInSeesThePicturesOfDoorsThePortalShows(t *testing.T) {
 		testsupport.JSONString(ann.Get("/api/v1/doors/2/pictures/2").Body, "/error"),
 	}
 
-	want := []any{200, 200, 403, 403, 404, 200, "the manage-doors or door-commander or manage-firmware role is required for the pictures of a door the portal does not show"}
+	want := []any{200, 200, 403, 403, 404, 200, picturesRefused}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("public thumbnail and image, private, deleted, missing, private for a door manager, refusal (-want +got):\n%s", diff)
+	}
+}
+
+// picturesRefused is why someone who does not see doors in the
+// administration may not load a door's pictures.
+const picturesRefused = "the manage-doors or door-commander or manage-firmware role is required for the pictures of a door the portal does not show, " +
+	"and for every door's while the portal shows no door pictures"
+
+func TestWhileThePortalShowsNoDoorPicturesOnlyThoseWhoSeeDoorsLoadThem(t *testing.T) {
+	t.Parallel()
+	admin, ann := portalSite(t, testsupport.NewFactory())
+	uploadPicture(t, admin, "1", testsupport.PNG(30, 20))
+
+	refused := ann.Get("/api/v1/doors/1/pictures/1/thumbnail")
+	got := []any{refused.Status, testsupport.JSONString(refused.Body, "/error"), admin.Get("/api/v1/doors/1/pictures/1/thumbnail").Status}
+
+	if diff := cmp.Diff([]any{403, picturesRefused, 200}, got); diff != "" {
+		t.Errorf("a user's thumbnail of a public door, refusal, a door manager's (-want +got):\n%s", diff)
+	}
+}
+
+func TestAPictureThatCannotBeServedForWantOfSettingsAnswersAnError(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	admin, ann := portalSite(t, f)
+	uploadPicture(t, admin, "1", testsupport.PNG(30, 20))
+	f.StoreStub.FailSettings()
+
+	got := ann.Get("/api/v1/doors/1/pictures/1/thumbnail")
+
+	if diff := cmp.Diff([]any{500, "stub: unavailable"}, []any{got.Status, lastLog(f).Fields["error"]}); diff != "" {
+		t.Errorf("status, log (-want +got):\n%s", diff)
+	}
+}
+
+func TestThePortalShowsDoorPicturesOnlyWhileTheSettingIsOn(t *testing.T) {
+	t.Parallel()
+	admin, ann := portalSite(t, testsupport.NewFactory())
+	uploadPicture(t, admin, "1", testsupport.PNG(30, 20))
+	shown := func() []any {
+		return []any{
+			pageOf(ann.Get("/me/access")).Images, pageOf(ann.Get("/me/access/1")).Images,
+			testsupport.JSONAt(send(t, ann, "GET", "/api/v1/me/access", "", 200).Body, "/doors/0/thumbnail_url"),
+		}
+	}
+
+	off := shown()
+	send(t, admin, "PUT", "/api/v1/settings/portal_door_pictures", `{"value":"true"}`, 200)
+	on := shown()
+
+	lobby := []testsupport.Image{{Src: "/api/v1/doors/1/pictures/1/thumbnail", Alt: "Lobby"}}
+	want := []any{[]any{[]testsupport.Image(nil), []testsupport.Image(nil), nil}, []any{lobby, lobby, "/api/v1/doors/1/pictures/1/thumbnail"}}
+	if diff := cmp.Diff(want, []any{off, on}); diff != "" {
+		t.Errorf("access list, door calendar, and API with the setting off, then on (-want +got):\n%s", diff)
+	}
+}
+
+func TestChoosingAnotherPrimaryPictureChangesWhatTheAdministrationAndThePortalShow(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	f.EnvStub["DOORCODE_PORTAL_DOOR_PICTURES"] = "true"
+	admin, ann := portalSite(t, f)
+	uploadPicture(t, admin, "1", testsupport.PNG(30, 20))
+	uploadPicture(t, admin, "1", testsupport.PNG(20, 30))
+	shown := func() []any {
+		return []any{pageOf(admin.Get("/admin/doors")).Images, pageOf(admin.Get("/admin/doors/1")).Images[0], pageOf(ann.Get("/me/access")).Images}
+	}
+
+	before := shown()
+	chosen := admin.Post("/admin/doors/1/pictures/2/primary")
+	after := shown()
+
+	first := testsupport.Image{Src: "/api/v1/doors/1/pictures/1/thumbnail", Alt: "Lobby"}
+	second := testsupport.Image{Src: "/api/v1/doors/1/pictures/2/thumbnail", Alt: "Lobby"}
+	want := []any{
+		[]any{[]testsupport.Image{first}, first, []testsupport.Image{first}}, 303,
+		[]any{[]testsupport.Image{second}, second, []testsupport.Image{second}},
+	}
+	if diff := cmp.Diff(want, []any{before, chosen.Status, after}); diff != "" {
+		t.Errorf("door list, door page, and portal before, choosing, after (-want +got):\n%s", diff)
+	}
+}
+
+func TestADoorPageSaysThePrimaryPictureIsWhatPeopleSeeWhileThePortalShowsDoorPictures(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	f.EnvStub["DOORCODE_PORTAL_DOOR_PICTURES"] = "true"
+	admin, _ := portalSite(t, f)
+
+	got := pageOf(admin.Get("/admin/doors/1")).Notes[1]
+
+	want := "The primary picture is shown in the door list, at the top of this page, and to people in the portal, since the setting Door pictures in the portal is on."
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("note (-want +got):\n%s", diff)
 	}
 }
 

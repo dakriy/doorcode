@@ -36,7 +36,7 @@ type doorView struct {
 	Public           bool            `json:"public" doc:"True when the user portal shows the door."`
 	OpenSchedules    []nameRef       `json:"open_schedules" doc:"The schedules during which the door is in open mode and unlocks on any keypress, by name: those of the zones it is in."`
 	Zones            []nameRef       `json:"zones" doc:"The zones the door is in, by name."`
-	PrimaryPictureID *int64          `json:"primary_picture_id,omitempty" doc:"The picture lists and the user portal show; absent when the door has no pictures."`
+	PrimaryPictureID *int64          `json:"primary_picture_id,omitempty" doc:"The picture lists and the door page show, and the user portal while the setting portal_door_pictures is true; absent when the door has no pictures."`
 	DeletedAt        *time.Time      `json:"deleted_at,omitempty" doc:"When the door was deleted; absent unless it is deleted."`
 	CreatedAt        time.Time       `json:"created_at" doc:"When the door was created."`
 	Controller       *controllerView `json:"controller,omitempty" doc:"The controller enrolled as the door; absent until one is."`

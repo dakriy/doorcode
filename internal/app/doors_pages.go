@@ -244,6 +244,9 @@ type doorContent struct {
 	Alert          string
 	MaxPictureMB   int
 	MaxPictureSide int
+	// PortalPictures is true when the portal shows door pictures, so the
+	// primary picture is what people see there.
+	PortalPictures bool
 	// Manage is true when the viewer may change the door, not only open
 	// it and manage its overrides.
 	Manage bool
@@ -294,10 +297,11 @@ func (a *App) pageDoor(w http.ResponseWriter, r *http.Request, viewer auth.User)
 // showDoor shows the page about d with its forms holding form, answering
 // with status.
 func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewer auth.User, d storedDoor, form doorForm, alert string) {
-	zone, ok := a.siteZone(w, r)
+	current, ok := a.siteSettings(w, r)
 	if !ok {
 		return
 	}
+	zone := current.Zone
 	n, err := a.names(r.Context())
 	if err != nil {
 		a.pageError(w, err)
@@ -346,7 +350,7 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 		Zones:      zoneChoices(n.zones, form.ZoneIDs),
 		Controller: rowOfController(d.Controller), Credentials: credentialRows(creds, zone),
 		Config:       configRows(d.StoredDoor, defaults, form.Config),
-		MaxPictureMB: picture.Megabytes(), MaxPictureSide: picture.MaxSide,
+		MaxPictureMB: picture.Megabytes(), MaxPictureSide: picture.MaxSide, PortalPictures: current.PortalDoorPictures,
 	}
 	for i, p := range d.pictures {
 		content.Pictures = append(content.Pictures, pictureTile{pictureView: viewOfPicture(d.StoredDoor, p), Number: i + 1})

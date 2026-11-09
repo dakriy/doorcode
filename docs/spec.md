@@ -151,8 +151,12 @@ or the API is refused. Revocation from the door page disconnects the door.
 ### Pictures
 
 A door has any number of pictures, uploaded from the door page or the API.
-One is the primary picture, shown in lists and in the user portal. Pictures
-are downsized on upload, capped in size, and stored in the database.
+One is the primary picture, which the admin chooses on the door page and
+which the admin UI shows in door lists and on the door page. The user
+portal shows it only while the setting *door pictures in the portal* is on
+(off by default); while it is off, only those who see doors in the admin UI
+can load a door's pictures. Pictures are downsized on upload, capped in
+size, and stored in the database.
 
 ### Configuration
 
@@ -300,7 +304,8 @@ sign-in page image are settings.
 ## 12. User portal
 
 Home, set door code, set password (hidden under auto sign-in), access
-calendar per public door showing when it is unlocked (its zones' open mode
+calendar per public door (with its primary picture while door pictures in
+the portal is on) showing when it is unlocked (its zones' open mode
 and its overrides) and when the user's code works (the access rules that
 reach it through its zones), my recent entries, personal API tokens, access requests (create,
 edit while unresolved, delete), sign out.

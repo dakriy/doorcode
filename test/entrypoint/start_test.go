@@ -189,6 +189,10 @@ func TestStartupFails(t *testing.T) {
 			arrange: func(f *testsupport.Factory) { f.EnvStub["DOORCODE_THEME_ACCENT_DARK"] = "teal" },
 			want:    "create first administrator: invalid value for theme_accent_dark: must be a color as #rrggbb, such as #4f39f6",
 		},
+		"door pictures in the portal that are neither on nor off": {
+			arrange: func(f *testsupport.Factory) { f.EnvStub["DOORCODE_PORTAL_DOOR_PICTURES"] = "yes" },
+			want:    "create first administrator: invalid value for portal_door_pictures: must be true or false",
+		},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

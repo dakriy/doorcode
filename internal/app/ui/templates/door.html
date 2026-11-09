@@ -317,7 +317,7 @@
       <div class="sm:flex sm:items-start sm:justify-between sm:gap-6">
         <div>
           <h2 id="pictures-heading" class="text-sm font-semibold">Pictures</h2>
-          <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">The primary picture is shown in lists and the user portal, so people know which door is which.</p>
+          <p role="note" class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{if $c.PortalPictures}}The primary picture is shown in the door list, at the top of this page, and to people in the portal, since the setting Door pictures in the portal is on.{{else}}The primary picture is shown in the door list and at the top of this page. People see it in the portal only while the setting Door pictures in the portal is on; it is off.{{end}}</p>
         </div>
       </div>
       <ul class="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -332,7 +332,7 @@
               <span class="inline-flex rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 ring-1 ring-brand-600/20 ring-inset dark:bg-brand-950 dark:text-brand-300 dark:ring-brand-400/20">Primary</span>
               {{else}}
               <form method="post" action="/admin/doors/{{$d.ID}}/pictures/{{.ID}}/primary">
-                <button type="submit" class="{{template "row-button-class"}}">Make primary</button>
+                <button type="submit" aria-label="Make picture {{.Number}} the primary picture" class="{{template "row-button-class"}}">Make primary</button>
               </form>
               {{end}}
               <form method="post" action="/admin/doors/{{$d.ID}}/pictures/{{.ID}}/delete" hx-confirm="Delete picture {{.Number}} of {{$d.Name}}? This cannot be undone.">
