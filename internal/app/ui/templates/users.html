@@ -1,17 +1,14 @@
 {{define "content"}}
 {{$c := .Content}}
-<div class="sm:flex sm:items-end sm:justify-between">
-  <div>
+<div class="{{template "page-header-class"}}">
+  <div class="{{template "page-heading-class"}}">
     <h1 class="text-2xl font-semibold tracking-tight">Users</h1>
     <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Everyone with a door code or an account. A user holds the roles of every group they are a member of.</p>
   </div>
-  <div class="mt-4 flex gap-2 sm:mt-0">
-    <a href="/admin/users/import" class="{{template "secondary-class"}}">Import users</a>
-    <a href="/admin/users/new" class="{{template "primary-class"}}">
-      <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z"/></svg>
-      New user
-    </a>
-  </div>
+  <ul aria-label="Page actions" class="{{template "page-actions-class"}}">
+    <li><a href="/admin/users/import" class="{{template "secondary-class"}}">Import users</a></li>
+    <li><a href="/admin/users/new" class="{{template "primary-class"}}">{{template "plus-icon"}}New user</a></li>
+  </ul>
 </div>
 
 <form method="get" action="/admin/users" role="search" class="mt-8 flex flex-col gap-3 sm:flex-row sm:items-end">

@@ -1,10 +1,12 @@
 {{define "content"}}
-<div class="sm:flex sm:items-end sm:justify-between">
-  <div>
+<div class="{{template "page-header-class"}}">
+  <div class="{{template "page-heading-class"}}">
     <h1 class="text-2xl font-semibold tracking-tight">Schedules</h1>
     <p class="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">Schedules are weekly patterns of time, in the site timezone. A zone's open mode and every access rule name one.</p>
   </div>
-  <a href="/admin/schedules/new" class="mt-4 sm:mt-0 {{template "primary-class"}}">{{template "plus-icon"}}New schedule</a>
+  <ul aria-label="Page actions" class="{{template "page-actions-class"}}">
+    <li><a href="/admin/schedules/new" class="{{template "primary-class"}}">{{template "plus-icon"}}New schedule</a></li>
+  </ul>
 </div>
 <div class="mt-8 overflow-hidden {{template "card-class"}}">
   <div class="overflow-x-auto">

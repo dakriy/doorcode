@@ -604,3 +604,38 @@ func TestDoorPageStoreFailureShowsARequestID(t *testing.T) {
 		})
 	}
 }
+
+func TestDoorsPageHeaderOffersPendingEnrollmentsWithTheirCountAndANewDoor(t *testing.T) {
+	t.Parallel()
+	b, _ := waiting(t, testsupport.NewFactory())
+
+	got := testsupport.ParsePage(b.Get("/admin/doors").Body).Lists["Page actions"]
+
+	if diff := cmp.Diff([]string{"Pending enrollments 1 waiting", "New door"}, got); diff != "" {
+		t.Errorf("header actions (-want +got):\n%s", diff)
+	}
+}
+
+func TestListPagesOfferTheirActionsInTheHeader(t *testing.T) {
+	t.Parallel()
+	cases := map[string][]string{
+		"/admin/doors":     {"Pending enrollments", "New door"},
+		"/admin/users":     {"Import users", "New user"},
+		"/admin/groups":    {"New group"},
+		"/admin/zones":     {"New zone"},
+		"/admin/schedules": {"New schedule"},
+		"/admin/firmware":  {"Download provisioning file"},
+	}
+	for target, want := range cases {
+		t.Run(target, func(t *testing.T) {
+			t.Parallel()
+			b := signedInAdmin(t, testsupport.NewFactory())
+
+			got := testsupport.ParsePage(b.Get(target).Body).Lists["Page actions"]
+
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Errorf("header actions (-want +got):\n%s", diff)
+			}
+		})
+	}
+}

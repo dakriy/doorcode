@@ -1,13 +1,12 @@
 {{define "content"}}
-<div class="sm:flex sm:items-end sm:justify-between">
-  <div>
+<div class="{{template "page-header-class"}}">
+  <div class="{{template "page-heading-class"}}">
     <h1 class="text-2xl font-semibold tracking-tight">Groups</h1>
     <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Groups hold people. Every member holds the roles their groups carry; access rules name groups.</p>
   </div>
-  <a href="/admin/groups/new" class="mt-4 sm:mt-0 {{template "primary-class"}}">
-    <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z"/></svg>
-    New group
-  </a>
+  <ul aria-label="Page actions" class="{{template "page-actions-class"}}">
+    <li><a href="/admin/groups/new" class="{{template "primary-class"}}">{{template "plus-icon"}}New group</a></li>
+  </ul>
 </div>
 <div class="mt-8 overflow-hidden {{template "card-class"}}">
   <div class="overflow-x-auto">

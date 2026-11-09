@@ -1,10 +1,12 @@
 {{define "content"}}
-<div class="sm:flex sm:items-end sm:justify-between">
-  <div>
+<div class="{{template "page-header-class"}}">
+  <div class="{{template "page-heading-class"}}">
     <h1 class="text-2xl font-semibold tracking-tight">Zones</h1>
     <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Named sets of doors, such as a building or a floor. An access rule that names a zone reaches every door in it, and while one of a zone's open-mode schedules is active its doors unlock on any keypress.</p>
   </div>
-  <a href="/admin/zones/new" class="mt-4 sm:mt-0 {{template "primary-class"}}">{{template "plus-icon"}}New zone</a>
+  <ul aria-label="Page actions" class="{{template "page-actions-class"}}">
+    <li><a href="/admin/zones/new" class="{{template "primary-class"}}">{{template "plus-icon"}}New zone</a></li>
+  </ul>
 </div>
 <div class="mt-8 overflow-hidden {{template "card-class"}}">
   <div class="overflow-x-auto">

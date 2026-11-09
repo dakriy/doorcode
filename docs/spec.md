@@ -392,6 +392,12 @@ picker, a checkbox for yes or no, a number, a select of the choices, and a
 searchable select of every zone for the timezone; the single sign-on and
 identity claims parts fold away while single sign-on is off).
 
+A list page's actions (the doors list's pending enrollments, with how many
+wait as a badge, and new door; import and new user; new group, zone, or
+schedule; the firmware provisioning file) sit beside its heading on one line
+each, the heading and description wrapping instead, and drop below them as a
+row at phone width.
+
 Lists are searchable, filterable, server-paginated, and update live over
 Server-Sent Events where state changes without a page action (door status,
 enrollments, dashboard). Every select or list of checkboxes of something that

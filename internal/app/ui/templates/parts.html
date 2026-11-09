@@ -23,6 +23,15 @@
 
 {{define "danger-class"}}inline-flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-red-700 ring-1 ring-red-300 ring-inset transition hover:bg-red-50 dark:text-red-300 dark:ring-red-900 dark:hover:bg-red-950{{end}}
 
+{{/* A list page's header: its heading and description take the width left
+     and wrap, beside a list labelled "Page actions" whose actions never
+     wrap their own text; at phone width the actions sit below as a row. */}}
+{{define "page-header-class"}}flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between{{end}}
+
+{{define "page-heading-class"}}min-w-0 flex-1{{end}}
+
+{{define "page-actions-class"}}flex shrink-0 flex-wrap items-center gap-3 whitespace-nowrap{{end}}
+
 {{define "card-class"}}rounded-xl border border-zinc-200 bg-white shadow-xs dark:border-zinc-800 dark:bg-zinc-900{{end}}
 
 {{define "table-head-class"}}bg-zinc-50 text-left text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:bg-zinc-900/60 dark:text-zinc-400{{end}}
