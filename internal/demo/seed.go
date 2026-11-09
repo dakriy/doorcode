@@ -267,6 +267,7 @@ func seedSettings(admin client, env connector.Environment, log connector.Log, si
 	values := [][2]string{
 		{"site_name", "doorcode demo"},
 		{"public_url", "https://doorcode.example.com"},
+		{"device_url", "https://devices.doorcode.example.com"},
 		{"enrollment_password", enrollmentPassword},
 		{"door_telemetry_interval_s", "15"},
 		{"portal_door_pictures", "true"},

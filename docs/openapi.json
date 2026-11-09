@@ -3622,7 +3622,7 @@
             }
           },
           "409": {
-            "description": "The door's controller is not connected, the door has no target, or the public_url setting is not set.",
+            "description": "The door's controller is not connected, the door has no target, or the device_url setting is not set.",
             "content": {
               "application/json": {
                 "schema": {
@@ -11812,13 +11812,13 @@
       "ProvisioningServer": {
         "type": "object",
         "properties": {
-          "url": {
+          "device_url": {
             "type": "string",
-            "description": "The address to download firmware from: door_server_url, or public_url while that is empty; empty when neither is set."
+            "description": "The address to download firmware from, the device_url setting; empty while it is not set."
           }
         },
         "required": [
-          "url"
+          "device_url"
         ]
       },
       "ProvisioningWifi": {

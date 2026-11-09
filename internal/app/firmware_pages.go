@@ -97,8 +97,8 @@ type firmwareContent struct {
 	Window  windowForm
 	Rollout []rolloutGroup
 	MaxMiB  int
-	// NoAddress is true while neither door_server_url nor public_url
-	// gives an address, so no update can be sent.
+	// NoAddress is true while the device_url setting is empty, so no
+	// update can be sent.
 	NoAddress bool
 	// Unprovisionable is what the page warns of while no provisioning
 	// file can be made, each why.
@@ -237,7 +237,7 @@ func (a *App) showFirmware(w http.ResponseWriter, r *http.Request, status int, v
 	}
 	content := firmwareContent{
 		Defaults: firmwareOptions(plan.Firmware, "No default", defaultOf(plan)), Upload: upload, Errors: errs, Window: window,
-		MaxMiB: firmware.MaxMiB, NoAddress: current.DoorURL == "", Versions: []firmwareRow{}, Unprovisionable: unprovisionable(all),
+		MaxMiB: firmware.MaxMiB, NoAddress: current.DeviceURL == "", Versions: []firmwareRow{}, Unprovisionable: unprovisionable(all),
 	}
 	zone := current.Zone
 	for _, f := range plan.Firmware {
@@ -423,7 +423,7 @@ func (a *App) firmwareCard(ctx context.Context, viewer auth.User, d connector.St
 var firmwareRefusals = []doorRefusal{
 	{firmware.ErrNoFirmware, http.StatusNotFound, noFirmwareHere},
 	{firmware.ErrNoTarget, http.StatusConflict, "The door has no firmware to run. Choose a default version or one for this door first."},
-	{firmware.ErrNoAddress, http.StatusConflict, "Set the public_url setting first, so the door can download its firmware."},
+	{firmware.ErrNoAddress, http.StatusConflict, "Set the device_url setting first, so the door can download its firmware."},
 	{controller.ErrOffline, http.StatusConflict, "The controller is not connected, so it cannot be updated. Try again once it is online."},
 }
 

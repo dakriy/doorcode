@@ -245,11 +245,13 @@ from its target is *pending update*.
 Updates roll out inside an *update window* (daily or weekly, with start
 time and duration, in the site timezone), at most N doors at a time. A door
 can also be updated immediately from its page. The server sends an update
-command over MQTT with an authenticated download URL under the doors'
-server address, or the public address while that is unset. The doors'
-server address is a second entrypoint whose certificate chains to the CA
-the doors verify the broker against, since people's browsers reach the
-public address with a certificate from a public CA. That address is
+command over MQTT with an authenticated download URL under the device
+address; no update is sent while it is unset, and the public address,
+which is for browsers and single sign-on, is never used for doors. The
+device address is the server's device-facing entrypoint, presenting a
+certificate from the managed CA the doors trust, the same CA as the
+broker's, since people's browsers reach the public address with a
+certificate from a public CA. That address is
 `https://`, and the door verifies the server's certificate; `http://` is accepted for development only, and the
 door then verifies nothing. The door fetches, installs, restarts, and
 reconnects reporting the new version, or acknowledges that it failed. If it cannot reconnect it reverts on its own and reappears

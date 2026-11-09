@@ -184,8 +184,8 @@ func TestTheRolloutLogsSettingsItCannotRead(t *testing.T) {
 	cases := map[string]struct{ key, value, error string }{
 		"the public address": {"public_url", "ftp://doorcode.example.com",
 			"invalid value for public_url: must be empty or an https:// or http:// address without a query, such as https://doorcode.example.com"},
-		"the doors' server address": {"door_server_url", "https://doors.example.com/?x=1",
-			"invalid value for door_server_url: must be empty or an https:// or http:// address without a query, such as https://doors.doorcode.example.com"},
+		"the device address": {"device_url", "https://devices.example.com/?x=1",
+			"invalid value for device_url: must be empty or an https:// or http:// address without a query, such as https://devices.doorcode.example.com"},
 		"the weekdays":    {"update_window_days", "mon,someday", "invalid value for update_window_days: must be daily or weekdays separated by commas, such as sat,sun"},
 		"the start":       {"update_window_start", "2am", "invalid value for update_window_start: must be a time of day as HH:MM, such as 02:00"},
 		"the concurrency": {"update_concurrency", "many", "invalid value for update_concurrency: must be a whole number of doors from 1 to 1000"},
@@ -196,6 +196,7 @@ func TestTheRolloutLogsSettingsItCannotRead(t *testing.T) {
 			f := testsupport.NewFactory()
 			fl := fleetSite(t, f)
 			delete(f.EnvStub, "DOORCODE_PUBLIC_URL")
+			delete(f.EnvStub, "DOORCODE_DEVICE_URL")
 			delete(f.EnvStub, "DOORCODE_UPDATE_CONCURRENCY")
 			f.StoreStub.SeedSetting(c.key, c.value, testsupport.DefaultNow)
 			logged := len(f.LogStub.Entries)

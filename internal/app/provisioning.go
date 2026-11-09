@@ -34,7 +34,7 @@ type provisioningWifi struct {
 }
 
 type provisioningServer struct {
-	URL string `json:"url" doc:"The address to download firmware from: door_server_url, or public_url while that is empty; empty when neither is set."`
+	DeviceURL string `json:"device_url" doc:"The address to download firmware from, the device_url setting; empty while it is not set."`
 }
 
 type provisioningFile struct {
@@ -104,7 +104,7 @@ func (a *App) writeProvisioning(w http.ResponseWriter, r *http.Request, d connec
 	file := provisioningFile{
 		Format: provisioningFormat, GeneratedAt: a.clock.Now().Unix(),
 		Broker:     provisioningBroker{Host: config.BrokerHost, Port: config.BrokerPort, TLS: config.BrokerTLS},
-		Server:     provisioningServer{URL: current.DoorURL},
+		Server:     provisioningServer{DeviceURL: current.DeviceURL},
 		Enrollment: provisioningEnrollment{Username: username, Password: password},
 		Wifi:       provisioningWifi{SSID: config.WifiSSID, Password: config.WifiPassword},
 		DoorConfig: doorConfigView(config),

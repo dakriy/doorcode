@@ -67,8 +67,8 @@ const (
 	keyUnresponsive        = "unresponsive_minutes"
 	keyPublicURL           = "public_url"
 	publicURLHint          = "must be empty or an https:// or http:// address without a query, such as https://doorcode.example.com"
-	keyDoorServerURL       = "door_server_url"
-	doorServerURLHint      = "must be empty or an https:// or http:// address without a query, such as https://doors.doorcode.example.com"
+	keyDeviceURL           = "device_url"
+	deviceURLHint          = "must be empty or an https:// or http:// address without a query, such as https://devices.doorcode.example.com"
 	// KeyUpdateDays is the key of the setting naming the weekdays the
 	// update window opens on, EveryDay when it opens daily.
 	KeyUpdateDays         = "update_window_days"
@@ -233,7 +233,7 @@ type section struct {
 // sections is every part of the settings page, in display order: the
 // site's own settings, then the door configuration defaults.
 var sections = []section{
-	{Section{Name: "Site", About: "What the site is called and the timezone every time it shows is read in."}, []definition{
+	{Section{Name: "Site", About: "What the site is called, the timezone every time it shows is read in, and the address browsers reach it at."}, []definition{
 		{key: keySiteName, fallback: "doorcode", label: "Site name", help: "Shown in the header and every page title."},
 		{key: keySiteTimezone, fallback: "UTC", validate: rule{check: func(s Service, value string) error {
 			_, err := s.siteZone(value)
@@ -241,6 +241,8 @@ var sections = []section{
 		}, input: Input{Kind: KindZone}}, label: "Timezone", help: "A zone of the tz database, such as Europe/Berlin; type to find one. Schedules, dates typed on pages, and every time shown are read in it."},
 		{key: keyAdminEmail, fallback: "admin@example.com", label: "First administrator's email",
 			help: "The account created on first start when there are no users."},
+		{key: keyPublicURL, fallback: "", validate: accepting(publicURL), label: "Public address",
+			help: "The https:// address browsers reach the server at, and single sign-on returns to; http:// only for development."},
 	}},
 	{Section{Name: "Proxies", About: "The reverse proxies in front of the server. A listed proxy is believed when it says, in X-Forwarded-For and X-Forwarded-Proto, whom it passes a request on for and whether it was reached over HTTPS; those headers are ignored from anyone else."}, []definition{
 		{key: keyTrustedProxies, fallback: "", validate: accepting(proxy.Parse), label: "Trusted proxies",
@@ -302,10 +304,8 @@ var sections = []section{
 			help: "Minutes a connected door may stay silent before it counts as unresponsive."},
 	}},
 	{Section{Name: "Firmware updates", About: "Where doors download firmware from, and when and how fast updates roll out."}, []definition{
-		{key: keyPublicURL, fallback: "", validate: accepting(publicURL), label: "Public address",
-			help: "The https:// address doors and browsers reach the server at; http:// only for development, since doors verify the server's certificate only over https. Nothing is sent to doors to download while it is empty."},
-		{key: keyDoorServerURL, fallback: "", validate: accepting(doorServerURL), label: "Doors' server address",
-			help: "The https:// address doors download firmware from, such as a second entrypoint whose certificate comes from the CA doors verify the broker against. Empty uses the public address."},
+		{key: keyDeviceURL, fallback: "", validate: accepting(deviceURL), label: "Device address",
+			help: "The https:// address of the server's device-facing entrypoint, which presents a certificate from the managed CA controllers trust, the same CA as the broker's; doors download firmware from it. http:// only for development, since doors verify the server's certificate only over https. No update is sent to doors while it is empty."},
 		{key: KeyUpdateDays, fallback: EveryDay, validate: accepting(updateDays), label: "Update days",
 			help: "daily, or weekdays separated by commas such as sat,sun."},
 		{key: keyUpdateStart, fallback: "02:00", validate: accepting(timeOfDay).askedWith(Input{Kind: KindTime}), label: "Update window opens", help: "A time of day in the site timezone."},
@@ -358,12 +358,12 @@ type Current struct {
 	// UnresponsiveAfter is how long the server goes without hearing from
 	// a door's controller before it marks it unresponsive.
 	UnresponsiveAfter time.Duration
-	// PublicURL is the address doors and browsers reach the server at,
-	// without a trailing slash; empty until an administrator gives it.
+	// PublicURL is the address browsers reach the server at, without a
+	// trailing slash; empty until an administrator gives it.
 	PublicURL string
-	// DoorURL is the address doors download firmware from, without a
-	// trailing slash: door_server_url, or PublicURL while that is empty.
-	DoorURL string
+	// DeviceURL is the address doors download firmware from, without a
+	// trailing slash; empty until an administrator gives it.
+	DeviceURL string
 	// UpdateWindow is when firmware updates roll out to the doors that
 	// need one, UpdateConcurrency how many doors may be updating at once,
 	// and UpdateTimeout how long a door may take to come back with the
@@ -441,10 +441,10 @@ func publicURL(value string) (string, error) {
 	return serverURL(value, publicURLHint)
 }
 
-// doorServerURL parses the address doors download firmware from,
-// dropping a trailing slash.
-func doorServerURL(value string) (string, error) {
-	return serverURL(value, doorServerURLHint)
+// deviceURL parses the address doors download firmware from, dropping a
+// trailing slash.
+func deviceURL(value string) (string, error) {
+	return serverURL(value, deviceURLHint)
 }
 
 // serverURL parses an address the server is reached at, dropping a
@@ -736,11 +736,8 @@ func (c Current) withUpdates(values map[string]string) (Current, error) {
 	if c.PublicURL, err = parsed(values, keyPublicURL, publicURL); err != nil {
 		return Current{}, err
 	}
-	if c.DoorURL, err = parsed(values, keyDoorServerURL, doorServerURL); err != nil {
+	if c.DeviceURL, err = parsed(values, keyDeviceURL, deviceURL); err != nil {
 		return Current{}, err
-	}
-	if c.DoorURL == "" {
-		c.DoorURL = c.PublicURL
 	}
 	if c.UpdateWindow.Days, err = parsed(values, KeyUpdateDays, updateDays); err != nil {
 		return Current{}, err

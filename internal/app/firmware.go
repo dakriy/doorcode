@@ -153,7 +153,7 @@ func (a *App) firmwareRoutes() []route {
 			responses: []openapi.Response{
 				{Status: http.StatusOK, Description: "The door was sent its target, whatever the update window and however many doors are updating.", Body: doorFirmwareView{}},
 				noDoor,
-				{Status: http.StatusConflict, Description: "The door's controller is not connected, the door has no target, or the public_url setting is not set.", Body: errorBody{}},
+				{Status: http.StatusConflict, Description: "The door's controller is not connected, the door has no target, or the device_url setting is not set.", Body: errorBody{}},
 			},
 		}),
 		apiRoute(http.MethodGet, "/doors/{id}/firmware/{version}", anyone, a.downloadFirmware, apiDoc{

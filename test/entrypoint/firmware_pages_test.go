@@ -75,7 +75,7 @@ func TestFirmwarePageOfANewSiteSaysWhatIsMissing(t *testing.T) {
 
 	got := pageOf(b.Get("/admin/firmware"))
 
-	addressNote := "No update can be sent until the public_url setting gives the address doors reach this server at, since they download firmware from it."
+	addressNote := "No update can be sent until the device_url setting gives the address of the entrypoint doors download firmware from."
 	want := []any{
 		[]string{hostNote, brokerNote, addressNote},
 		map[string][][]string{
@@ -407,10 +407,10 @@ func TestAFirmwareChangeTheDoorPageCannotMakeIsExplained(t *testing.T) {
 			action:  func(b *testsupport.Browser) testsupport.Response { return b.Post("/admin/doors/1/update") },
 			status:  409, alert: "The door has no firmware to run. Choose a default version or one for this door first.",
 		},
-		"updating without the public address": {
-			arrange: func(fl *fleet) { fl.f.EnvStub["DOORCODE_PUBLIC_URL"] = "" },
+		"updating without the device address": {
+			arrange: func(fl *fleet) { fl.f.EnvStub["DOORCODE_DEVICE_URL"] = "" },
 			action:  func(b *testsupport.Browser) testsupport.Response { return b.Post("/admin/doors/1/update") },
-			status:  409, alert: "Set the public_url setting first, so the door can download its firmware.",
+			status:  409, alert: "Set the device_url setting first, so the door can download its firmware.",
 		},
 		"choosing firmware that is not there": {
 			arrange: func(*fleet) {},

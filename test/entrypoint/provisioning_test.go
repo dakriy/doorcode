@@ -47,7 +47,7 @@ func provisioningFile(broker, wifi, changed map[string]any) any {
 	file := map[string]any{
 		"format": 1.0, "generated_at": 1767603600.0,
 		"broker":      with(map[string]any{"host": "mqtt.example.com", "port": 8883.0, "tls": true, "ca_pem": testsupport.Certificate}, broker),
-		"server":      map[string]any{"url": ""},
+		"server":      map[string]any{"device_url": ""},
 		"enrollment":  map[string]any{"username": "doorcode-enroll", "password": enrollPassword},
 		"wifi":        with(map[string]any{"ssid": "Example", "password": "wifi-secret"}, wifi),
 		"door_config": with(config, changed),
@@ -69,14 +69,14 @@ func TestTheProvisioningFileCarriesTheSitesBrokerEnrollmentWifiAndDoorDefaults(t
 	}
 }
 
-func TestTheProvisioningFileNamesTheDoorsServerAddressOrElseThePublicAddress(t *testing.T) {
+func TestTheProvisioningFileNamesTheDeviceAddressAndNotThePublicAddress(t *testing.T) {
 	t.Parallel()
 	cases := map[string]struct {
 		settings map[string]string
 		want     string
 	}{
-		"the doors' server address": {map[string]string{"public_url": "https://doorcode.example.com", "door_server_url": "https://doors.example.com:8443/"}, "https://doors.example.com:8443"},
-		"the public address":        {map[string]string{"public_url": "https://doorcode.example.com/"}, "https://doorcode.example.com"},
+		"the device address": {map[string]string{"public_url": "https://doorcode.example.com", "device_url": "https://devices.example.com:8443/"}, "https://devices.example.com:8443"},
+		"no address":         {map[string]string{"public_url": "https://doorcode.example.com/"}, ""},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -88,7 +88,7 @@ func TestTheProvisioningFileNamesTheDoorsServerAddressOrElseThePublicAddress(t *
 
 			got := testsupport.JSON(b.Get("/api/v1/firmware/provisioning").Body).(map[string]any)["server"]
 
-			if diff := cmp.Diff(map[string]any{"url": c.want}, got); diff != "" {
+			if diff := cmp.Diff(map[string]any{"device_url": c.want}, got); diff != "" {
 				t.Errorf("server (-want +got):\n%s", diff)
 			}
 		})
@@ -206,7 +206,7 @@ func TestTheFirmwarePageAndADoorsPageOfferItsProvisioningFile(t *testing.T) {
 	door := doorPage(t, b, "/admin/doors/1")
 
 	want := []any{
-		provisioningLink("/api/v1/firmware/provisioning"), []string{"No update can be sent until the public_url setting gives the address doors reach this server at, since they download firmware from it."},
+		provisioningLink("/api/v1/firmware/provisioning"), []string{"No update can be sent until the device_url setting gives the address of the entrypoint doors download firmware from."},
 		"/api/v1/doors/1/provisioning",
 	}
 	if diff := cmp.Diff(want, []any{firmwarePage.LinkTargets, firmwarePage.Notes, door.LinkTargets["Download provisioning file"]}); diff != "" {

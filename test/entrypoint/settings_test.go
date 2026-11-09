@@ -64,8 +64,7 @@ var brokerSettingsJSON = `{"key":"enrollment_username","value":"doorcode-enroll"
 	defaultSetting("telemetry_retention_days", "7") + `,` +
 	defaultSetting("telemetry_rollup_retention_days", "730") + `,` +
 	defaultSetting("unresponsive_minutes", "5") + `,` +
-	defaultSetting("public_url", "") + `,` +
-	defaultSetting("door_server_url", "") + `,` +
+	defaultSetting("device_url", "") + `,` +
 	defaultSetting("update_window_days", "daily") + `,` +
 	defaultSetting("update_window_start", "02:00") + `,` +
 	defaultSetting("update_window_minutes", "120") + `,` +
@@ -116,7 +115,7 @@ func TestSettingsListShowsDefaultsAndTheEnvironmentWhenNothingIsStored(t *testin
 		`{"key":"site_name","value":"doorcode","source":"default","read_only":false,"env_var":"DOORCODE_SITE_NAME"},` +
 		`{"key":"site_timezone","value":"UTC","source":"default","read_only":false,"env_var":"DOORCODE_SITE_TIMEZONE"},` +
 		`{"key":"admin_email","value":"admin@example.com","source":"default","read_only":false,"env_var":"DOORCODE_ADMIN_EMAIL"},` +
-		proxySettingJSON + `,` + themeSettingsJSON + `,` + hashMemoryJSON + `,` + signInSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
+		defaultSetting("public_url", "") + `,` + proxySettingJSON + `,` + themeSettingsJSON + `,` + hashMemoryJSON + `,` + signInSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -134,7 +133,7 @@ func TestSettingsListShowsStoredAndEnvironmentValuesWithTheirSources(t *testing.
 		`{"key":"site_name","value":"Main Building","source":"database","read_only":false,"env_var":"DOORCODE_SITE_NAME","updated_at":"2026-01-02T08:00:00Z"},` +
 		`{"key":"site_timezone","value":"Europe/Berlin","source":"environment","read_only":true,"env_var":"DOORCODE_SITE_TIMEZONE"},` +
 		`{"key":"admin_email","value":"admin@example.com","source":"default","read_only":false,"env_var":"DOORCODE_ADMIN_EMAIL"},` +
-		proxySettingJSON + `,` + themeSettingsJSON + `,` + hashMemoryJSON + `,` + signInSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
+		defaultSetting("public_url", "") + `,` + proxySettingJSON + `,` + themeSettingsJSON + `,` + hashMemoryJSON + `,` + signInSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}

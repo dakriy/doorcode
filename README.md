@@ -121,11 +121,10 @@ Mosquitto 2 with its dynamic-security plugin. Migrations apply on start.
    Sign in at <http://localhost:8080> as `admin@example.com` (the
    `admin_email` setting) and change the password from the portal.
 
-4. In Settings, set `public_url` to the `https://` address people and doors
-   reach the server at (such as `https://doorcode.example.com`). Firmware
-   downloads and single sign-on need it. An `http://` address is accepted
-   for development only: doors verify the server's certificate only over
-   https.
+4. In Settings, set `public_url` to the `https://` address people's
+   browsers reach the server at (such as `https://doorcode.example.com`).
+   Single sign-on needs it. An `http://` address is accepted for
+   development only.
 
    Doors verify the server, when they download firmware, against the same
    CA certificate as the broker (`door_broker_ca_pem`), usually an internal
@@ -133,9 +132,10 @@ Mosquitto 2 with its dynamic-security plugin. Migrations apply on start.
    the server a second entrypoint wherever TLS is terminated that serves a
    certificate chain from the internal CA the doors trust, such as a second
    port or host name on the reverse proxy forwarding to the same server,
-   and set `door_server_url` to it (such as
-   `https://doors.doorcode.example.com`). The main entrypoint may use any
-   public CA. While `door_server_url` is empty doors use `public_url`.
+   and set `device_url` to it (such as
+   `https://devices.doorcode.example.com`). The main entrypoint may use any
+   public CA. No firmware update is sent while `device_url` is empty;
+   `public_url` is never used for doors.
 
 The compose file is a starting point: the broker listens without TLS on
 1883, and the database and broker passwords are `doorcode`. For production,
@@ -187,6 +187,7 @@ single sign-on and identity claims parts while `oidc_enabled` is off.
 | `site_name` | Shown in the header and every page title. | `doorcode` |
 | `site_timezone` | A tz database name; schedules, dates typed on pages, and every time shown are read in it. | `UTC` |
 | `admin_email` | The email of the administrator created on first start when there are no users. | `admin@example.com` |
+| `public_url` | The `https://` address, without a query, browsers reach the server at; `http://` only for development. Single sign-on needs it. | empty |
 | `trusted_proxies` | IP addresses, CIDR ranges, and host names, separated by commas, of the reverse proxies whose `X-Forwarded-For` and `X-Forwarded-Proto` headers are believed. A host name is looked up by the periodic work, about once a minute, and trusts nobody until it has been. Empty believes no one. | empty |
 | `theme_accent` | The accent color, `#rrggbb`. | `#4f39f6` |
 | `theme_accent_dark` | The accent color in the dark theme; empty uses `theme_accent`. | empty |
@@ -212,8 +213,7 @@ single sign-on and identity claims parts while `oidc_enabled` is off.
 | `telemetry_retention_days` | Days each telemetry report is kept. | `7` |
 | `telemetry_rollup_retention_days` | Days the hourly summaries of the reports are kept. | `730` |
 | `unresponsive_minutes` | Minutes a connected door may stay silent before it counts as unresponsive. | `5` |
-| `public_url` | The `https://` address, without a query, doors and browsers reach the server at; `http://` only for development, since doors verify the server's certificate only over https. Firmware is not sent while it is empty, and single sign-on needs it. | empty |
-| `door_server_url` | The address, without a query, doors download firmware from when it is not `public_url`: an entrypoint whose certificate chains to the CA in `door_broker_ca_pem`. Sent in the `update` command and in the provisioning file's `server`. Empty uses `public_url`. | empty |
+| `device_url` | The `https://` address, without a query, of the server's device-facing entrypoint, which presents a certificate from the managed CA controllers trust, the same CA as the broker's (`door_broker_ca_pem`); `http://` only for development, since doors verify the server's certificate only over https. Doors download firmware from it: sent in the `update` command and in the provisioning file's `server.device_url`. No update is sent while it is empty. | empty |
 | `update_window_days` | `daily`, or weekdays separated by commas such as `sat,sun`. | `daily` |
 | `update_window_start` | When the update window opens, `HH:MM` in the site timezone. | `02:00` |
 | `update_window_minutes` | How long the update window lasts, in minutes. | `120` |
@@ -286,7 +286,7 @@ implementation. In short:
 
 0. **Provision.** Flash the controller with a provisioning file: the
    broker, its CA certificate, the server's address for firmware
-   (`door_server_url` or `public_url`), the Wi-Fi network, the enrollment
+   (`device_url`), the Wi-Fi network, the enrollment
    credentials, and a starting configuration. A holder of manage-firmware
    downloads it from the firmware page, or a door's page for a controller
    meant for that door, or from `GET /api/v1/firmware/provisioning` and
@@ -348,10 +348,10 @@ While the update window is open (`update_window_days`, `update_window_start`,
 `update_window_minutes`, in the site timezone), the server sends pending
 online doors, in id order, an `update` command until `update_concurrency`
 doors are updating; a door's page can also update it at once. The command's
-`url` is `door_server_url` (or `public_url` while that is empty) +
-`/api/v1/doors/<id>/firmware/<version>?token=...`, valid only for that
-update until it times out, so nothing is sent while both are empty. The door downloads and checks the image against
-`sha256`, installs it, and reconnects reporting the new version, which ends
+`url` is `device_url` + `/api/v1/doors/<id>/firmware/<version>?token=...`,
+valid only for that update until it times out, so nothing is sent while
+`device_url` is empty, even with `public_url` set. The door downloads and
+checks the image against `sha256`, installs it, and reconnects reporting the new version, which ends
 the update as succeeded. A door that cannot install it answers `failed` on
 its ack topic; one that does not come back within `update_timeout_minutes`
 fails too. A door that failed is sent its target again in the next window.

@@ -44,6 +44,7 @@ type shownSetting struct {
 // hashing cost, in order.
 var defaultSettings = []shownSetting{
 	{"site_name", "doorcode", "default"}, {"site_timezone", "UTC", "default"}, {"admin_email", "admin@example.com", "default"},
+	{"public_url", "", "default"},
 	{"trusted_proxies", "", "default"},
 	{"theme_accent", "#4f39f6", "default"}, {"theme_accent_dark", "", "default"},
 	{"password_hash_memory_kib", "8", "environment, read-only"}, {"password_min_length", "12", "default"},
@@ -56,7 +57,7 @@ var defaultSettings = []shownSetting{
 	{"enrollment_username", "doorcode-enroll", "default"}, {"enrollment_password", "", "default"},
 	{"telemetry_retention_days", "7", "default"}, {"telemetry_rollup_retention_days", "730", "default"},
 	{"unresponsive_minutes", "5", "default"},
-	{"public_url", "", "default"}, {"door_server_url", "", "default"}, {"update_window_days", "daily", "default"}, {"update_window_start", "02:00", "default"},
+	{"device_url", "", "default"}, {"update_window_days", "daily", "default"}, {"update_window_start", "02:00", "default"},
 	{"update_window_minutes", "120", "default"}, {"update_concurrency", "5", "default"}, {"update_timeout_minutes", "30", "default"},
 	{"door_strike_pulse_ms", "3000", "default"}, {"door_keypad_idle_clear_ms", "10000", "default"},
 	{"door_min_code_length", "4", "default"}, {"door_max_code_length", "32", "default"}, {"door_submit_key", "#", "default"},
@@ -104,9 +105,9 @@ var settingRows = map[string]struct{ section, label, help string }{
 	"telemetry_retention_days":        {"Telemetry", "Reports kept", "Days each telemetry report is kept."},
 	"telemetry_rollup_retention_days": {"Telemetry", "Hourly summaries kept", "Days the hourly summaries of the reports are kept."},
 	"unresponsive_minutes":            {"Telemetry", "Unresponsive after", "Minutes a connected door may stay silent before it counts as unresponsive."},
-	"public_url":                      {"Firmware updates", "Public address", "The https:// address doors and browsers reach the server at; http:// only for development, since doors verify the server's certificate only over https. Nothing is sent to doors to download while it is empty."},
-	"door_server_url": {"Firmware updates", "Doors' server address", "The https:// address doors download firmware from, " +
-		"such as a second entrypoint whose certificate comes from the CA doors verify the broker against. Empty uses the public address."},
+	"public_url":                      {"Site", "Public address", "The https:// address browsers reach the server at, and single sign-on returns to; http:// only for development."},
+	"device_url": {"Firmware updates", "Device address", "The https:// address of the server's device-facing entrypoint, which presents a certificate from the managed CA controllers trust, " +
+		"the same CA as the broker's; doors download firmware from it. http:// only for development, since doors verify the server's certificate only over https. No update is sent to doors while it is empty."},
 	"update_window_days":            {"Firmware updates", "Update days", "daily, or weekdays separated by commas such as sat,sun."},
 	"update_window_start":           {"Firmware updates", "Update window opens", "A time of day in the site timezone."},
 	"update_window_minutes":         {"Firmware updates", "Update window length", "Minutes."},

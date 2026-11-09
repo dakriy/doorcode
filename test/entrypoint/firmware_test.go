@@ -37,7 +37,8 @@ func uploadFirmware(t *testing.T, c *testsupport.Browser, version string) {
 // fleet is a broker site where the controllers A1, B2, and C3 are
 // enrolled as Lobby (1), Dock (2), and Attic (3) and connected, running
 // 1.4.3, and version 1.5.0 is uploaded as firmware 1 and is the default.
-// Doors download firmware from https://doorcode.example.com, the update
+// Doors download firmware from https://devices.doorcode.example.com, browsers
+// reach the site at https://doorcode.example.com, the update
 // window opens every day at 02:00 UTC for two hours, and two doors may
 // update at once. b is the administrator's API client.
 type fleet struct {
@@ -52,6 +53,7 @@ type fleet struct {
 func fleetSite(t *testing.T, f *testsupport.Factory) *fleet {
 	t.Helper()
 	f.EnvStub["DOORCODE_PUBLIC_URL"] = "https://doorcode.example.com"
+	f.EnvStub["DOORCODE_DEVICE_URL"] = "https://devices.doorcode.example.com"
 	f.EnvStub["DOORCODE_UPDATE_CONCURRENCY"] = "2"
 	a, b := brokerSite(t, f)
 	fl := &fleet{t: t, f: f, a: a, b: b}
@@ -168,6 +170,24 @@ func TestTheRolloutSendsNothingUntilTheWindowOpens(t *testing.T) {
 	want := []any{[]string{}, []string{}, topicsOf("command", "1", "2")}
 	if diff := cmp.Diff(want, []any{after, before, fl.commands()}); diff != "" {
 		t.Errorf("commands after the window, before the next, once it opened (-want +got):\n%s", diff)
+	}
+}
+
+func TestTheRolloutSendsNothingAndSaysWhyWhileTheDeviceAddressIsEmptyThoughThePublicAddressIsSet(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	fl := fleetSite(t, f)
+	f.EnvStub["DOORCODE_DEVICE_URL"] = ""
+	logged := len(f.LogStub.Entries)
+
+	fl.at("2026-01-06T02:00:00Z")
+
+	want := []any{
+		[]string{},
+		[]testsupport.LogEntry{{Level: "error", Message: "periodic work failed", Fields: map[string]string{"error": "set the device_url setting first, so doors can download firmware"}}},
+	}
+	if diff := cmp.Diff(want, []any{fl.commands(), logsSince(f, logged)}); diff != "" {
+		t.Errorf("commands, log once the window opened (-want +got):\n%s", diff)
 	}
 }
 
@@ -345,9 +365,9 @@ func TestUpdatingADoorNowIsRefusedWhenItCannotBeSent(t *testing.T) {
 			arrange: func(fl *fleet) { send(fl.t, fl.b, "PUT", "/api/v1/firmware/default", `{"firmware_id":null}`, 204) },
 			door:    "1", status: 409, error: "the door has no firmware to run; choose a default version or one for the door",
 		},
-		"without the public address": {
-			arrange: func(fl *fleet) { fl.f.EnvStub["DOORCODE_PUBLIC_URL"] = "" },
-			door:    "1", status: 409, error: "set the public_url setting first, so doors can download firmware",
+		"without the device address, though the public address is set": {
+			arrange: func(fl *fleet) { fl.f.EnvStub["DOORCODE_DEVICE_URL"] = "" },
+			door:    "1", status: 409, error: "set the device_url setting first, so doors can download firmware",
 		},
 		"of an unknown door": {
 			arrange: func(*fleet) {},
@@ -888,12 +908,12 @@ func TestThePublicAddressMustBeAnHTTPSOrHTTPAddressWithoutAQuery(t *testing.T) {
 	}
 }
 
-func TestUpdatesGoToAnHTTPPublicAddress(t *testing.T) {
+func TestUpdatesGoToAnHTTPDeviceAddress(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	fl := fleetSite(t, f)
-	delete(f.EnvStub, "DOORCODE_PUBLIC_URL")
-	send(t, fl.b, "PUT", "/api/v1/settings/public_url", `{"value":"http://localhost:8080"}`, 200)
+	delete(f.EnvStub, "DOORCODE_DEVICE_URL")
+	send(t, fl.b, "PUT", "/api/v1/settings/device_url", `{"value":"http://localhost:8080"}`, 200)
 	send(t, fl.b, "POST", "/api/v1/doors/1/update", "", 200)
 
 	url, _ := lastReceived(t, fl.conns[0])["url"].(string)
@@ -903,12 +923,12 @@ func TestUpdatesGoToAnHTTPPublicAddress(t *testing.T) {
 	}
 }
 
-func TestUpdatesGoToTheDoorsServerAddressWhenOneIsSet(t *testing.T) {
+func TestUpdatesGoToTheDeviceAddressAndNotThePublicAddress(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	fl := fleetSite(t, f)
-	delete(f.EnvStub, "DOORCODE_PUBLIC_URL")
-	send(t, fl.b, "PUT", "/api/v1/settings/door_server_url", `{"value":"https://doors.example.com:8443/"}`, 200)
+	delete(f.EnvStub, "DOORCODE_DEVICE_URL")
+	send(t, fl.b, "PUT", "/api/v1/settings/device_url", `{"value":"https://doors.example.com:8443/"}`, 200)
 	send(t, fl.b, "POST", "/api/v1/doors/1/update", "", 200)
 
 	url, _ := lastReceived(t, fl.conns[0])["url"].(string)
@@ -918,10 +938,10 @@ func TestUpdatesGoToTheDoorsServerAddressWhenOneIsSet(t *testing.T) {
 	}
 }
 
-func TestTheDoorsServerAddressMustBeAnHTTPSOrHTTPAddressWithoutAQuery(t *testing.T) {
+func TestTheDeviceAddressMustBeAnHTTPSOrHTTPAddressWithoutAQuery(t *testing.T) {
 	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
-	refused := `{"error":"invalid value for door_server_url: must be empty or an https:// or http:// address without a query, such as https://doors.doorcode.example.com"}` + "\n"
+	refused := `{"error":"invalid value for device_url: must be empty or an https:// or http:// address without a query, such as https://devices.doorcode.example.com"}` + "\n"
 	cases := []struct {
 		value  string
 		status int
@@ -936,7 +956,7 @@ func TestTheDoorsServerAddressMustBeAnHTTPSOrHTTPAddressWithoutAQuery(t *testing
 
 	var got, want []string
 	for _, c := range cases {
-		r := send(t, b, "PUT", "/api/v1/settings/door_server_url", `{"value":"`+c.value+`"}`, c.status)
+		r := send(t, b, "PUT", "/api/v1/settings/device_url", `{"value":"`+c.value+`"}`, c.status)
 		if c.status == 400 {
 			got, want = append(got, r.Body), append(want, refused)
 		}
@@ -947,16 +967,16 @@ func TestTheDoorsServerAddressMustBeAnHTTPSOrHTTPAddressWithoutAQuery(t *testing
 	}
 }
 
-func TestUpdatesGoToThePublicAddressWithoutATrailingSlash(t *testing.T) {
+func TestUpdatesGoToTheDeviceAddressWithoutATrailingSlash(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	fl := fleetSite(t, f)
-	f.EnvStub["DOORCODE_PUBLIC_URL"] = "https://doorcode.example.com/site/"
+	f.EnvStub["DOORCODE_DEVICE_URL"] = "https://devices.doorcode.example.com/site/"
 	send(t, fl.b, "POST", "/api/v1/doors/1/update", "", 200)
 
 	url, _ := lastReceived(t, fl.conns[0])["url"].(string)
 
-	if diff := cmp.Diff("https://doorcode.example.com/site/api/v1/doors/1/firmware/1.5.0?token=", url[:len(url)-43]); diff != "" {
+	if diff := cmp.Diff("https://devices.doorcode.example.com/site/api/v1/doors/1/firmware/1.5.0?token=", url[:len(url)-43]); diff != "" {
 		t.Errorf("url without its token (-want +got):\n%s", diff)
 	}
 }

@@ -24,10 +24,9 @@ var (
 	// ErrNoTarget reports a door with no firmware to run: the site has no
 	// default and the door names none of its own.
 	ErrNoTarget = errors.New("the door has no firmware to run; choose a default version or one for the door")
-	// ErrNoAddress reports a site with no address doors download firmware
-	// from, neither door_server_url nor public_url, so a door cannot be
-	// told where to download it.
-	ErrNoAddress = errors.New("set the public_url setting first, so doors can download firmware")
+	// ErrNoAddress reports a site whose device_url is not set, so a door
+	// cannot be told where to download firmware.
+	ErrNoAddress = errors.New("set the device_url setting first, so doors can download firmware")
 	// ErrNotAllowed reports a download token that does not let the door
 	// download the version: not the one it was sent for this version, or
 	// one that has expired or whose update has ended.
@@ -258,12 +257,12 @@ func (s Service) UpdateNow(ctx context.Context, id, by int64) (DoorFirmware, err
 // download token of its own, and logs it, naming the user whose id is by
 // when there is one.
 func (s Service) send(ctx context.Context, df DoorFirmware, current settings.Current, by *int64) error {
-	if current.DoorURL == "" {
+	if current.DeviceURL == "" {
 		return ErrNoAddress
 	}
 	target := *df.Target
 	token := base64.RawURLEncoding.EncodeToString(s.Entropy.Bytes(tokenBytes))
-	url := current.DoorURL + s.DownloadPath(df.Door.ID, target.Version) + "?token=" + token
+	url := current.DeviceURL + s.DownloadPath(df.Door.ID, target.Version) + "?token=" + token
 	id, err := s.Controllers.Update(ctx, df.Door, target.Version, target.SHA256, url)
 	if err != nil {
 		return err
