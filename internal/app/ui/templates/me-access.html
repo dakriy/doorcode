@@ -1,10 +1,42 @@
 {{define "content"}}
+{{$c := .Content}}
 <div class="max-w-2xl">
   <h1 class="text-2xl font-semibold tracking-tight">Access</h1>
-  <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">The doors this site shows everyone. Open a door’s calendar to see when it is unlocked for anyone and when your code works there.</p>
+  <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">The doors this site shows everyone, and what each does for you now. Open a door’s calendar to see its week.</p>
 </div>
-<section aria-label="Doors" class="mt-8 overflow-hidden {{template "card-class"}}">
-  {{template "portal-doors" .Content}}
+
+<form method="get" action="/me/access" role="search" class="mt-8 flex flex-col gap-3 sm:flex-row sm:items-end">
+  <div class="flex-1">
+    <label for="q" class="sr-only">Search doors</label>
+    <input id="q" name="q" type="search" value="{{$c.Search}}" placeholder="Search by name or location" autocomplete="off"
+      data-filter="portal-doors" data-filter-none="portal-doors-none" class="{{template "input-base"}}">
+  </div>
+  <button type="submit" class="{{template "secondary-class"}}">Search</button>
+</form>
+
+<section aria-label="Doors" class="mt-4 overflow-hidden {{template "card-class"}}">
+  <div class="overflow-x-auto">
+    <table aria-label="Your doors" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+      <thead class="max-sm:hidden {{template "table-head-class"}}"><tr><th scope="col" class="px-5 py-2">Door</th><th scope="col" class="px-5 py-2">Now</th><th scope="col" class="px-5 py-2"><span class="sr-only">Calendar</span></th></tr></thead>
+      <tbody id="portal-doors" class="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {{range $c.Doors}}
+        <tr data-filter-row class="max-sm:flex max-sm:flex-wrap max-sm:items-center">
+          <td class="px-5 py-3 max-sm:w-full max-sm:pb-2">
+            <div class="flex items-center gap-3">
+              {{template "door-thumbnail" (thumb .Row "size-11")}}
+              <div class="min-w-0" data-filter-text><p class="font-medium">{{.Row.Name}}</p> {{with .Row.Location}}<p class="truncate text-xs text-zinc-500 dark:text-zinc-400">{{.}}</p>{{end}}</div>
+            </div>
+          </td>
+          <td class="px-5 py-3 max-sm:flex-1 max-sm:pt-0 max-sm:pr-0">{{template "portal-now" .}}</td>
+          <td class="px-5 py-3 text-right whitespace-nowrap max-sm:pt-0"><a href="/me/access/{{.Row.ID}}" hx-boost="false" aria-label="Calendar of {{.Row.Name}}" class="{{template "row-button-class"}}">{{template "calendar-icon"}}Calendar</a></td>
+        </tr>
+        {{else}}
+        <tr><td colspan="3" class="px-5 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">{{if $c.Search}}No door’s name or location holds “{{$c.Search}}”.{{else}}No doors are shown in the portal yet. An administrator decides which doors appear here.{{end}}</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  <p id="portal-doors-none" hidden class="px-5 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">No door’s name or location holds what you typed.</p>
 </section>
-{{template "calendar-key" (calendarkey "Your" "open" "code" "locked")}}
+<script src="{{index .Assets "FilterJS"}}"></script>
 {{end}}

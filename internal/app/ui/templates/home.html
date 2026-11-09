@@ -27,44 +27,31 @@
   {{template "portal-card" (portalcard "/account/tokens" "API tokens" "Tokens that let your scripts call the API as you.")}}
 </div>
 
-<div class="mt-10 grid gap-8 lg:grid-cols-5">
-  <section aria-labelledby="doors-heading" class="overflow-hidden lg:col-span-3 {{template "card-class"}}">
-    <div class="flex items-start justify-between gap-3 px-5 pt-5">
-      <div>
-        <h2 id="doors-heading" class="text-sm font-semibold">Your doors at a glance</h2>
-        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">The doors this site shows everyone, and what each does for you right now.</p>
-      </div>
-      <a href="/me/access" class="shrink-0 {{template "secondary-class"}}">All access</a>
+<section aria-labelledby="entries-heading" class="mt-10 overflow-hidden {{template "card-class"}}">
+  <div class="flex items-start justify-between gap-3 px-5 pt-5">
+    <div>
+      <h2 id="entries-heading" class="text-sm font-semibold">Your recent entries</h2>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">The newest codes you entered.</p>
     </div>
-    {{template "portal-doors" $c.Doors}}
-  </section>
-
-  <section aria-labelledby="entries-heading" class="overflow-hidden lg:col-span-2 {{template "card-class"}}">
-    <div class="flex items-start justify-between gap-3 px-5 pt-5">
-      <div>
-        <h2 id="entries-heading" class="text-sm font-semibold">Your recent entries</h2>
-        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">The newest codes you entered.</p>
-      </div>
-      <a href="/me/entries" class="shrink-0 {{template "secondary-class"}}">All entries</a>
-    </div>
-    <div class="mt-4 overflow-x-auto">
-      <table aria-label="Your recent entries" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
-        <thead class="{{template "table-head-class"}}"><tr><th scope="col" class="px-5 py-2">When</th><th scope="col" class="px-5 py-2">Door</th><th scope="col" class="px-5 py-2">Outcome</th></tr></thead>
-        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
-          {{range $c.Entries}}
-          <tr>
-            <td class="px-5 py-3 whitespace-nowrap tabular-nums text-zinc-600 dark:text-zinc-400">{{.At}}</td>
-            <td class="px-5 py-3 whitespace-nowrap">{{.Door.Name}}</td>
-            <td class="px-5 py-3 whitespace-nowrap">{{template "outcome-badge" .}}</td>
-          </tr>
-          {{else}}
-          <tr><td colspan="3" class="px-5 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">No entries yet.</td></tr>
-          {{end}}
-        </tbody>
-      </table>
-    </div>
-  </section>
-</div>
+    <a href="/me/entries" class="shrink-0 {{template "secondary-class"}}">All entries</a>
+  </div>
+  <div class="mt-4 overflow-x-auto">
+    <table aria-label="Your recent entries" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+      <thead class="{{template "table-head-class"}}"><tr><th scope="col" class="px-5 py-2">When</th><th scope="col" class="px-5 py-2">Door</th><th scope="col" class="px-5 py-2">Outcome</th></tr></thead>
+      <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {{range $c.Entries}}
+        <tr>
+          <td class="px-5 py-3 whitespace-nowrap tabular-nums text-zinc-600 dark:text-zinc-400">{{.At}}</td>
+          <td class="px-5 py-3 whitespace-nowrap">{{.Door.Name}}</td>
+          <td class="px-5 py-3 whitespace-nowrap">{{template "outcome-badge" .}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="3" class="px-5 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">No entries yet.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</section>
 
 {{if .AdminEntry}}
 <section aria-labelledby="admin-heading" class="mt-10">

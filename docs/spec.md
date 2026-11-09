@@ -287,10 +287,18 @@ sign-in page image are settings.
 
 ## 12. User portal
 
-Home, set door code, set password (hidden under auto sign-in), access
-calendar per public door showing when it is unlocked and when the user's
-code works, my recent entries, personal API tokens, access requests (create,
-edit while unresolved, delete), sign out.
+Home (the portal's pages, the user's recent entries, and administration
+links for role holders), set door code, set password (hidden under auto
+sign-in), access, my recent entries, personal API tokens, access requests
+(create, edit while unresolved, delete), sign out.
+
+The access page lists every public door with a search by name or location
+that narrows the list as you type (without script the full list shows, and
+submitting the search narrows it on the server). Per door it says only one
+of: open now (open mode), your code works now, your code works at set
+times, or your code never works here. A locked door is simply one where the
+user's code does not work now. Each door links to its access calendar,
+showing when it is unlocked and when the user's code works.
 
 ## 13. Dashboard and analytics
 

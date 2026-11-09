@@ -11,6 +11,7 @@ import (
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/directory"
+	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/event"
 	"github.com/dakriy/doorcode/internal/request"
 	"github.com/dakriy/doorcode/internal/rule"
@@ -71,9 +72,10 @@ type portalDoor struct {
 	// Reached is true when one of the viewer's groups has a rule reaching
 	// the door.
 	Reached bool
-	// Now says what the door does now, and Kind how it is drawn: open,
-	// locked, code (the viewer's code works), later (it works at other
-	// times), or none (it never does).
+	// Now says what the door does for the viewer now, and Kind how it is
+	// drawn: open (anyone gets in), code (the viewer's code works), later
+	// (it works at other times), or none (it never does). A locked door is
+	// simply one where the viewer's code does not work now.
 	Now  string
 	Kind string
 }
@@ -93,12 +95,13 @@ func portalDoorOf(d rule.DoorAccess, now time.Time) portalDoor {
 	return shown
 }
 
-// doesNow says what d does for the viewer at now, and how it is drawn: its
-// timeline's state first, then whether their code works.
+// doesNow says what d does for the viewer at now, and how it is drawn:
+// open while its timeline has it in open mode, else whether their code
+// works.
 func doesNow(d rule.DoorAccess, now time.Time) (string, string) {
 	for _, s := range d.Spans {
-		if inside(now, s.Start, s.End) {
-			return spanNow(s.State)
+		if s.State == timeline.Open && inside(now, s.Start, s.End) {
+			return "Open now", eventOpen
 		}
 	}
 	for _, in := range d.Works {
@@ -107,18 +110,14 @@ func doesNow(d rule.DoorAccess, now time.Time) (string, string) {
 		}
 	}
 	if d.Reached() {
-		return "Your code works here at set times", "later"
+		return "Your code works at set times", "later"
 	}
-	return "Your code never opens this door", "none"
+	return "Your code never works here", "none"
 }
 
-// spanNow says what a door in a timeline span with state does now, and how
-// it is drawn.
-func spanNow(state string) (string, string) {
-	if state == timeline.Open {
-		return "Open mode now: any keypress unlocks it", eventOpen
-	}
-	return "Locked now: no code opens it", eventLocked
+// searched is the doors among doors that search matches.
+func searched(doors []rule.DoorAccess, search string) []rule.DoorAccess {
+	return slices.DeleteFunc(doors, func(d rule.DoorAccess) bool { return !door.Matches(d.Door, search) })
 }
 
 // publicDoors is every door the portal shows, with the access viewer has
@@ -137,13 +136,13 @@ func ownEntries(userID int64, page, perPage int) event.Query {
 	return event.Query{EventQuery: connector.EventQuery{UserID: userID}, Page: page, PerPage: perPage}
 }
 
-// portalDoors is every door the portal shows, as it is today in zone, for
-// viewer.
-func (a *App) portalDoors(r *http.Request, viewer auth.User, zone *time.Location) ([]portalDoor, error) {
+// portalDoors is every door the portal shows that search matches, as it is
+// today in zone, for viewer.
+func (a *App) portalDoors(r *http.Request, viewer auth.User, zone *time.Location, search string) ([]portalDoor, error) {
 	today := dayRange{zone: zone, first: a.today(zone), last: a.today(zone)}
 	doors, err := a.publicDoors(r, viewer, zone, today.from(), today.to())
 	shown := []portalDoor{}
-	for _, d := range doors {
+	for _, d := range searched(doors, search) {
 		shown = append(shown, portalDoorOf(d, a.clock.Now()))
 	}
 	return shown, err
@@ -151,8 +150,7 @@ func (a *App) portalDoors(r *http.Request, viewer auth.User, zone *time.Location
 
 // homeContent is home's content.
 type homeContent struct {
-	Code  ownCodeView
-	Doors []portalDoor
+	Code ownCodeView
 	// Open is how many of the viewer's requests wait for an answer.
 	Open    int
 	Entries []eventRow
@@ -169,11 +167,6 @@ func (a *App) home(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 		return
 	}
 	content := homeContent{Code: ownCode(u)}
-	content.Doors, err = a.portalDoors(r, viewer, zone)
-	if err != nil {
-		a.pageError(w, err)
-		return
-	}
 	mine, err := a.requests.Mine(r.Context(), viewer.ID)
 	if err != nil {
 		a.pageError(w, err)
@@ -275,17 +268,25 @@ func (a *App) setPasswordFromPortal(w http.ResponseWriter, r *http.Request, view
 	a.changed(w, r, err, passwordPath, "own-password-set")
 }
 
+// accessContent is the access page's content: the doors the search
+// matches.
+type accessContent struct {
+	Search string
+	Doors  []portalDoor
+}
+
 func (a *App) accessPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	zone, ok := a.siteZone(w, r)
 	if !ok {
 		return
 	}
-	doors, err := a.portalDoors(r, viewer, zone)
+	search := r.URL.Query().Get("q")
+	doors, err := a.portalDoors(r, viewer, zone, search)
 	if err != nil {
 		a.pageError(w, err)
 		return
 	}
-	a.render(w, r, http.StatusOK, accessTemplate, "Access", &viewer, doors)
+	a.render(w, r, http.StatusOK, accessTemplate, "Access", &viewer, accessContent{Search: search, Doors: doors})
 }
 
 // doorAccessContent is the content of the page showing a door's week in

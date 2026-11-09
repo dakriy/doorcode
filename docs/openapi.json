@@ -5129,11 +5129,21 @@
               "type": "string"
             },
             "example": "2026-11-15"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Keeps only the doors whose name or location holds this text, ignoring case.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "lobby"
           }
         ],
         "responses": {
           "200": {
-            "description": "Every door the portal shows, with when it is open or locked and when your code works there.",
+            "description": "Every door the portal shows that q matches, with when it is open or locked and when your code works there.",
             "content": {
               "application/json": {
                 "schema": {

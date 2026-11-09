@@ -384,36 +384,10 @@
 {{end}}
 
 {{/* What a door does for the viewer now, given a portalDoor. */}}
-{{define "portal-now"}}{{if eq .Kind "open"}}<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-600/20 ring-inset dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-400/20"><span class="size-1.5 rounded-full bg-emerald-500" aria-hidden="true"></span>{{.Now}}</span>
-{{- else if eq .Kind "locked"}}<span class="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 ring-1 ring-red-600/20 ring-inset dark:bg-red-950 dark:text-red-300 dark:ring-red-400/20"><span class="size-1.5 rounded-full bg-red-500" aria-hidden="true"></span>{{.Now}}</span>
-{{- else if eq .Kind "code"}}<span class="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700 ring-1 ring-sky-600/20 ring-inset dark:bg-sky-950 dark:text-sky-300 dark:ring-sky-400/20"><span class="size-1.5 rounded-full bg-sky-500" aria-hidden="true"></span>{{.Now}}</span>
-{{- else if eq .Kind "later"}}<span class="inline-flex rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 ring-1 ring-brand-600/20 ring-inset dark:bg-brand-950 dark:text-brand-300 dark:ring-brand-400/20">{{.Now}}</span>
-{{- else}}<span class="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600 ring-1 ring-zinc-500/20 ring-inset dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-400/20">{{.Now}}</span>{{end}}{{end}}
-
-{{/* The doors the portal shows, given portalDoors, each linking to its calendar. */}}
-{{define "portal-doors"}}
-<div class="mt-4 overflow-x-auto">
-  <table aria-label="Your doors" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
-    <thead class="{{template "table-head-class"}}"><tr><th scope="col" class="px-5 py-2">Door</th><th scope="col" class="px-5 py-2">Now</th><th scope="col" class="px-5 py-2"><span class="sr-only">Calendar</span></th></tr></thead>
-    <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
-      {{range .}}
-      <tr>
-        <td class="px-5 py-3">
-          <div class="flex items-center gap-3">
-            {{template "door-thumbnail" (thumb .Row "size-11")}}
-            <div class="min-w-0"><p class="font-medium">{{.Row.Name}}</p>{{with .Row.Location}}<p class="truncate text-xs text-zinc-500 dark:text-zinc-400">{{.}}</p>{{end}}</div>
-          </div>
-        </td>
-        <td class="px-5 py-3">{{template "portal-now" .}}</td>
-        <td class="px-5 py-3 text-right whitespace-nowrap"><a href="/me/access/{{.Row.ID}}" hx-boost="false" aria-label="Calendar of {{.Row.Name}}" class="{{template "row-button-class"}}">{{template "calendar-icon"}}Calendar</a></td>
-      </tr>
-      {{else}}
-      <tr><td colspan="3" class="px-5 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">No doors are shown in the portal yet. An administrator decides which doors appear here.</td></tr>
-      {{end}}
-    </tbody>
-  </table>
-</div>
-{{end}}
+{{define "portal-now"}}{{if eq .Kind "open"}}<span class="inline-flex whitespace-nowrap items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-600/20 ring-inset dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-400/20"><span class="size-1.5 rounded-full bg-emerald-500" aria-hidden="true"></span>{{.Now}}</span>
+{{- else if eq .Kind "code"}}<span class="inline-flex whitespace-nowrap items-center gap-1.5 rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700 ring-1 ring-sky-600/20 ring-inset dark:bg-sky-950 dark:text-sky-300 dark:ring-sky-400/20"><span class="size-1.5 rounded-full bg-sky-500" aria-hidden="true"></span>{{.Now}}</span>
+{{- else if eq .Kind "later"}}<span class="inline-flex whitespace-nowrap rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 ring-1 ring-brand-600/20 ring-inset dark:bg-brand-950 dark:text-brand-300 dark:ring-brand-400/20">{{.Now}}</span>
+{{- else}}<span class="inline-flex whitespace-nowrap rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600 ring-1 ring-zinc-500/20 ring-inset dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-400/20">{{.Now}}</span>{{end}}{{end}}
 
 {{/* An access request's title and body, given a requestForm and the most characters each takes. */}}
 {{define "request-fields"}}

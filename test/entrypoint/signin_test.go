@@ -87,7 +87,7 @@ func TestHomeGreetsTheSignedInAdministratorAndShowsTheFlashOnce(t *testing.T) {
 		Nav:         portalNav("Home"),
 		Messages:    []string{"You are signed in."},
 		Notes:       []string{"You have no door code. " + noUserIDNote},
-		Tables:      map[string][][]string{"Your doors": noPortalDoors, "Your recent entries": noEntries},
+		Tables:      map[string][][]string{"Your recent entries": noEntries},
 		Details:     homeCards(false, ""),
 		LinkTargets: toAdministration,
 	}

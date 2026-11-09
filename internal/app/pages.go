@@ -39,6 +39,8 @@ var (
 	calendarJS []byte
 	//go:embed ui/static/live.js
 	liveJS []byte
+	//go:embed ui/static/filter.js
+	filterJS []byte
 )
 
 const (
@@ -63,6 +65,7 @@ var assets = []asset{
 	{name: "FullCalendarJS", path: "/static/fullcalendar/index.global.min.js", contentType: jsType, content: fullCalendarJS},
 	{name: "CalendarJS", path: "/static/calendar.js", contentType: jsType, content: calendarJS},
 	{name: "LiveJS", path: "/static/live.js", contentType: jsType, content: liveJS},
+	{name: "FilterJS", path: "/static/filter.js", contentType: jsType, content: filterJS},
 }
 
 // assetURLs maps each asset's name to a URL carrying a hash of its content,

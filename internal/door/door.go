@@ -113,10 +113,9 @@ func (s Service) Find(ctx context.Context, q Query) (Page, error) {
 	if err != nil {
 		return Page{}, err
 	}
-	search := strings.ToLower(strings.TrimSpace(q.Search))
 	kept := []connector.StoredDoor{}
 	for _, d := range all {
-		if (d.DeletedAt != nil) == q.Deleted && matches(d, search) && inZone(d, q.ZoneID) {
+		if (d.DeletedAt != nil) == q.Deleted && Matches(d, q.Search) && inZone(d, q.ZoneID) {
 			kept = append(kept, d)
 		}
 	}
@@ -125,8 +124,10 @@ func (s Service) Find(ctx context.Context, q Query) (Page, error) {
 	return Page{Doors: kept[from:to], Total: len(kept)}, nil
 }
 
-func matches(d connector.StoredDoor, search string) bool {
-	return strings.Contains(strings.ToLower(d.Name+" "+d.Location), search)
+// Matches reports whether d's name or location holds search, ignoring case
+// and the spaces around search; every door matches an empty search.
+func Matches(d connector.StoredDoor, search string) bool {
+	return strings.Contains(strings.ToLower(d.Name+" "+d.Location), strings.ToLower(strings.TrimSpace(search)))
 }
 
 func inZone(d connector.StoredDoor, zoneID int64) bool {

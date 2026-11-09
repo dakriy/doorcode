@@ -113,8 +113,8 @@ func (a *App) portalRoutes() []route {
 		}),
 		apiRoute(http.MethodGet, "/me/access", signedInUser, a.getOwnAccess, apiDoc{
 			id: "getMyAccess", summary: "Read when the portal's doors are open and when your code works there", tag: "me",
-			params:    dayRangeParams(),
-			responses: []openapi.Response{{Status: http.StatusOK, Description: "Every door the portal shows, with when it is open or locked and when your code works there.", Body: portalAccessView{}}, badDays},
+			params:    append(dayRangeParams(), openapi.Param{Name: "q", In: "query", Description: "Keeps only the doors whose name or location holds this text, ignoring case.", Example: "lobby"}),
+			responses: []openapi.Response{{Status: http.StatusOK, Description: "Every door the portal shows that q matches, with when it is open or locked and when your code works there.", Body: portalAccessView{}}, badDays},
 		}),
 		apiRoute(http.MethodGet, "/me/entries", signedInUser, a.listOwnEntries, apiDoc{
 			id: "listMyEntries", summary: "List your entries, a page at a time", tag: "me",
@@ -226,7 +226,7 @@ func (a *App) getOwnAccess(w http.ResponseWriter, r *http.Request, caller auth.U
 		return
 	}
 	views := []portalDoorView{}
-	for _, d := range doors {
+	for _, d := range searched(doors, r.URL.Query().Get("q")) {
 		views = append(views, viewOfPortalDoor(d, days.zone))
 	}
 	writeJSON(w, http.StatusOK, portalAccessView{TimeZone: days.zone.String(), From: days.firstText(), To: days.lastText(), Doors: views})

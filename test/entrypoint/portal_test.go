@@ -47,12 +47,9 @@ func homeCards(coded bool, waiting string) map[string]string {
 	return cards
 }
 
-// noPortalDoors and noEntries are the rows home's tables show when the
-// portal shows no door and the viewer has no entries.
-var (
-	noPortalDoors = [][]string{{"Door", "Now", "Calendar"}, {"No doors are shown in the portal yet. An administrator decides which doors appear here."}}
-	noEntries     = [][]string{{"When", "Door", "Outcome"}, {"No entries yet."}}
-)
+// noEntries is the rows home's table of entries shows when the viewer has
+// none.
+var noEntries = [][]string{{"When", "Door", "Outcome"}, {"No entries yet."}}
 
 // portalPassword is the password users choose in the portal's tests.
 const portalPassword = "correct horse battery staple"
@@ -475,11 +472,12 @@ func TestAccessListsThePortalsDoorsWithWhatEachDoesNow(t *testing.T) {
 
 	want := testsupport.Page{
 		Title: "Access · doorcode", Heading: "Access", Nav: portalNav("Access"),
+		Values: map[string]string{"q": ""},
 		Tables: map[string][][]string{"Your doors": {
 			{"Door", "Now", "Calendar"},
-			{"Attic", "Locked now: no code opens it", "Calendar"},
-			{"Cellar Basement", "Your code works here at set times", "Calendar"},
-			{"Dock", "Open mode now: any keypress unlocks it", "Calendar"},
+			{"Attic", "Your code never works here", "Calendar"},
+			{"Cellar Basement", "Your code works at set times", "Calendar"},
+			{"Dock", "Open now", "Calendar"},
 			{"Lobby Building A", "Your code works now", "Calendar"},
 		}},
 		LinkTargets: map[string]string{
@@ -488,6 +486,19 @@ func TestAccessListsThePortalsDoorsWithWhatEachDoesNow(t *testing.T) {
 	}
 	if diff := cmp.Diff([]any{200, want}, []any{got.Status, pageOf(got)}); diff != "" {
 		t.Errorf("status, page (-want +got):\n%s", diff)
+	}
+}
+
+func TestAccessSaysALockedDoorTheUserMayEnterWorksAtSetTimes(t *testing.T) {
+	t.Parallel()
+	admin, ann := portalSite(t, testsupport.NewFactory())
+	createOverride(t, admin, "1", `{"kind":"locked","start":"2026-01-05T08:00:00Z","end":"2026-01-05T10:00:00Z"}`)
+
+	got := pageOf(ann.Get("/me/access")).Tables["Your doors"]
+
+	want := [][]string{{"Door", "Now", "Calendar"}, {"Lobby Building A", "Your code works at set times", "Calendar"}}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("doors (-want +got):\n%s", diff)
 	}
 }
 
@@ -509,8 +520,55 @@ func TestAccessSaysWhenTheUsersCodeNeverOpensADoor(t *testing.T) {
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("page (-want +got):\n%s", diff)
 	}
-	if diff := cmp.Diff("Your code never opens this door", pageOf(ann.Get("/me/access")).Tables["Your doors"][1][1]); diff != "" {
+	if diff := cmp.Diff("Your code never works here", pageOf(ann.Get("/me/access")).Tables["Your doors"][1][1]); diff != "" {
 		t.Errorf("access list (-want +got):\n%s", diff)
+	}
+}
+
+func TestSearchingAccessNarrowsTheDoorsByNameOrLocation(t *testing.T) {
+	t.Parallel()
+	_, ann := accessDoors(t, testsupport.NewFactory())
+
+	got := []any{
+		pageOf(ann.Get("/me/access?q=%20cELL%20")).Tables["Your doors"],
+		pageOf(ann.Get("/me/access?q=building")).Tables["Your doors"],
+		pageOf(ann.Get("/me/access?q=garage")).Tables["Your doors"],
+		pageOf(ann.Get("/me/access?q=dock")).Values,
+	}
+
+	want := []any{
+		[][]string{{"Door", "Now", "Calendar"}, {"Cellar Basement", "Your code works at set times", "Calendar"}},
+		[][]string{{"Door", "Now", "Calendar"}, {"Lobby Building A", "Your code works now", "Calendar"}},
+		[][]string{{"Door", "Now", "Calendar"}, {"No door’s name or location holds “garage”."}},
+		map[string]string{"q": "dock"},
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("by name, by location, matching none, the search kept (-want +got):\n%s", diff)
+	}
+}
+
+func TestAccessSaysHowDoorsAppearWhenThePortalShowsNone(t *testing.T) {
+	t.Parallel()
+	ann := signedInAs(t, staffAnn(t, testsupport.NewFactory()), "2", annEmail)
+
+	got := pageOf(ann.Get("/me/access")).Tables["Your doors"]
+
+	want := [][]string{{"Door", "Now", "Calendar"}, {"No doors are shown in the portal yet. An administrator decides which doors appear here."}}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("doors (-want +got):\n%s", diff)
+	}
+}
+
+func TestAccessLoadsTheScriptThatNarrowsTheDoorsAsYouType(t *testing.T) {
+	t.Parallel()
+	_, ann := portalSite(t, testsupport.NewFactory())
+	assets := testsupport.ParsePage(ann.Get("/me/access").Body).Assets
+
+	got := ann.Get(assets[len(assets)-1])
+
+	want := testsupport.Response{Status: 200, ContentType: "text/javascript; charset=utf-8"}
+	if diff := cmp.Diff(want, testsupport.Response{Status: got.Status, ContentType: got.ContentType}); diff != "" {
+		t.Errorf("last script (-want +got):\n%s", diff)
 	}
 }
 
@@ -527,6 +585,20 @@ func TestMyAccessAnswersWithThePortalsDoorsAndWhenTheUsersCodeWorks(t *testing.T
 		`{"door":{"id":1,"name":"Lobby"},"location":"Building A","thumbnail_url":"/api/v1/doors/1/pictures/1/thumbnail","reached":true,` +
 		`"works":[{"start":"2026-01-05T08:00:00Z","end":"2026-01-05T18:00:00Z"}],` +
 		`"spans":[{"start":"2026-01-05T22:00:00Z","end":"2026-01-06T00:00:00Z","state":"open"}]}]}`)
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("access (-want +got):\n%s", diff)
+	}
+}
+
+func TestMyAccessThroughTheAPIKeepsTheDoorsTheSearchMatches(t *testing.T) {
+	t.Parallel()
+	admin, _ := portalSite(t, testsupport.NewFactory())
+	send(t, admin, "PUT", "/api/v1/doors/3", `{"name":"Attic","public":true}`, 200)
+
+	got := testsupport.JSON(send(t, asUser(t, admin, "2"), "GET", "/api/v1/me/access?from=2026-01-05&to=2026-01-05&q=attic", "", 200).Body)
+
+	want := testsupport.JSON(`{"time_zone":"UTC","from":"2026-01-05","to":"2026-01-05","doors":[` +
+		`{"door":{"id":3,"name":"Attic"},"location":"","reached":false,"works":[],"spans":[]}]}`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("access (-want +got):\n%s", diff)
 	}
@@ -811,10 +883,9 @@ func TestAnyoneSignedInSeesThePicturesOfDoorsThePortalShows(t *testing.T) {
 	}
 }
 
-func TestHomeShowsTheUsersCodeDoorsRequestsAndEntries(t *testing.T) {
+func TestHomeShowsTheUsersCodeRequestsAndEntries(t *testing.T) {
 	t.Parallel()
 	k := loggedSite(t, testsupport.NewFactory())
-	send(t, k.b, "PUT", "/api/v1/doors/1", `{"name":"Lobby","public":true}`, 200)
 	ann := signedInAs(t, k.b, "2", annEmail)
 	send(t, ann, "POST", "/api/v1/me/requests", labAccess, 201)
 	send(t, ann, "POST", "/api/v1/me/requests", `{"title":"Store access"}`, 201)
@@ -826,13 +897,11 @@ func TestHomeShowsTheUsersCodeDoorsRequestsAndEntries(t *testing.T) {
 	want := testsupport.Page{
 		Title: "Home · doorcode", Heading: "Welcome, Ann Smith", Nav: portalNav("Home"),
 		Tables: map[string][][]string{
-			"Your doors": {{"Door", "Now", "Calendar"}, {"Lobby", "Your code works now", "Calendar"}},
 			"Your recent entries": {
 				{"When", "Door", "Outcome"}, {"Mon 5 Jan 2026 09:20:00", "Dock", "Denied"}, {"Mon 5 Jan 2026 09:00:00", "Lobby", "Allowed"},
 			},
 		},
-		Details:     homeCards(true, "2"),
-		LinkTargets: map[string]string{"Calendar of Lobby": "/me/access/1"},
+		Details: homeCards(true, "2"),
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("page (-want +got):\n%s", diff)
@@ -908,7 +977,6 @@ func TestThePortalShowsARequestIDWhenTheStoreFails(t *testing.T) {
 	}{
 		"home without settings":                {fail: (*testsupport.Store).FailSettings, request: get("/")},
 		"home without users":                   {fail: (*testsupport.Store).FailUsers, request: get("/")},
-		"home without doors":                   {fail: (*testsupport.Store).FailDoors, request: get("/")},
 		"home without requests":                {fail: (*testsupport.Store).FailRequests, request: get("/")},
 		"home without events":                  {fail: (*testsupport.Store).FailEvents, request: get("/")},
 		"code page without settings":           {fail: (*testsupport.Store).FailSettings, request: get("/me/code")},
@@ -975,16 +1043,14 @@ func TestCalendarKeysNameWhoseCodeTheyShow(t *testing.T) {
 
 	got := []any{
 		testsupport.ParsePage(ann.Get("/me/access/1").Body).Lists["Calendar key"],
-		testsupport.ParsePage(ann.Get("/me/access").Body).Lists["Calendar key"],
 		testsupport.ParsePage(admin.Get("/admin/users/2/doors/1/calendar").Body).Lists["Calendar key"],
 	}
 
 	want := []any{
 		[]string{"Your code works", "Open mode: any keypress unlocks", "Locked: no code opens it"},
-		[]string{"Open mode: any keypress unlocks", "Your code works", "Locked: no code opens it"},
 		[]string{"Their code works", "Open mode: any keypress unlocks", "Locked: no code opens it"},
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("door calendar, access list, user's access calendar keys (-want +got):\n%s", diff)
+		t.Errorf("door calendar, user's access calendar keys (-want +got):\n%s", diff)
 	}
 }
