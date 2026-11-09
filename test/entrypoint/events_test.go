@@ -131,15 +131,16 @@ func TestTheEventsPageFiltersByWhatItsFormSays(t *testing.T) {
 
 	want := []any{
 		[][]string{eventsHead, {"Mon 5 Jan 2026 09:20:00", "Dock", "Ann Smith", "Denied No rule", "Code check d1"}, {"Showing 1 to 1 of 1"}},
-		[]string{"User: Ann Smith ×"},
-		map[string]string{"user": "2", "from": "2026-01-05", "to": "2026-01-05"},
+		map[string]string{"from": "2026-01-05", "to": "2026-01-05"},
 		[]string{"Every door", "Dock (selected)", "Lobby"},
+		[]string{"Every user", "Administrator", "Ann Smith (selected)", "Cid Jones", "Eve Brown"},
 		[]string{"Every type", "Code check (selected)", "Keypad command", "Opened from the UI", "Door alarm", "Firmware update"},
 		[]string{"Every outcome", "Allowed", "Denied (selected)", "Alert", "Info"},
+		[]string{"door", "user"},
 	}
-	got := []any{page.Tables["Events"], page.Messages, page.Values, page.Options["door"], page.Options["type"], page.Options["outcome"]}
+	got := []any{page.Tables["Events"], page.Values, page.Options["door"], page.Options["user"], page.Options["type"], page.Options["outcome"], page.Comboboxes}
 	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("events, user, values, doors, types, outcomes (-want +got):\n%s", diff)
+		t.Errorf("events, values, doors, users, types, outcomes, searchable selects (-want +got):\n%s", diff)
 	}
 }
 
@@ -206,10 +207,22 @@ func TestTheEventsPageNamesAUserItsFilterNamesThoughNobodyHasTheID(t *testing.T)
 	b := signedInAdmin(t, testsupport.NewFactory())
 	b.Get("/")
 
-	got := pageOf(b.Get("/admin/events?user=99")).Messages
+	got := testsupport.ParsePage(b.Get("/admin/events?user=99").Body).Options["user"]
 
-	if diff := cmp.Diff([]string{"User: No such user ×"}, got); diff != "" {
-		t.Errorf("messages (-want +got):\n%s", diff)
+	if diff := cmp.Diff([]string{"Every user", "Administrator", "No such user (selected)"}, got); diff != "" {
+		t.Errorf("users (-want +got):\n%s", diff)
+	}
+}
+
+func TestTheEventsPageNamesADeletedUserItsFilterNames(t *testing.T) {
+	t.Parallel()
+	k := loggedSite(t, testsupport.NewFactory())
+	k.b.Post("/admin/users/2/delete")
+
+	got := testsupport.ParsePage(k.b.Get("/admin/events?user=2").Body).Options["user"]
+
+	if diff := cmp.Diff([]string{"Every user", "Administrator", "Cid Jones", "Eve Brown", "Ann Smith (selected)"}, got); diff != "" {
+		t.Errorf("users (-want +got):\n%s", diff)
 	}
 }
 
@@ -327,15 +340,22 @@ func TestTheEventsPageShowsTheFirstPageKeepingItsFiltersWhenThePageNumberCannotB
 	}
 }
 
-func TestStoppingFilteringTheEventsPageByUserKeepsTheOtherFilters(t *testing.T) {
+// The events page loads its two searchable selects' script, once for
+// each, and the live script.
+func TestTheEventsPageLoadsTheScriptOfItsSearchableSelects(t *testing.T) {
 	t.Parallel()
-	k := loggedSite(t, testsupport.NewFactory())
-	k.b.Get("/")
+	b := signedInAdmin(t, testsupport.NewFactory())
+	b.Get("/")
 
-	page := testsupport.ParsePage(k.b.Get("/admin/events?user=2&door=1&outcome=allowed&from=2026-01-05&page=1").Body)
+	page := testsupport.ParsePage(b.Get("/admin/events").Body)
 
-	want := "/admin/events?door=1&from=2026-01-05&outcome=allowed"
-	if diff := cmp.Diff(want, page.LinkTargets["Stop filtering by user"]); diff != "" {
-		t.Errorf("link (-want +got):\n%s", diff)
+	var got []testsupport.Response
+	for _, asset := range page.Assets[2:] {
+		response := b.Get(asset)
+		got = append(got, testsupport.Response{Status: response.Status, ContentType: response.ContentType})
+	}
+	js := testsupport.Response{Status: 200, ContentType: "text/javascript; charset=utf-8"}
+	if diff := cmp.Diff([]testsupport.Response{js, js, js}, got); diff != "" {
+		t.Errorf("scripts (-want +got):\n%s", diff)
 	}
 }

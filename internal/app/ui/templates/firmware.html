@@ -69,9 +69,7 @@
     <h2 id="default-heading" class="text-sm font-semibold">Default version</h2>
     <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Every door runs it unless its page names another. Upgrades and downgrades alike roll out in the update window.</p>
     <label for="firmware_id" class="sr-only">Default version</label>
-    <select id="firmware_id" name="firmware_id" class="mt-4 {{template "input-base"}}">
-      {{range $c.Defaults}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
-    </select>
+    {{template "combobox" (combobox "firmware_id" "firmware_id" "" $c.Defaults "" "mt-4")}}
     <div class="mt-4 flex justify-end">
       <button type="submit" class="{{template "primary-class"}}">Save default</button>
     </div>

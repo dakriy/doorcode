@@ -21,6 +21,10 @@ var (
 	entrantsHead  = []string{"Group", "Schedule", "Through", "Rule"}
 )
 
+// doorComboboxes are the searchable lists of a door's page: its open-mode
+// schedules and its zones.
+var doorComboboxes = []string{"open_schedule_ids", "zone_ids"}
+
 // freshDoorTables are the tables of a door's page without overrides or
 // access rules.
 var freshDoorTables = map[string][][]string{
@@ -69,7 +73,8 @@ func TestDoorsPageListsDoorsWithTheirPrimaryPicture(t *testing.T) {
 			{"", "Lobby Building A", "Not enrolled", "Annex, North", "Nights, Weekdays", "Public"},
 			{"Showing 1 to 2 of 2"},
 		}},
-		Images: []testsupport.Image{{Src: "/api/v1/doors/1/pictures/1/thumbnail", Alt: "Lobby"}},
+		Images:     []testsupport.Image{{Src: "/api/v1/doors/1/pictures/1/thumbnail", Alt: "Lobby"}},
+		Comboboxes: []string{"zone"},
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("page (-want +got):\n%s", diff)
@@ -221,11 +226,12 @@ func TestCreatingADoorFromTheFormOpensItsPage(t *testing.T) {
 	}
 	want := testsupport.Page{
 		Title: "Lobby · doorcode", Heading: "Lobby", Nav: doorsNav,
-		Messages: []string{"The door has been created. Its controller can enroll once it is connected."},
-		Notes:    doorNote,
-		Values:   map[string]string{"name": "Lobby", "location": "Building A", "notes": "Side entrance.", "picture": ""},
-		Checked:  []string{"public=on"},
-		Tables:   freshDoorTables,
+		Messages:   []string{"The door has been created. Its controller can enroll once it is connected."},
+		Notes:      doorNote,
+		Values:     map[string]string{"name": "Lobby", "location": "Building A", "notes": "Side entrance.", "picture": ""},
+		Checked:    []string{"public=on"},
+		Tables:     freshDoorTables,
+		Comboboxes: doorComboboxes,
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("page (-want +got):\n%s", diff)
@@ -260,9 +266,10 @@ func TestDoorPageShowsTheDoorItsChoicesAndItsPictures(t *testing.T) {
 
 	want := testsupport.Page{
 		Title: "Lobby · doorcode", Heading: "Lobby", Nav: doorsNav, Notes: doorNote,
-		Values:  map[string]string{"name": "Lobby", "location": "Building A", "notes": "Side.", "picture": ""},
-		Checked: []string{"open_schedule_ids=3", "zone_ids=2"},
-		Tables:  freshDoorTables,
+		Values:     map[string]string{"name": "Lobby", "location": "Building A", "notes": "Side.", "picture": ""},
+		Checked:    []string{"open_schedule_ids=3", "zone_ids=2"},
+		Tables:     freshDoorTables,
+		Comboboxes: doorComboboxes,
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("page (-want +got):\n%s", diff)

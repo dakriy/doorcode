@@ -86,7 +86,7 @@ type approvalContent struct {
 	Form       doorForm
 	Schedules  []choice
 	Zones      []choice
-	Doors      []choice
+	Doors      []selectOption
 	// DoorError is what is wrong with the door chosen.
 	DoorError string
 }
@@ -114,7 +114,7 @@ func (a *App) showApproval(w http.ResponseWriter, r *http.Request, status int, v
 	}
 	for _, d := range n.doors {
 		if d.DeletedAt == nil {
-			content.Doors = append(content.Doors, choice{ID: d.ID, Name: d.Name, Detail: replacedText(d.Controller)})
+			content.Doors = append(content.Doors, idOption(d.ID, labelled(d.Name, replacedText(d.Controller)), false))
 		}
 	}
 	a.render(w, r, status, approvalTemplate, "Approve "+e.HardwareID, &viewer, content)

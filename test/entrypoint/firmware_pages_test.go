@@ -64,6 +64,7 @@ func TestFirmwarePageShowsTheVersionsAndTheRollout(t *testing.T) {
 			"Done":     {rolloutHead, {"Lobby", "1.5.0", "1.5.0", updated}},
 			"Failed":   {rolloutHead, {"Dock", "1.4.3", "1.5.0", failed}},
 		},
+		Comboboxes: []string{"firmware_id"},
 	}
 	if diff := cmp.Diff([]any{200, want}, []any{got.Status, pageOf(got)}); diff != "" {
 		t.Errorf("status, page (-want +got):\n%s", diff)
@@ -317,10 +318,11 @@ func TestADoorPageShowsItsFirmware(t *testing.T) {
 	want := []any{
 		"1.4.3", "1.6.0", "Updating", "Sent 1.6.0 on Mon 5 Jan 2026 09:00:00",
 		[]string{"Follow the default (1.5.0)", "1.6.0 (selected)", "1.5.0"},
+		[]string{"firmware_id", "open_schedule_ids", "zone_ids"},
 	}
-	got := []any{page.Details["Running"], page.Details["Target"], page.Details["Rollout"], page.Details["Latest update"], page.Options["firmware_id"]}
+	got := []any{page.Details["Running"], page.Details["Target"], page.Details["Rollout"], page.Details["Latest update"], page.Options["firmware_id"], page.Comboboxes}
 	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("running, target, latest update, choice (-want +got):\n%s", diff)
+		t.Errorf("running, target, latest update, choice, searchable selects (-want +got):\n%s", diff)
 	}
 }
 

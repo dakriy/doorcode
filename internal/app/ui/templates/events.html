@@ -8,14 +8,14 @@
 {{with $c.Alert}}<div class="mt-6">{{template "alert" .}}</div>{{end}}
 
 <form method="get" action="/admin/events" role="search" aria-label="Filter events" class="mt-8 p-4 {{template "card-class"}}">
-  {{with $c.User}}<input type="hidden" name="user" value="{{.ID}}">{{end}}
-  <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+  <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
     <div>
       <label for="door" class="block text-xs font-medium text-zinc-600 dark:text-zinc-400">Door</label>
-      <select id="door" name="door" class="mt-1 {{template "input-base"}}">
-        <option value="">Every door</option>
-        {{range $c.Doors}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
-      </select>
+      {{template "combobox" (combobox "door" "door" "Every door" $c.Doors "" "mt-1")}}
+    </div>
+    <div>
+      <label for="user" class="block text-xs font-medium text-zinc-600 dark:text-zinc-400">User</label>
+      {{template "combobox" (combobox "user" "user" "Every user" $c.Users "" "mt-1")}}
     </div>
     <div>
       <label for="type" class="block text-xs font-medium text-zinc-600 dark:text-zinc-400">Type</label>
@@ -47,10 +47,7 @@
       <input id="to" name="to" type="date" value="{{$f.ToDate}}" class="mt-1 {{template "input-base"}}">
     </div>
   </div>
-  <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-    <div class="text-sm text-zinc-600 dark:text-zinc-400">
-      {{with $c.User}}<span role="status" class="inline-flex items-center gap-2 rounded-full bg-brand-50 py-0.5 pr-1 pl-3 text-xs font-medium text-brand-700 ring-1 ring-brand-600/20 ring-inset dark:bg-brand-950 dark:text-brand-300 dark:ring-brand-400/20">User: {{.Name}}<a href="{{$c.WithoutUser}}" aria-label="Stop filtering by user" class="rounded-full px-1.5 hover:bg-brand-100 dark:hover:bg-brand-900">×</a></span>{{end}}
-    </div>
+  <div class="mt-4 flex justify-end">
     <div class="flex gap-2">
       {{if $c.Filtered}}<a href="/admin/events" class="{{template "secondary-class"}}">Clear filters</a>{{end}}
       <button type="submit" class="{{template "primary-class"}}">Filter</button>

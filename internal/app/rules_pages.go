@@ -41,13 +41,6 @@ func (n names) rowOfRule(r connector.StoredRule) ruleRow {
 	return ruleRow{ID: r.ID, Schedule: view.Schedule, Doors: view.Doors, Zones: view.Zones}
 }
 
-// option is one option of a select.
-type option struct {
-	ID       int64
-	Name     string
-	Selected bool
-}
-
 // ruleContent is the access rule pages' content: the group, the rule,
 // zero on the page that creates one, and its form as entered, with every
 // schedule, door, and zone to choose from.
@@ -55,7 +48,7 @@ type ruleContent struct {
 	Group     connector.StoredGroup
 	Rule      connector.StoredRule
 	Errors    map[string]string
-	Schedules []option
+	Schedules []selectOption
 	Doors     []choice
 	Zones     []choice
 	// Action is where the form is submitted.
@@ -107,7 +100,7 @@ func (a *App) showRule(w http.ResponseWriter, r *http.Request, status int, viewe
 	}
 	content := ruleContent{Group: g, Rule: stored, Errors: errs, Doors: doorChoices(n.doors, f.DoorIDs), Action: groupPath(g.ID) + "/rules"}
 	for _, sch := range n.schedules {
-		content.Schedules = append(content.Schedules, option{ID: sch.ID, Name: sch.Name, Selected: sch.ID == f.ScheduleID})
+		content.Schedules = append(content.Schedules, idOption(sch.ID, sch.Name, sch.ID == f.ScheduleID))
 	}
 	for _, z := range n.zones {
 		content.Zones = append(content.Zones, choice{ID: z.ID, Name: z.Name, Detail: z.Description, Checked: slices.Contains(f.ZoneIDs, z.ID)})

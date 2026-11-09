@@ -63,6 +63,9 @@ type Page struct {
 	Lists map[string][]string
 	// Assets is every stylesheet and script the page loads.
 	Assets []string
+	// Comboboxes is the name of each select and list of checkboxes the
+	// combobox script makes searchable, in order.
+	Comboboxes []string
 	// Styles is the text of each style sheet the page holds itself.
 	Styles []string
 }
@@ -110,6 +113,9 @@ func ParsePage(body string) Page {
 		}
 		if attr(n, "aria-invalid") == "true" {
 			invalid = append(invalid, n)
+		}
+		if hasAttr(n, "data-combobox") {
+			p.Comboboxes = append(p.Comboboxes, attr(n, "name"))
 		}
 		p.read(n)
 	}

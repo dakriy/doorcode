@@ -56,14 +56,6 @@ type firmwareRow struct {
 	Default   bool
 }
 
-// versionOption is one option of a select of firmware: Value is the
-// firmware's id, empty for none.
-type versionOption struct {
-	Value    string
-	Label    string
-	Selected bool
-}
-
 // rolloutGroup is the doors of one status in the rollout, as the firmware
 // page lists them, and what it says when there are none.
 type rolloutGroup struct {
@@ -97,7 +89,7 @@ type windowForm struct {
 // firmwareContent is the firmware page's content.
 type firmwareContent struct {
 	Versions []firmwareRow
-	Defaults []versionOption
+	Defaults []selectOption
 	// Upload is the upload form as entered, and Errors what is wrong with
 	// it.
 	Upload  firmware.Fields
@@ -160,11 +152,11 @@ func rowOfDoorFirmware(df firmware.DoorFirmware, zone *time.Location) rolloutRow
 
 // firmwareOptions is a select of every firmware of plan, after none,
 // with the one whose id is chosen selected, or none when chosen is nil.
-func firmwareOptions(all []connector.StoredFirmware, none string, chosen *int64) []versionOption {
-	options := []versionOption{{Label: none, Selected: chosen == nil}}
+func firmwareOptions(all []connector.StoredFirmware, none string, chosen *int64) []selectOption {
+	options := []selectOption{{Label: none, Selected: chosen == nil}}
 	for _, f := range all {
 		selected := chosen != nil && *chosen == f.ID
-		options = append(options, versionOption{Value: strconv.FormatInt(f.ID, 10), Label: f.Version, Selected: selected})
+		options = append(options, selectOption{Value: strconv.FormatInt(f.ID, 10), Label: f.Version, Selected: selected})
 	}
 	return options
 }
@@ -376,7 +368,7 @@ type doorFirmwareCard struct {
 	Target     string
 	Status     string
 	LastUpdate string
-	Options    []versionOption
+	Options    []selectOption
 	Note       string
 }
 

@@ -102,9 +102,7 @@
   <form method="post" action="/admin/doors/{{$d.ID}}/firmware" hx-disabled-elt="find button" class="mt-5 flex flex-col gap-3 border-t border-zinc-200 pt-5 sm:flex-row sm:items-end dark:border-zinc-800">
     <div class="flex-1">
       <label for="door-firmware" class="block text-sm font-medium">Firmware for this door</label>
-      <select id="door-firmware" name="firmware_id" class="{{template "input-class"}}">
-        {{range .Options}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
-      </select>
+      {{template "combobox" (combobox "door-firmware" "firmware_id" "" .Options "" "mt-2")}}
     </div>
     <button type="submit" class="shrink-0 {{template "primary-class"}}">Save firmware</button>
   </form>

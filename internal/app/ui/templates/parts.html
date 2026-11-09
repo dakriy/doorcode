@@ -199,10 +199,22 @@
 </div>
 {{end}}
 
-{{/* A list of checkboxes named name, one per choice, given a choiceList. */}}
+{{/* A select of a list that may be long, given a comboboxView. With its
+     script it is an input that narrows the options as you type. */}}
+{{define "combobox"}}
+<select id="{{.ID}}" name="{{.Name}}" data-combobox{{if .Error}} aria-invalid="true" aria-describedby="{{.ID}}-error"{{end}} class="{{.Class}} {{template "input-base"}}">
+  {{with .None}}<option value=""{{if $.NoneSelected}} selected{{end}}>{{.}}</option>{{end}}
+  {{range .Options}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
+</select>
+<script src="{{.Script}}" defer></script>
+{{end}}
+
+{{/* A list of checkboxes named name, one per choice, given a choiceList.
+     With the combobox script an input above it narrows the list as you
+     type. */}}
 {{define "choices"}}
 {{$name := .Name}}
-<fieldset name="{{.Name}}"{{with .Error}} aria-invalid="true" aria-describedby="{{$name}}-error"{{end}}>
+<fieldset name="{{.Name}}" data-combobox{{with .Error}} aria-invalid="true" aria-describedby="{{$name}}-error"{{end}}>
   <legend class="sr-only">{{.Legend}}</legend>
   {{with .Error}}<p id="{{$name}}-error" class="mb-3 text-sm text-red-600 dark:text-red-400">{{.}}</p>{{end}}
   <ul class="space-y-2">
@@ -221,6 +233,7 @@
     {{end}}
   </ul>
 </fieldset>
+<script src="{{.Script}}" defer></script>
 {{end}}
 
 {{define "door-icon"}}<svg class="{{.}}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 21V4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21M4 21h16M14.25 12h.008v.008h-.008V12Z"/></svg>{{end}}

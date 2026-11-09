@@ -64,7 +64,7 @@ func adminRowOf(one connector.StoredRequest, zone *time.Location) adminRequestRo
 // adminRequestsContent is the requests page's content.
 type adminRequestsContent struct {
 	Filters requestFilters
-	States  []filterOption
+	States  []selectOption
 	// User is the user the requests are filtered by, nil when they are
 	// not, and WithoutUser the page with these filters but the user's.
 	User        *nameRef

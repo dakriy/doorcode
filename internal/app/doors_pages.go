@@ -89,8 +89,7 @@ func doorStatus(c *connector.StoredController) string {
 type doorsContent struct {
 	Search  string
 	Deleted bool
-	Zone    int64
-	Zones   []connector.StoredZone
+	Zones   []selectOption
 	Rows    []doorRow
 	// Empty says why the list is empty.
 	Empty string
@@ -122,7 +121,7 @@ func (a *App) doorsPage(w http.ResponseWriter, r *http.Request, viewer auth.User
 	}
 	link := func(page int) string { return doorsURL(q, page) }
 	content := doorsContent{
-		Search: q.Search, Deleted: q.Deleted, Zone: q.ZoneID, Zones: c.zones, Rows: []doorRow{}, Empty: emptyDoors(q, found.Total),
+		Search: q.Search, Deleted: q.Deleted, Zones: zoneOptions(c.zones, q.ZoneID), Rows: []doorRow{}, Empty: emptyDoors(q, found.Total),
 		pager:   pagerOf(q.Page, doorsPerPage, len(found.Doors), found.Total, link),
 		Pending: len(a.controllers.Pending.List()), Manage: viewer.Has(auth.RoleManageDoors),
 	}
@@ -215,6 +214,16 @@ func (a *App) createDoorFromForm(w http.ResponseWriter, r *http.Request, viewer 
 		return
 	}
 	a.changed(w, r, err, doorPath(d.ID), "door-created")
+}
+
+// zoneOptions is every zone as the zone filter offers it, with the zone
+// whose id is chosen selected.
+func zoneOptions(zones []connector.StoredZone, chosen int64) []selectOption {
+	var out []selectOption
+	for _, z := range zones {
+		out = append(out, idOption(z.ID, z.Name, z.ID == chosen))
+	}
+	return out
 }
 
 // choice is one checkbox of a list of things to choose from.

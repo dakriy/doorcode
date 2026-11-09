@@ -41,11 +41,12 @@ func TestNewAccessRulePageOffersEveryScheduleDoorAndZone(t *testing.T) {
 	got := testsupport.ParsePage(b.Get("/admin/groups/2/rules/new").Body)
 
 	want := []any{"New access rule · doorcode", "New access rule",
-		map[string][]string{"schedule_id": {"Choose a schedule", "Always", "Nights", "Weekdays"}},
+		map[string][]string{"schedule_id": {"Choose a schedule (selected)", "Always", "Nights", "Weekdays"}},
 		map[string]string{"door_ids=2": "Dock", "door_ids=1": "Lobby", "zone_ids=2": "Annex", "zone_ids=1": "North"},
+		[]string{"schedule_id", "door_ids", "zone_ids"},
 	}
-	if diff := cmp.Diff(want, []any{got.Title, got.Heading, got.Options, got.Choices}); diff != "" {
-		t.Errorf("title, heading, schedules, choices (-want +got):\n%s", diff)
+	if diff := cmp.Diff(want, []any{got.Title, got.Heading, got.Options, got.Choices, got.Comboboxes}); diff != "" {
+		t.Errorf("title, heading, schedules, choices, searchable selects (-want +got):\n%s", diff)
 	}
 }
 

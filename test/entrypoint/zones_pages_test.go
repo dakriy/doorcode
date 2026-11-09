@@ -77,9 +77,10 @@ func TestCreatingAZoneFromTheFormOpensItsPage(t *testing.T) {
 
 	want := []any{"/admin/zones/1", testsupport.Page{
 		Title: "Ground floor · doorcode", Heading: "Ground floor", Nav: zonesNav,
-		Messages: []string{"The zone has been created."},
-		Values:   map[string]string{"name": "Ground floor", "description": "Lobby level."},
-		Checked:  []string{"door_ids=2"},
+		Messages:   []string{"The zone has been created."},
+		Values:     map[string]string{"name": "Ground floor", "description": "Lobby level."},
+		Checked:    []string{"door_ids=2"},
+		Comboboxes: []string{"door_ids"},
 	}}
 	if diff := cmp.Diff(want, []any{created.Location, got}); diff != "" {
 		t.Errorf("redirect, page (-want +got):\n%s", diff)

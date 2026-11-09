@@ -297,7 +297,10 @@ read-only), API docs.
 
 Lists are searchable, filterable, server-paginated, and update live over
 Server-Sent Events where state changes without a page action (door status,
-enrollments, dashboard). Every destructive action confirms. Forms validate
+enrollments, dashboard). Every select or list of checkboxes of something that
+may be long (doors, zones, schedules, users, firmware) narrows its options as
+you type, from the keyboard as well, and stays a plain select or list of
+checkboxes without script. Every destructive action confirms. Forms validate
 inline. Light and dark themes follow the browser; theme colors and the
 sign-in page image are settings.
 

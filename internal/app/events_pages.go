@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -97,17 +98,10 @@ func (a *App) recent(ctx context.Context, viewer auth.User, q connector.EventQue
 	return &recentLog{Rows: rowsOfEvents(found.Events, zone), Link: link, OfUser: q.UserID != 0}, err
 }
 
-// filterOption is one option of a filter's select.
-type filterOption struct {
-	Value    string
-	Label    string
-	Selected bool
-}
-
-func optionsOf(values []string, labels func(string) string, chosen string) []filterOption {
-	out := []filterOption{}
+func optionsOf(values []string, labels func(string) string, chosen string) []selectOption {
+	out := []selectOption{}
 	for _, v := range values {
-		out = append(out, filterOption{Value: v, Label: labels(v), Selected: v == chosen})
+		out = append(out, selectOption{Value: v, Label: labels(v), Selected: v == chosen})
 	}
 	return out
 }
@@ -124,20 +118,19 @@ type eventFilters struct {
 // eventsContent is the events page's content.
 type eventsContent struct {
 	Filters  eventFilters
-	Doors    []filterOption
-	Types    []filterOption
-	Outcomes []filterOption
-	Reasons  []filterOption
-	// User is the user the events are filtered by, nil when they are not.
-	User *nameRef
-	Rows []eventRow
+	Doors    []selectOption
+	Types    []selectOption
+	Outcomes []selectOption
+	Reasons  []selectOption
+	// Users is every user, and the user the events are filtered by
+	// though they are deleted or nobody has their id.
+	Users []selectOption
+	Rows  []eventRow
 	// Empty says why the list is empty, and Filtered whether filters are
 	// set, so the page can offer to clear them.
 	Empty    string
 	Filtered bool
 	pager
-	// WithoutUser is the events page with these filters but the user's.
-	WithoutUser string
 	// Alert says filters or a page number that could not be read were
 	// left out.
 	Alert string
@@ -159,10 +152,9 @@ func readEventFilters(r *http.Request, zone *time.Location) (eventFilters, bool,
 	return f, filterOK && fromErr == nil && toErr == nil, pageOK
 }
 
-// link is the events page with the filters f holds, on page; on no page
-// in particular when page is zero.
+// link is the events page with the filters f holds, on page.
 func (f eventFilters) link(page int) string {
-	values := url.Values{}
+	values := url.Values{"page": {strconv.Itoa(page)}}
 	for name, value := range map[string]string{
 		"door": idText(f.DoorID), "user": idText(f.UserID), "type": f.Type, "outcome": f.Outcome, "reason": f.Reason,
 		"from": f.FromDate, "to": f.ToDate,
@@ -170,12 +162,6 @@ func (f eventFilters) link(page int) string {
 		if value != "" {
 			values.Set(name, value)
 		}
-	}
-	if page > 0 {
-		values.Set("page", strconv.Itoa(page))
-	}
-	if len(values) == 0 {
-		return "/admin/events"
 	}
 	return "/admin/events?" + values.Encode()
 }
@@ -223,12 +209,12 @@ func (a *App) eventsPage(w http.ResponseWriter, r *http.Request, viewer auth.Use
 		a.pageError(w, err)
 		return
 	}
-	user, err := a.filterUser(r.Context(), f.UserID)
+	users, err := a.userOptions(r.Context(), f.UserID)
 	if err != nil {
 		a.pageError(w, err)
 		return
 	}
-	content.Filters, content.User, content.Rows = f, user, rowsOfEvents(found.Events, zone)
+	content.Filters, content.Users, content.Rows = f, users, rowsOfEvents(found.Events, zone)
 	content.Filtered = f.EventQuery != connector.EventQuery{}
 	content.Doors = doorOptions(doors, f.DoorID)
 	content.Types = optionsOf(event.Types, func(t string) string { return typeLabels[t] }, f.Type)
@@ -236,24 +222,45 @@ func (a *App) eventsPage(w http.ResponseWriter, r *http.Request, viewer auth.Use
 	content.Reasons = optionsOf(event.Reasons, sentence, f.Reason)
 	content.Empty = emptyEvents(content.Filtered, found.Total)
 	content.pager = pagerOf(f.Page, eventsPerPage, len(found.Events), found.Total, f.link)
-	withoutUser := f
-	withoutUser.UserID = 0
-	content.WithoutUser = withoutUser.link(0)
 	a.render(w, r, http.StatusOK, eventsTemplate, "Events", &viewer, content)
 }
 
 // doorOptions is every door as the door filter offers it, with the door
 // whose id is chosen selected.
-func doorOptions(doors []connector.StoredDoor, chosen int64) []filterOption {
-	var out []filterOption
+func doorOptions(doors []connector.StoredDoor, chosen int64) []selectOption {
+	var out []selectOption
 	for _, d := range doors {
-		out = append(out, filterOption{Value: strconv.FormatInt(d.ID, 10), Label: d.Name, Selected: d.ID == chosen})
+		out = append(out, idOption(d.ID, d.Name, d.ID == chosen))
 	}
 	return out
 }
 
+// everyUser is a page size that holds every user.
+const everyUser = math.MaxInt32
+
+// userOptions is every current user as the user filter offers them, with
+// the user whose id is chosen selected; a chosen user who is deleted, or
+// whose id nobody has, is added at the end.
+func (a *App) userOptions(ctx context.Context, chosen int64) ([]selectOption, error) {
+	found, err := a.directory.Users(ctx, directory.Query{Page: 1, PerPage: everyUser})
+	if err != nil {
+		return nil, err
+	}
+	var out []selectOption
+	listed := chosen == 0
+	for _, u := range found.Users {
+		out = append(out, idOption(u.ID, u.DisplayName, u.ID == chosen))
+		listed = listed || u.ID == chosen
+	}
+	if listed {
+		return out, nil
+	}
+	u, err := a.filterUser(ctx, chosen)
+	return append(out, idOption(chosen, u.Name, true)), err
+}
+
 // filterUser is the user whose id is id, by id and display name, for the
-// filter the events page shows; nil when id is zero.
+// filter a page shows; nil when id is zero.
 func (a *App) filterUser(ctx context.Context, id int64) (*nameRef, error) {
 	if id == 0 {
 		return nil, nil

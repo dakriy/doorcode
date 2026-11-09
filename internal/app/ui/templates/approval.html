@@ -42,9 +42,7 @@
     {{if $c.Doors}}
     <form method="post" action="{{$e.Path}}/door" hx-disabled-elt="find button" hx-confirm="Approve {{$e.HardwareID}} as this door? A controller it had stops working." class="mt-5">
       <label for="door_id" class="block text-sm font-medium">Door</label>
-      <select id="door_id" name="door_id"{{with $c.DoorError}} aria-invalid="true" aria-describedby="door_id-error"{{end}} class="{{template "input-class"}}">
-        {{range $c.Doors}}<option value="{{.ID}}">{{.Name}}{{with .Detail}} ({{.}}){{end}}</option>{{end}}
-      </select>
+      {{template "combobox" (combobox "door_id" "door_id" "" $c.Doors $c.DoorError "mt-2")}}
       {{with $c.DoorError}}<p id="door_id-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{.}}</p>{{end}}
       <div class="mt-6 flex justify-end">
         <button type="submit" class="{{template "secondary-class"}}">Approve as this door</button>

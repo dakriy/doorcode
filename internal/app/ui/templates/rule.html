@@ -7,10 +7,7 @@
   {{$error := index $c.Errors "schedule_id"}}
   <div>
     <label for="schedule_id" class="block text-sm font-medium">Schedule</label>
-    <select id="schedule_id" name="schedule_id"{{if $error}} aria-invalid="true" aria-describedby="schedule_id-error"{{end}} class="{{template "input-class"}} sm:max-w-sm">
-      <option value="">Choose a schedule</option>
-      {{range $c.Schedules}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Name}}</option>{{end}}
-    </select>
+    {{template "combobox" (combobox "schedule_id" "schedule_id" "Choose a schedule" $c.Schedules $error "mt-2 sm:max-w-sm")}}
     {{if $error}}<p id="schedule_id-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$error}}</p>
     {{else}}<p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">Choose Always for access at any time.</p>{{end}}
   </div>

@@ -22,10 +22,7 @@
   </div>
   <div>
     <label for="zone" class="sr-only">Zone</label>
-    <select id="zone" name="zone" class="{{template "input-base"}}">
-      <option value=""{{if not $c.Zone}} selected{{end}}>Every zone</option>
-      {{range $c.Zones}}<option value="{{.ID}}"{{if eq .ID $c.Zone}} selected{{end}}>{{.Name}}</option>{{end}}
-    </select>
+    {{template "combobox" (combobox "zone" "zone" "Every zone" $c.Zones "" "")}}
   </div>
   <div>
     <label for="show" class="sr-only">Show</label>

@@ -8,6 +8,7 @@ import (
 	"html/template"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -41,6 +42,8 @@ var (
 	liveJS []byte
 	//go:embed ui/static/filter.js
 	filterJS []byte
+	//go:embed ui/static/combobox.js
+	comboboxJS []byte
 )
 
 const (
@@ -66,6 +69,7 @@ var assets = []asset{
 	{name: "CalendarJS", path: "/static/calendar.js", contentType: jsType, content: calendarJS},
 	{name: "LiveJS", path: "/static/live.js", contentType: jsType, content: liveJS},
 	{name: "FilterJS", path: "/static/filter.js", contentType: jsType, content: filterJS},
+	{name: "ComboboxJS", path: "/static/combobox.js", contentType: jsType, content: comboboxJS},
 }
 
 // assetURLs maps each asset's name to a URL carrying a hash of its content,
@@ -181,7 +185,14 @@ var templateFuncs = template.FuncMap{
 		return navItem{Href: href, Label: label}
 	},
 	"choicelist": func(name, legend string, choices []choice, problem, empty string) choiceList {
-		return choiceList{Name: name, Legend: legend, Choices: choices, Error: problem, Empty: empty}
+		return choiceList{Name: name, Legend: legend, Choices: choices, Error: problem, Empty: empty, Script: assetURLs["ComboboxJS"]}
+	},
+	"combobox": func(id, name, none string, options []selectOption, problem, class string) comboboxView {
+		v := comboboxView{ID: id, Name: name, None: none, NoneSelected: true, Options: options, Error: problem, Class: class, Script: assetURLs["ComboboxJS"]}
+		for _, o := range options {
+			v.NoneSelected = v.NoneSelected && !o.Selected
+		}
+		return v
 	},
 	"list": func(items ...string) []string { return items },
 	"date": func(zone *time.Location, t time.Time) string { return shownAt(zone, t, longDateLayout) },
@@ -257,13 +268,53 @@ func pagerOf(page, perPage, shown, total int, link func(page int) string) pager 
 }
 
 // choiceList is a list of checkboxes sharing the form field Name, with
-// what is wrong with them and what to say when there is nothing to choose.
+// what is wrong with them, what to say when there is nothing to choose,
+// and the script that lets you narrow the list as you type.
 type choiceList struct {
 	Name    string
 	Legend  string
 	Choices []choice
 	Error   string
 	Empty   string
+	Script  string
+}
+
+// selectOption is one option of a select.
+type selectOption struct {
+	Value    string
+	Label    string
+	Selected bool
+}
+
+// idOption is the option of a select choosing what has id, labelled
+// label.
+func idOption(id int64, label string, selected bool) selectOption {
+	return selectOption{Value: strconv.FormatInt(id, 10), Label: label, Selected: selected}
+}
+
+// labelled is name followed by detail in brackets, name alone without
+// detail.
+func labelled(name, detail string) string {
+	if detail == "" {
+		return name
+	}
+	return name + " (" + detail + ")"
+}
+
+// comboboxView is a select of Options with the id ID and the field name
+// Name, first offering None, when set, which is selected when no option
+// is, with what is wrong with the choice and the classes Class beside
+// the input's own. Script enhances it into a combobox, an input that
+// narrows the options as you type.
+type comboboxView struct {
+	ID           string
+	Name         string
+	None         string
+	NoneSelected bool
+	Options      []selectOption
+	Error        string
+	Class        string
+	Script       string
 }
 
 // thumbnailView is a door's primary picture as a thumbnail of Size, given

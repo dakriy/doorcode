@@ -102,14 +102,15 @@ func TestApprovalPageOffersANewDoorOrAnExistingOne(t *testing.T) {
 
 	page := testsupport.ParsePage(b.Get("/admin/enrollments/A1").Body)
 
-	got := []any{page.Title, page.Heading, page.Choices, page.Options}
+	got := []any{page.Title, page.Heading, page.Choices, page.Options, page.Comboboxes}
 	want := []any{"Approve A1 · doorcode", "Approve A1",
 		map[string]string{"open_schedule_ids=1": "Always Every day, all day", "open_schedule_ids=2": "Weekdays Mon 08:00–18:00", "zone_ids=1": "North",
 			"public=on": "Show in the user portal People see the door, its picture, and when their code works there."},
 		map[string][]string{"door_id": {"Dock"}},
+		[]string{"open_schedule_ids", "zone_ids", "door_id"},
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("title, heading, choices, options (-want +got):\n%s", diff)
+		t.Errorf("title, heading, choices, options, searchable selects (-want +got):\n%s", diff)
 	}
 }
 
