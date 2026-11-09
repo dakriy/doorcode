@@ -73,6 +73,11 @@ func Weekday(i int) time.Weekday {
 	return time.Weekday((i + 1) % 7)
 }
 
+// DayIndex is the index in DayNames of day, the inverse of Weekday.
+func DayIndex(day time.Weekday) int {
+	return (int(day) + 6) % 7
+}
+
 // Fields is what an administrator says about a schedule, as typed. Text is
 // trimmed before it is checked.
 type Fields struct {

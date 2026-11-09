@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"slices"
 	"strconv"
 	"time"
 
@@ -121,7 +120,7 @@ func (a *App) fillDashboard(r *http.Request, viewer auth.User, content *dashboar
 		if err != nil {
 			return err
 		}
-		content.Activity = activityOf(entries, chosen, zone)
+		content.Activity = activityOf(entries, chosen)
 	}
 	if holds(viewer, opensDoors) {
 		health, err := a.stats.Health(ctx, chosen, a.clock.Now(), zone)
@@ -214,7 +213,7 @@ type doorBar struct {
 	Percent int
 }
 
-func activityOf(e stats.Entries, chosen stats.Range, zone *time.Location) *activityView {
+func activityOf(e stats.Entries, chosen stats.Range) *activityView {
 	view := &activityView{
 		Total: e.Total(), Allowed: e.Allowed, Denied: e.Denied, Users: e.Users,
 		Days: columnsOf(e.Days, chosen), Heat: heatmapOf(e),
@@ -223,7 +222,7 @@ func activityOf(e stats.Entries, chosen stats.Range, zone *time.Location) *activ
 		view.Share = percentText(float64(e.Allowed)/float64(view.Total)) + " allowed"
 	}
 	for _, d := range e.Days {
-		view.DayRows = append(view.DayRows, dayRow{Day: d.Date.Format(dayLayout), Allowed: d.Allowed, Denied: d.Denied, Total: d.Allowed + d.Denied})
+		view.DayRows = append(view.DayRows, dayRow{Day: d.Date.Format(dayLayout), Allowed: d.Allowed, Denied: d.Denied, Total: d.Total()})
 	}
 	widest := 0
 	for _, reason := range e.Reasons {
@@ -232,13 +231,9 @@ func activityOf(e stats.Entries, chosen stats.Range, zone *time.Location) *activ
 	for _, reason := range e.Reasons {
 		view.Reasons = append(view.Reasons, barRow{Label: sentence(reason.Reason), Value: reason.Count, Percent: share(reason.Count, widest)})
 	}
-	busiest := 0
+	busiest, quietEmpty := 0, "No doors yet."
 	if len(e.Doors) > 0 {
-		busiest = e.Doors[0].Total()
-	}
-	quietEmpty := "No doors yet."
-	if len(e.Doors) > 0 {
-		quietEmpty = "Every door is among the most active."
+		busiest, quietEmpty = e.Doors[0].Total(), "Every door is among the most active."
 	}
 	view.Busiest = doorRanking{Label: "Most active doors", About: "The doors with the most entries.", Doors: doorBars(e.Busiest(listedDoors), busiest), Empty: "No doors yet."}
 	view.Quietest = doorRanking{
@@ -316,7 +311,7 @@ func columnsOf(days []stats.Day, chosen stats.Range) columnChart {
 	}
 	highest := 0
 	for _, d := range days {
-		highest = max(highest, d.Allowed+d.Denied)
+		highest = max(highest, d.Total())
 	}
 	if highest == 0 {
 		return chart
@@ -341,24 +336,6 @@ func columnsOf(days []stats.Day, chosen stats.Range) columnChart {
 		})
 	}
 	return chart
-}
-
-// niceTops are the values the top of a column chart's scale may take: 1,
-// 2, and 5 times each power of ten, and, past any count a day can reach,
-// the largest int.
-var niceTops = []int{
-	1, 2, 5, 10, 20, 50, 100, 200, 500, 1_000, 2_000, 5_000, 10_000, 20_000, 50_000, 100_000, 200_000, 500_000,
-	1_000_000, 2_000_000, 5_000_000, 10_000_000, 20_000_000, 50_000_000, 100_000_000, math.MaxInt,
-}
-
-// niceCeiling is the smallest of niceTops that is at least n.
-func niceCeiling(n int) int {
-	return niceTops[slices.IndexFunc(niceTops, func(top int) bool { return top >= n })]
-}
-
-// coordinate is a position in a chart's view box, to a tenth.
-func coordinate(v float64) string {
-	return strconv.FormatFloat(math.Round(v*10)/10, 'f', -1, 64)
 }
 
 // The layout of the heatmap, in the units of its view box: where the
@@ -492,11 +469,6 @@ func healthRowOf(h stats.Health, d stats.DoorHealth) healthRow {
 		row.Signal, row.Latency = valueText(*d.Signal, "dBm"), valueText(*d.Latency, "ms")
 	}
 	return row
-}
-
-// seriesClass is the class of prefix that colors series i.
-func seriesClass(prefix string, i int) string {
-	return prefix + "-" + strconv.Itoa(i+1)
 }
 
 // versionsView is how many doors run each firmware version.

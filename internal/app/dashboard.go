@@ -207,7 +207,7 @@ func viewOfEntries(chosen stats.Range, zone *time.Location, e stats.Entries) ent
 		view.Days = append(view.Days, dayView{Date: d.Date.Format(schedule.DateLayout), Allowed: d.Allowed, Denied: d.Denied})
 	}
 	for _, d := range e.Weekdays {
-		view.Weekdays = append(view.Weekdays, weekdayView{Weekday: schedule.DayNames[(int(d.Day)+6)%7], Hours: d.Hours[:], Total: d.Total})
+		view.Weekdays = append(view.Weekdays, weekdayView{Weekday: schedule.DayNames[schedule.DayIndex(d.Day)], Hours: d.Hours[:], Total: d.Total})
 	}
 	for _, reason := range e.Reasons {
 		view.Reasons = append(view.Reasons, reasonView(reason))

@@ -8,12 +8,12 @@ import (
 	"github.com/dakriy/doorcode/internal/testsupport"
 )
 
-// commanding leaves the administrator of b's site a member of only a new
-// group carrying roles, a JSON array.
-func commanding(t *testing.T, f *testsupport.Factory, b *testsupport.Browser, roles string) {
+// holdingOnly leaves the administrator of b's site a member of only a new
+// group carrying roles, a JSON array, whatever groups the site has.
+func holdingOnly(t *testing.T, f *testsupport.Factory, b *testsupport.Browser, roles string) {
 	t.Helper()
-	createGroup(t, b, `{"slug":"commanders","name":"Commanders","roles":`+roles+`}`)
-	join(t, b, "2", "1")
+	created := send(t, b, "POST", "/api/v1/groups", `{"slug":"holding","name":"Holding","roles":`+roles+`}`, 201)
+	join(t, b, itoa(int(testsupport.JSONAt(created.Body, "/id").(float64))), "1")
 	f.StoreStub.LeaveGroup(adminEmail, "administrators")
 }
 
@@ -46,7 +46,7 @@ func TestADoorCommanderOpensDoorsAndManagesOverridesButChangesNothingElse(t *tes
 	t.Parallel()
 	f := testsupport.NewFactory()
 	_, b, conn, _ := enrolledDoor(t, f)
-	commanding(t, f, b, `["door-commander"]`)
+	holdingOnly(t, f, b, `["door-commander"]`)
 
 	opened := b.Post("/admin/doors/1/open")
 	got := []any{opened.Status, opened.Location, commandOf(t, conn)["command"], b.Get("/api/v1/doors").Status,
@@ -63,7 +63,7 @@ func TestADoorCommandersDoorPageOffersOpeningAndOverridesOnly(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	_, b, _, _ := enrolledDoor(t, f)
-	commanding(t, f, b, `["door-commander"]`)
+	holdingOnly(t, f, b, `["door-commander"]`)
 	b.Get("/")
 
 	page := pageOf(b.Get("/admin/doors/1"))
@@ -88,7 +88,7 @@ func TestOpeningADoorNeedsADoorRoleAndItsControllerConnected(t *testing.T) {
 		body    string
 	}{
 		"a user holding neither role": {func(t *testing.T, f *testsupport.Factory, b *testsupport.Browser, _ *testsupport.Connection) {
-			commanding(t, f, b, `["view-logs"]`)
+			holdingOnly(t, f, b, `["view-logs"]`)
 		}, "/api/v1/doors/1/open", 403, `{"error":"the manage-doors or door-commander role is required"}`},
 		"a door that is not there": {nil, "/api/v1/doors/9/open", 404, `{"error":"no door has this id"}`},
 		"a door no controller is enrolled as": {func(t *testing.T, _ *testsupport.Factory, b *testsupport.Browser, _ *testsupport.Connection) {

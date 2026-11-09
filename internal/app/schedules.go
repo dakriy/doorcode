@@ -289,6 +289,5 @@ func (a *App) today(zone *time.Location) time.Time {
 
 // monday is the Monday on or before day.
 func monday(day time.Time) time.Time {
-	back := (int(day.Weekday()) + 6) % 7
-	return day.AddDate(0, 0, -back)
+	return day.AddDate(0, 0, -schedule.DayIndex(day.Weekday()))
 }

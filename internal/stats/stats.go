@@ -9,6 +9,7 @@ import (
 
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/event"
+	"github.com/dakriy/doorcode/internal/schedule"
 )
 
 // Store is what the dashboard's figures are read from.
@@ -60,6 +61,11 @@ type Day struct {
 	Date    time.Time
 	Allowed int
 	Denied  int
+}
+
+// Total is how many entries there were on the day.
+func (d Day) Total() int {
+	return d.Allowed + d.Denied
 }
 
 // Weekday is how many entries fell in each hour of Day, and in all.
@@ -148,10 +154,10 @@ func weekdays(counts []connector.StoredHourCount) ([]Weekday, [24]int) {
 	days := make([]Weekday, 7)
 	var hours [24]int
 	for i := range days {
-		days[i].Day = time.Weekday((i + 1) % 7)
+		days[i].Day = schedule.Weekday(i)
 	}
 	for _, c := range counts {
-		d := &days[(int(c.Weekday)+6)%7]
+		d := &days[schedule.DayIndex(c.Weekday)]
 		d.Hours[c.Hour] = c.Count
 		d.Total += c.Count
 		hours[c.Hour] += c.Count

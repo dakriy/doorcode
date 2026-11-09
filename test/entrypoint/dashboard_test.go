@@ -306,15 +306,6 @@ func TestADoorWithoutReportsHasNoUptimeBeforeAnHourOfTheRangeEnds(t *testing.T) 
 	}
 }
 
-// holdingOnly leaves the administrator of k's site a member of only a
-// new group carrying roles.
-func holdingOnly(t *testing.T, k *keypad, roles string) {
-	t.Helper()
-	createGroup(t, k.b, `{"slug":"dashboard","name":"Dashboard","roles":`+roles+`}`)
-	join(t, k.b, "4", "1")
-	k.f.StoreStub.LeaveGroup(adminEmail, "administrators")
-}
-
 // labelsOf is the set of keys of m.
 func labelsOf[V any](m map[string]V) map[string]bool {
 	out := map[string]bool{}
@@ -360,7 +351,7 @@ func TestTheDashboardShowsEachRoleOnlyTheFiguresItReaches(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			k := statsSite(t, testsupport.NewFactory())
-			holdingOnly(t, k, c.roles)
+			holdingOnly(t, k.f, k.b, c.roles)
 
 			page := testsupport.ParsePage(k.b.Get("/admin").Body)
 
@@ -392,7 +383,7 @@ func TestTheStatsAPIAnswersOnlyTheRolesThatSeeEachFigure(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			k := statsSite(t, testsupport.NewFactory())
-			holdingOnly(t, k, c.roles)
+			holdingOnly(t, k.f, k.b, c.roles)
 
 			got := []any{
 				testsupport.JSONAt(send(t, k.b, "GET", "/api/v1/stats/now", "", 200).Body, ""),

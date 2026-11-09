@@ -344,7 +344,7 @@ func TestADoorPageShowsFirmwareOnlyToThoseWhoManageIt(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	_, b, _, _ := enrolledDoor(t, f)
-	commanding(t, f, b, `["manage-doors"]`)
+	holdingOnly(t, f, b, `["manage-doors"]`)
 
 	got := doorPage(t, b, "/admin/doors/1").Details
 

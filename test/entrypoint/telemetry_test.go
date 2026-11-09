@@ -463,7 +463,7 @@ func TestADoorCommanderSeesTheDoorsLiveState(t *testing.T) {
 	a, b, _, _ := enrolledDoor(t, f)
 	f.BrokerStub.Inject("doorcode/doors/1/event", testsupport.CBOR(map[string]any{"v": 1, "event": "closed"}))
 	run(t, a)
-	commanding(t, f, b, `["door-commander"]`)
+	holdingOnly(t, f, b, `["door-commander"]`)
 
 	got := doorPage(t, b, "/admin/doors/1").Details["Door"]
 
