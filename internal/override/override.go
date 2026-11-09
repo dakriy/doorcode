@@ -42,8 +42,8 @@ type Fields struct {
 	Reason string
 }
 
-// Of returns the door whose id is doorID and its overrides that have
-// not ended, the active ones and those to come, by start.
+// Of returns the door whose id is doorID and its overrides that have not
+// ended, the active ones and those to come, by start.
 func (s Service) Of(ctx context.Context, doorID int64) (connector.StoredDoor, []connector.StoredOverride, error) {
 	d, err := s.Doors.Door(ctx, doorID)
 	if err != nil {
@@ -53,8 +53,7 @@ func (s Service) Of(ctx context.Context, doorID int64) (connector.StoredDoor, []
 	return d, overrides, err
 }
 
-// Get returns the override whose id is id, of the door whose id is
-// doorID.
+// Get returns the override whose id is id, of the door whose id is doorID.
 func (s Service) Get(ctx context.Context, doorID, id int64) (connector.StoredOverride, error) {
 	o, err := check.Lookup(ctx, id, s.Store.Override, ErrNoOverride)
 	if err == nil && o.DoorID != doorID {
@@ -63,8 +62,8 @@ func (s Service) Get(ctx context.Context, doorID, id int64) (connector.StoredOve
 	return o, err
 }
 
-// Create creates an override of the door whose id is doorID from f,
-// as created by the user whose id is creator.
+// Create creates an override of the door whose id is doorID from f, as
+// created by the user whose id is creator.
 func (s Service) Create(ctx context.Context, doorID, creator int64, f Fields) (connector.StoredOverride, error) {
 	if _, err := s.Doors.Door(ctx, doorID); err != nil {
 		return connector.StoredOverride{}, err
@@ -82,8 +81,8 @@ func (s Service) Create(ctx context.Context, doorID, creator int64, f Fields) (c
 	return s.Get(ctx, doorID, id)
 }
 
-// Update replaces the override whose id is id, of the door whose
-// id is doorID, with f.
+// Update replaces the override whose id is id, of the door whose id is
+// doorID, with f.
 func (s Service) Update(ctx context.Context, doorID, id int64, f Fields) (connector.StoredOverride, error) {
 	if _, err := s.Get(ctx, doorID, id); err != nil {
 		return connector.StoredOverride{}, err
@@ -95,8 +94,8 @@ func (s Service) Update(ctx context.Context, doorID, id int64, f Fields) (connec
 	return s.store(ctx, doorID, id, o)
 }
 
-// Cancel ends the active override whose id is id, of the door
-// whose id is doorID, now.
+// Cancel ends the active override whose id is id, of the door whose id is
+// doorID, now.
 func (s Service) Cancel(ctx context.Context, doorID, id int64) (connector.StoredOverride, error) {
 	o, err := s.Get(ctx, doorID, id)
 	if err != nil {
@@ -116,20 +115,20 @@ func Active(o connector.StoredOverride, now time.Time) bool {
 	return !now.Before(o.Start) && now.Before(o.End)
 }
 
-// store stores o over the override whose id is id, which was just
-// read, and returns it as it is now.
+// store stores o over the override whose id is id, which was just read,
+// and returns it as it is now.
 func (s Service) store(ctx context.Context, doorID, id int64, o connector.StoredOverride) (connector.StoredOverride, error) {
 	o.ID = id
-	// Overrides are removed only by Delete; one deleted since it
-	// was read is reported as missing when it is read back.
+	// Overrides are removed only by Delete; one deleted since it was read
+	// is reported as missing when it is read back.
 	if _, err := s.Store.UpdateOverride(ctx, o); err != nil {
 		return connector.StoredOverride{}, err
 	}
 	return s.Get(ctx, doorID, id)
 }
 
-// Delete removes the override whose id is id, of the door whose id
-// is doorID.
+// Delete removes the override whose id is id, of the door whose id is
+// doorID.
 func (s Service) Delete(ctx context.Context, doorID, id int64) error {
 	if _, err := s.Get(ctx, doorID, id); err != nil {
 		return err

@@ -47,7 +47,7 @@ it forgets them and goes back to enrolling.
 | QoS | 1 for every publish and subscription. The server publishes at QoS 1. |
 | Client id | The controller's **hardware id**, on every connection, enrolling or as its door. The enrollment account's permissions depend on it (section 5). |
 | Clean session | Should be true. Configuration and timeline arrive again as retained messages on every subscribe; replies and commands are meant for now, and a queued old one must not act later. |
-| Keep alive | Any interval the controller likes; it should be well under the server's `unresponsive_minutes` (default 5 minutes). |
+| Keep alive | Any interval the controller likes. The broker publishes the last will, and the server shows the door offline, only once one and a half keep-alive intervals pass without a packet, so a shorter interval (such as 30 seconds) shows a lost door sooner. |
 | Last will | Retained, QoS 1, on the topic and with the payload given in sections 5 and 6. |
 | Reconnecting | After a lost connection, connect again with growing pauses (such as 1, 2, 4 seconds up to a minute). A refusal of door credentials as not authorized means they are revoked. |
 
@@ -263,7 +263,7 @@ On `doorcode/doors/<id>/online`, retained.
 | On every subscribe | The retained `config` and `timeline`. |
 | After the online status | `config` and `timeline` again. |
 | A default or the door's override changes | `config`. |
-| A schedule, an override, or the site timezone changes | `timeline`. |
+| An open-mode schedule of the door, an override of the door, or the site timezone changes; a keypad command changes the door's overrides | `timeline`. |
 | At least every `timeline_refresh_hours` (default 6) | `timeline`, rebuilt from now. |
 | After each `check` | `reply`. |
 | An administrator acts, or the server rotates credentials or rolls out firmware | `command`. |
@@ -447,8 +447,8 @@ From these the server derives:
 
 - **forced open:** `opened` when nothing let anyone in within
   `strike_pulse_ms` + `reply_timeout_ms` before it (no allowed check or
-  command, no open from the admin UI, no open span), so send `opened` as
-  soon as the sensor sees it;
+  keypad command, no `open` command from the administration, no open
+  span), so send `opened` as soon as the sensor sees it;
 - **held open:** open for `held_open_s` or longer.
 
 `door_open` in each telemetry report also sets the state, so a missed event
@@ -502,9 +502,12 @@ the new version, not by an ack.
 
 ## 13. Credentials: rotation and revocation
 
-A door has at most two live credentials. The server rotates them
-automatically once the newest is `credential_rotation_days` old and the door
-is connected, and an administrator can rotate them from the door page.
+A door normally has one live credential, and two during a rotation. The
+server rotates automatically once the only live one is
+`credential_rotation_days` old and the door is connected; an administrator
+can rotate from the door page at any time, and rotating again before the
+controller has switched adds one more. Only the newest credentials the
+controller received matter to it.
 
 1. The server creates the new account and sends a `credentials` command over
    the current connection.

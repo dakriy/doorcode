@@ -118,9 +118,10 @@ func (v schemaValidator) checkObject(at string, value map[string]any, s map[stri
 			errs = append(errs, fmt.Sprintf("%s: no %q, which the document requires", where(at), name))
 		}
 	}
+	values, open := s["additionalProperties"]
 	for _, key := range slices.Sorted(maps.Keys(value)) {
 		schema, known := properties[key]
-		if values, open := s["additionalProperties"]; open {
+		if !known && open {
 			schema, known = values, true
 		}
 		if named && !known {
