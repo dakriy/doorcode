@@ -60,13 +60,6 @@
       {{end}}
     </table>
   </div>
-  {{if or $c.Previous $c.Next}}
-  <div class="flex justify-end border-t border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800">
-    <nav aria-label="Pages" class="flex gap-2">
-      {{if $c.Previous}}<a href="{{$c.Previous}}" rel="prev" class="{{template "secondary-class"}} py-1.5">Previous</a>{{end}}
-      {{if $c.Next}}<a href="{{$c.Next}}" rel="next" class="{{template "secondary-class"}} py-1.5">Next</a>{{end}}
-    </nav>
-  </div>
-  {{end}}
+  {{template "pager" (pagelinks $c.Previous $c.Next "Previous" "Next" "px-4")}}
 </div>
 {{end}}

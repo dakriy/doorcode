@@ -411,14 +411,6 @@
 {{with $c.Events}}{{template "recent-events" .}}{{end}}
 
 {{if and $c.Manage (not $d.DeletedAt)}}
-<section aria-labelledby="delete-heading" class="mt-8 rounded-xl border border-red-200 p-6 dark:border-red-900/60">
-  <h2 id="delete-heading" class="text-sm font-semibold text-red-700 dark:text-red-300">Delete door</h2>
-  <div class="mt-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-    <p class="text-sm text-zinc-600 dark:text-zinc-400">A deleted door leaves the lists and its name stays taken. Its history stays, and you can restore it later.</p>
-    <form method="post" action="/admin/doors/{{$d.ID}}/delete" hx-confirm="Delete the door {{$d.Name}}?">
-      <button type="submit" class="{{template "danger-class"}} py-2">Delete door</button>
-    </form>
-  </div>
-</section>
+{{template "delete-section" (deletion "Delete door" "A deleted door leaves the lists and its name stays taken. Its history stays, and you can restore it later." (printf "/admin/doors/%d/delete" $d.ID) (printf "Delete the door %s?" $d.Name) "" "")}}
 {{end}}
 {{end}}

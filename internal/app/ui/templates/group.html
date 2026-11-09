@@ -111,13 +111,5 @@
   </div>
 </section>
 
-<section aria-labelledby="delete-heading" class="mt-8 rounded-xl border border-red-200 p-6 dark:border-red-900/60">
-  <h2 id="delete-heading" class="text-sm font-semibold text-red-700 dark:text-red-300">Delete group</h2>
-  <div class="mt-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-    <p class="text-sm text-zinc-600 dark:text-zinc-400">Members keep their accounts but lose this group’s roles, and its access rules go with it. This cannot be undone.</p>
-    <form method="post" action="/admin/groups/{{$g.ID}}/delete" hx-confirm="Delete the group {{$g.Name}}? Its {{$g.MemberCount}} members lose its roles at once. This cannot be undone.">
-      <button type="submit" class="{{template "danger-class"}} py-2">Delete group</button>
-    </form>
-  </div>
-</section>
+{{template "delete-section" (deletion "Delete group" "Members keep their accounts but lose this group’s roles, and its access rules go with it. This cannot be undone." (printf "/admin/groups/%d/delete" $g.ID) (printf "Delete the group %s? Its %d members lose its roles at once. This cannot be undone." $g.Name $g.MemberCount) "" "")}}
 {{end}}

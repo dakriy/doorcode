@@ -447,3 +447,33 @@
   </svg>
 </figure>
 {{end}}
+
+{{/* The links to the pages before and after a page of a list, given a
+     pageLinks; nothing when the list has one page. */}}
+{{define "pager"}}{{if or .Previous .Next}}
+<div class="flex justify-end border-t border-zinc-200 {{.Inset}} py-3 text-sm dark:border-zinc-800">
+  <nav aria-label="Pages" class="flex gap-2">
+    {{if .Previous}}<a href="{{.Previous}}" rel="prev" class="{{template "secondary-class"}} py-1.5">{{.Back}}</a>{{end}}
+    {{if .Next}}<a href="{{.Next}}" rel="next" class="{{template "secondary-class"}} py-1.5">{{.Forward}}</a>{{end}}
+  </nav>
+</div>
+{{end}}{{end}}
+
+{{/* A page's section for deleting what it shows, given a deletionView:
+     what deleting does and a button that asks to confirm, or why it
+     cannot be deleted. */}}
+{{define "delete-section"}}
+<section aria-labelledby="delete-heading" class="mt-8 {{with .Class}}{{.}} {{end}}rounded-xl border border-red-200 p-6 dark:border-red-900/60">
+  <h2 id="delete-heading" class="text-sm font-semibold text-red-700 dark:text-red-300">{{.Title}}</h2>
+  {{with .Blocked}}
+  <p role="note" class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{{.}}</p>
+  {{else}}
+  <div class="mt-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <p class="text-sm text-zinc-600 dark:text-zinc-400">{{.About}}</p>
+    <form method="post" action="{{.Action}}" hx-confirm="{{.Confirm}}">
+      <button type="submit" class="{{template "danger-class"}} py-2">{{.Title}}</button>
+    </form>
+  </div>
+  {{end}}
+</section>
+{{end}}

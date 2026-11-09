@@ -194,6 +194,12 @@ var templateFuncs = template.FuncMap{
 		}
 		return v
 	},
+	"pagelinks": func(previous, next, back, forward, inset string) pageLinks {
+		return pageLinks{Previous: previous, Next: next, Back: back, Forward: forward, Inset: inset}
+	},
+	"deletion": func(title, about, action, confirm, blocked, class string) deletionView {
+		return deletionView{Title: title, About: about, Action: action, Confirm: confirm, Blocked: blocked, Class: class}
+	},
 	"list": func(items ...string) []string { return items },
 	"date": func(zone *time.Location, t time.Time) string { return shownAt(zone, t, longDateLayout) },
 	"calendarkey": func(whose string, kinds ...string) calendarKey {
@@ -214,6 +220,27 @@ var templateFuncs = template.FuncMap{
 	"bartable": func(label, name, unit, class string, rows []barRow, empty string) barTable {
 		return barTable{Label: label, Name: name, Unit: unit, Class: class, Rows: rows, Empty: empty}
 	},
+}
+
+// pageLinks are the links to the pages of a list before and after this
+// one, Previous and Next (empty when there is none), labelled Back and
+// Forward, inset from the edge of the list by the class Inset.
+type pageLinks struct {
+	Previous, Next string
+	Back, Forward  string
+	Inset          string
+}
+
+// deletionView is a page's section for deleting what it shows: Title on
+// its heading and button, About what deleting does, the form's Action,
+// what Confirm asks, and Blocked, when not empty, why it cannot be
+// deleted, shown in place of the button; Class adds classes, such as a
+// width.
+type deletionView struct {
+	Title, About    string
+	Action, Confirm string
+	Blocked         string
+	Class           string
 }
 
 // calendarKey is a calendar's key: what each of Kinds of interval means,

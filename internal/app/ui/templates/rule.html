@@ -29,14 +29,6 @@
   </div>
 </form>
 {{if $c.Rule.ID}}
-<section aria-labelledby="delete-heading" class="mt-8 max-w-3xl rounded-xl border border-red-200 p-6 dark:border-red-900/60">
-  <h2 id="delete-heading" class="text-sm font-semibold text-red-700 dark:text-red-300">Delete access rule</h2>
-  <div class="mt-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-    <p class="text-sm text-zinc-600 dark:text-zinc-400">Members of {{$g.Name}} stop getting in by this rule at once. This cannot be undone.</p>
-    <form method="post" action="{{$c.Action}}/delete" hx-confirm="Delete this access rule? Members of {{$g.Name}} stop getting in by it at once.">
-      <button type="submit" class="{{template "danger-class"}} py-2">Delete access rule</button>
-    </form>
-  </div>
-</section>
+{{template "delete-section" (deletion "Delete access rule" (printf "Members of %s stop getting in by this rule at once. This cannot be undone." $g.Name) (printf "%s/delete" $c.Action) (printf "Delete this access rule? Members of %s stop getting in by it at once." $g.Name) "" "max-w-3xl")}}
 {{end}}
 {{end}}

@@ -28,14 +28,6 @@
   </div>
 </form>
 
-<section aria-labelledby="delete-heading" class="mt-8 max-w-4xl rounded-xl border border-red-200 p-6 dark:border-red-900/60">
-  <h2 id="delete-heading" class="text-sm font-semibold text-red-700 dark:text-red-300">Delete schedule</h2>
-  <div class="mt-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-    <p class="text-sm text-zinc-600 dark:text-zinc-400">The schedule is removed for good. This cannot be undone.</p>
-    <form method="post" action="/admin/schedules/{{$s.ID}}/delete" hx-confirm="Delete the schedule {{$s.Name}}? This cannot be undone.">
-      <button type="submit" class="{{template "danger-class"}} py-2">Delete schedule</button>
-    </form>
-  </div>
-</section>
+{{template "delete-section" (deletion "Delete schedule" "The schedule is removed for good. This cannot be undone." (printf "/admin/schedules/%d/delete" $s.ID) (printf "Delete the schedule %s? This cannot be undone." $s.Name) "" "max-w-4xl")}}
 {{end}}
 {{end}}

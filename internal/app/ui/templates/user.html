@@ -175,14 +175,6 @@
 {{if $c.Self}}
 <p role="note" class="mt-8 rounded-xl border border-dashed border-zinc-300 p-6 text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">This is your own account. You cannot delete it, make it expire today or earlier, or remove your own admin role.</p>
 {{else if not $u.DeletedAt}}
-<section aria-labelledby="danger-heading" class="mt-8 rounded-xl border border-red-200 p-6 dark:border-red-900/60">
-  <h2 id="danger-heading" class="text-sm font-semibold text-red-700 dark:text-red-300">Delete user</h2>
-  <div class="mt-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-    <p class="text-sm text-zinc-600 dark:text-zinc-400">A deleted user is refused at every door and cannot sign in. Their history stays, and you can restore them later.</p>
-    <form method="post" action="/admin/users/{{$u.ID}}/delete" hx-confirm="Delete {{$u.DisplayName}}? They are refused at every door at once.">
-      <button type="submit" class="{{template "danger-class"}} py-2">Delete user</button>
-    </form>
-  </div>
-</section>
+{{template "delete-section" (deletion "Delete user" "A deleted user is refused at every door and cannot sign in. Their history stays, and you can restore them later." (printf "/admin/users/%d/delete" $u.ID) (printf "Delete %s? They are refused at every door at once." $u.DisplayName) "" "")}}
 {{end}}
 {{end}}
