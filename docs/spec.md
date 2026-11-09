@@ -181,9 +181,19 @@ overrides. Fields: strike pulse duration, keypad idle clear time, minimum and
 maximum code length, submit key, reply timeout, telemetry interval,
 held-open duration, timeline refresh interval, credential rotation interval, rate limit (checks per minute
 and burst), NTP server, broker host (the host name or IP address of the
-broker the door connects to; empty keeps the one it has), log level. The
-server pushes the effective config on connect and on change. Pin mappings
-are firmware concerns and are not here.
+broker the door connects to; empty keeps the one it has), broker port, TLS,
+and CA certificate, Wi-Fi network and password (empty network keeps the one
+it has) and the signal below which it roams, MQTT keep-alive, longest
+reconnect pause, mesh (enabled, network, password, the signal below which a
+door joins through a neighbor, deepest hop), how long new firmware may take
+to connect before the door reverts it, whether unsigned firmware is
+accepted, log level. The Wi-Fi and mesh passwords are secrets: stored
+encrypted as defaults and as a door's overrides, shown masked in the UI and
+the API, and sent in the clear only in the door's configuration message.
+The settings page and a door's page warn when new firmware may take longer
+to connect than the update timeout gives it. The server pushes the
+effective config on connect and on change. Pin mappings are firmware
+concerns and are not here.
 
 ### Timeline cache
 

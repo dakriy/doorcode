@@ -112,10 +112,19 @@ func (a *App) changeDoor(ctx context.Context, id int64, f door.Fields) (connecto
 	return d, err
 }
 
-// configureDoor makes overrides the configuration overrides of the door
-// whose id is id and sends it its configuration.
+// configureDoor makes overrides, a secret given in the clear or as the
+// mask that keeps it, the configuration overrides of the door whose id is
+// id and sends it its configuration.
 func (a *App) configureDoor(ctx context.Context, id int64, overrides map[string]string) (connector.StoredDoor, error) {
-	d, err := a.doors.Configure(ctx, id, overrides)
+	d, err := a.doors.Door(ctx, id)
+	if err != nil {
+		return connector.StoredDoor{}, err
+	}
+	sealed, err := a.settings.SealOverrides(overrides, d.Config)
+	if err != nil {
+		return connector.StoredDoor{}, err
+	}
+	d, err = a.doors.Configure(ctx, id, sealed)
 	if err == nil {
 		a.sendingFailed(a.pushes.Configs(ctx, []int64{id}))
 	}

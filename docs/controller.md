@@ -47,18 +47,20 @@ it forgets them and goes back to enrolling.
 | QoS | 1 for every publish and subscription. The server publishes at QoS 1. |
 | Client id | The controller's **hardware id**, on every connection, enrolling or as its door. The enrollment account's permissions depend on it (section 5). |
 | Clean session | Should be true. Configuration and timeline arrive again as retained messages on every subscribe; replies and commands are meant for now, and a queued old one must not act later. |
-| Keep alive | Any interval the controller likes. The broker publishes the last will, and the server shows the door offline, only once one and a half keep-alive intervals pass without a packet, so a shorter interval (such as 30 seconds) shows a lost door sooner. |
+| Keep alive | `keepalive_s` from the configuration (section 8), 30 seconds until the first one. The broker publishes the last will, and the server shows the door offline, only once one and a half keep-alive intervals pass without a packet, so a shorter interval shows a lost door sooner. |
 | Last will | Retained, QoS 1, on the topic and with the payload given in sections 5 and 6. |
-| Reconnecting | After a lost connection, connect again with growing pauses (such as 1, 2, 4 seconds up to a minute). A refusal of door credentials as not authorized means they are revoked. |
+| Reconnecting | After a lost connection, connect again with growing pauses: 1, 2, 4 seconds and so on up to `reconnect_max_s` (section 8, a minute until the first configuration). A refusal of door credentials as not authorized means they are revoked. |
 
 The **hardware id** is fixed for the life of the device, such as its MAC
 address in hex. It is a topic level, a client id, and part of a URL, so it
 must be non-empty and should use only letters, digits, `-`, and `_`; it must
 not contain `/`, `+`, or `#`.
 
-The broker address, the CA certificate, and the enrollment credentials are
-the controller's provisioning; a door's configuration can later move it to
-another broker host (`broker_host`, section 8). The enrollment username is the server's
+The broker address, the CA certificate, the Wi-Fi network, and the
+enrollment credentials are the controller's provisioning; a door's
+configuration can later move it to another broker host, port, or CA, or
+another Wi-Fi network (`broker_host`, `broker_port`, `broker_tls`,
+`broker_ca_pem`, `wifi_ssid`, `wifi_password`, section 8). The enrollment username is the server's
 `enrollment_username` setting (default `doorcode-enroll`); its password is
 `enrollment_password`, which the server generates and logs on first start
 when it is empty.
@@ -293,8 +295,27 @@ use the defaults below.
 | `rate_limit_per_minute` | uint | checks | 1 to 6000 | 30 | Server: the door's token bucket refills at this many checks a minute. |
 | `rate_limit_burst` | uint | checks | 1 to 1000 | 10 | Server: the bucket holds this many checks. |
 | `ntp_server` | text | | a host name, up to 253 letters, digits, dots, and hyphens | `pool.ntp.org` | Controller: where to get the time. The timeline is in Unix seconds, so the clock matters. |
-| `broker_host` | text | | empty, a host name of up to 253 letters, digits, dots, and hyphens, or an IP address, IPv6 included | empty | Controller: the host name or IP address of the broker to connect to. Empty keeps the broker the controller uses now. When it names another broker, store it in place of the provisioned host and connect there from the next connection on, with the same port, CA, and credentials. |
+| `broker_host` | text | | empty, a host name of up to 253 letters, digits, dots, and hyphens, or an IP address, IPv6 included | empty | Controller: the host name or IP address of the broker to connect to. Empty keeps the broker the controller uses now. When it names another broker, store it in place of the provisioned host and connect there from the next connection on, with the same credentials and the port, TLS, and CA below. |
+| `broker_port` | uint | | 1 to 65535 | 8883 | Controller: the broker's port, from the next connection on. |
+| `broker_tls` | bool | | | `true` | Controller: whether to connect to the broker over TLS. `false` is for development brokers only. |
+| `broker_ca_pem` | text | | empty, or one or more PEM certificates (LF line ends) | empty | Controller: the certificate of the CA, or the broker's own certificate, to verify the broker against while `broker_tls` is true. Empty keeps the certificate the controller has. |
+| `wifi_ssid` | text | bytes | up to 32 | empty | Controller: the Wi-Fi network to join. Empty keeps the network the controller uses now. Keep the last credentials that worked and fall back to them when the new ones fail. |
+| `wifi_password` | text | bytes | up to 63 | empty | Controller: the Wi-Fi network's password. The server stores it encrypted and shows it to nobody; this message is the one place it travels in the clear. |
+| `wifi_roam_rssi` | int | dBm | -100 to 0 | -70 | Controller: when the signal to the current access point is below this, scan and move to an access point of the same network that is at least 8 dB stronger, if there is one. |
+| `keepalive_s` | uint | s | 10 to 300 | 30 | Controller: the MQTT keep-alive interval, from the next connection on. The server shows the door offline once one and a half of these pass without a packet. |
+| `reconnect_max_s` | uint | s | 5 to 600 | 60 | Controller: the longest pause between attempts to connect again; back off 1, 2, 4 seconds and so on up to this. |
+| `mesh_enabled` | bool | | | `false` | Controller: whether it may join or form a Wi-Fi mesh with other controllers when its own access point's signal is poor. |
+| `mesh_ssid` | text | bytes | up to 32 | empty | Controller: the mesh network's name, the same at every controller of the site. |
+| `mesh_password` | text | bytes | empty, or 8 to 63 | empty | Controller: the mesh network's password. Stored encrypted like `wifi_password`. |
+| `mesh_min_router_rssi` | int | dBm | -100 to 0 | -75 | Controller: when the strongest access point it can see is below this and `mesh_enabled` is true, join the mesh through a neighboring controller instead. |
+| `mesh_max_layer` | uint | hops | 1 to 10 | 4 | Controller: the deepest hop it may sit at in the mesh. |
+| `update_connect_timeout_s` | uint | s | 60 to 1800 | 300 | Controller: after installing firmware, go back to the previous image if it has not connected as its door within this long (section 14). The server's pages warn when it is longer than `update_timeout_minutes`, after which the server counts the update failed. |
+| `accept_unsigned_firmware` | bool | | | `false` | Controller: when true, install firmware images without a valid signature. For bench and development boards only. |
 | `log_level` | text | | one of `error`, `warn`, `info`, `debug` | `info` | Controller: how much the controller logs. |
+
+A controller must ignore keys it does not know and use the defaults above
+for keys a message lacks, so server and firmware can ship new fields
+independently.
 
 Pin mappings and other hardware matters are the firmware's own and are not
 here.
@@ -580,8 +601,8 @@ stays on its current firmware and publishes an ack with the command's `id`,
 `result: failed`, and a `detail`. The server records the update as failed
 and sends it again in the next update window.
 
-**Self-revert.** New firmware that cannot connect to the broker, within a
-time the firmware chooses, must restart into the previous image (an A/B
+**Self-revert.** New firmware that cannot connect to the broker within
+`update_connect_timeout_s` (section 8) must restart into the previous image (an A/B
 scheme with a boot counter, for instance), which then connects and reports
 the old version. It should then publish a `failed` ack with the remembered
 command `id` and a detail such as `reverted: could not connect`, so the
@@ -654,7 +675,7 @@ it.
 | `Ack` (`ID`, `Result`, `Detail`) | message | `id`, `result`, `detail`. | 12 |
 | `Check` (`RequestID`, `Digits`) | message | `request_id`, `digits`. | 10 |
 | `Reply` (`RequestID`, `Allow`, `StrikeMS`) | message | `request_id`, `allow`, `strike_ms`. | 10 |
-| `DoorConfig` (`StrikePulseMS`, `KeypadIdleClearMS`, `MinCodeLength`, `MaxCodeLength`, `SubmitKey`, `ReplyTimeoutMS`, `TelemetryIntervalS`, `HeldOpenS`, `TimelineRefreshHours`, `CredentialRotationDays`, `RateLimitPerMinute`, `RateLimitBurst`, `NTPServer`, `BrokerHost`, `LogLevel`) | type | The configuration fields, `strike_pulse_ms` through `log_level`. | 8 |
+| `DoorConfig` (`StrikePulseMS`, `KeypadIdleClearMS`, `MinCodeLength`, `MaxCodeLength`, `SubmitKey`, `ReplyTimeoutMS`, `TelemetryIntervalS`, `HeldOpenS`, `TimelineRefreshHours`, `CredentialRotationDays`, `RateLimitPerMinute`, `RateLimitBurst`, `NTPServer`, `BrokerHost`, `BrokerPort`, `BrokerTLS`, `BrokerCAPEM`, `WifiSSID`, `WifiPassword`, `WifiRoamRSSI`, `KeepaliveS`, `ReconnectMaxS`, `MeshEnabled`, `MeshSSID`, `MeshPassword`, `MeshMinRouterRSSI`, `MeshMaxLayer`, `UpdateConnectTimeoutS`, `AcceptUnsignedFirmware`, `LogLevel`) | type | The configuration fields, `strike_pulse_ms` through `log_level`. | 8 |
 | `Config` (`Header`, `DoorConfig`) | message | `v` and the configuration fields in one map. | 8 |
 | `Span` (`Start`, `End`, `State`) | type | `start`, `end`, `state`. | 9 |
 | `Timeline` (`From`, `To`, `Spans`) | message | `from`, `to`, `spans`. | 9 |

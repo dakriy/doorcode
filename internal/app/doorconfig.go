@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/dakriy/doorcode/internal/auth"
@@ -26,16 +27,31 @@ type doorConfigView struct {
 	RateLimitBurst         int    `json:"rate_limit_burst" doc:"How many codes the server checks for the door in a burst."`
 	NTPServer              string `json:"ntp_server" doc:"The time server the door sets its clock from."`
 	BrokerHost             string `json:"broker_host" doc:"The host name or IP address of the broker the door connects to; empty keeps the broker it has."`
+	BrokerPort             int    `json:"broker_port" doc:"The port of the broker the door connects to."`
+	BrokerTLS              bool   `json:"broker_tls" doc:"Whether the door connects to the broker over TLS; false is for development brokers only."`
+	BrokerCAPEM            string `json:"broker_ca_pem" doc:"The PEM certificate of the CA, or of the broker itself, the door verifies the broker against; empty keeps the one it has."`
+	WifiSSID               string `json:"wifi_ssid" doc:"The Wi-Fi network the door joins; empty keeps the network it uses. A door falls back to the last network that worked when a new one fails."`
+	WifiPassword           string `json:"wifi_password" doc:"The Wi-Fi network's password, a secret: ******** when it has one."`
+	WifiRoamRSSI           int    `json:"wifi_roam_rssi" doc:"The signal, in dBm, below which the door looks for an access point of the same network at least 8 dB stronger and moves to it."`
+	KeepaliveS             int    `json:"keepalive_s" doc:"The door's MQTT keep-alive interval, in seconds, from its next connection; it shows offline once one and a half of these pass without a packet."`
+	ReconnectMaxS          int    `json:"reconnect_max_s" doc:"The longest pause between the door's attempts to connect again, in seconds; it waits 1, 2, 4 seconds and so on up to this."`
+	MeshEnabled            bool   `json:"mesh_enabled" doc:"Whether the door may join or form a Wi-Fi mesh with other doors when its own access point's signal is poor."`
+	MeshSSID               string `json:"mesh_ssid" doc:"The mesh network's name, the same at every door of the site."`
+	MeshPassword           string `json:"mesh_password" doc:"The mesh network's password, a secret: ******** when it has one."`
+	MeshMinRouterRSSI      int    `json:"mesh_min_router_rssi" doc:"The signal, in dBm, below which a door with the mesh enabled joins it through a neighboring door when that is the strongest access point it sees."`
+	MeshMaxLayer           int    `json:"mesh_max_layer" doc:"The most hops from the access point a door may be in the mesh."`
+	UpdateConnectTimeoutS  int    `json:"update_connect_timeout_s" doc:"How long a door on newly installed firmware tries to connect as its door before it goes back to its previous image, in seconds."`
+	AcceptUnsignedFirmware bool   `json:"accept_unsigned_firmware" doc:"Whether the door installs firmware without a valid signature; for bench and development boards only."`
 	LogLevel               string `json:"log_level" doc:"How much the door logs: error, warn, info, or debug."`
 }
 
 type doorConfigBody struct {
-	Effective doorConfigView    `json:"effective" doc:"The configuration the door runs with: its overrides, and the site's defaults for the rest."`
-	Overrides map[string]string `json:"overrides" doc:"The door's own values, each keyed by the name of the field of effective it overrides."`
+	Effective doorConfigView    `json:"effective" doc:"The configuration the door runs with: its overrides, and the site's defaults for the rest. A secret shows as ******** when it has a value."`
+	Overrides map[string]string `json:"overrides" doc:"The door's own values, each keyed by the name of the field of effective it overrides; a secret shows as ******** when it has a value."`
 }
 
 type doorConfigRequest struct {
-	Overrides map[string]string `json:"overrides" doc:"The door's own values, each keyed by the name of a field of the effective configuration; the site's defaults apply to the fields left out. They replace the overrides the door had."`
+	Overrides map[string]string `json:"overrides" doc:"The door's own values, each keyed by the name of a field of the effective configuration; the site's defaults apply to the fields left out. They replace the overrides the door had. A secret given as ******** keeps the value the door has for it."`
 }
 
 func (a *App) doorConfigRoutes() []route {
@@ -65,7 +81,7 @@ func (a *App) doorConfigRoutes() []route {
 func (a *App) effectiveConfig(ctx context.Context, d connector.StoredDoor) (settings.DoorConfig, settings.DoorDefaults, error) {
 	defaults, err := a.settings.DoorDefaults(ctx)
 	if err != nil {
-		return settings.DoorConfig{}, nil, err
+		return settings.DoorConfig{}, settings.DoorDefaults{}, err
 	}
 	config, err := defaults.For(d.Config)
 	return config, defaults, err
@@ -83,7 +99,7 @@ func (a *App) writeDoorConfig(w http.ResponseWriter, r *http.Request, d connecto
 		a.internalError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, doorConfigBody{Effective: doorConfigView(config), Overrides: d.Config})
+	writeJSON(w, http.StatusOK, doorConfigBody{Effective: doorConfigView(config.Masked()), Overrides: settings.ShownOverrides(d.Config)})
 }
 
 func (a *App) getDoorConfig(w http.ResponseWriter, r *http.Request, _ auth.User) {
@@ -103,12 +119,16 @@ func (a *App) putDoorConfig(w http.ResponseWriter, r *http.Request, _ auth.User)
 
 // configRow is one field of a door's configuration as its page shows it:
 // the site's default, the door's own value as entered, empty to follow
-// the default, and the value in effect.
+// the default, and the value in effect, each secret masked; whether the
+// door has its own value of a secret, which its page offers to clear; and
+// what the page warns of the value in effect.
 type configRow struct {
 	settings.DoorField
 	Default   string
 	Entered   string
 	Effective string
+	Set       bool
+	Warning   string
 }
 
 // configRows is each field of d's configuration, with the overrides
@@ -119,18 +139,34 @@ func configRows(d connector.StoredDoor, defaults settings.DoorDefaults, entered 
 	}
 	var rows []configRow
 	for _, f := range settings.DoorFields {
-		rows = append(rows, configRow{DoorField: f, Default: defaults[f.Name], Entered: entered[f.Name], Effective: defaults.Value(d.Config, f.Name)})
+		_, set := d.Config[f.Name]
+		row := configRow{DoorField: f, Default: defaults.Default(f), Entered: entered[f.Name], Effective: defaults.Shown(d.Config, f), Set: set}
+		if f.Name == settings.ConnectTimeoutField {
+			row.Warning = defaults.RevertWarning(d.Config)
+		}
+		rows = append(rows, row)
 	}
 	return rows
 }
 
-// readDoorConfig reads the overrides the configuration form posts: each
-// field given a value.
-func readDoorConfig(r *http.Request) map[string]string {
+// readDoorConfig reads the overrides the configuration form posts for a
+// door whose overrides are stored: each field given a value, trimmed
+// unless it is a secret, and each secret the door has that is left blank
+// and not cleared as the mask that keeps it.
+func readDoorConfig(r *http.Request, stored map[string]string) map[string]string {
 	_ = r.ParseForm()
 	overrides := map[string]string{}
 	for _, f := range settings.DoorFields {
-		if value := strings.TrimSpace(r.PostFormValue(f.Name)); value != "" {
+		value := r.PostFormValue(f.Name)
+		_, has := stored[f.Name]
+		kept := value == "" && has && !slices.Contains(r.PostForm["clear"], f.Name)
+		switch {
+		case !f.Secret:
+			value = strings.TrimSpace(value)
+		case kept:
+			value = settings.Mask
+		}
+		if value != "" {
 			overrides[f.Name] = value
 		}
 	}
@@ -142,7 +178,7 @@ func (a *App) configureDoorFromForm(w http.ResponseWriter, r *http.Request, view
 	if !ok {
 		return
 	}
-	overrides := readDoorConfig(r)
+	overrides := readDoorConfig(r, d.Config)
 	_, err := a.configureDoor(r.Context(), d.ID, overrides)
 	if errs, rejected := fieldErrors(err); rejected {
 		form := d.fresh()

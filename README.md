@@ -227,6 +227,21 @@ door, and doors receive a change at once.
 | `door_rate_limit_burst` | Code checks the bucket holds, 1 to 1000. | `10` |
 | `door_ntp_server` | The time server the door uses. | `pool.ntp.org` |
 | `door_broker_host` | The host name or IP address of the broker the door connects to, pushed with the rest of its configuration so doors can be moved to another broker; empty keeps the broker each door already uses. | empty |
+| `door_broker_port` | The broker port doors connect to, 1 to 65535. | `8883` |
+| `door_broker_tls` | `true` connects doors to the broker over TLS; `false` is for development brokers only. | `true` |
+| `door_broker_ca_pem` | The PEM certificate of the broker's CA, or of the broker itself, doors verify it against; empty keeps the one each door has. | empty |
+| `door_wifi_ssid` | The Wi-Fi network doors join, up to 32 bytes; empty keeps the network each door uses. | empty |
+| `door_wifi_password` | Its password, up to 63 bytes. Secret: stored encrypted and shown masked. | empty |
+| `door_wifi_roam_rssi` | Below this signal, -100 to 0 dBm, a door moves to an access point of its network at least 8 dB stronger. | `-70` |
+| `door_keepalive_s` | The doors' MQTT keep-alive, 10 to 300 s; a door shows offline after one and a half of these without a packet. | `30` |
+| `door_reconnect_max_s` | The longest pause between a door's attempts to connect again, 5 to 600 s. | `60` |
+| `door_mesh_enabled` | `true` lets doors join or form a Wi-Fi mesh when their own signal is poor. | `false` |
+| `door_mesh_ssid` | The mesh network's name, up to 32 bytes. | empty |
+| `door_mesh_password` | The mesh network's password, empty or 8 to 63 bytes. Secret: stored encrypted and shown masked. | empty |
+| `door_mesh_min_router_rssi` | Below this signal, -100 to 0 dBm, a door with the mesh enabled joins it through a neighbor. | `-75` |
+| `door_mesh_max_layer` | The most hops a door may be from its access point in the mesh, 1 to 10. | `4` |
+| `door_update_connect_timeout_s` | How long a door on new firmware tries to connect before it goes back to its old image, 60 to 1800 s. The settings page and a door's page warn when it is longer than `update_timeout_minutes`. | `300` |
+| `door_accept_unsigned_firmware` | `true` lets doors install firmware without a valid signature; for bench and development boards only. | `false` |
 | `door_log_level` | `error`, `warn`, `info`, or `debug`. | `info` |
 
 ## Single sign-on

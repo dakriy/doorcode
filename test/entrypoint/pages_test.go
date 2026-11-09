@@ -53,7 +53,13 @@ var defaultSettings = []shownSetting{
 	{"door_reply_timeout_ms", "3000", "default"}, {"door_telemetry_interval_s", "60", "default"},
 	{"door_held_open_s", "60", "default"}, {"door_timeline_refresh_hours", "6", "default"}, {"door_credential_rotation_days", "30", "default"},
 	{"door_rate_limit_per_minute", "30", "default"}, {"door_rate_limit_burst", "10", "default"},
-	{"door_ntp_server", "pool.ntp.org", "default"}, {"door_broker_host", "", "default"}, {"door_log_level", "info", "default"},
+	{"door_ntp_server", "pool.ntp.org", "default"}, {"door_broker_host", "", "default"}, {"door_broker_port", "8883", "default"},
+	{"door_broker_tls", "true", "default"}, {"door_broker_ca_pem", "", "default"}, {"door_wifi_ssid", "", "default"},
+	{"door_wifi_password", "", "default"}, {"door_wifi_roam_rssi", "-70", "default"}, {"door_keepalive_s", "30", "default"},
+	{"door_reconnect_max_s", "60", "default"}, {"door_mesh_enabled", "false", "default"}, {"door_mesh_ssid", "", "default"},
+	{"door_mesh_password", "", "default"}, {"door_mesh_min_router_rssi", "-75", "default"}, {"door_mesh_max_layer", "4", "default"},
+	{"door_update_connect_timeout_s", "300", "default"}, {"door_accept_unsigned_firmware", "false", "default"},
+	{"door_log_level", "info", "default"},
 }
 
 // settingRows is the section each setting is shown in, and its label and
@@ -108,12 +114,27 @@ var settingRows = map[string]struct{ section, label, help string }{
 	"door_rate_limit_burst":           {"Door defaults", "Code checks in a burst", "A whole number of checks from 1 to 1000."},
 	"door_ntp_server":                 {"Door defaults", "Time server", "A host name of up to 253 letters, digits, dots, and hyphens."},
 	"door_broker_host":                {"Door defaults", "Broker host", "A host name of up to 253 letters, digits, dots, and hyphens, an IP address, or nothing to keep the door's broker."},
+	"door_broker_port":                {"Door defaults", "Broker port", "A port from 1 to 65535."},
+	"door_broker_tls":                 {"Door defaults", "Broker over TLS", "True to connect to the broker over TLS, false for a development broker only."},
+	"door_broker_ca_pem":              {"Door defaults", "Broker CA certificate", "The PEM certificate of the broker's CA or of the broker itself, or nothing."},
+	"door_wifi_ssid":                  {"Door defaults", "Wi-Fi network", "A network name of up to 32 bytes, or nothing to keep the door's network."},
+	"door_wifi_password":              {"Door defaults", "Wi-Fi password", "A password of up to 63 bytes."},
+	"door_wifi_roam_rssi":             {"Door defaults", "Roam below", "A whole number of dBm from -100 to 0."},
+	"door_keepalive_s":                {"Door defaults", "Keep-alive", "A whole number of seconds from 10 to 300."},
+	"door_reconnect_max_s":            {"Door defaults", "Longest reconnect pause", "A whole number of seconds from 5 to 600."},
+	"door_mesh_enabled":               {"Door defaults", "Mesh", "True to let the door join or form a mesh with other doors when its signal is poor."},
+	"door_mesh_ssid":                  {"Door defaults", "Mesh network", "A network name of up to 32 bytes, or nothing."},
+	"door_mesh_password":              {"Door defaults", "Mesh password", "A password of 8 to 63 bytes, or nothing."},
+	"door_mesh_min_router_rssi":       {"Door defaults", "Mesh below", "A whole number of dBm from -100 to 0."},
+	"door_mesh_max_layer":             {"Door defaults", "Deepest mesh hop", "A whole number of hops from 1 to 10."},
+	"door_update_connect_timeout_s":   {"Door defaults", "Revert new firmware after", "A whole number of seconds from 60 to 1800."},
+	"door_accept_unsigned_firmware":   {"Door defaults", "Unsigned firmware", "True to install firmware without a valid signature, on bench and development boards only."},
 	"door_log_level":                  {"Door defaults", "Log level", "One of error, warn, info, debug."},
 }
 
 // secretSettings are the settings the settings page offers as password
 // fields, which are left blank.
-var secretSettings = map[string]bool{"oidc_client_secret": true, "enrollment_password": true}
+var secretSettings = map[string]bool{"oidc_client_secret": true, "enrollment_password": true, "door_wifi_password": true, "door_mesh_password": true}
 
 // settingChoices is what the settings page offers to choose from for each
 // setting it asks for with a select: the zones the stub lists for the
@@ -126,7 +147,10 @@ var settingChoices = map[string][]string{
 
 // yesNoSettings are the settings the settings page asks for with a
 // checkbox.
-var yesNoSettings = map[string]bool{"oidc_enabled": true, "oidc_auto_sign_in": true, "portal_door_pictures": true}
+var yesNoSettings = map[string]bool{
+	"oidc_enabled": true, "oidc_auto_sign_in": true, "portal_door_pictures": true,
+	"door_broker_tls": true, "door_mesh_enabled": true, "door_accept_unsigned_firmware": true,
+}
 
 // settingCell adds what page reads from the cell showing the setting s
 // whose input holds value, and is the cell's text: a read-only setting's

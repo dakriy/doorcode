@@ -9946,11 +9946,11 @@
         "properties": {
           "effective": {
             "$ref": "#/components/schemas/DoorConfigView",
-            "description": "The configuration the door runs with: its overrides, and the site's defaults for the rest."
+            "description": "The configuration the door runs with: its overrides, and the site's defaults for the rest. A secret shows as ******** when it has a value."
           },
           "overrides": {
             "type": "object",
-            "description": "The door's own values, each keyed by the name of the field of effective it overrides.",
+            "description": "The door's own values, each keyed by the name of the field of effective it overrides; a secret shows as ******** when it has a value.",
             "additionalProperties": {
               "type": "string"
             }
@@ -9966,7 +9966,7 @@
         "properties": {
           "overrides": {
             "type": "object",
-            "description": "The door's own values, each keyed by the name of a field of the effective configuration; the site's defaults apply to the fields left out. They replace the overrides the door had.",
+            "description": "The door's own values, each keyed by the name of a field of the effective configuration; the site's defaults apply to the fields left out. They replace the overrides the door had. A secret given as ******** keeps the value the door has for it.",
             "additionalProperties": {
               "type": "string"
             }
@@ -9979,9 +9979,25 @@
       "DoorConfigView": {
         "type": "object",
         "properties": {
+          "accept_unsigned_firmware": {
+            "type": "boolean",
+            "description": "Whether the door installs firmware without a valid signature; for bench and development boards only."
+          },
+          "broker_ca_pem": {
+            "type": "string",
+            "description": "The PEM certificate of the CA, or of the broker itself, the door verifies the broker against; empty keeps the one it has."
+          },
           "broker_host": {
             "type": "string",
             "description": "The host name or IP address of the broker the door connects to; empty keeps the broker it has."
+          },
+          "broker_port": {
+            "type": "integer",
+            "description": "The port of the broker the door connects to."
+          },
+          "broker_tls": {
+            "type": "boolean",
+            "description": "Whether the door connects to the broker over TLS; false is for development brokers only."
           },
           "credential_rotation_days": {
             "type": "integer",
@@ -9990,6 +10006,10 @@
           "held_open_s": {
             "type": "integer",
             "description": "How long the door may stay open before it is logged as held open, in seconds."
+          },
+          "keepalive_s": {
+            "type": "integer",
+            "description": "The door's MQTT keep-alive interval, in seconds, from its next connection; it shows offline once one and a half of these pass without a packet."
           },
           "keypad_idle_clear_ms": {
             "type": "integer",
@@ -10002,6 +10022,26 @@
           "max_code_length": {
             "type": "integer",
             "description": "The most digits the keypad sends as a code."
+          },
+          "mesh_enabled": {
+            "type": "boolean",
+            "description": "Whether the door may join or form a Wi-Fi mesh with other doors when its own access point's signal is poor."
+          },
+          "mesh_max_layer": {
+            "type": "integer",
+            "description": "The most hops from the access point a door may be in the mesh."
+          },
+          "mesh_min_router_rssi": {
+            "type": "integer",
+            "description": "The signal, in dBm, below which a door with the mesh enabled joins it through a neighboring door when that is the strongest access point it sees."
+          },
+          "mesh_password": {
+            "type": "string",
+            "description": "The mesh network's password, a secret: ******** when it has one."
+          },
+          "mesh_ssid": {
+            "type": "string",
+            "description": "The mesh network's name, the same at every door of the site."
           },
           "min_code_length": {
             "type": "integer",
@@ -10018,6 +10058,10 @@
           "rate_limit_per_minute": {
             "type": "integer",
             "description": "How many codes a minute the server checks for the door."
+          },
+          "reconnect_max_s": {
+            "type": "integer",
+            "description": "The longest pause between the door's attempts to connect again, in seconds; it waits 1, 2, 4 seconds and so on up to this."
           },
           "reply_timeout_ms": {
             "type": "integer",
@@ -10038,6 +10082,22 @@
           "timeline_refresh_hours": {
             "type": "integer",
             "description": "How often the server sends the door its timeline when nothing changed it, in hours."
+          },
+          "update_connect_timeout_s": {
+            "type": "integer",
+            "description": "How long a door on newly installed firmware tries to connect as its door before it goes back to its previous image, in seconds."
+          },
+          "wifi_password": {
+            "type": "string",
+            "description": "The Wi-Fi network's password, a secret: ******** when it has one."
+          },
+          "wifi_roam_rssi": {
+            "type": "integer",
+            "description": "The signal, in dBm, below which the door looks for an access point of the same network at least 8 dB stronger and moves to it."
+          },
+          "wifi_ssid": {
+            "type": "string",
+            "description": "The Wi-Fi network the door joins; empty keeps the network it uses. A door falls back to the last network that worked when a new one fails."
           }
         },
         "required": [
@@ -10055,6 +10115,21 @@
           "rate_limit_burst",
           "ntp_server",
           "broker_host",
+          "broker_port",
+          "broker_tls",
+          "broker_ca_pem",
+          "wifi_ssid",
+          "wifi_password",
+          "wifi_roam_rssi",
+          "keepalive_s",
+          "reconnect_max_s",
+          "mesh_enabled",
+          "mesh_ssid",
+          "mesh_password",
+          "mesh_min_router_rssi",
+          "mesh_max_layer",
+          "update_connect_timeout_s",
+          "accept_unsigned_firmware",
           "log_level"
         ]
       },

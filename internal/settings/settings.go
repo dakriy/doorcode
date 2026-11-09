@@ -78,7 +78,9 @@ const (
 	keyUpdateConcurrency  = "update_concurrency"
 	maxUpdateConcurrency  = 1000
 	updateConcurrencyHint = "must be a whole number of doors from 1 to 1000"
-	keyUpdateTimeout      = "update_timeout_minutes"
+	// KeyUpdateTimeout is the key of the setting of how long a door may
+	// take to come back on new firmware before its update fails.
+	KeyUpdateTimeout      = "update_timeout_minutes"
 	keyNewUserExpiry      = "new_user_expiry_days"
 	keyOIDCEnabled        = "oidc_enabled"
 	keyOIDCAutoSignIn     = "oidc_auto_sign_in"
@@ -125,7 +127,7 @@ var durations = []struct {
 	{keyRollupRetention, rollupRetention, func(c *Current) *time.Duration { return &c.RollupRetention }},
 	{keyUnresponsive, unresponsiveAfter, func(c *Current) *time.Duration { return &c.UnresponsiveAfter }},
 	{keyUpdateLength, updateLength, func(c *Current) *time.Duration { return &c.UpdateWindow.Length }},
-	{keyUpdateTimeout, updateTimeout, func(c *Current) *time.Duration { return &c.UpdateTimeout }},
+	{KeyUpdateTimeout, updateTimeout, func(c *Current) *time.Duration { return &c.UpdateTimeout }},
 	{keyNewUserExpiry, newUserExpiry, func(c *Current) *time.Duration { return &c.NewUserExpiry }},
 }
 
@@ -185,6 +187,8 @@ const (
 	KindTime   InputKind = "time"
 	KindChoice InputKind = "choice"
 	KindZone   InputKind = "zone"
+	// KindLongText is text of several lines, such as a certificate.
+	KindLongText InputKind = "long-text"
 )
 
 // The values of a yes or no setting.
@@ -303,7 +307,7 @@ var sections = []section{
 		{key: keyUpdateStart, fallback: "02:00", validate: accepting(timeOfDay).askedWith(Input{Kind: KindTime}), label: "Update window opens", help: "A time of day in the site timezone."},
 		{key: keyUpdateLength, fallback: "120", validate: accepting(updateLength), label: "Update window length", help: "Minutes."},
 		{key: keyUpdateConcurrency, fallback: "5", validate: accepting(updateConcurrency), label: "Doors updating at once"},
-		{key: keyUpdateTimeout, fallback: "30", validate: accepting(updateTimeout), label: "Update timeout",
+		{key: KeyUpdateTimeout, fallback: "30", validate: accepting(updateTimeout), label: "Update timeout",
 			help: "Minutes a door may take to come back on its new version before the update fails."},
 	}},
 	{Section{Name: "Door defaults", About: "The configuration every door runs with unless its own page overrides a field. Doors receive a changed default as soon as it is saved."}, doorDefinitions()},
@@ -311,7 +315,7 @@ var sections = []section{
 
 // UpdateKeys are the keys of the settings that say how firmware updates
 // roll out, in display order.
-var UpdateKeys = []string{KeyUpdateDays, keyUpdateStart, keyUpdateLength, keyUpdateConcurrency, keyUpdateTimeout}
+var UpdateKeys = []string{KeyUpdateDays, keyUpdateStart, keyUpdateLength, keyUpdateConcurrency, KeyUpdateTimeout}
 
 // definitions is every setting the site has, in display order, each
 // knowing its section.
