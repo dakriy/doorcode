@@ -65,6 +65,18 @@ another Wi-Fi network (`broker_host`, `broker_port`, `broker_tls`,
 `enrollment_password`, which the server generates and logs on first start
 when it is empty.
 
+The controller verifies the broker, and the server when it downloads
+firmware (section 15), against the same certificate: `broker_ca_pem`, or
+the one it was provisioned with. That is usually the certificate of an
+internal CA the site runs, while people reach the server's web pages with a
+certificate from a public CA. So the server needs a second entrypoint
+wherever TLS is terminated, serving a certificate chain from the internal
+CA the controllers trust, such as a second port or host name on the reverse
+proxy forwarding to the same server; the main entrypoint may use any public
+CA. The server's `door_server_url` setting is that second entrypoint's
+address, which controllers download firmware from; while it is empty they
+use `public_url`.
+
 ## 3. Provisioning
 
 Before it first enrolls, a controller is given its provisioning: the
@@ -89,6 +101,7 @@ answer is `application/json` with `Content-Disposition: attachment`.
   "generated_at": 1767603600,
   "broker": {"host": "mqtt.example.com", "port": 8883, "tls": true,
              "ca_pem": "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----\n"},
+  "server": {"url": "https://doors.example.com:8443"},
   "enrollment": {"username": "doorcode-enroll", "password": "<enrollment_password>"},
   "wifi": {"ssid": "<wifi_ssid>", "password": "<wifi_password>"},
   "door_config": {"strike_pulse_ms": 3000, "keypad_idle_clear_ms": 10000, "...": "..."}
@@ -101,6 +114,7 @@ answer is `application/json` with `Content-Disposition: attachment`.
 | `generated_at` | number | When the server made the file, in Unix seconds. |
 | `broker.host`, `broker.port`, `broker.tls` | string, number, boolean | The broker to connect to: `broker_host`, `broker_port`, and `broker_tls` of the configuration. |
 | `broker.ca_pem` | string | The certificate to verify the broker against (`broker_ca_pem`), PEM with LF line ends; empty when `tls` is false. |
+| `server.url` | string | The address the server is reached at for firmware downloads: its `door_server_url` setting, or `public_url` while that is empty; empty when neither is set. Its certificate chains to the same CA as the broker's (section 2). The `update` command carries the full download address (section 15), so the controller need not keep this; it is there for setup tools and for checking the address. |
 | `enrollment.username`, `enrollment.password` | string, string | The enrollment credentials (section 6): the server's `enrollment_username` and `enrollment_password` settings. |
 | `wifi.ssid`, `wifi.password` | string, string | The Wi-Fi network to join: `wifi_ssid` and `wifi_password` of the configuration. |
 | `door_config` | object | Every field of the configuration (section 9), with the same names and types as the configuration message: integers are JSON numbers, text JSON strings, booleans JSON booleans. |
@@ -555,7 +569,7 @@ door.
 | `token` | text | | The new broker password. | `credentials`. |
 | `version` | text | | The firmware version to install. | `update`. |
 | `sha256` | text | | The SHA-256 of the image, 64 lower-case hex digits. | `update`. |
-| `url` | text | | The HTTPS address to download the image from. | `update`. |
+| `url` | text | | The address to download the image from (section 15), `https://` except on development servers. | `update`. |
 
 | `command` | What the controller does |
 | --- | --- |
@@ -645,9 +659,13 @@ from the door page. The controller:
 2. Downloads the image with a `GET` of `url`, verifying the server's
    certificate when `url` is `https://`. An `http://` address is for
    development only; the controller downloads over it without any server
-   verification. The address is the server's `public_url` followed by
+   verification. The address is the server's `door_server_url`, or its
+   `public_url` while that is empty, followed by
    `/api/v1/doors/<id>/firmware/<version>?token=<token>`; the token is for
-   this one update and must not be logged. The server answers:
+   this one update and must not be logged. Verify the server against the
+   same certificate as the broker (`broker_ca_pem`, or the one provisioned):
+   `door_server_url` names the entrypoint whose certificate chain comes from
+   that CA (section 2). The server answers:
    - `200` with the image as `application/octet-stream` (at most 16 MiB);
    - `403` when the token is wrong, or the update has ended or timed out;
    - `404` when the version no longer exists.

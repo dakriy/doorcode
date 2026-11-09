@@ -47,6 +47,7 @@ func provisioningFile(broker, wifi, changed map[string]any) any {
 	file := map[string]any{
 		"format": 1.0, "generated_at": 1767603600.0,
 		"broker":      with(map[string]any{"host": "mqtt.example.com", "port": 8883.0, "tls": true, "ca_pem": testsupport.Certificate}, broker),
+		"server":      map[string]any{"url": ""},
 		"enrollment":  map[string]any{"username": "doorcode-enroll", "password": enrollPassword},
 		"wifi":        with(map[string]any{"ssid": "Example", "password": "wifi-secret"}, wifi),
 		"door_config": with(config, changed),
@@ -65,6 +66,32 @@ func TestTheProvisioningFileCarriesTheSitesBrokerEnrollmentWifiAndDoorDefaults(t
 	want := []any{200, jsonType, provisioningFile(nil, nil, nil)}
 	if diff := cmp.Diff(want, []any{got.Status, got.ContentType, testsupport.JSON(got.Body)}); diff != "" {
 		t.Errorf("status, type, file (-want +got):\n%s", diff)
+	}
+}
+
+func TestTheProvisioningFileNamesTheDoorsServerAddressOrElseThePublicAddress(t *testing.T) {
+	t.Parallel()
+	cases := map[string]struct {
+		settings map[string]string
+		want     string
+	}{
+		"the doors' server address": {map[string]string{"public_url": "https://doorcode.example.com", "door_server_url": "https://doors.example.com:8443/"}, "https://doors.example.com:8443"},
+		"the public address":        {map[string]string{"public_url": "https://doorcode.example.com/"}, "https://doorcode.example.com"},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			_, b := provisioningSite(t, testsupport.NewFactory())
+			for key, value := range c.settings {
+				send(t, b, "PUT", "/api/v1/settings/"+key, `{"value":"`+value+`"}`, 200)
+			}
+
+			got := testsupport.JSON(b.Get("/api/v1/firmware/provisioning").Body).(map[string]any)["server"]
+
+			if diff := cmp.Diff(map[string]any{"url": c.want}, got); diff != "" {
+				t.Errorf("server (-want +got):\n%s", diff)
+			}
+		})
 	}
 }
 

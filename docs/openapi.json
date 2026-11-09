@@ -11790,6 +11790,10 @@
             "type": "integer",
             "description": "When the file was made, in Unix seconds."
           },
+          "server": {
+            "$ref": "#/components/schemas/ProvisioningServer",
+            "description": "The server to download firmware from."
+          },
           "wifi": {
             "$ref": "#/components/schemas/ProvisioningWifi",
             "description": "The Wi-Fi network to join."
@@ -11799,9 +11803,22 @@
           "format",
           "generated_at",
           "broker",
+          "server",
           "enrollment",
           "wifi",
           "door_config"
+        ]
+      },
+      "ProvisioningServer": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "The address to download firmware from: door_server_url, or public_url while that is empty; empty when neither is set."
+          }
+        },
+        "required": [
+          "url"
         ]
       },
       "ProvisioningWifi": {

@@ -65,6 +65,7 @@ var brokerSettingsJSON = `{"key":"enrollment_username","value":"doorcode-enroll"
 	defaultSetting("telemetry_rollup_retention_days", "730") + `,` +
 	defaultSetting("unresponsive_minutes", "5") + `,` +
 	defaultSetting("public_url", "") + `,` +
+	defaultSetting("door_server_url", "") + `,` +
 	defaultSetting("update_window_days", "daily") + `,` +
 	defaultSetting("update_window_start", "02:00") + `,` +
 	defaultSetting("update_window_minutes", "120") + `,` +
