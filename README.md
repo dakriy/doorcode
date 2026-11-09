@@ -35,7 +35,9 @@ the engineering contract is [AGENTS.md](AGENTS.md).
 - **Telemetry.** Signal, latency, uptime, free memory, reconnects, opens,
   and where the controller sits in the site's Wi-Fi mesh, kept as samples
   and hourly summaries, charted on each door's page; a door that hops
-  through another controller carries a mesh badge in the door list.
+  through another controller carries a mesh badge in the door list, and a
+  mesh page draws the whole mesh by layer, with relays and each door's path
+  to the access point.
 - **Firmware.** Uploads through the UI or the API, a default version and
   per-door overrides, rollout inside an update window a few doors at a time,
   update-now from a door's page, and provisioning files to flash new

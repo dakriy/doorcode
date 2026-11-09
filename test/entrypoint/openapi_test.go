@@ -116,6 +116,7 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 		{Method: "DELETE", Target: "/api/v1/me/requests/1", ID: "deleteMyRequest", Statuses: []int{204, 401, 404, 409, 500}},
 		{Method: "GET", Target: "/api/v1/me/requests/1", ID: "getMyRequest", Statuses: []int{200, 401, 404, 500}},
 		{Method: "PUT", Target: "/api/v1/me/requests/1", ID: "updateMyRequest", Body: requestBody, Statuses: []int{200, 400, 401, 404, 409, 500}},
+		{Method: "GET", Target: "/api/v1/mesh", ID: "getMesh", Statuses: []int{200, 401, 403, 500}},
 		{Method: "GET", Target: "/api/v1/openapi.json", ID: "getOpenAPI", Statuses: []int{200}},
 		{Method: "GET", Target: "/api/v1/requests", ID: "listRequests", Statuses: []int{200, 400, 401, 403, 500}},
 		{Method: "GET", Target: "/api/v1/requests/1", ID: "getRequest", Statuses: []int{200, 401, 403, 404, 500}},

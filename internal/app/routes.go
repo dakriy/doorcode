@@ -93,6 +93,7 @@ func (a *App) routes() []route {
 	table = append(table, a.eventRoutes()...)
 	table = append(table, a.eventPageRoutes()...)
 	table = append(table, a.telemetryRoutes()...)
+	table = append(table, a.meshRoutes()...)
 	table = append(table, a.firmwareRoutes()...)
 	table = append(table, a.provisioningRoutes()...)
 	table = append(table, a.firmwarePageRoutes()...)

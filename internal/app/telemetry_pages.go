@@ -104,7 +104,7 @@ func (a *App) stateOf(r *http.Request, viewer auth.User, c catalog, d connector.
 	frame := chartFrame{from: from, to: to, zone: zone, over: "over the last " + chosen.Label, during: "in the last " + chosen.Label}
 	view.Charts = []chartView{
 		frame.chart("Signal", "dBm", s.signal), frame.chart("Latency", "ms", s.latency),
-		frame.chart("Mesh layer", "hops", s.meshLayer), frame.chart("Mesh children", "controllers", s.meshChildren),
+		frame.chart("Mesh layer", "", s.meshLayer), frame.chart("Mesh children", "", s.meshChildren),
 	}
 	view.Alarms, err = a.recent(r.Context(), viewer, connector.EventQuery{DoorID: d.ID, Type: event.Alarm}, zone)
 	return &view, err

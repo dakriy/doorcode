@@ -81,10 +81,7 @@ func doorStatus(c *connector.StoredController) string {
 	if c == nil {
 		return "Not enrolled"
 	}
-	if c.Online {
-		return "Online"
-	}
-	return "Offline"
+	return onlineText(c.Online)
 }
 
 // doorsContent is the door list's content.

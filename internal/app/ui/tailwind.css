@@ -203,3 +203,23 @@
   .filter-chip[hidden] { display: none; }
   .filter-chip-clear { @apply cursor-pointer rounded-full px-1.5 hover:bg-brand-100 dark:hover:bg-brand-900; }
 }
+
+/* The mesh drawing (mesh.html): the access point, a controller's node, outlined in violet
+   when others hop through it and dashed amber when what it hops through
+   is unknown or offline, and the edge to its parent, dashed when the
+   parent is offline. */
+@layer components {
+  .mesh-node {
+    @apply fill-white stroke-zinc-300 transition-colors dark:fill-zinc-900 dark:stroke-zinc-700;
+    stroke-width: 1.5;
+  }
+  a:hover > g > .mesh-node { @apply fill-zinc-50 dark:fill-zinc-800; }
+  .mesh-node.mesh-relay { @apply stroke-violet-500 dark:stroke-violet-400; stroke-width: 2; }
+  .mesh-node.mesh-lost { @apply stroke-amber-500 dark:stroke-amber-400; stroke-dasharray: 5 3; }
+  .mesh-point {
+    @apply fill-brand-50 stroke-brand-600 dark:fill-brand-950 dark:stroke-brand-400;
+    stroke-width: 1.5;
+  }
+  .mesh-edge { @apply stroke-zinc-300 dark:stroke-zinc-600; fill: none; stroke-width: 1.5; }
+  .mesh-edge.mesh-lost { @apply stroke-amber-500 dark:stroke-amber-400; stroke-dasharray: 4 3; }
+}

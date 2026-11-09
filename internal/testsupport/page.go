@@ -55,6 +55,9 @@ type Page struct {
 	// Charts maps the label of each chart, an image drawn in SVG, to what
 	// it draws.
 	Charts map[string]Chart
+	// Drawings maps the label of each chart to where it puts what it
+	// draws.
+	Drawings map[string]Drawing
 	// Bars maps the label of each labelled table to the style of each
 	// element in its rows that sets one, such as a bar's "width: 40%", in
 	// order.
@@ -99,6 +102,15 @@ type Chart struct {
 	Series []string
 	Marks  []Mark
 	Labels []string
+}
+
+// Drawing is where a chart puts what it draws: its view box, the style
+// that sizes it, and where each piece of text sits, as "x,y", in the
+// order of Chart.Labels.
+type Drawing struct {
+	ViewBox string
+	Style   string
+	Texts   []string
 }
 
 // Mark is a rectangle a chart draws: where, how large, its class, which
@@ -200,6 +212,7 @@ func (p *Page) readDetail(dt *html.Node) {
 // readChart reads what a chart draws.
 func (p *Page) readChart(svg *html.Node) {
 	var c Chart
+	drawing := Drawing{ViewBox: attr(svg, "viewBox"), Style: attr(svg, "style")}
 	for d := range svg.Descendants() {
 		switch {
 		case d.Type != html.ElementNode:
@@ -212,12 +225,14 @@ func (p *Page) readChart(svg *html.Node) {
 			c.Marks = append(c.Marks, markOf(d))
 		case d.Data == "text":
 			c.Labels = append(c.Labels, text(d))
+			drawing.Texts = append(drawing.Texts, attr(d, "x")+","+attr(d, "y"))
 		}
 	}
 	if p.Charts == nil {
-		p.Charts = map[string]Chart{}
+		p.Charts, p.Drawings = map[string]Chart{}, map[string]Drawing{}
 	}
 	p.Charts[attr(svg, "aria-label")] = c
+	p.Drawings[attr(svg, "aria-label")] = drawing
 }
 
 // markOf is the rectangle rect, with the text of its title.

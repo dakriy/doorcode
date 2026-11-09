@@ -195,21 +195,21 @@ func TestADoorPageChartsItsMeshOverTheRangeChosen(t *testing.T) {
 		"every report": {"?range=6h", "6 hours", map[string]testsupport.Chart{
 			"Mesh layer over the last 6 hours": {
 				Lines:  []string{"316.7,125 366.7,5"},
-				Labels: []string{"2 hops", "1 hops", "Mon 5 Jan 06:00", "Mon 5 Jan 12:00"},
+				Labels: []string{"2", "1", "Mon 5 Jan 06:00", "Mon 5 Jan 12:00"},
 			},
 			"Mesh children over the last 6 hours": {
 				Lines:  []string{"316.7,125 366.7,5"},
-				Labels: []string{"3 controllers", "0 controllers", "Mon 5 Jan 06:00", "Mon 5 Jan 12:00"},
+				Labels: []string{"3", "0", "Mon 5 Jan 06:00", "Mon 5 Jan 12:00"},
 			},
 		}},
 		"each hour": {"?range=7d", "7 days", map[string]testsupport.Chart{
 			"Mesh layer over the last 7 days": {
 				Lines:  []string{"589.3,65"},
-				Labels: []string{"2 hops", "2 hops", "Mon 29 Dec 12:00", "Mon 5 Jan 12:00"},
+				Labels: []string{"2", "2", "Mon 29 Dec 12:00", "Mon 5 Jan 12:00"},
 			},
 			"Mesh children over the last 7 days": {
 				Lines:  []string{"589.3,65"},
-				Labels: []string{"3 controllers", "3 controllers", "Mon 29 Dec 12:00", "Mon 5 Jan 12:00"},
+				Labels: []string{"3", "3", "Mon 29 Dec 12:00", "Mon 5 Jan 12:00"},
 			},
 		}},
 	}

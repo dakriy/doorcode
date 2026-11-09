@@ -395,11 +395,11 @@ func TestADoorPageChartsItsSignalAndLatencyOverTheRangeChosen(t *testing.T) {
 		},
 		"Mesh layer over the last 6 hours": {
 			Lines:  []string{"316.7,65 366.7,65 408.3,65"},
-			Labels: []string{"0 hops", "0 hops", "Mon 5 Jan 06:00", "Mon 5 Jan 12:00"},
+			Labels: []string{"0", "0", "Mon 5 Jan 06:00", "Mon 5 Jan 12:00"},
 		},
 		"Mesh children over the last 6 hours": {
 			Lines:  []string{"316.7,65 366.7,65 408.3,65"},
-			Labels: []string{"0 controllers", "0 controllers", "Mon 5 Jan 06:00", "Mon 5 Jan 12:00"},
+			Labels: []string{"0", "0", "Mon 5 Jan 06:00", "Mon 5 Jan 12:00"},
 		},
 	}
 	if diff := cmp.Diff(want, charts); diff != "" {
@@ -453,6 +453,8 @@ func TestTelemetryPagesAndTheAPIFailWhenTheStoreDoes(t *testing.T) {
 		"the reports API":       {func(f *testsupport.Factory) { f.StoreStub.FailTelemetry() }, "/api/v1/doors/1/telemetry"},
 		"the rollups API":       {func(f *testsupport.Factory) { f.StoreStub.FailTelemetry() }, "/api/v1/doors/1/telemetry/hourly"},
 		"the state API":         {func(f *testsupport.Factory) { f.StoreStub.FailDoors() }, "/api/v1/doors/1/state"},
+		"the mesh page":         {func(f *testsupport.Factory) { f.StoreStub.FailDoors() }, "/admin/mesh"},
+		"the mesh API":          {func(f *testsupport.Factory) { f.StoreStub.FailDoors() }, "/api/v1/mesh"},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
