@@ -393,6 +393,15 @@ func (s Service) Open(ctx context.Context, d connector.StoredDoor, strikeMS int)
 	return err
 }
 
+// Reboot tells the connected controller of d to restart.
+func (s Service) Reboot(ctx context.Context, d connector.StoredDoor) error {
+	if !connected(d) {
+		return ErrOffline
+	}
+	_, err := s.send(ctx, d.ID, protocol.Command{Command: protocol.CommandReboot})
+	return err
+}
+
 // Update tells the connected controller of d to install the firmware
 // version whose image has the SHA-256 sha256, in hex, from url, and
 // returns the id of the command that told it.

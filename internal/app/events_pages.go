@@ -25,12 +25,13 @@ func (a *App) eventPageRoutes() []route {
 	return []route{
 		pageRoute(http.MethodGet, "/admin/events", holding(auth.RoleViewLogs), a.eventsPage),
 		pageRoute(http.MethodPost, "/admin/doors/{id}/open", opensDoors, a.openDoorFromForm),
+		pageRoute(http.MethodPost, "/admin/doors/{id}/reboot", opensDoors, a.rebootDoorFromForm),
 	}
 }
 
 // typeLabels names each type of event on pages.
 var typeLabels = map[string]string{
-	event.Check: "Code check", event.Command: "Keypad command", event.Open: "Opened from the UI", event.Alarm: "Door alarm",
+	event.Check: "Code check", event.Command: "Door command", event.Open: "Opened from the UI", event.Alarm: "Door alarm",
 	event.Update: "Firmware update",
 }
 
@@ -285,14 +286,28 @@ func emptyEvents(filtered bool, total int) string {
 }
 
 func (a *App) openDoorFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
+	a.commandFromForm(w, r, viewer, a.openDoor, "the door cannot be opened", "door-opened")
+}
+
+func (a *App) rebootDoorFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
+	a.commandFromForm(w, r, viewer, a.rebootDoor, "it cannot be rebooted", "door-rebooted")
+}
+
+// commandFromForm sends the door of the page the viewer submitted a form
+// on a command, by send, and goes back to the page saying flash; while its
+// controller is not connected, the page says that refused can only be
+// done once it is.
+func (a *App) commandFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User,
+	send func(context.Context, int64, auth.User) (connector.StoredEvent, error), refused, flash string,
+) {
 	d, ok := a.pageDoor(w, r, viewer)
 	if !ok {
 		return
 	}
-	_, err := a.openDoor(r.Context(), d.ID, viewer)
+	_, err := send(r.Context(), d.ID, viewer)
 	if errors.Is(err, controller.ErrOffline) {
-		a.showDoor(w, r, http.StatusConflict, viewer, d, d.fresh(), "The controller is not connected, so the door cannot be opened from here. Try again once it is online.")
+		a.showDoor(w, r, http.StatusConflict, viewer, d, d.fresh(), "The controller is not connected, so "+refused+" from here. Try again once it is online.")
 		return
 	}
-	a.changed(w, r, err, doorPath(d.ID), "door-opened")
+	a.changed(w, r, err, doorPath(d.ID), flash)
 }

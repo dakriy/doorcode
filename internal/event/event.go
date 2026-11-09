@@ -1,6 +1,6 @@
 // Package event keeps the activity log: every code check a door asked
 // about, with what was decided and why, every keypad command, every
-// opening from the admin UI, every alarm a door's state raised, and every
+// opening and reboot from the admin UI, every alarm a door's state raised, and every
 // firmware update sent to a door and how it ended.
 // Events are only ever added.
 package event
@@ -15,7 +15,8 @@ import (
 const (
 	// Check is a code a door asked the server about.
 	Check = "check"
-	// Command is a keypad command a door commander gave.
+	// Command is a keypad command a door commander gave, or a reboot
+	// sent to a door from the admin UI or the API.
 	Command = "command"
 	// Open is a door opened from the admin UI or the API.
 	Open = "open"
@@ -93,6 +94,10 @@ const (
 // FromUI is the reason of an opening from the admin UI or the API.
 const FromUI = "admin UI"
 
+// RebootSent is the reason of a reboot command sent to a door from the
+// admin UI or the API.
+const RebootSent = "reboot sent"
+
 // The reasons of alarms.
 const (
 	// ForcedOpen is a door opened when nothing had unlocked it.
@@ -117,7 +122,7 @@ const (
 var Reasons = []string{
 	AccessRule, OpenMode, OpenOverride, Commander, Commanded,
 	NoRule, Locked, Expired, RateLimited, NotCommander, BadCommand, CommandFailed, Unreachable,
-	KeypadOpen, KeypadLocked, KeypadCancel, FromUI, ForcedOpen, HeldOpen,
+	KeypadOpen, KeypadLocked, KeypadCancel, RebootSent, FromUI, ForcedOpen, HeldOpen,
 	UpdateSent, UpdateSucceeded, UpdateFailed,
 }
 

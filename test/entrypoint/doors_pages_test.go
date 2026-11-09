@@ -45,7 +45,7 @@ const picturesNote = "The primary picture is shown in the door list and at the t
 	"People see it in the portal only while the setting Door pictures in the portal is on; it is off."
 
 // openNote is what a door's page says while it cannot be opened.
-const openNote = "The door can be opened from here once its controller is connected."
+const openNote = "The door can be opened, and its controller rebooted, from here once its controller is connected."
 
 // neverOpenNote is what a door's page says of the open mode of a door
 // whose zones have no open-mode schedules.

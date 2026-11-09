@@ -458,3 +458,30 @@ func text(n *html.Node) string {
 	}
 	return strings.Join(strings.Fields(b.String()), " ")
 }
+
+// Confirmations maps the address each form on the page posts to, when
+// the form asks before it is sent, to the label of its button and the
+// question it asks, as "label: question".
+func Confirmations(body string) map[string]string {
+	doc, err := html.Parse(strings.NewReader(body))
+	if err != nil {
+		panic(err)
+	}
+	found := map[string]string{}
+	for n := range doc.Descendants() {
+		if n.Type == html.ElementNode && n.Data == "form" && hasAttr(n, "hx-confirm") {
+			found[attr(n, "action")] = buttonText(n) + ": " + attr(n, "hx-confirm")
+		}
+	}
+	return found
+}
+
+// buttonText is the text of the first button in form.
+func buttonText(form *html.Node) string {
+	for d := range form.Descendants() {
+		if d.Type == html.ElementNode && d.Data == "button" {
+			return text(d)
+		}
+	}
+	return ""
+}

@@ -377,8 +377,14 @@
           Open now
         </button>
       </form>
+      <div class="mt-4 flex items-center justify-between gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+        <p class="text-xs text-zinc-500 dark:text-zinc-400">Reboot restarts the controller. It goes offline for a moment and connects again. The reboot is logged under your name.</p>
+        <form method="post" action="/admin/doors/{{$d.ID}}/reboot" hx-confirm="Reboot the controller of {{$d.Name}} now? The door is offline until it connects again." hx-disabled-elt="find button" class="shrink-0">
+          <button type="submit" class="{{template "secondary-class"}}">Reboot</button>
+        </form>
+      </div>
       {{else}}
-      <p role="note" class="mt-4 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">The door can be opened from here once its controller is connected.</p>
+      <p role="note" class="mt-4 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">The door can be opened, and its controller rebooted, from here once its controller is connected.</p>
       {{end}}
     </section>
 

@@ -199,10 +199,15 @@ A token bucket per door protects against code enumeration. Over the limit the
 server does not evaluate the code and logs a denied event. The default is
 generous enough that a person typing codes is never affected.
 
-### Open from the UI
+### Open and reboot from the UI
 
 An admin with *manage-doors* or *door-commander* can pulse a door's strike
 from the door page. It is logged as an event naming the admin.
+
+The same admin can reboot a door's controller from the door page, after
+confirming, or the API, while the controller is connected. The server sends
+a `reboot` command; the controller acknowledges it, restarts, and connects
+again. It is logged as a `command` event, `reboot sent`, naming the admin.
 
 ### Telemetry and state
 
@@ -249,7 +254,7 @@ controller online and offline are in [controller.md](controller.md).
 | server → door | `doors/<id>/reply` | request id, allow or deny, strike duration |
 | door → server | `doors/<id>/telemetry` | the telemetry fields above |
 | door → server | `doors/<id>/event` | door opened or door closed |
-| server → door | `doors/<id>/command` | command id and one of open (strike duration), update (version, hash, url), new credentials |
+| server → door | `doors/<id>/command` | command id and one of open (strike duration), update (version, hash, url), new credentials, reboot (nothing more) |
 | door → server | `doors/<id>/ack` | command id, result (`failed` when the door could not carry it out), detail |
 
 The server subscribes to the enroll topics and to each door's online,
@@ -309,7 +314,7 @@ its password to the log with instructions to change it.
 
 Pages: dashboard, doors (list, pending enrollments, detail with live state,
 timeline calendar, pictures, zones and the open mode they give it,
-who-can-enter, config, firmware, open button, events), zones (doors and
+who-can-enter, config, firmware, open and reboot buttons, events), zones (doors and
 open-mode schedules), users (list, detail, groups, access
 calendar per door, events), groups (list with role badges, detail with
 members, roles, access rules, and pre-assigned user ids while sign-in reads a

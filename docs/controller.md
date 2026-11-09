@@ -470,7 +470,7 @@ door.
 | --- | --- | --- | --- | --- |
 | `v` | uint | | Protocol version, 1. | Always. |
 | `id` | text | | The command's id, 16 hex digits, to quote in the ack. | Always. |
-| `command` | text | | `open`, `credentials`, or `update`. | Always. |
+| `command` | text | | `open`, `credentials`, `update`, or `reboot`. | Always. |
 | `strike_ms` | uint | ms | How long to release the strike. | `open`. |
 | `username` | text | | The new broker username. | `credentials`. |
 | `token` | text | | The new broker password. | `credentials`. |
@@ -483,8 +483,26 @@ door.
 | `open` (`CommandOpen`) | Release the strike for `strike_ms`, as a reply allowing someone in would. An administrator sent it from the door page; the server has logged it. |
 | `credentials` (`CommandCredentials`) | Rotate to the new credentials (section 13). |
 | `update` (`CommandUpdate`) | Install the firmware (section 14). |
+| `reboot` (`CommandReboot`) | Restart, as below. An administrator sent it from the door page or the API; the server has logged it. |
 
 An unknown command should be answered with a `failed` ack.
+
+**Reboot.** A `reboot` command carries only `v`, `id`, and `command`; a
+controller must not expect any other field. The controller:
+
+1. Publishes an ack quoting the command's `id`, with `result` `done`, and
+   should wait for the broker's PUBACK before going on, so the ack is not
+   lost in the restart.
+2. Restarts, as a power cycle would: the connection ends without a clean
+   disconnect, so the broker publishes the last will and the server shows
+   the door offline.
+3. Connects again with the credentials it holds and goes on as in section
+   6: last will, subscribe, online status. Its uptime and reconnect count
+   start again from zero, and it keeps its stored timeline and
+   configuration.
+
+The server does not wait for the ack or the reconnection; a door that does
+not come back is shown offline, and unresponsive in time, like any other.
 
 ### Ack
 
@@ -499,7 +517,7 @@ On `doorcode/doors/<id>/ack`.
 
 The server reads one ack today: `failed` for the update under way, which
 ends the update as failed with the detail. Acks of `open` are optional and
-recorded nowhere; an update is acknowledged as a success by reconnecting on
+recorded nowhere, as are those of `reboot`; an update is acknowledged as a success by reconnecting on
 the new version, not by an ack.
 
 ## 13. Credentials: rotation and revocation
@@ -630,7 +648,7 @@ it.
 | `Enrollment` (`Online`, `FirmwareVersion`, `Signal`) | message | `online`, `firmware_version`, `signal`. | 5 |
 | `Credentials` (`DoorID`, `Username`, `Token`) | message | `door_id`, `username`, `token`. | 5 |
 | `Online` (`Online`, `Username`, `FirmwareVersion`, `Signal`) | message | `online`, `username`, `firmware_version`, `signal`. | 6 |
-| `CommandCredentials`, `CommandOpen`, `CommandUpdate` | constants | `credentials`, `open`, `update`. | 12 |
+| `CommandCredentials`, `CommandOpen`, `CommandUpdate`, `CommandReboot` | constants | `credentials`, `open`, `update`, `reboot`. | 12 |
 | `Command` (`ID`, `Command`, `Username`, `Token`, `StrikeMS`, `Version`, `SHA256`, `URL`) | message | `id`, `command`, `username`, `token`, `strike_ms`, `version`, `sha256`, `url`. | 12 |
 | `AckFailed` | constant | `failed`. | 12 |
 | `Ack` (`ID`, `Result`, `Detail`) | message | `id`, `result`, `detail`. | 12 |
