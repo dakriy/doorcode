@@ -200,7 +200,9 @@ the next window until every door matches its target.
 ## 9. MQTT protocol
 
 Payloads are CBOR maps with a `v` protocol version field. Topic prefix
-`doorcode/`. Each door's broker ACL allows only its own topics.
+`doorcode/`. Each door's broker ACL allows only its own topics. The
+controller's side, every message field, and the behavior expected of a
+controller online and offline are in [controller.md](controller.md).
 
 | Direction | Topic | Content |
 | --- | --- | --- |

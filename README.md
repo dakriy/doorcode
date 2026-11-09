@@ -224,9 +224,12 @@ secret is set, client authentication.
 ## Door enrollment, from a controller's side
 
 Every message is a CBOR map with `v`, the protocol version (1). Topics start
-with `doorcode/`. The exact topics and fields are in
-[docs/spec.md, section 9](docs/spec.md#9-mqtt-protocol) and the MQTT
-protocol and door controller entries of [AGENTS.md](AGENTS.md).
+with `doorcode/`. [docs/controller.md](docs/controller.md) is the contract a
+firmware author builds against: every topic and message field with its CBOR
+type and unit, the configuration, the timeline, what to do while
+disconnected, credential rotation, and firmware updates. The demo's
+simulated controller, `internal/demo/doors.go`, is a reference
+implementation. In short:
 
 1. **Enroll.** Connect to the broker with the shared enrollment credentials
    (`enrollment_username`, `enrollment_password`) and the controller's
