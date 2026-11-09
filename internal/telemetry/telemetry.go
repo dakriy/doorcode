@@ -80,6 +80,7 @@ func (s Service) report(ctx context.Context, doorID int64, payload []byte) error
 	t := connector.StoredTelemetry{
 		At: now, Signal: m.Signal, LatencyMS: m.LatencyMS, UptimeS: m.UptimeS, FreeBytes: m.FreeBytes,
 		FirmwareVersion: m.FirmwareVersion, Reconnects: m.Reconnects, DoorOpen: m.DoorOpen, Opens: m.Opens,
+		MeshLayer: m.MeshLayer, MeshParent: m.MeshParent, MeshChildren: m.MeshChildren,
 	}
 	if err := s.Store.AddSample(ctx, connector.StoredSample{DoorID: d.ID, StoredTelemetry: t}); err != nil {
 		return err
@@ -164,7 +165,7 @@ func (s Service) save(ctx context.Context, id int64, held, c connector.StoredCon
 	if _, err := s.Store.SetDoorState(ctx, id, c.StoredDoorState); err != nil {
 		return err
 	}
-	if slices.Equal(Badges(held), Badges(c)) {
+	if slices.Equal(Badges(held), Badges(c)) && MeshOf(held) == MeshOf(c) {
 		s.Reported(id)
 	} else {
 		s.Changed()
@@ -173,7 +174,7 @@ func (s Service) save(ctx context.Context, id int64, held, c connector.StoredCon
 }
 
 // Badges is what door lists show of the state of the door c is enrolled
-// as, beyond whether it is connected.
+// as, beyond whether it is connected and where it sits in the mesh.
 func Badges(c connector.StoredController) []string {
 	var out []string
 	if c.Unresponsive {
@@ -186,6 +187,23 @@ func Badges(c connector.StoredController) []string {
 		return append(out, BadgeOpen)
 	}
 	return out
+}
+
+// Mesh is where a controller last said it sits in the site's mesh: its
+// Layer, 0 when it reaches the building's access point itself, and the
+// hardware id of the controller it hops through, its Parent.
+type Mesh struct {
+	Layer  int
+	Parent string
+}
+
+// MeshOf is where c last said it sits in the mesh, at layer 0 until its
+// first report.
+func MeshOf(c connector.StoredController) Mesh {
+	if c.Telemetry == nil {
+		return Mesh{}
+	}
+	return Mesh{Layer: c.Telemetry.MeshLayer, Parent: c.Telemetry.MeshParent}
 }
 
 // checkForced logs d as forced open at now, unless its door, whose

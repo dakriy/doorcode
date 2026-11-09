@@ -48,9 +48,11 @@ type doorRow struct {
 	Zones     []nameRef
 	OpenMode  []nameRef
 	// Status is whether a controller is enrolled as the door and connected,
-	// and Badges what else is to know of its state.
+	// and Badges what else is to know of its state. Mesh says where its
+	// controller sits in the mesh, empty unless it hops through another.
 	Status string
 	Badges []string
+	Mesh   string
 }
 
 func (c catalog) rowOfDoor(d connector.StoredDoor) doorRow {
@@ -59,7 +61,7 @@ func (c catalog) rowOfDoor(d connector.StoredDoor) doorRow {
 		Zones: c.zonesOf(d), OpenMode: c.openSchedules(d), Status: doorStatus(d.Controller), Thumbnail: thumbnailOf(d),
 	}
 	if d.Controller != nil {
-		row.Badges = telemetry.Badges(*d.Controller)
+		row.Badges, row.Mesh = telemetry.Badges(*d.Controller), c.meshBadge(*d.Controller)
 	}
 	return row
 }
@@ -345,7 +347,7 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 		a.pageError(w, r, err)
 		return
 	}
-	state, err := a.stateOf(r, viewer, d.StoredDoor, zone)
+	state, err := a.stateOf(r, viewer, n.catalog, d.StoredDoor, zone)
 	if err != nil {
 		a.pageError(w, r, err)
 		return

@@ -45,13 +45,17 @@ type Site struct {
 }
 
 // SimulatedDoor is a controller the demo plays: its hardware id, the
-// firmware it runs, its signal, and the door it is approved as (0 for
-// none).
+// firmware it runs, its signal, the door it is approved as (0 for none),
+// and where it sits in the mesh: its layer, the controller it hops
+// through, and how many hop through it.
 type SimulatedDoor struct {
-	HardwareID string
-	Firmware   string
-	Signal     int
-	DoorID     int64
+	HardwareID   string
+	Firmware     string
+	Signal       int
+	DoorID       int64
+	MeshLayer    int
+	MeshParent   string
+	MeshChildren int
 }
 
 // The schedules the demo creates, by id: the migration seeds Always as 1.

@@ -23,6 +23,7 @@ type stateView struct {
 	// the door list shows of its state.
 	Status     string
 	Badges     []string
+	Mesh       string
 	Door       string
 	Firmware   string
 	Signal     string
@@ -30,8 +31,13 @@ type stateView struct {
 	Uptime     string
 	Memory     string
 	Reconnects string
-	LastSeen   string
-	LastReport string
+	// MeshLayer, MeshParent, and MeshChildren are where the controller
+	// sits in the mesh, as its last report said.
+	MeshLayer    string
+	MeshParent   string
+	MeshChildren string
+	LastSeen     string
+	LastReport   string
 	// Ranges are the telemetry ranges the charts can show, and Charts the
 	// charts of the one chosen.
 	Ranges []rangeLink
@@ -78,49 +84,94 @@ func chosenRange(name string) chartRange {
 }
 
 // stateOf is the live state of d for its page, as viewer sees it, with
-// telemetry charts over the range r asks for; nil when no controller is
-// enrolled as d.
-func (a *App) stateOf(r *http.Request, viewer auth.User, d connector.StoredDoor, zone *time.Location) (*stateView, error) {
+// telemetry charts over the range r asks for, naming doors from c; nil
+// when no controller is enrolled as d.
+func (a *App) stateOf(r *http.Request, viewer auth.User, c catalog, d connector.StoredDoor, zone *time.Location) (*stateView, error) {
 	if d.Controller == nil {
 		return nil, nil
 	}
-	view := rowOfState(*d.Controller, zone)
+	view := c.rowOfState(*d.Controller, zone)
 	chosen := chosenRange(r.URL.Query().Get("range"))
-	for _, c := range chartRanges {
-		view.Ranges = append(view.Ranges, rangeLink{Label: c.Label, Href: doorPath(d.ID) + "?range=" + c.Name, Current: c == chosen})
+	for _, cr := range chartRanges {
+		view.Ranges = append(view.Ranges, rangeLink{Label: cr.Label, Href: doorPath(d.ID) + "?range=" + cr.Name, Current: cr == chosen})
 	}
 	to := a.clock.Now()
 	from := to.Add(-time.Duration(chosen.Hours) * time.Hour)
-	signal, latency, err := a.series(r.Context(), d.ID, chosen.Hourly, from, to)
+	s, err := a.series(r.Context(), d.ID, chosen.Hourly, from, to)
 	if err != nil {
 		return nil, err
 	}
 	frame := chartFrame{from: from, to: to, zone: zone, over: "over the last " + chosen.Label, during: "in the last " + chosen.Label}
-	view.Charts = []chartView{frame.chart("Signal", "dBm", signal), frame.chart("Latency", "ms", latency)}
+	view.Charts = []chartView{
+		frame.chart("Signal", "dBm", s.signal), frame.chart("Latency", "ms", s.latency),
+		frame.chart("Mesh layer", "hops", s.meshLayer), frame.chart("Mesh children", "controllers", s.meshChildren),
+	}
 	view.Alarms, err = a.recent(r.Context(), viewer, connector.EventQuery{DoorID: d.ID, Type: event.Alarm}, zone)
 	return &view, err
 }
 
-// rowOfState is what the controller c says of itself and its door, as
-// the door's page shows it.
-func rowOfState(c connector.StoredController, zone *time.Location) stateView {
+// rowOfState is what the controller ctrl says of itself and its door,
+// as the door's page shows it, naming doors from c.
+func (c catalog) rowOfState(ctrl connector.StoredController, zone *time.Location) stateView {
 	view := stateView{
-		Status: doorStatus(&c), Badges: telemetry.Badges(c), Door: notReported, Firmware: firmwareText(c.FirmwareVersion),
-		Signal: signalText(c.Signal), Latency: notReported, Uptime: notReported, Memory: notReported, Reconnects: notReported,
-		LastSeen: shownAt(zone, c.LastSeenAt, secondLayout), LastReport: notReported,
+		Status: doorStatus(&ctrl), Badges: telemetry.Badges(ctrl), Mesh: c.meshBadge(ctrl), Door: notReported,
+		Firmware: firmwareText(ctrl.FirmwareVersion), Signal: signalText(ctrl.Signal), Latency: notReported, Uptime: notReported,
+		Memory: notReported, Reconnects: notReported, MeshLayer: notReported, MeshParent: notReported, MeshChildren: notReported,
+		LastSeen: shownAt(zone, ctrl.LastSeenAt, secondLayout), LastReport: notReported,
 	}
-	switch c.DoorState {
+	switch ctrl.DoorState {
 	case telemetry.Open:
-		view.Door = "Open since " + shownAt(zone, *c.OpenedAt, secondLayout)
+		view.Door = "Open since " + shownAt(zone, *ctrl.OpenedAt, secondLayout)
 	case telemetry.Closed:
 		view.Door = "Closed"
 	}
-	if t := c.Telemetry; t != nil {
+	if t := ctrl.Telemetry; t != nil {
 		view.Latency, view.Uptime = strconv.Itoa(t.LatencyMS)+" ms", uptimeText(t.UptimeS)
 		view.Memory, view.Reconnects = strconv.FormatInt(t.FreeBytes/1024, 10)+" KiB", strconv.Itoa(t.Reconnects)
+		view.MeshLayer, view.MeshParent, view.MeshChildren = meshLayerText(t.MeshLayer), c.parentText(t.MeshParent), strconv.Itoa(t.MeshChildren)
 		view.LastReport = shownAt(zone, t.At, secondLayout)
 	}
 	return view
+}
+
+// meshLayerText is a controller's mesh layer, as its door's page shows
+// it.
+func meshLayerText(layer int) string {
+	if layer == 0 {
+		return "0, the access point itself"
+	}
+	return strconv.Itoa(layer)
+}
+
+// parentText names the controller whose hardware id is hardwareID, which
+// a controller hops through, as its door's page shows it.
+func (c catalog) parentText(hardwareID string) string {
+	if hardwareID == "" {
+		return "None"
+	}
+	return c.controllerName(hardwareID)
+}
+
+// controllerName names the door whose controller has the hardware id
+// hardwareID, or else gives the hardware id.
+func (c catalog) controllerName(hardwareID string) string {
+	for _, d := range c.doors {
+		if d.Controller != nil && d.Controller.HardwareID == hardwareID {
+			return d.Name
+		}
+	}
+	return hardwareID
+}
+
+// meshBadge is what door lists show of where the controller c sits in
+// the mesh: nothing while it reaches the access point itself, otherwise
+// its layer and the door it hops through.
+func (c catalog) meshBadge(ctrl connector.StoredController) string {
+	mesh := telemetry.MeshOf(ctrl)
+	if mesh.Layer == 0 {
+		return ""
+	}
+	return "Mesh, layer " + strconv.Itoa(mesh.Layer) + " via " + c.controllerName(mesh.Parent)
 }
 
 // uptimeText is a number of seconds a controller has run, as its door's
@@ -143,23 +194,33 @@ type point struct {
 	Value float64
 }
 
-// series is the signal strength and the latency the controller of the
-// door whose id is doorID reported from from up to to: every report, or
-// the mean of each hour when hourly says so.
-func (a *App) series(ctx context.Context, doorID int64, hourly bool, from, to time.Time) ([]point, []point, error) {
-	var signal, latency []point
+// telemetrySeries is what a door's charts draw: the signal strength, the
+// latency, the mesh layer, and the mesh children its controller reported.
+type telemetrySeries struct {
+	signal, latency, meshLayer, meshChildren []point
+}
+
+// series is what the controller of the door whose id is doorID reported
+// from from up to to: every report, or each hour's means and the mesh of
+// its last report when hourly says so.
+func (a *App) series(ctx context.Context, doorID int64, hourly bool, from, to time.Time) (telemetrySeries, error) {
+	var out telemetrySeries
 	if hourly {
 		rollups, err := a.telemetry.Rollups(ctx, doorID, from, to)
 		for _, h := range rollups {
-			signal = append(signal, point{h.Hour, h.Signal.Mean})
-			latency = append(latency, point{h.Hour, h.Latency.Mean})
+			out.signal = append(out.signal, point{h.Hour, h.Signal.Mean})
+			out.latency = append(out.latency, point{h.Hour, h.Latency.Mean})
+			out.meshLayer = append(out.meshLayer, point{h.Hour, float64(h.MeshLayer)})
+			out.meshChildren = append(out.meshChildren, point{h.Hour, float64(h.MeshChildren)})
 		}
-		return signal, latency, err
+		return out, err
 	}
 	samples, err := a.telemetry.Samples(ctx, doorID, from, to)
 	for _, s := range samples {
-		signal = append(signal, point{s.At, float64(s.Signal)})
-		latency = append(latency, point{s.At, float64(s.LatencyMS)})
+		out.signal = append(out.signal, point{s.At, float64(s.Signal)})
+		out.latency = append(out.latency, point{s.At, float64(s.LatencyMS)})
+		out.meshLayer = append(out.meshLayer, point{s.At, float64(s.MeshLayer)})
+		out.meshChildren = append(out.meshChildren, point{s.At, float64(s.MeshChildren)})
 	}
-	return signal, latency, err
+	return out, err
 }

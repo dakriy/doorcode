@@ -225,7 +225,15 @@ again. It is logged as a `command` event, `reboot sent`, naming the admin.
 
 Doors report, at the configured interval: signal strength, round-trip
 latency, uptime, free memory, firmware version, reconnect count, door open or
-closed, and the number of opens since the last report. Outside open mode,
+closed, the number of opens since the last report, and where the controller
+sits in the site's Wi-Fi mesh: its layer (0 when it reaches the building's
+access point itself, 1 when it hops through one other controller, and so
+on), the hardware id of the controller it hops through, and how many
+controllers hop through it. Firmware that does not report the mesh reads as
+layer 0 with no parent and no children. The door page shows the current
+values and charts the layer and children; a door at a layer above 0 carries
+a badge on its page and in the door list naming its layer and the door (or,
+when no door has that controller, the hardware id) it hops through. Outside open mode,
 doors also send door open and close transitions as events. The server derives
 *forced open* (opened without a preceding unlock) and *held open* (open longer
 than a configurable duration) and shows them live. A door with no contact for

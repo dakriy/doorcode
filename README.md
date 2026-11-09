@@ -32,8 +32,10 @@ the engineering contract is [AGENTS.md](AGENTS.md).
   broker credentials that rotate automatically, pictures, zones, per-door
   configuration overrides over site defaults, opening from the UI, and live
   state: online, open or closed, forced open, held open, unresponsive.
-- **Telemetry.** Signal, latency, uptime, free memory, reconnects, and opens,
-  kept as samples and hourly summaries, charted on each door's page.
+- **Telemetry.** Signal, latency, uptime, free memory, reconnects, opens,
+  and where the controller sits in the site's Wi-Fi mesh, kept as samples
+  and hourly summaries, charted on each door's page; a door that hops
+  through another controller carries a mesh badge in the door list.
 - **Firmware.** Uploads through the UI or the API, a default version and
   per-door overrides, rollout inside an update window a few doors at a time,
   update-now from a door's page, and provisioning files to flash new
@@ -79,7 +81,8 @@ access to the public doors, with pictures, and their own entries. It comes
 with users, groups, zones, schedules, access rules, overrides, doors with
 pictures (and three dozen office doors in a zone of their own), a few weeks of events and telemetry, firmware versions, and access
 requests. One simulated controller waits for approval under Enrollments; the
-others are online, report telemetry, open and close, answer open commands,
+others are online (three of them reaching the server through others over
+the mesh), report telemetry, open and close, answer open commands,
 reboot and connect again when told to, and check codes now and then, so the
 live pages move. The demo listens on
 `-listen`, which defaults to `DOORCODE_LISTEN_ADDR` and else `:8080`.

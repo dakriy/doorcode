@@ -32,7 +32,7 @@ func TestATelemetryReportBecomesTheDoorsState(t *testing.T) {
 	want := testsupport.JSON(`{"enrolled":true,"online":true,"door":"open","opened_at":"2026-01-05T09:00:30Z","held_open":false,
 		"unresponsive":false,"firmware_version":"1.5.0","last_seen_at":"2026-01-05T09:00:30Z",
 		"telemetry":{"at":"2026-01-05T09:00:30Z","signal":-70,"latency_ms":40,"uptime_s":3720,"free_bytes":120832,
-		"firmware_version":"1.5.0","reconnects":2,"door_open":true,"opens":1}}`)
+		"firmware_version":"1.5.0","reconnects":2,"door_open":true,"opens":1,"mesh_layer":0,"mesh_parent":"","mesh_children":0}}`)
 	if diff := cmp.Diff(want, k.state("")); diff != "" {
 		t.Errorf("state (-want +got):\n%s", diff)
 	}
@@ -67,6 +67,7 @@ func TestADoorPageShowsTheDoorsLiveState(t *testing.T) {
 		map[string]string{
 			"Hardware id": "A1", "Door": "Open since Mon 5 Jan 2026 09:00:00", "Firmware": "1.4.3", "Signal": "-61 dBm", "Latency": "40 ms",
 			"Uptime": "3 d 2 h", "Free memory": "118 KiB", "Reconnects": "2",
+			"Mesh layer": "0, the access point itself", "Mesh parent": "None", "Mesh children": "0",
 			"Last seen": "Mon 5 Jan 2026 09:00:30", "Last report": "Mon 5 Jan 2026 09:00:30",
 			"Running": "1.4.3", "Target": "None", "Rollout": "Not in the rollout", "Latest update": "Never sent one",
 		},
@@ -251,7 +252,7 @@ func TestTheTelemetryAPIShowsEachReport(t *testing.T) {
 	got := testsupport.JSONAt(send(t, k.b, "GET", "/api/v1/doors/1/telemetry", "", 200).Body, "/samples/0")
 
 	want := testsupport.JSON(`{"at":"2026-01-05T09:10:00Z","signal":-60,"latency_ms":40,"uptime_s":3720,"free_bytes":100000,
-		"firmware_version":"1.4.3","reconnects":2,"door_open":false,"opens":2}`)
+		"firmware_version":"1.4.3","reconnects":2,"door_open":false,"opens":2,"mesh_layer":0,"mesh_parent":"","mesh_children":0}`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("report (-want +got):\n%s", diff)
 	}
@@ -267,9 +268,11 @@ func TestThePeriodicWorkRollsUpEachHourThatEndedFromItsReports(t *testing.T) {
 
 	want := testsupport.JSON(`{"rollups":[
 		{"hour":"2026-01-05T09:00:00Z","samples":2,"signal":{"mean":-65,"min":-70,"max":-60},
-			"latency_ms":{"mean":50,"min":40,"max":60},"free_bytes":{"mean":110000,"min":100000,"max":120000},"opens":5},
+			"latency_ms":{"mean":50,"min":40,"max":60},"free_bytes":{"mean":110000,"min":100000,"max":120000},"opens":5,
+			"mesh_layer":0,"mesh_children":0},
 		{"hour":"2026-01-05T10:00:00Z","samples":1,"signal":{"mean":-65,"min":-65,"max":-65},
-			"latency_ms":{"mean":50,"min":50,"max":50},"free_bytes":{"mean":110000,"min":110000,"max":110000},"opens":0}]}`)
+			"latency_ms":{"mean":50,"min":50,"max":50},"free_bytes":{"mean":110000,"min":110000,"max":110000},"opens":0,
+			"mesh_layer":0,"mesh_children":0}]}`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("rollups (-want +got):\n%s", diff)
 	}
@@ -340,7 +343,8 @@ func TestARollupKeepsSummingUpReportsRemovedSince(t *testing.T) {
 	got := testsupport.JSONAt(send(t, b, "GET", "/api/v1/doors/1/telemetry/hourly", "", 200).Body, "/rollups/0")
 
 	want := testsupport.JSON(`{"hour":"2026-01-05T09:00:00Z","samples":2,"signal":{"mean":-65,"min":-70,"max":-60},
-		"latency_ms":{"mean":50,"min":40,"max":60},"free_bytes":{"mean":110000,"min":100000,"max":120000},"opens":5}`)
+		"latency_ms":{"mean":50,"min":40,"max":60},"free_bytes":{"mean":110000,"min":100000,"max":120000},"opens":5,
+		"mesh_layer":0,"mesh_children":0}`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("first rollup (-want +got):\n%s", diff)
 	}
@@ -388,6 +392,14 @@ func TestADoorPageChartsItsSignalAndLatencyOverTheRangeChosen(t *testing.T) {
 		"Latency over the last 6 hours": {
 			Lines:  []string{"316.7,125 366.7,5 408.3,65"},
 			Labels: []string{"60 ms", "40 ms", "Mon 5 Jan 06:00", "Mon 5 Jan 12:00"},
+		},
+		"Mesh layer over the last 6 hours": {
+			Lines:  []string{"316.7,65 366.7,65 408.3,65"},
+			Labels: []string{"0 hops", "0 hops", "Mon 5 Jan 06:00", "Mon 5 Jan 12:00"},
+		},
+		"Mesh children over the last 6 hours": {
+			Lines:  []string{"316.7,65 366.7,65 408.3,65"},
+			Labels: []string{"0 controllers", "0 controllers", "Mon 5 Jan 06:00", "Mon 5 Jan 12:00"},
 		},
 	}
 	if diff := cmp.Diff(want, charts); diff != "" {

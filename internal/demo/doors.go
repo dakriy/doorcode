@@ -377,6 +377,7 @@ func (c *controller) report(d *door) {
 	t := protocol.Telemetry{
 		Signal: c.door.Signal + rand.IntN(7) - 3, LatencyMS: 20 + rand.IntN(40), UptimeS: int64(time.Since(c.started).Seconds()),
 		FreeBytes: 182000 + rand.Int64N(6000), FirmwareVersion: c.door.Firmware, Reconnects: c.connects - 1, DoorOpen: d.open, Opens: d.opens,
+		MeshLayer: c.door.MeshLayer, MeshParent: c.door.MeshParent, MeshChildren: c.door.MeshChildren,
 	}
 	d.opens = 0
 	c.publish(d, protocol.LeafTelemetry, &t)

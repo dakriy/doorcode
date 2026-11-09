@@ -12038,6 +12038,14 @@
             "$ref": "#/components/schemas/SpreadView",
             "description": "The round trip to the server, in milliseconds."
           },
+          "mesh_children": {
+            "type": "integer",
+            "description": "How many controllers hopped through this one in its last report of the hour."
+          },
+          "mesh_layer": {
+            "type": "integer",
+            "description": "The controller's mesh layer in its last report of the hour."
+          },
           "opens": {
             "type": "integer",
             "description": "How often the door was opened in the hour."
@@ -12057,7 +12065,9 @@
           "signal",
           "latency_ms",
           "free_bytes",
-          "opens"
+          "opens",
+          "mesh_layer",
+          "mesh_children"
         ]
       },
       "RuleList": {
@@ -12392,6 +12402,18 @@
             "type": "integer",
             "description": "The round trip from the controller to the server and back, in milliseconds."
           },
+          "mesh_children": {
+            "type": "integer",
+            "description": "How many controllers hop through this one; 0 from firmware that does not report it."
+          },
+          "mesh_layer": {
+            "type": "integer",
+            "description": "The controller's layer in the site's Wi-Fi mesh: 0 when it reaches the building's access point itself, 1 when it hops through one other controller, and so on. 0 from firmware that does not report it."
+          },
+          "mesh_parent": {
+            "type": "string",
+            "description": "The hardware id of the controller it hops through; empty at layer 0 and from firmware that does not report it."
+          },
           "opens": {
             "type": "integer",
             "description": "How often the door was opened since the controller's last report."
@@ -12418,7 +12440,10 @@
           "firmware_version",
           "reconnects",
           "door_open",
-          "opens"
+          "opens",
+          "mesh_layer",
+          "mesh_parent",
+          "mesh_children"
         ]
       },
       "TimelineView": {

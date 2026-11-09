@@ -35,7 +35,8 @@ func (s Service) rollUp(ctx context.Context) error {
 }
 
 // rollups sums up samples, ordered by door and then by time, an hour of
-// a door at a time.
+// a door at a time, keeping the mesh layer and children of each hour's
+// last report.
 func rollups(samples []connector.StoredSample) []connector.StoredRollup {
 	var hours [][]connector.StoredSample
 	for _, sample := range samples {
@@ -52,8 +53,10 @@ func rollups(samples []connector.StoredSample) []connector.StoredRollup {
 		for _, sample := range hour {
 			opens += sample.Opens
 		}
+		last := hour[len(hour)-1]
 		out = append(out, connector.StoredRollup{
 			DoorID: hour[0].DoorID, Hour: hour[0].At.Truncate(time.Hour), Samples: len(hour), Opens: opens,
+			MeshLayer: last.MeshLayer, MeshChildren: last.MeshChildren,
 			Signal:    spread(hour, func(s connector.StoredSample) int64 { return int64(s.Signal) }),
 			Latency:   spread(hour, func(s connector.StoredSample) int64 { return int64(s.LatencyMS) }),
 			FreeBytes: spread(hour, func(s connector.StoredSample) int64 { return s.FreeBytes }),

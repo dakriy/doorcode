@@ -26,6 +26,9 @@ type telemetryView struct {
 	Reconnects      int       `json:"reconnects" doc:"How often the controller connected to the broker again since it started."`
 	DoorOpen        bool      `json:"door_open" doc:"True when the door was open."`
 	Opens           int       `json:"opens" doc:"How often the door was opened since the controller's last report."`
+	MeshLayer       int       `json:"mesh_layer" doc:"The controller's layer in the site's Wi-Fi mesh: 0 when it reaches the building's access point itself, 1 when it hops through one other controller, and so on. 0 from firmware that does not report it."`
+	MeshParent      string    `json:"mesh_parent" doc:"The hardware id of the controller it hops through; empty at layer 0 and from firmware that does not report it."`
+	MeshChildren    int       `json:"mesh_children" doc:"How many controllers hop through this one; 0 from firmware that does not report it."`
 }
 
 type doorStateView struct {
@@ -51,12 +54,14 @@ type spreadView struct {
 }
 
 type rollupView struct {
-	Hour      time.Time  `json:"hour" doc:"The start of the hour, in UTC."`
-	Samples   int        `json:"samples" doc:"How many reports the controller made in the hour."`
-	Signal    spreadView `json:"signal" doc:"The signal strength, in dBm."`
-	LatencyMS spreadView `json:"latency_ms" doc:"The round trip to the server, in milliseconds."`
-	FreeBytes spreadView `json:"free_bytes" doc:"The free memory, in bytes."`
-	Opens     int        `json:"opens" doc:"How often the door was opened in the hour."`
+	Hour         time.Time  `json:"hour" doc:"The start of the hour, in UTC."`
+	Samples      int        `json:"samples" doc:"How many reports the controller made in the hour."`
+	Signal       spreadView `json:"signal" doc:"The signal strength, in dBm."`
+	LatencyMS    spreadView `json:"latency_ms" doc:"The round trip to the server, in milliseconds."`
+	FreeBytes    spreadView `json:"free_bytes" doc:"The free memory, in bytes."`
+	Opens        int        `json:"opens" doc:"How often the door was opened in the hour."`
+	MeshLayer    int        `json:"mesh_layer" doc:"The controller's mesh layer in its last report of the hour."`
+	MeshChildren int        `json:"mesh_children" doc:"How many controllers hopped through this one in its last report of the hour."`
 }
 
 type rollupList struct {
@@ -100,6 +105,7 @@ func viewOfTelemetry(t connector.StoredTelemetry) telemetryView {
 	return telemetryView{
 		At: t.At.UTC(), Signal: t.Signal, LatencyMS: t.LatencyMS, UptimeS: t.UptimeS, FreeBytes: t.FreeBytes,
 		FirmwareVersion: t.FirmwareVersion, Reconnects: t.Reconnects, DoorOpen: t.DoorOpen, Opens: t.Opens,
+		MeshLayer: t.MeshLayer, MeshParent: t.MeshParent, MeshChildren: t.MeshChildren,
 	}
 }
 
@@ -190,7 +196,7 @@ func (a *App) listRollups(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	for _, h := range rollups {
 		views = append(views, rollupView{
 			Hour: h.Hour.UTC(), Samples: h.Samples, Signal: viewOfSpread(h.Signal), LatencyMS: viewOfSpread(h.Latency),
-			FreeBytes: viewOfSpread(h.FreeBytes), Opens: h.Opens,
+			FreeBytes: viewOfSpread(h.FreeBytes), Opens: h.Opens, MeshLayer: h.MeshLayer, MeshChildren: h.MeshChildren,
 		})
 	}
 	writeJSON(w, http.StatusOK, rollupList{Rollups: views})

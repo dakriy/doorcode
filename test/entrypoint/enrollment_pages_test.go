@@ -300,6 +300,7 @@ func TestDoorPageShowsItsControllerAndCredentials(t *testing.T) {
 		map[string]string{
 			"Hardware id": "A1", "Door": "Not reported yet", "Firmware": "1.4.3", "Signal": "-58 dBm", "Latency": "Not reported yet",
 			"Uptime": "Not reported yet", "Free memory": "Not reported yet", "Reconnects": "Not reported yet",
+			"Mesh layer": "Not reported yet", "Mesh parent": "Not reported yet", "Mesh children": "Not reported yet",
 			"Last seen": "Mon 5 Jan 2026 09:30:00", "Last report": "Not reported yet",
 			"Running": "1.4.3", "Target": "None", "Rollout": "Not in the rollout", "Latest update": "Never sent one",
 		},

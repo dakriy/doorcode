@@ -308,8 +308,13 @@ type Timeline struct {
 // interval its configuration gives: its signal strength in dBm, the round
 // trip to the server in milliseconds, how long it has run in seconds, its
 // free memory in bytes, its firmware version, how often it has connected
-// to the broker again since it started, whether the door is open, and how
-// often it was opened since its last report.
+// to the broker again since it started, whether the door is open, how
+// often it was opened since its last report, and where it sits in the
+// site's Wi-Fi mesh: its layer (0 when it reaches the building's access
+// point itself, 1 when it hops through one other controller, and so on),
+// the hardware id of the controller it hops through (empty at layer 0),
+// and how many controllers hop through it. Firmware that knows nothing of
+// the mesh leaves those out, which reads as 0 and empty.
 type Telemetry struct {
 	Header
 	Signal          int    `cbor:"signal"`
@@ -320,6 +325,9 @@ type Telemetry struct {
 	Reconnects      int    `cbor:"reconnects"`
 	DoorOpen        bool   `cbor:"door_open"`
 	Opens           int    `cbor:"opens"`
+	MeshLayer       int    `cbor:"mesh_layer"`
+	MeshParent      string `cbor:"mesh_parent"`
+	MeshChildren    int    `cbor:"mesh_children"`
 }
 
 // The things a door says happened to it.
