@@ -120,7 +120,7 @@ var secretSettings = map[string]bool{"oidc_client_secret": true, "enrollment_pas
 func settingsPage(shown []shownSetting, changed map[string]shownSetting, entered, refused map[string]string) testsupport.Page {
 	page := testsupport.Page{
 		Title: "Settings · doorcode", Heading: "Settings", Notes: []string{settingsNote}, Values: map[string]string{"picture": ""},
-		Nav:    []string{"Home", "Dashboard", "Users", "Requests", "Groups", "Schedules", "Doors", "Zones", "Firmware", "Events", "Settings (current)", "API tokens", "API docs"},
+		Nav:    mainNav("Site: Settings", ""),
 		Tables: map[string][][]string{},
 	}
 	for _, s := range shown {
@@ -186,7 +186,7 @@ func TestUserWithoutTheAdminRoleIsRefusedTheSettingsPage(t *testing.T) {
 	want := testsupport.Page{
 		Title:   "Not allowed · doorcode",
 		Heading: "You do not have access to this page",
-		Nav:     []string{"Home", "API tokens", "API docs"},
+		Nav:     []string{"Portal", "API tokens", "API docs"},
 	}
 	if diff := cmp.Diff(want, pageOf(got)); diff != "" {
 		t.Errorf("page (-want +got):\n%s", diff)

@@ -109,7 +109,7 @@ func TestTheEventsPageListsEventsWithTheirOutcomesAndReasons(t *testing.T) {
 
 	page := pageOf(k.b.Get("/admin/events"))
 
-	want := []any{"Events · doorcode", "Events (current)", [][]string{eventsHead,
+	want := []any{"Events · doorcode", "Activity: Events (current)", [][]string{eventsHead,
 		{"Tue 6 Jan 2026 09:00:00", "Lobby", "Administrator", "Allowed Admin UI", "Opened from the UI Strike released for 3000 ms."},
 		{"Tue 6 Jan 2026 08:30:00", "Lobby", "Cid Jones", "Allowed Door commander", "Code check r3"},
 		{"Mon 5 Jan 2026 09:20:00", "Dock", "Ann Smith", "Denied No rule", "Code check d1"},
@@ -117,7 +117,7 @@ func TestTheEventsPageListsEventsWithTheirOutcomesAndReasons(t *testing.T) {
 		{"Mon 5 Jan 2026 09:00:00", "Lobby", "Ann Smith", "Allowed Access rule", "Code check · rule 1 r1"},
 		{"Showing 1 to 5 of 5"},
 	}}
-	if diff := cmp.Diff(want, []any{page.Title, page.Nav[9], page.Tables["Events"]}); diff != "" {
+	if diff := cmp.Diff(want, []any{page.Title, page.Nav[8], page.Tables["Events"]}); diff != "" {
 		t.Errorf("title, navigation, events (-want +got):\n%s", diff)
 	}
 }
@@ -221,8 +221,8 @@ func TestTheEventsPageIsPagedKeepingItsFilters(t *testing.T) {
 	second := testsupport.ParsePage(b.Get("/admin/events?type=open&page=2").Body)
 
 	want := []any{
-		[]string{"Showing 1 to 50 of 51"}, []string{"API docs", "Older"}, "/admin/events?page=2&type=open",
-		[]string{"Showing 51 to 51 of 51"}, []string{"API docs", "Newer"}, "/admin/events?page=1&type=open",
+		[]string{"Showing 1 to 50 of 51"}, []string{"Site: Settings", "Older"}, "/admin/events?page=2&type=open",
+		[]string{"Showing 51 to 51 of 51"}, []string{"Site: Settings", "Newer"}, "/admin/events?page=1&type=open",
 	}
 	got := []any{
 		first.Tables["Events"][51], first.Nav[len(first.Nav)-2:], first.NavTargets[len(first.NavTargets)-1],

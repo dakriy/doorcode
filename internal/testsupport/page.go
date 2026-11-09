@@ -12,8 +12,9 @@ type Page struct {
 	Title string
 	// Heading is the text of the first h1.
 	Heading string
-	// Nav is the text of each link in navigation, in order; a link marked
-	// as the current page is suffixed with " (current)".
+	// Nav is the text of each link in navigation, in order; a link in a
+	// labelled group of links is prefixed with the group's label and ": ",
+	// and a link marked as the current page is suffixed with " (current)".
 	Nav []string
 	// NavTargets is the address of each link in navigation, in order.
 	NavTargets []string
@@ -307,10 +308,17 @@ func (p *Page) value(name, value string) {
 }
 
 func navText(n *html.Node) string {
-	if attr(n, "aria-current") == "page" {
-		return text(n) + " (current)"
+	label := text(n)
+	for a := n.Parent; a != nil; a = a.Parent {
+		if attr(a, "role") == "group" {
+			label = attr(a, "aria-label") + ": " + label
+			break
+		}
 	}
-	return text(n)
+	if attr(n, "aria-current") == "page" {
+		return label + " (current)"
+	}
+	return label
 }
 
 func rowText(tr *html.Node) []string {

@@ -35,9 +35,7 @@ func statsSite(t *testing.T, f *testsupport.Factory) *keypad {
 }
 
 // dashboardNav is the first administrator's navigation on the dashboard.
-var dashboardNav = []string{
-	"Home", "Dashboard (current)", "Users", "Requests", "Groups", "Schedules", "Doors", "Zones", "Firmware", "Events", "Settings", "API tokens", "API docs",
-}
+var dashboardNav = mainNav("Dashboard", "")
 
 // twoDigits is hour written with two digits, as the heatmap's table heads
 // its columns.

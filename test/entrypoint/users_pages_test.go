@@ -9,7 +9,7 @@ import (
 )
 
 // usersNav is the navigation of a users page for an administrator.
-var usersNav = []string{"Home", "Dashboard", "Users (current)", "Requests", "Groups", "Schedules", "Doors", "Zones", "Firmware", "Events", "Settings", "API tokens", "API docs"}
+var usersNav = mainNav("People: Users", "")
 
 // usersHead is the header row of the user list.
 var usersHead = []string{"Name", "Email", "User id", "Groups", "Status"}
@@ -518,7 +518,7 @@ func TestUserManagerWithoutAdminSeesUsersButNotTheirTokens(t *testing.T) {
 	token := b.Post("/admin/users/1/tokens", "name", "x", "expires_in_days", "")
 
 	want := []any{
-		[]string{"Home", "Dashboard", "Users (current)", "Requests", "API tokens", "API docs"},
+		[]string{"Dashboard", "People: Users (current)", "People: Requests", "Portal", "API tokens", "API docs"},
 		map[string][][]string{"Groups": {{"Group", "Roles"}, {"Staff", "manage-users"}}, "Door access": noAccess},
 		403,
 	}

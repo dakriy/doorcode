@@ -34,6 +34,10 @@
 
 @layer base {
   :root { color-scheme: light dark; }
+  /* Visually hidden text in a cell, such as an actions column's head, is
+     placed absolutely; held by its cell it stays inside a table that
+     scrolls within its card rather than widening the page on a phone. */
+  :where(th, td) { position: relative; }
 }
 
 /* Calendars: FullCalendar's colors follow the shell's palette and theme,

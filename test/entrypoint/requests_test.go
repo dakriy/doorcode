@@ -8,13 +8,16 @@ import (
 	"github.com/dakriy/doorcode/internal/testsupport"
 )
 
-// requestsNav is the administration's navigation for the first
-// administrator while waiting access requests wait for an answer, on the
-// page labelled current.
-func requestsNav(waiting, current string) []string {
+// mainNav is the administration's navigation for the first administrator
+// on the page whose link is labelled current, none when it is empty, while
+// waiting access requests wait for an answer, such as " 1 waiting".
+func mainNav(current, waiting string) []string {
 	nav := []string{}
-	for _, label := range []string{"Home", "Dashboard", "Users", "Requests" + waiting, "Groups", "Schedules", "Doors", "Zones", "Firmware", "Events", "Settings", "API tokens", "API docs"} {
-		if label == current || label == "Requests"+waiting && current == "Requests" {
+	for _, label := range []string{
+		"Dashboard", "People: Users", "People: Requests" + waiting, "People: Groups", "Doors: Doors", "Doors: Zones", "Doors: Firmware",
+		"Access: Schedules", "Activity: Events", "Portal", "API tokens", "API docs", "Site: Settings",
+	} {
+		if label == current || label == current+waiting {
 			label += " (current)"
 		}
 		nav = append(nav, label)
@@ -38,10 +41,10 @@ func TestAnAdministratorRepliesToAndResolvesARequestAndTheRequesterSeesIt(t *tes
 	shown := pageOf(admin.Get(replied.Location))
 	seen := pageOf(ann.Get("/me/requests/1"))
 
-	if diff := cmp.Diff(requestsNav(" 1 waiting", "Users"), before); diff != "" {
+	if diff := cmp.Diff(mainNav("People: Users", " 1 waiting"), before); diff != "" {
 		t.Errorf("navigation before (-want +got):\n%s", diff)
 	}
-	if diff := cmp.Diff([]any{303, "/admin/requests/1", requestsNav("", "Requests"),
+	if diff := cmp.Diff([]any{303, "/admin/requests/1", mainNav("People: Requests", ""),
 		[]string{"The reply has been saved and the request resolved. The user sees both on their request."}},
 		[]any{replied.Status, replied.Location, shown.Nav, shown.Messages}); diff != "" {
 		t.Errorf("reply, page after (-want +got):\n%s", diff)
@@ -64,7 +67,7 @@ func TestTheRequestPageShowsTheRequestItsRequesterAndTheReplyForm(t *testing.T) 
 	got := pageOf(admin.Get("/admin/requests/1"))
 
 	want := testsupport.Page{
-		Title: "Lab access · doorcode", Heading: "Lab access", Nav: requestsNav(" 1 waiting", "Requests"),
+		Title: "Lab access · doorcode", Heading: "Lab access", Nav: mainNav("People: Requests", " 1 waiting"),
 		Details:     map[string]string{"From": "Ann Smith", "Sent": "5 Jan 2026 09:00", "Changed": "5 Jan 2026 10:00"},
 		Values:      map[string]string{"reply": ""},
 		LinkTargets: map[string]string{"Requester": "/admin/users/2"},
@@ -94,12 +97,12 @@ func TestARepliedRequestStaysOpenUntilResolvedAndCanBeReopened(t *testing.T) {
 
 	got := []any{
 		replied.Status, afterReply.Messages, afterReply.Values, resolved.Status, again.Status, afterResolve.Messages,
-		reopened.Status, afterReopen.Messages, afterReopen.Nav[3], changed.Status,
+		reopened.Status, afterReopen.Messages, afterReopen.Nav[2], changed.Status,
 	}
 	want := []any{
 		303, []string{"The reply has been saved. The user sees it on their request."}, map[string]string{"reply": "Which lab?"},
 		303, 303, []string{"The request has been resolved. Its user can no longer change or withdraw it."},
-		303, []string{"The request has been reopened. Its user may change or withdraw it again."}, "Requests 1 waiting (current)", 200,
+		303, []string{"The request has been reopened. Its user may change or withdraw it again."}, "People: Requests 1 waiting (current)", 200,
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("reply, resolve twice, reopen, the user's change (-want +got):\n%s", diff)
@@ -236,7 +239,7 @@ func TestTheRequestsPageListsWhatWaitsAndFilters(t *testing.T) {
 	badge := []string{"Spare badge", "Administrator", "5 Jan 2026 10:00", "Waiting for an answer"}
 	weekend := []string{"Weekend hours", "Ann Smith", "5 Jan 2026 10:00", "Resolved 5 Jan 2026 10:00"}
 	wantWaiting := testsupport.Page{
-		Title: "Access requests · doorcode", Heading: "Access requests", Nav: requestsNav(" 2 waiting", "Requests"),
+		Title: "Access requests · doorcode", Heading: "Access requests", Nav: mainNav("People: Requests", " 2 waiting"),
 		Values: map[string]string{"q": ""},
 		Tables: map[string][][]string{"Access requests": {requestsHead, badge, lab, {"Showing 1 to 2 of 2"}}},
 	}
@@ -354,7 +357,7 @@ func TestAccessRequestsNeedTheManageUsersRole(t *testing.T) {
 		pageOf(b.Get("/admin/groups")).Nav,
 	}
 
-	want := []any{403, 403, 403, 403, 403, []string{"Home", "Dashboard", "Groups (current)", "API tokens", "API docs"}}
+	want := []any{403, 403, 403, 403, 403, []string{"Dashboard", "People: Groups (current)", "Portal", "API tokens", "API docs"}}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("pages, API, navigation (-want +got):\n%s", diff)
 	}

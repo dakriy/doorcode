@@ -54,7 +54,7 @@ func TestPreviewingAnImportShowsWhatEachRowWouldDoAndChangesNothing(t *testing.T
 	users := testsupport.JSONAt(send(t, b, "GET", "/api/v1/users", "", 200).Body, "/total")
 
 	want := testsupport.Page{
-		Title: "Import preview · doorcode", Heading: "Import preview", Nav: requestsNav("", "Users"),
+		Title: "Import preview · doorcode", Heading: "Import preview", Nav: mainNav("People: Users", ""),
 		Details: map[string]string{"New users": "1", "Updates": "1", "Join on first sign-in": "0", "Nothing to change": "0", "Errors, skipped": "1"},
 		Values:  map[string]string{"csv": people},
 		Tables: map[string][][]string{"Rows": {
@@ -81,7 +81,7 @@ func TestApplyingAnImportCreatesTheGoodUsersInTheirGroupsAndReportsTheBadRow(t *
 	bo := testsupport.JSON(send(t, b, "GET", "/api/v1/users/3", "", 200).Body).(map[string]any)
 
 	want := testsupport.Page{
-		Title: "Import result · doorcode", Heading: "Import result", Nav: requestsNav("", "Users"),
+		Title: "Import result · doorcode", Heading: "Import result", Nav: mainNav("People: Users", ""),
 		Details: map[string]string{"Users created": "1", "Users updated": "1", "Join on first sign-in": "0", "Nothing to change": "0", "Skipped": "1"},
 		Tables: map[string][][]string{"Rows": {
 			importHead,
@@ -232,7 +232,7 @@ func TestTheImportPageOffersAFileAndDescribesIt(t *testing.T) {
 	got := pageOf(b.Get("/admin/users/import"))
 
 	want := testsupport.Page{
-		Title: "Import users · doorcode", Heading: "Import users", Nav: requestsNav("", "Users"),
+		Title: "Import users · doorcode", Heading: "Import users", Nav: mainNav("People: Users", ""),
 		Values: map[string]string{"file": ""},
 		Tables: map[string][][]string{"Columns": {
 			{"Column", "Holds"},

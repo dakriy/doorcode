@@ -9,7 +9,7 @@ import (
 )
 
 // zonesNav is the navigation of a zones page for an administrator.
-var zonesNav = []string{"Home", "Dashboard", "Users", "Requests", "Groups", "Schedules", "Doors", "Zones (current)", "Firmware", "Events", "Settings", "API tokens", "API docs"}
+var zonesNav = mainNav("Doors: Zones", "")
 
 // zonesHead is the header row of the zone list.
 var zonesHead = []string{"Name", "Description", "Doors"}

@@ -203,7 +203,7 @@ func TestAPIDocsPageShowsTheDocumentationToASignedInUser(t *testing.T) {
 	want := testsupport.Page{
 		Title:   "API documentation · doorcode",
 		Heading: "API documentation",
-		Nav:     []string{"Home", "API tokens", "API docs (current)"},
+		Nav:     []string{"Portal", "API tokens", "API docs (current)"},
 	}
 	if diff := cmp.Diff(want, pageOf(got)); diff != "" {
 		t.Errorf("page (-want +got):\n%s", diff)

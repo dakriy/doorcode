@@ -70,7 +70,7 @@ func TestADoorCommandersDoorPageOffersOpeningAndOverridesOnly(t *testing.T) {
 	list := pageOf(b.Get("/admin/doors"))
 
 	want := []any{
-		[]string{"Home", "Dashboard", "Doors (current)", "API tokens", "API docs"},
+		[]string{"Dashboard", "Doors: Doors (current)", "Portal", "API tokens", "API docs"},
 		map[string][][]string{"Overrides": freshDoorTables["Overrides"], "Who can enter": freshDoorTables["Who can enter"]},
 		[]string{"", "Lobby", "Online", "None", "Never", "Hidden"},
 	}
