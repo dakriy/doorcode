@@ -15,7 +15,7 @@ This document is the product contract. AGENTS.md is the engineering contract.
 | --- | --- |
 | User | A person with a door code. Identified by an external id (the "user id", e.g. an employee or student number) and an email. |
 | Group | A named set of people. A group carries roles and pre-assigned user ids, nothing about doors. |
-| Schedule | A reusable, named time pattern: weekly windows, an optional date range, excluded dates. Has no type of its own. |
+| Schedule | A reusable, named time pattern: weekly windows, an optional date range, excluded date ranges. Has no type of its own. |
 | Door | A physical controller, enrolled over MQTT and approved by an admin. A door is in any number of zones, which decide who may enter it and when it is in open mode. |
 | Zone | A named set of doors and the schedules during which those doors are in *open mode* (any keypress unlocks). Access rules name zones. |
 | Access rule | Group + schedule + zones: members of the group may enter every door in those zones with their code while the schedule is active. |
@@ -103,8 +103,11 @@ Group lists show role badges. Users cannot remove their own admin role.
 
 A schedule has a name, an optional effective date range, one or more weekly
 windows (set of weekdays, start time, end time, in the site timezone), and a
-list of excluded dates. It is entered through a form, never as recurrence
-text. A window may cross midnight. The same schedule can drive the open mode
+list of excluded date ranges, each a first and a last day, both included (a
+single day is a range of one day). No window opens on a day of an excluded
+range; one that opened the day before still runs past midnight. It is
+entered through a form, never as recurrence text. A window may cross
+midnight. The same schedule can drive the open mode
 of any number of zones and any number of access rules. A schedule named
 *Always* is seeded and every access rule requires a schedule. A schedule a
 zone's open mode or an access rule uses cannot be deleted.

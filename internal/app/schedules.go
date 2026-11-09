@@ -21,22 +21,32 @@ type windowBody struct {
 	End   string   `json:"end" doc:"When the window closes, as HH:MM in the site timezone. An end at or before the start is on the next day, so 00:00 to 00:00 is all day."`
 }
 
+type exclusionBody struct {
+	First string `json:"first" doc:"The first day, YYYY-MM-DD, on which no window opens."`
+	Last  string `json:"last,omitempty" doc:"The last day, YYYY-MM-DD, on which no window opens, on or after the first. Omit it to exclude the first day alone."`
+}
+
+type exclusionView struct {
+	First string `json:"first" doc:"The first day, YYYY-MM-DD, on which no window opens."`
+	Last  string `json:"last" doc:"The last day, YYYY-MM-DD, on which no window opens; the same as the first for a single day."`
+}
+
 type scheduleRequest struct {
-	Name          string       `json:"name" doc:"The schedule's name, up to 100 characters; unique, ignoring case."`
-	StartsOn      string       `json:"starts_on,omitempty" doc:"The first day, YYYY-MM-DD, on which windows open. Omit it for a schedule that has always been in effect."`
-	EndsOn        string       `json:"ends_on,omitempty" doc:"The last day, YYYY-MM-DD, on which windows open. Omit it for a schedule that never ends."`
-	Windows       []windowBody `json:"windows" doc:"One to 20 weekly windows."`
-	ExcludedDates []string     `json:"excluded_dates,omitempty" doc:"Up to 366 dates, YYYY-MM-DD, on which no window opens."`
+	Name       string          `json:"name" doc:"The schedule's name, up to 100 characters; unique, ignoring case."`
+	StartsOn   string          `json:"starts_on,omitempty" doc:"The first day, YYYY-MM-DD, on which windows open. Omit it for a schedule that has always been in effect."`
+	EndsOn     string          `json:"ends_on,omitempty" doc:"The last day, YYYY-MM-DD, on which windows open. Omit it for a schedule that never ends."`
+	Windows    []windowBody    `json:"windows" doc:"One to 20 weekly windows."`
+	Exclusions []exclusionBody `json:"exclusions,omitempty" doc:"Up to 366 ranges of days on which no window opens, such as holidays."`
 }
 
 type scheduleView struct {
-	ID            int64        `json:"id" doc:"Names the schedule in the API."`
-	Name          string       `json:"name" doc:"The schedule's name."`
-	StartsOn      string       `json:"starts_on,omitempty" doc:"The first day, YYYY-MM-DD, on which windows open; absent when the schedule has always been in effect."`
-	EndsOn        string       `json:"ends_on,omitempty" doc:"The last day, YYYY-MM-DD, on which windows open; absent when the schedule never ends."`
-	Windows       []windowBody `json:"windows" doc:"The weekly windows, in the order they were given."`
-	ExcludedDates []string     `json:"excluded_dates" doc:"The dates, YYYY-MM-DD, on which no window opens, in order."`
-	Builtin       bool         `json:"builtin" doc:"True for the seeded Always schedule, which cannot be changed or deleted."`
+	ID         int64           `json:"id" doc:"Names the schedule in the API."`
+	Name       string          `json:"name" doc:"The schedule's name."`
+	StartsOn   string          `json:"starts_on,omitempty" doc:"The first day, YYYY-MM-DD, on which windows open; absent when the schedule has always been in effect."`
+	EndsOn     string          `json:"ends_on,omitempty" doc:"The last day, YYYY-MM-DD, on which windows open; absent when the schedule never ends."`
+	Windows    []windowBody    `json:"windows" doc:"The weekly windows, in the order they were given."`
+	Exclusions []exclusionView `json:"exclusions" doc:"The ranges of days on which no window opens, in order of their first days."`
+	Builtin    bool            `json:"builtin" doc:"True for the seeded Always schedule, which cannot be changed or deleted."`
 }
 
 type scheduleList struct {
@@ -67,8 +77,8 @@ func (a *App) scheduleRoutes() []route {
 	schedules := holding(auth.RoleManageSchedules)
 	example := scheduleRequest{
 		Name: "Night shift", StartsOn: "2026-01-01", EndsOn: "2026-12-31",
-		Windows:       []windowBody{{Days: []string{"mon", "tue", "wed", "thu", "fri"}, Start: "22:00", End: "06:00"}},
-		ExcludedDates: []string{"2026-12-25"},
+		Windows:    []windowBody{{Days: []string{"mon", "tue", "wed", "thu", "fri"}, Start: "22:00", End: "06:00"}},
+		Exclusions: []exclusionBody{{First: "2026-12-24", Last: "2026-12-26"}, {First: "2026-12-31"}},
 	}
 	return []route{
 		apiRoute(http.MethodGet, "/schedules", schedules, a.listSchedules, apiDoc{
@@ -109,9 +119,13 @@ func viewOfSchedule(sch connector.StoredSchedule) scheduleView {
 	for _, w := range f.Windows {
 		windows = append(windows, windowBody(w))
 	}
+	exclusions := []exclusionView{}
+	for _, e := range f.Excluded {
+		exclusions = append(exclusions, exclusionView(e))
+	}
 	return scheduleView{
 		ID: sch.ID, Name: f.Name, StartsOn: f.StartsOn, EndsOn: f.EndsOn,
-		Windows: windows, ExcludedDates: f.Excluded, Builtin: sch.Builtin,
+		Windows: windows, Exclusions: exclusions, Builtin: sch.Builtin,
 	}
 }
 
@@ -149,9 +163,12 @@ func readSchedule(w http.ResponseWriter, r *http.Request) (schedule.Fields, bool
 		writeError(w, http.StatusBadRequest, `body must be a JSON object with a string "name" and a "windows" array`)
 		return schedule.Fields{}, false
 	}
-	f := schedule.Fields{Name: body.Name, StartsOn: body.StartsOn, EndsOn: body.EndsOn, Excluded: body.ExcludedDates}
+	f := schedule.Fields{Name: body.Name, StartsOn: body.StartsOn, EndsOn: body.EndsOn}
 	for _, w := range body.Windows {
 		f.Windows = append(f.Windows, schedule.WindowFields(w))
+	}
+	for _, e := range body.Exclusions {
+		f.Excluded = append(f.Excluded, schedule.ExclusionFields(e))
 	}
 	return f, true
 }

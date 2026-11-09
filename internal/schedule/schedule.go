@@ -1,10 +1,12 @@
 // Package schedule keeps the site's schedules: named weekly patterns of
-// windows, with an optional effective date range and excluded dates, and
+// windows, with an optional effective date range and excluded date ranges,
+// and
 // turns them into the absolute intervals they cover. The seeded Always
 // schedule is built in and cannot be changed or deleted.
 package schedule
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -53,7 +55,7 @@ const (
 	maxNameLength = 100
 	// MaxWindows is how many windows a schedule may have.
 	MaxWindows = 20
-	// MaxExcluded is how many excluded dates a schedule may list.
+	// MaxExcluded is how many excluded date ranges a schedule may list.
 	MaxExcluded = 366
 )
 
@@ -87,9 +89,17 @@ type Fields struct {
 	StartsOn string
 	EndsOn   string
 	Windows  []WindowFields
-	// Excluded is dates on which no window opens; blank entries are
-	// ignored, repeats dropped, and the rest kept in date order.
-	Excluded []string
+	// Excluded is ranges of days on which no window opens; blank entries
+	// are ignored, repeats dropped, and the rest kept in date order.
+	Excluded []ExclusionFields
+}
+
+// ExclusionFields is one excluded range of days as typed: its first and
+// last days, both included. An empty last day makes the range the first day
+// alone.
+type ExclusionFields struct {
+	First string
+	Last  string
 }
 
 // WindowFields is one weekly window as typed: the days it opens on, named
@@ -331,36 +341,67 @@ func clock(value string) (int, bool) {
 	return t.Hour()*60 + t.Minute(), err == nil
 }
 
-// checkExcluded reads the excluded dates, adding their problems to found
+// checkExcluded reads the excluded ranges, adding their problems to found
 // under the field names the schedule form gives them.
-func checkExcluded(found *check.List, values []string) []time.Time {
-	if len(values) > MaxExcluded {
-		found.Add("excluded", fmt.Sprintf("Exclude at most %d dates.", MaxExcluded))
+func checkExcluded(found *check.List, fields []ExclusionFields) []connector.StoredExclusion {
+	if len(fields) > MaxExcluded {
+		found.Add("excluded", fmt.Sprintf("Exclude at most %d date ranges.", MaxExcluded))
 	}
-	dates := []time.Time{}
-	for i, value := range values {
-		value = strings.TrimSpace(value)
-		day, err := time.Parse(DateLayout, value)
-		if value != "" && err != nil {
-			found.Add(fmt.Sprintf("excluded-%d", i), fmt.Sprintf("Enter excluded dates as YYYY-MM-DD; “%s” is not one.", value))
-		}
-		if err == nil && !slices.ContainsFunc(dates, day.Equal) {
-			dates = append(dates, day)
+	ranges := []connector.StoredExclusion{}
+	for i, f := range fields {
+		r, ok := checkExclusion(found, i, f)
+		if ok && !slices.Contains(ranges, r) {
+			ranges = append(ranges, r)
 		}
 	}
-	slices.SortFunc(dates, time.Time.Compare)
-	return dates
+	slices.SortFunc(ranges, func(a, b connector.StoredExclusion) int {
+		return cmp.Or(a.First.Compare(b.First), a.Last.Compare(b.Last))
+	})
+	return ranges
+}
+
+// checkExclusion reads the excluded range at index i, adding its problems
+// to found, and reports whether it is a range rather than blank. A range
+// with problems is returned too; the problems refuse the schedule.
+func checkExclusion(found *check.List, i int, f ExclusionFields) (connector.StoredExclusion, bool) {
+	field := fmt.Sprintf("excluded-%d-", i)
+	firstText, lastText := strings.TrimSpace(f.First), strings.TrimSpace(f.Last)
+	if firstText == "" && lastText == "" {
+		return connector.StoredExclusion{}, false
+	}
+	first, _ := excludedDay(found, field+"first", firstText)
+	if firstText == "" {
+		found.Add(field+"first", fmt.Sprintf("Enter the first day of excluded range %d.", i+1))
+	}
+	last, lastOK := first, true
+	if lastText != "" {
+		last, lastOK = excludedDay(found, field+"last", lastText)
+	}
+	if lastOK && last.Before(first) {
+		found.Add(field+"last", fmt.Sprintf("End excluded range %d on or after its first day.", i+1))
+	}
+	return connector.StoredExclusion{First: first, Last: last}, true
+}
+
+// excludedDay reads the date value, adding its problem to found under
+// field when it is not blank and not a date.
+func excludedDay(found *check.List, field, value string) (time.Time, bool) {
+	day, err := time.Parse(DateLayout, value)
+	if value != "" && err != nil {
+		found.Add(field, fmt.Sprintf("Enter excluded dates as YYYY-MM-DD; “%s” is not one.", value))
+	}
+	return day, err == nil
 }
 
 // FieldsOf is sch as its fields are typed, so a form or the API can show
 // it.
 func FieldsOf(sch connector.StoredSchedule) Fields {
-	f := Fields{Name: sch.Name, StartsOn: dateText(sch.StartsOn), EndsOn: dateText(sch.EndsOn), Excluded: []string{}}
+	f := Fields{Name: sch.Name, StartsOn: dateText(sch.StartsOn), EndsOn: dateText(sch.EndsOn), Excluded: []ExclusionFields{}}
 	for _, w := range sch.Windows {
 		f.Windows = append(f.Windows, WindowFields{Days: DayNamesOf(w.Days), Start: ClockText(w.Start), End: ClockText(w.End)})
 	}
-	for _, day := range sch.Excluded {
-		f.Excluded = append(f.Excluded, day.Format(DateLayout))
+	for _, r := range sch.Excluded {
+		f.Excluded = append(f.Excluded, ExclusionFields{First: r.First.Format(DateLayout), Last: r.Last.Format(DateLayout)})
 	}
 	return f
 }

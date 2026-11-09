@@ -157,25 +157,28 @@
 
 <fieldset name="excluded" class="mt-8"{{with index .Errors "excluded"}} aria-invalid="true" aria-describedby="excluded-error"{{end}}>
   <legend class="text-sm font-medium">Excluded dates</legend>
-  <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">No window opens on these days, such as public holidays. A window that opens the day before still runs past midnight.</p>
+  <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">No window opens on these days, such as public holidays or a closure over the new year. Leave the last day empty to exclude one day. A window that opens the day before still runs past midnight.</p>
   {{with index .Errors "excluded"}}<p id="excluded-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{.}}</p>{{end}}
-  <ul class="mt-4 flex flex-wrap gap-3">
+  <ul class="mt-4 space-y-3">
     {{range $i, $d := .Excluded}}
-    {{$name := printf "excluded-%d" $i}}
+    {{$first := printf "excluded-%d-first" $i}}{{$last := printf "excluded-%d-last" $i}}
     <li>
-      <div class="flex items-center gap-1">
-        <input name="{{$name}}" type="date" value="{{$d}}" aria-label="Excluded date"{{with index $f.Errors $name}} aria-invalid="true" aria-describedby="{{$name}}-error"{{end}} class="{{template "input-base"}} w-44 tabular-nums">
-        <button type="submit" name="remove_date" value="{{$i}}" hx-post="{{$f.Action}}" hx-target="#schedule-form" hx-select="#schedule-form" hx-swap="outerHTML" aria-label="Remove this date" title="Remove this date" class="{{template "row-button-class"}}">
+      <div class="flex flex-wrap items-center gap-2">
+        <input name="{{$first}}" type="date" value="{{$d.First}}" aria-label="First excluded day"{{with index $f.Errors $first}} aria-invalid="true" aria-describedby="{{$first}}-error"{{end}} class="{{template "input-base"}} w-44 tabular-nums">
+        <span class="text-sm text-zinc-500 dark:text-zinc-400">to</span>
+        <input name="{{$last}}" type="date" value="{{$d.Last}}" aria-label="Last excluded day"{{with index $f.Errors $last}} aria-invalid="true" aria-describedby="{{$last}}-error"{{end}} class="{{template "input-base"}} w-44 tabular-nums">
+        <button type="submit" name="remove_date" value="{{$i}}" hx-post="{{$f.Action}}" hx-target="#schedule-form" hx-select="#schedule-form" hx-swap="outerHTML" aria-label="Remove these dates" title="Remove these dates" class="{{template "row-button-class"}}">
           <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
         </button>
       </div>
-      {{with index $f.Errors $name}}<p id="{{$name}}-error" class="mt-2 max-w-56 text-sm text-red-600 dark:text-red-400">{{.}}</p>{{end}}
+      {{with index $f.Errors $first}}<p id="{{$first}}-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{.}}</p>{{end}}
+      {{with index $f.Errors $last}}<p id="{{$last}}-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{.}}</p>{{end}}
     </li>
     {{else}}
     <li class="text-sm text-zinc-500 dark:text-zinc-400">No dates are excluded.</li>
     {{end}}
   </ul>
-  <button type="submit" name="add_date" value="1" hx-post="{{.Action}}" hx-target="#schedule-form" hx-select="#schedule-form" hx-swap="outerHTML" class="mt-3 {{template "secondary-class"}}">{{template "plus-icon"}}Add a date</button>
+  <button type="submit" name="add_date" value="1" hx-post="{{.Action}}" hx-target="#schedule-form" hx-select="#schedule-form" hx-swap="outerHTML" class="mt-3 {{template "secondary-class"}}">{{template "plus-icon"}}Add dates</button>
 </fieldset>
 {{end}}
 

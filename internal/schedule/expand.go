@@ -18,8 +18,8 @@ type Interval struct {
 // cut to the range. Windows are read in zone: a window opens on each of its
 // days at its start time on that day's local clock, and closes at its end
 // time on the same day or, when the end is not after the start, the next
-// one. A window does not open on an excluded date, nor on a date outside
-// the effective range; one that opens inside it may close after it.
+// one. A window does not open on a day of an excluded range, nor on a date
+// outside the effective range; one that opens inside it may close after it.
 func Expand(sch connector.StoredSchedule, zone *time.Location, from, to time.Time) []Interval {
 	var found []Interval
 	// A window opens at most a day before it closes, so the day before the
@@ -71,7 +71,9 @@ func opensOn(sch connector.StoredSchedule, day time.Time) bool {
 	if sch.EndsOn != nil && day.After(*sch.EndsOn) {
 		return false
 	}
-	return !slices.ContainsFunc(sch.Excluded, day.Equal)
+	return !slices.ContainsFunc(sch.Excluded, func(r connector.StoredExclusion) bool {
+		return !day.Before(r.First) && !day.After(r.Last)
+	})
 }
 
 // occurrence is the interval w covers when it opens on day.

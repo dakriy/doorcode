@@ -35,6 +35,10 @@ var ErrDuplicate = errors.New("stub: duplicate key")
 // which the database would hold as NULL and refuse.
 var ErrNull = errors.New("stub: null value")
 
+// ErrCheck is what the stub store reports for a value a check constraint
+// would refuse.
+var ErrCheck = errors.New("stub: check constraint")
+
 // ErrNotMigrated is what the stub store reports when used before Migrate,
 // as a real database without its tables would.
 var ErrNotMigrated = errors.New("stub: schema not migrated")

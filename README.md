@@ -21,9 +21,10 @@ the engineering contract is [AGENTS.md](AGENTS.md).
   is in has one active. Doors have per-door open or locked overrides, also
   creatable from the keypad by door commanders.
 - **Schedules.** Weekly windows (crossing midnight if need be), an optional
-  date range, and excluded dates, entered through a form and shown on
-  calendars. Every door's timeline of open and locked time is pushed to it,
-  so a disconnected door keeps following it.
+  date range, and excluded date ranges (a holiday, a week's closure),
+  entered through a form and shown on calendars. Every door's timeline of
+  open and locked time is pushed to it, so a disconnected door keeps
+  following it.
 - **Codes.** Stored only as salted hashes, never on doors. Administrators set
   codes of 6 to 20 digits; people choose their own as their user id followed
   by 4 to 8 digits. A per-door rate limit protects against guessing.

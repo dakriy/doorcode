@@ -32,7 +32,7 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 	groupBody := `{"slug":"night-staff","name":"Night staff","description":"Security and cleaning crews.",` +
 		`"roles":["view-logs"],"preassigned_user_ids":["100234","100877"]}`
 	scheduleBody := `{"name":"Night shift","starts_on":"2026-01-01","ends_on":"2026-12-31",` +
-		`"windows":[{"days":["mon","tue","wed","thu","fri"],"start":"22:00","end":"06:00"}],"excluded_dates":["2026-12-25"]}`
+		`"windows":[{"days":["mon","tue","wed","thu","fri"],"start":"22:00","end":"06:00"}],"exclusions":[{"first":"2026-12-24","last":"2026-12-26"},{"first":"2026-12-31"}]}`
 	userBody := `{"email":"ann.smith@example.com","user_id":"100234","first_name":"Ann","last_name":"Smith",` +
 		`"expires_at":"2030-06-30T00:00:00Z"}`
 	doorBody := `{"name":"North entrance","location":"Building A, ground floor","notes":"Strike replaced in 2026.",` +

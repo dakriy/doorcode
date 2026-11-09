@@ -25,6 +25,7 @@ var (
 	errNoReference = errors.New("memstore: a referenced row does not exist")
 	errReferenced  = errors.New("memstore: the row is still referenced")
 	errNil         = errors.New("memstore: a required value is nil")
+	errCheck       = errors.New("memstore: a value breaks a check constraint")
 )
 
 // Store is the in-memory store. Its zero value is not ready; use New.
@@ -114,7 +115,7 @@ func (s *Store) Migrate(_ context.Context) error {
 	everyDay := []time.Weekday{time.Sunday, time.Monday, time.Tuesday, time.Wednesday, time.Thursday, time.Friday, time.Saturday}
 	s.schedules[scheduleID] = connector.StoredSchedule{
 		ID: scheduleID, Name: "Always", Windows: []connector.StoredWindow{{Days: everyDay}},
-		Excluded: []time.Time{}, Builtin: true,
+		Excluded: []connector.StoredExclusion{}, Builtin: true,
 	}
 	return nil
 }

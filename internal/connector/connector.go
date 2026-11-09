@@ -268,18 +268,26 @@ type StoredWindow struct {
 	End   int
 }
 
+// StoredExclusion is a range of days on which a schedule's windows do not
+// open, from First to Last, both included; Last is never before First. A
+// single day is a range whose First and Last are the same.
+type StoredExclusion struct {
+	First time.Time
+	Last  time.Time
+}
+
 // StoredSchedule is a schedule as the store holds it. Dates are midnight
 // UTC on the day they name. Nil StartsOn and EndsOn leave the schedule
-// unbounded on that side. Windows are in the order they were stored;
-// Excluded is in date order. Builtin marks the seeded Always schedule; the
-// store sets it only when seeding and ignores it when it stores one.
+// unbounded on that side. Windows and Excluded are in the order they were
+// stored. Builtin marks the seeded Always schedule; the store sets it only
+// when seeding and ignores it when it stores one.
 type StoredSchedule struct {
 	ID       int64
 	Name     string
 	StartsOn *time.Time
 	EndsOn   *time.Time
 	Windows  []StoredWindow
-	Excluded []time.Time
+	Excluded []StoredExclusion
 	Builtin  bool
 }
 
@@ -296,7 +304,7 @@ type SchedulesStore interface {
 	// given.
 	CreateSchedule(ctx context.Context, s StoredSchedule) (int64, error)
 	// UpdateSchedule stores s over the schedule whose id is s.ID, replacing
-	// its windows, and reports whether there is one.
+	// its windows and exclusions, and reports whether there is one.
 	UpdateSchedule(ctx context.Context, s StoredSchedule) (bool, error)
 	// DeleteSchedule removes the schedule whose id is id, and reports
 	// whether there was one. Zones stop being in open mode during it. It

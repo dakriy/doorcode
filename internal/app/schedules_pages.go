@@ -87,7 +87,7 @@ type scheduleForm struct {
 var newWindow = schedule.WindowFields{Days: []string{}, Start: "09:00", End: "17:00"}
 
 // formCount reads the form field name as a count of rows. It reads at
-// most one more than the larger limit, on windows or excluded dates, so a
+// most one more than the larger limit, on windows or excluded ranges, so a
 // form over it is told so without reading without end.
 func formCount(r *http.Request, name string) int {
 	n, _ := strconv.Atoi(r.PostFormValue(name))
@@ -98,7 +98,7 @@ func readScheduleForm(r *http.Request, action string) scheduleForm {
 	_ = r.ParseForm()
 	f := scheduleForm{Action: action, Fields: schedule.Fields{
 		Name: r.PostFormValue("name"), StartsOn: r.PostFormValue("starts_on"), EndsOn: r.PostFormValue("ends_on"),
-		Windows: []schedule.WindowFields{}, Excluded: []string{},
+		Windows: []schedule.WindowFields{}, Excluded: []schedule.ExclusionFields{},
 	}}
 	for i := range formCount(r, "windows") {
 		field := fmt.Sprintf("window-%d-", i)
@@ -107,7 +107,8 @@ func readScheduleForm(r *http.Request, action string) scheduleForm {
 		})
 	}
 	for i := range formCount(r, "dates") {
-		f.Excluded = append(f.Excluded, r.PostFormValue(fmt.Sprintf("excluded-%d", i)))
+		field := fmt.Sprintf("excluded-%d-", i)
+		f.Excluded = append(f.Excluded, schedule.ExclusionFields{First: r.PostFormValue(field + "first"), Last: r.PostFormValue(field + "last")})
 	}
 	return f
 }
@@ -121,7 +122,7 @@ func (f scheduleForm) edited(r *http.Request) (scheduleForm, bool) {
 	case r.PostForm.Has("remove_window"):
 		f.Windows = without(f.Windows, r.PostFormValue("remove_window"))
 	case r.PostForm.Has("add_date"):
-		f.Excluded = append(slices.Clone(f.Excluded), "")
+		f.Excluded = append(slices.Clone(f.Excluded), schedule.ExclusionFields{})
 	case r.PostForm.Has("remove_date"):
 		f.Excluded = without(f.Excluded, r.PostFormValue("remove_date"))
 	default:
@@ -148,7 +149,7 @@ func (f scheduleForm) rejected(err error) (scheduleForm, bool) {
 }
 
 func (a *App) newSchedulePage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	form := scheduleForm{Action: "/admin/schedules", Fields: schedule.Fields{Windows: []schedule.WindowFields{newWindow}, Excluded: []string{}}}
+	form := scheduleForm{Action: "/admin/schedules", Fields: schedule.Fields{Windows: []schedule.WindowFields{newWindow}, Excluded: []schedule.ExclusionFields{}}}
 	a.render(w, r, http.StatusOK, newScheduleTemplate, "New schedule", &viewer, form)
 }
 

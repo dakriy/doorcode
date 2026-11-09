@@ -6387,8 +6387,14 @@
                     "end": "06:00"
                   }
                 ],
-                "excluded_dates": [
-                  "2026-12-25"
+                "exclusions": [
+                  {
+                    "first": "2026-12-24",
+                    "last": "2026-12-26"
+                  },
+                  {
+                    "first": "2026-12-31"
+                  }
                 ]
               }
             }
@@ -6660,8 +6666,14 @@
                     "end": "06:00"
                   }
                 ],
-                "excluded_dates": [
-                  "2026-12-25"
+                "exclusions": [
+                  {
+                    "first": "2026-12-24",
+                    "last": "2026-12-26"
+                  },
+                  {
+                    "first": "2026-12-31"
+                  }
                 ]
               }
             }
@@ -10442,6 +10454,39 @@
           "reason"
         ]
       },
+      "ExclusionBody": {
+        "type": "object",
+        "properties": {
+          "first": {
+            "type": "string",
+            "description": "The first day, YYYY-MM-DD, on which no window opens."
+          },
+          "last": {
+            "type": "string",
+            "description": "The last day, YYYY-MM-DD, on which no window opens, on or after the first. Omit it to exclude the first day alone."
+          }
+        },
+        "required": [
+          "first"
+        ]
+      },
+      "ExclusionView": {
+        "type": "object",
+        "properties": {
+          "first": {
+            "type": "string",
+            "description": "The first day, YYYY-MM-DD, on which no window opens."
+          },
+          "last": {
+            "type": "string",
+            "description": "The last day, YYYY-MM-DD, on which no window opens; the same as the first for a single day."
+          }
+        },
+        "required": [
+          "first",
+          "last"
+        ]
+      },
       "FirmwareChoice": {
         "type": "object",
         "properties": {
@@ -11603,11 +11648,11 @@
             "type": "string",
             "description": "The last day, YYYY-MM-DD, on which windows open. Omit it for a schedule that never ends."
           },
-          "excluded_dates": {
+          "exclusions": {
             "type": "array",
-            "description": "Up to 366 dates, YYYY-MM-DD, on which no window opens.",
+            "description": "Up to 366 ranges of days on which no window opens, such as holidays.",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/ExclusionBody"
             }
           },
           "name": {
@@ -11642,11 +11687,11 @@
             "type": "string",
             "description": "The last day, YYYY-MM-DD, on which windows open; absent when the schedule never ends."
           },
-          "excluded_dates": {
+          "exclusions": {
             "type": "array",
-            "description": "The dates, YYYY-MM-DD, on which no window opens, in order.",
+            "description": "The ranges of days on which no window opens, in order of their first days.",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/ExclusionView"
             }
           },
           "id": {
@@ -11673,7 +11718,7 @@
           "id",
           "name",
           "windows",
-          "excluded_dates",
+          "exclusions",
           "builtin"
         ]
       },

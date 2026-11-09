@@ -21,11 +21,14 @@ func scheduleCopy(sch connector.StoredSchedule) connector.StoredSchedule {
 	return sch
 }
 
-// storedSchedule is a copy of sch as the store keeps it, refusing nil
-// lists the database's columns would refuse.
+// storedSchedule is a copy of sch as the store keeps it, refusing what the
+// database's columns and checks would refuse: nil weekday lists and
+// exclusions that end before they start.
 func storedSchedule(sch connector.StoredSchedule) (connector.StoredSchedule, error) {
-	if sch.Excluded == nil {
-		return sch, errNil
+	for _, r := range sch.Excluded {
+		if r.Last.Before(r.First) {
+			return sch, errCheck
+		}
 	}
 	for _, w := range sch.Windows {
 		if w.Days == nil {
