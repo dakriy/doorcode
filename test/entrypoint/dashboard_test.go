@@ -242,8 +242,8 @@ func TestDoorUptimeAndTrendsComeFromTheHourlyTelemetry(t *testing.T) {
 	want := []any{
 		[][]string{uptimeHead, {"Lobby", "10%", "1 of 10 hours", "5", "-65 dBm", "50 ms"}},
 		map[string]testsupport.Chart{
-			"Signal by door, Mon 5 Jan 2026":  {Lines: []string{"225.0,65.0"}, Series: []string{"viz-line-1"}, Labels: []string{"-65 dBm", "-65 dBm", "Mon 5 Jan 00:00", "Tue 6 Jan 00:00"}},
-			"Latency by door, Mon 5 Jan 2026": {Lines: []string{"225.0,65.0"}, Series: []string{"viz-line-1"}, Labels: []string{"50 ms", "50 ms", "Mon 5 Jan 00:00", "Tue 6 Jan 00:00"}},
+			"Signal by door, Mon 5 Jan 2026":  {Lines: []string{"225,65"}, Series: []string{"viz-line-1"}, Labels: []string{"-65 dBm", "-65 dBm", "Mon 5 Jan 00:00", "Tue 6 Jan 00:00"}},
+			"Latency by door, Mon 5 Jan 2026": {Lines: []string{"225,65"}, Series: []string{"viz-line-1"}, Labels: []string{"50 ms", "50 ms", "Mon 5 Jan 00:00", "Tue 6 Jan 00:00"}},
 		},
 		[]string{"width: 10%"},
 	}
@@ -604,10 +604,10 @@ func TestTheTrendChartsDrawEachOfTheFirstEightDoorsOnOneScale(t *testing.T) {
 	want := []any{
 		[]string{"The charts draw the first 8 doors; the table lists 2 more."},
 		testsupport.Chart{
-			Lines: []string{"225.0,5.0 250.0,53.0", "225.0,125.0"}, Series: []string{"viz-line-1", "viz-line-2"},
+			Lines: []string{"225,5 250,53", "225,125"}, Series: []string{"viz-line-1", "viz-line-2"},
 			Labels: []string{"-60 dBm", "-70 dBm", "Mon 5 Jan 00:00", "Tue 6 Jan 00:00"},
 		},
-		[]string{"225.0,125.0 250.0,101.0", "225.0,5.0"},
+		[]string{"225,125 250,101", "225,5"},
 		[]string{"Door 1", "18.2%", "2 of 11 hours", "3", "-62 dBm", "42 ms"},
 		[]string{"Door 10", "0%", "0 of 11 hours", "0", "Not reported yet", "Not reported yet"},
 	}

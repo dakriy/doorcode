@@ -143,6 +143,24 @@ func TestStoreKeepsOneDefaultFirmware(t *testing.T) {
 	}
 }
 
+func TestStoreKeepsTheDefaultFirmwareWhenAskedForFirmwareItDoesNotHold(t *testing.T) {
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			store := firmwareWorld(t, impl)
+			if found, err := store.SetDefaultFirmware(context.Background(), 1); err != nil || !found {
+				t.Fatalf("set default 1: found %v, error %v", found, err)
+			}
+
+			found, err := store.SetDefaultFirmware(context.Background(), 9)
+			all := mustFirmwares(t, store)
+
+			if diff := cmp.Diff([]any{false, nil, false, true}, []any{found, err, all[0].Default, all[1].Default}); diff != "" {
+				t.Errorf("found, error, 1.5.0 and 1.4.3 default (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestStoreRefusesWhatFirmwareCannotHold(t *testing.T) {
 	cases := map[string]struct {
 		firmware connector.StoredFirmware

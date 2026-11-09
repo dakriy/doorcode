@@ -11,7 +11,7 @@
 {{if not $c.Reached}}
 <p role="note" class="mt-6 rounded-lg border border-dashed border-zinc-300 px-4 py-3 text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">No access rule naming one of {{$u.DisplayName}}’s groups reaches this door, so their code never opens it. The door’s own open mode is shown.</p>
 {{end}}
-{{template "calendar-key" (list "code" "open" "locked")}}
+{{template "calendar-key" (calendarkey "Their" "code" "open" "locked")}}
 {{template "calendar" $w}}
 
 <div class="mt-8 grid gap-8 lg:grid-cols-2">

@@ -28,7 +28,7 @@ func (s *Store) EventStats(_ context.Context, q connector.EventRange) (connector
 		days[connector.StoredDayCount{Day: time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.UTC), Outcome: e.Outcome}]++
 		hours[connector.StoredHourCount{Weekday: local.Weekday(), Hour: local.Hour()}]++
 		reasons[connector.StoredReasonCount{Outcome: e.Outcome, Reason: e.Reason}]++
-		doors[connector.StoredDoorCount{DoorID: e.DoorID, DoorName: s.doorByID(e.DoorID).Name, Outcome: e.Outcome}]++
+		doors[connector.StoredDoorCount{DoorID: e.DoorID, Outcome: e.Outcome}]++
 		if e.UserID != nil {
 			users[*e.UserID] = true
 		}

@@ -79,6 +79,28 @@ func (s *Store) PutSetting(ctx context.Context, key, value string, at time.Time)
 	return err
 }
 
+// SignInImage returns the stored sign-in page picture.
+func (s *Store) SignInImage(ctx context.Context) (connector.StoredImage, bool, error) {
+	var image connector.StoredImage
+	err := s.pool.QueryRow(ctx, `select image, updated_at from sign_in_image`).Scan(&image.Data, &image.UpdatedAt)
+	return found(image, err)
+}
+
+// PutSignInImage inserts or replaces the sign-in page picture.
+func (s *Store) PutSignInImage(ctx context.Context, image connector.StoredImage) error {
+	_, err := s.pool.Exec(ctx, `
+		insert into sign_in_image (image, updated_at) values ($1, $2)
+		on conflict (only_one) do update set image = excluded.image, updated_at = excluded.updated_at`,
+		image.Data, image.UpdatedAt)
+	return err
+}
+
+// RemoveSignInImage deletes the sign-in page picture.
+func (s *Store) RemoveSignInImage(ctx context.Context) (bool, error) {
+	tag, err := s.pool.Exec(ctx, `delete from sign_in_image`)
+	return tag.RowsAffected() == 1, err
+}
+
 // CreateSession inserts a session.
 func (s *Store) CreateSession(ctx context.Context, session connector.StoredSession) error {
 	_, err := s.pool.Exec(ctx, `

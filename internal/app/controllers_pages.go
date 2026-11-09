@@ -63,7 +63,7 @@ func firmwareText(version string) string {
 func rowOfEnrollment(e controller.Enrollment, zone *time.Location) enrollmentRow {
 	return enrollmentRow{
 		HardwareID: e.HardwareID, Path: enrollmentPath(e.HardwareID), Firmware: firmwareText(e.FirmwareVersion),
-		Signal: signalText(e.Signal), Since: e.Since.In(zone).Format(overrideLayout),
+		Signal: signalText(e.Signal), Since: shownAt(zone, e.Since, overrideLayout),
 	}
 }
 
@@ -215,7 +215,7 @@ func credentialRows(creds []connector.StoredCredential, zone *time.Location) []c
 	rows := []credentialRow{}
 	for _, c := range slices.Backward(creds) {
 		rows = append(rows, credentialRow{
-			Username: c.Username, Issued: c.IssuedAt.In(zone).Format(overrideLayout), Status: credentialLabels[credentialStatus(c)],
+			Username: c.Username, Issued: shownAt(zone, c.IssuedAt, overrideLayout), Status: credentialLabels[credentialStatus(c)],
 		})
 	}
 	return rows

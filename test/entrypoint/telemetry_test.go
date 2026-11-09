@@ -382,11 +382,11 @@ func TestADoorPageChartsItsSignalAndLatencyOverTheRangeChosen(t *testing.T) {
 
 	want := map[string]testsupport.Chart{
 		"Signal over the last 6 hours": {
-			Lines:  []string{"316.7,5.0 366.7,125.0 408.3,65.0"},
+			Lines:  []string{"316.7,5 366.7,125 408.3,65"},
 			Labels: []string{"-60 dBm", "-70 dBm", "Mon 5 Jan 06:00", "Mon 5 Jan 12:00"},
 		},
 		"Latency over the last 6 hours": {
-			Lines:  []string{"316.7,125.0 366.7,5.0 408.3,65.0"},
+			Lines:  []string{"316.7,125 366.7,5 408.3,65"},
 			Labels: []string{"60 ms", "40 ms", "Mon 5 Jan 06:00", "Mon 5 Jan 12:00"},
 		},
 	}
@@ -404,7 +404,7 @@ func TestADoorPageChartsLongRangesFromTheHourlyRollups(t *testing.T) {
 	charts := doorPage(t, k.b, "/admin/doors/1?range=7d").Charts
 
 	want := testsupport.Chart{
-		Lines:  []string{"589.3,65.0 592.9,65.0"},
+		Lines:  []string{"589.3,65 592.9,65"},
 		Labels: []string{"50 ms", "50 ms", "Mon 29 Dec 12:00", "Mon 5 Jan 12:00"},
 	}
 	if diff := cmp.Diff(want, charts["Latency over the last 7 days"]); diff != "" {

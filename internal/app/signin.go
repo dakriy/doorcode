@@ -56,6 +56,8 @@ var flashes = map[string]string{
 	"update-sent":            "The update has been sent. The door installs it, restarts, and connects again with the new version.",
 	"door-config-saved":      "The door's configuration has been saved and sent to its controller.",
 	"settings-saved":         "The settings have been saved. Doors receive changed configuration defaults right away.",
+	"sign-in-image-saved":    "The sign-in page shows the new picture.",
+	"sign-in-image-removed":  "The sign-in page shows no picture.",
 	"controller-approved":    "The controller has been approved. Its credentials are on their way, and it connects as this door once it has them.",
 	"credentials-rotated":    "New credentials are on their way to the controller. The old ones work until it connects with the new ones or the grace period passes.",
 	"credentials-revoked":    "The controller's credentials have been revoked and it has been disconnected. It connects again only by enrolling and being approved.",
@@ -92,6 +94,9 @@ type signInForm struct {
 	Bypass        bool
 	Provider      bool
 	Password      bool
+	// Image is where the picture the page shows is served, empty when it
+	// shows none.
+	Image string
 }
 
 // signInPage shows the sign-in page, or sends the browser on to the
@@ -157,6 +162,12 @@ func (a *App) renderSignIn(w http.ResponseWriter, r *http.Request, status int, f
 func (a *App) showSignIn(w http.ResponseWriter, r *http.Request, status int, o settings.OIDC, form signInForm) {
 	form.Provider = o.Enabled
 	form.Password = !o.HidesPasswordForms() || form.Bypass
+	image, err := a.signInImageURL(r)
+	if err != nil {
+		a.pageError(w, err)
+		return
+	}
+	form.Image = image
 	a.render(w, r, status, signInTemplate, "Sign in", nil, form)
 }
 

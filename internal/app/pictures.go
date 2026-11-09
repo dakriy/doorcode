@@ -51,8 +51,8 @@ func (a *App) pictureRoutes() []route {
 	doors := holding(auth.RoleManageDoors)
 	image := func(what string) []openapi.Response {
 		return []openapi.Response{
-			{Status: http.StatusOK, Description: what + " Anyone signed in may read the pictures of a door the portal shows; other doors' need the manage-doors role.", Body: openapi.File{}, Type: picture.ContentType},
-			{Status: http.StatusForbidden, Description: "The door is not one the portal shows, and the caller does not hold the manage-doors role.", Body: errorBody{}},
+			{Status: http.StatusOK, Description: what + " Anyone signed in may read the pictures of a door the portal shows; other doors' need the " + seesDoors.roleNames() + " role.", Body: openapi.File{}, Type: picture.ContentType},
+			{Status: http.StatusForbidden, Description: "The door is not one the portal shows, and the caller does not hold the " + seesDoors.roleNames() + " role.", Body: errorBody{}},
 			noPicture,
 		}
 	}
@@ -191,8 +191,8 @@ func (a *App) servePicture(read func(ctx context.Context, doorID, id int64) ([]b
 			a.doorError(w, err)
 			return
 		}
-		if !caller.Has(auth.RoleManageDoors) && !door.InPortal(d) {
-			writeError(w, http.StatusForbidden, "the manage-doors role is required for the pictures of a door the portal does not show")
+		if !holds(caller, seesDoors) && !door.InPortal(d) {
+			writeError(w, http.StatusForbidden, "the "+seesDoors.roleNames()+" role is required for the pictures of a door the portal does not show")
 			return
 		}
 		data, err := read(r.Context(), d.ID, pathID(r, "picture"))

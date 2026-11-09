@@ -42,6 +42,10 @@ type eventList struct {
 // opensDoors may open doors from the UI and manage their overrides.
 var opensDoors = holding(auth.RoleManageDoors, auth.RoleDoorCommander)
 
+// seesDoors may read a door's page and pictures: those who open doors, and
+// those who manage firmware, whose card is on the page.
+var seesDoors = eitherOf(opensDoors, holding(auth.RoleManageFirmware))
+
 func (a *App) eventRoutes() []route {
 	params := []openapi.Param{
 		{Name: "door", In: "query", Description: "Keeps the events of the door with this id.", Example: int64(1)},

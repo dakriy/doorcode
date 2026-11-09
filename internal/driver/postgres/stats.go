@@ -21,8 +21,8 @@ const (
 		count(*) from events` + rangeFilter + ` group by weekday, hour order by weekday, hour`
 	reasonCounts = `select events.outcome, events.reason, count(*) from events` + rangeFilter + `
 		group by events.outcome, events.reason order by events.outcome collate "C", events.reason collate "C"`
-	doorCounts = `select events.door_id, doors.name, events.outcome, count(*) from events join doors on doors.id = events.door_id` + rangeFilter + `
-		group by events.door_id, doors.name, events.outcome order by events.door_id, events.outcome collate "C"`
+	doorCounts = `select events.door_id, events.outcome, count(*) from events` + rangeFilter + `
+		group by events.door_id, events.outcome order by events.door_id, events.outcome collate "C"`
 	userCount = `select count(distinct events.user_id) from events` + rangeFilter
 )
 
@@ -42,9 +42,7 @@ func (s *Store) EventStats(ctx context.Context, q connector.EventRange) (connect
 		stats.Reasons, err = grouped(ctx, s, reasonCounts, args, func(c *connector.StoredReasonCount) []any { return []any{&c.Outcome, &c.Reason, &c.Count} })
 	}
 	if err == nil {
-		stats.Doors, err = grouped(ctx, s, doorCounts, args, func(c *connector.StoredDoorCount) []any {
-			return []any{&c.DoorID, &c.DoorName, &c.Outcome, &c.Count}
-		})
+		stats.Doors, err = grouped(ctx, s, doorCounts, args, func(c *connector.StoredDoorCount) []any { return []any{&c.DoorID, &c.Outcome, &c.Count} })
 	}
 	return stats, err
 }

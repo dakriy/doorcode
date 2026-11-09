@@ -15,6 +15,10 @@ const jsonType = "application/json"
 const hashMemoryJSON = `{"key":"password_hash_memory_kib","value":"8","source":"environment","read_only":true,` +
 	`"env_var":"DOORCODE_PASSWORD_HASH_MEMORY_KIB"}`
 
+// themeSettingsJSON is how the settings API shows the theme colors when
+// nothing sets them.
+var themeSettingsJSON = defaultSetting("theme_accent", "#4f39f6") + `,` + defaultSetting("theme_accent_dark", "")
+
 // signInSettingsJSON is how the settings API shows the settings of
 // passwords, of new users, and of signing in through an identity provider when nothing sets
 // them.
@@ -91,7 +95,7 @@ func TestSettingsListShowsDefaultsAndTheEnvironmentWhenNothingIsStored(t *testin
 		`{"key":"site_name","value":"doorcode","source":"default","read_only":false,"env_var":"DOORCODE_SITE_NAME"},` +
 		`{"key":"site_timezone","value":"UTC","source":"default","read_only":false,"env_var":"DOORCODE_SITE_TIMEZONE"},` +
 		`{"key":"admin_email","value":"admin@example.com","source":"default","read_only":false,"env_var":"DOORCODE_ADMIN_EMAIL"},` +
-		hashMemoryJSON + `,` + signInSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
+		themeSettingsJSON + `,` + hashMemoryJSON + `,` + signInSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -109,7 +113,7 @@ func TestSettingsListShowsStoredAndEnvironmentValuesWithTheirSources(t *testing.
 		`{"key":"site_name","value":"Main Building","source":"database","read_only":false,"env_var":"DOORCODE_SITE_NAME","updated_at":"2026-01-02T08:00:00Z"},` +
 		`{"key":"site_timezone","value":"Europe/Berlin","source":"environment","read_only":true,"env_var":"DOORCODE_SITE_TIMEZONE"},` +
 		`{"key":"admin_email","value":"admin@example.com","source":"default","read_only":false,"env_var":"DOORCODE_ADMIN_EMAIL"},` +
-		hashMemoryJSON + `,` + signInSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
+		themeSettingsJSON + `,` + hashMemoryJSON + `,` + signInSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -273,12 +277,14 @@ func TestUpdateWithoutAStringValueIsABadRequest(t *testing.T) {
 		"not json":     `site_name=x`,
 		"no value":     `{}`,
 		"number value": `{"value":3}`,
+		"both":         `{"value":"x","clear":true}`,
+		"not clearing": `{"clear":false}`,
 	}
 	for name, body := range bodies {
 		t.Run(name, func(t *testing.T) {
 			got := signedInAdmin(t, testsupport.NewFactory()).PutJSON("/api/v1/settings/site_name", body)
 
-			want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"body must be a JSON object with a string \"value\""}` + "\n"}
+			want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"body must be a JSON object with either a string \"value\" or \"clear\": true"}` + "\n"}
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -396,5 +402,65 @@ func TestRejectedSiteTimezoneSaysWhatItAccepts(t *testing.T) {
 		`must be a time zone name from the tz database, such as UTC or Europe/Berlin"}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
+	}
+}
+
+func TestPagesAreDrawnInTheAccentColorsTheSettingsChoose(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	h, b := adminSession(t, f)
+	before := testsupport.ParsePage(testsupport.Get(h, "/sign-in").Body).Styles
+	send(t, b, "PUT", "/api/v1/settings/theme_accent", `{"value":"#0F766E"}`, 200)
+	light := testsupport.ParsePage(testsupport.Get(h, "/sign-in").Body).Styles
+	send(t, b, "PUT", "/api/v1/settings/theme_accent_dark", `{"value":"#2dd4bf"}`, 200)
+
+	got := []any{before, light, testsupport.ParsePage(b.Get("/admin/settings").Body).Styles}
+
+	want := []any{
+		[]string{":root { --accent: #4f39f6; }"},
+		[]string{":root { --accent: #0f766e; }"},
+		[]string{":root { --accent: #0f766e; --accent-dark: #2dd4bf; }"},
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("default, accent, both (-want +got):\n%s", diff)
+	}
+}
+
+func TestAccentColorsAreColorsAsHexDigits(t *testing.T) {
+	t.Parallel()
+	values := map[string][]int{
+		"#abcdef":  {200, 200},
+		"#ABC123":  {200, 200},
+		"":         {400, 200},
+		"#abcde":   {400, 400},
+		"#abcdeg":  {400, 400},
+		"abcdef0":  {400, 400},
+		"#abcdef0": {400, 400},
+		"teal":     {400, 400},
+	}
+	for value, want := range values {
+		t.Run(value, func(t *testing.T) {
+			t.Parallel()
+			b := signedInAdmin(t, testsupport.NewFactory())
+
+			got := []int{
+				b.PutJSON("/api/v1/settings/theme_accent", `{"value":"`+value+`"}`).Status,
+				b.PutJSON("/api/v1/settings/theme_accent_dark", `{"value":"`+value+`"}`).Status,
+			}
+
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Errorf("accent, dark accent (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestARefusedAccentColorSaysWhatItAccepts(t *testing.T) {
+	t.Parallel()
+	got := signedInAdmin(t, testsupport.NewFactory()).PutJSON("/api/v1/settings/theme_accent_dark", `{"value":"teal"}`)
+
+	want := `{"error":"invalid value for theme_accent_dark: must be a color as #rrggbb, such as #4f39f6"}` + "\n"
+	if diff := cmp.Diff([]any{400, want}, []any{got.Status, got.Body}); diff != "" {
+		t.Errorf("status, body (-want +got):\n%s", diff)
 	}
 }

@@ -20,7 +20,7 @@ var pageRefusals = []struct {
 	message string
 }{
 	{directory.ErrOwnAccount, http.StatusConflict, "You cannot delete your own account. Ask another administrator to do it."},
-	{directory.ErrOwnExpiry, http.StatusConflict, "You cannot make your own account expire today or earlier. Ask another administrator to end it."},
+	{directory.ErrOwnExpiry, http.StatusConflict, directory.OwnExpiryRefusal},
 	{directory.ErrOwnAdmin, http.StatusConflict, "You cannot remove your own admin role. Ask another administrator to do it."},
 	{directory.ErrNotHeld, http.StatusForbidden, "You can only change groups when you hold every role they carry."},
 	{directory.ErrNotMember, http.StatusNotFound, "That user is not a member of this group."},
@@ -106,7 +106,7 @@ func inputDate(t *time.Time, zone *time.Location) string {
 	if t == nil {
 		return ""
 	}
-	return t.In(zone).Format(schedule.DateLayout)
+	return shownAt(zone, *t, schedule.DateLayout)
 }
 
 // siteZone returns the site timezone, after showing that it could not be

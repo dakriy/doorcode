@@ -3,47 +3,87 @@
 <div class="sm:flex sm:items-end sm:justify-between">
   <div>
     <h1 class="text-2xl font-semibold tracking-tight">Settings</h1>
-    <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Every setting can be overridden by its environment variable. A value the environment provides is read-only here.</p>
+    <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">How the site looks, how people sign in, and what doors are told, part by part.</p>
   </div>
 </div>
 <div role="note" class="mt-6 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400">
-  Settings starting with <span class="font-mono text-xs">door_</span> are the defaults every door is configured with; a door's own page overrides them for that door. Doors receive a changed default as soon as it is saved. A changed enrollment username or password takes effect when the server next starts. Secret settings are stored encrypted and never shown; leave one blank to keep it, or enter a new value to replace it.
+  Every setting can also be given by an environment variable, <span class="font-mono text-xs">DOORCODE_</span> followed by its key in capitals; a setting the environment gives is read-only here. Secret settings are stored encrypted and never shown: leave one blank to keep it, enter a new value to replace it, or tick Clear to remove it.
 </div>
-<form method="post" action="/admin/settings" novalidate hx-disabled-elt="find button" class="mt-6 overflow-hidden {{template "card-class"}}">
-  <div class="overflow-x-auto">
-    <table aria-label="Settings" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
-      <thead class="{{template "table-head-class"}}">
-        <tr>
-          <th scope="col" class="px-4 py-3">Setting</th>
-          <th scope="col" class="px-4 py-3">Value</th>
-          <th scope="col" class="px-4 py-3">Source</th>
-          <th scope="col" class="px-4 py-3">Environment variable</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
-        {{range $c.Settings}}
-        <tr>
-          <td class="px-4 py-3 align-top font-medium whitespace-nowrap"><label for="setting-{{.Key}}">{{.Key}}</label></td>
-          <td class="min-w-64 px-4 py-3 align-top">
-            {{if .ReadOnly}}<span id="setting-{{.Key}}" class="font-mono text-xs break-all">{{.Value}}</span>
-            {{else if .Secret}}
-            <input id="setting-{{.Key}}" name="{{.Key}}" type="password" value="" autocomplete="new-password" placeholder="{{if .Value}}Set; leave blank to keep it{{else}}Not set{{end}}" class="{{template "input-base"}} font-mono">
-            {{else}}{{$error := index $c.Errors .Key}}
-            <input id="setting-{{.Key}}" name="{{.Key}}" type="text" value="{{.Entered}}" spellcheck="false"{{if $error}} aria-invalid="true" aria-describedby="{{.Key}}-error"{{end}} class="{{template "input-base"}} font-mono">
-            {{if $error}}<p id="{{.Key}}-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$error}}</p>{{end}}{{end}}
-          </td>
-          <td class="px-4 py-3 align-top whitespace-nowrap">
-            {{if .ReadOnly}}<span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-600/20 ring-inset dark:bg-amber-950 dark:text-amber-300 dark:ring-amber-400/20"><svg class="size-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z" clip-rule="evenodd"/></svg>{{.Source}}, read-only</span>
-            {{else}}<span class="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">{{.Source}}</span>{{end}}
-          </td>
-          <td class="px-4 py-3 align-top font-mono text-xs whitespace-nowrap text-zinc-500 dark:text-zinc-400">{{.EnvVar}}</td>
-        </tr>
-        {{end}}
-      </tbody>
-    </table>
-  </div>
-  <div class="flex justify-end border-t border-zinc-200 px-4 py-4 dark:border-zinc-800">
+{{with $c.Alert}}<div class="mt-6">{{template "alert" .}}</div>{{end}}
+<form method="post" action="/admin/settings" novalidate hx-disabled-elt="find button[type=submit]" class="mt-6 space-y-6">
+  {{range $i, $s := $c.Sections}}
+  <section aria-labelledby="section-{{$i}}" class="overflow-hidden {{template "card-class"}}">
+    <div class="px-6 pt-6">
+      <h2 id="section-{{$i}}" class="text-sm font-semibold">{{$s.Name}}</h2>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{$s.About}}</p>
+    </div>
+    <div class="mt-4 overflow-x-auto">
+      <table aria-label="{{$s.Name}}" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+        <thead class="{{template "table-head-class"}}">
+          <tr>
+            <th scope="col" class="px-6 py-2">Setting</th>
+            <th scope="col" class="px-6 py-2">Value</th>
+            <th scope="col" class="px-6 py-2">Source</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+          {{range $s.Rows}}
+          <tr>
+            <td class="w-2/5 px-6 py-3 align-top">
+              <label for="setting-{{.Key}}" class="font-medium">{{.Label}}</label>
+              <span class="block font-mono text-xs text-zinc-500 dark:text-zinc-400">{{.Key}}</span>
+              {{with .Help}}<span class="mt-1 block text-xs text-zinc-500 dark:text-zinc-400">{{.}}</span>{{end}}
+            </td>
+            <td class="min-w-64 px-6 py-3 align-top">
+              {{if .ReadOnly}}<span id="setting-{{.Key}}" class="font-mono text-xs break-all">{{.Value}}</span>
+              <p role="note" class="mt-1 text-xs text-amber-700 dark:text-amber-300">Set by <span class="font-mono">{{.EnvVar}}</span> in the environment; change it there.</p>
+              {{else if .Secret}}
+              <input id="setting-{{.Key}}" name="{{.Key}}" type="password" value="" autocomplete="new-password" placeholder="{{if .Value}}Set; leave blank to keep it{{else}}Not set{{end}}" class="{{template "input-base"}} font-mono">
+              {{if .Value}}<label class="mt-2 inline-flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400"><input type="checkbox" name="clear" value="{{.Key}}" class="size-4 rounded border-zinc-300 accent-brand-600 dark:border-zinc-700">Clear</label>{{end}}
+              {{else}}{{$error := index $c.Errors .Key}}
+              <input id="setting-{{.Key}}" name="{{.Key}}" type="text" value="{{.Entered}}" spellcheck="false"{{if $error}} aria-invalid="true" aria-describedby="{{.Key}}-error"{{end}} class="{{template "input-base"}} font-mono">
+              {{if $error}}<p id="{{.Key}}-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$error}}</p>{{end}}{{end}}
+            </td>
+            <td class="px-6 py-3 align-top whitespace-nowrap">
+              {{if .ReadOnly}}<span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-600/20 ring-inset dark:bg-amber-950 dark:text-amber-300 dark:ring-amber-400/20"><svg class="size-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z" clip-rule="evenodd"/></svg>{{.Source}}, read-only</span>
+              {{else}}<span class="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">{{.Source}}</span>{{end}}
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {{end}}
+  <div class="flex justify-end">
     <button type="submit" class="{{template "primary-class"}}">Save settings</button>
   </div>
 </form>
+
+<section aria-labelledby="sign-in-image-heading" class="mt-6 p-6 {{template "card-class"}}">
+  <h2 id="sign-in-image-heading" class="text-sm font-semibold">Sign-in page picture</h2>
+  <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Shown beside the sign-in form on wide screens, in place of the accent color pattern.</p>
+  {{with $c.SignInImage}}
+  <div class="mt-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <img src="{{.}}" alt="The sign-in page picture" class="h-40 w-auto rounded-lg object-cover ring-1 ring-zinc-200 dark:ring-zinc-800">
+    <form method="post" action="/admin/settings/sign-in-image/delete" hx-confirm="Take the picture off the sign-in page?">
+      <button type="submit" class="{{template "danger-class"}} py-2">Remove picture</button>
+    </form>
+  </div>
+  {{else}}
+  <p class="mt-5 rounded-lg border border-dashed border-zinc-300 px-4 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">The sign-in page shows no picture. It shows the accent color pattern instead.</p>
+  {{end}}
+  <form method="post" action="/admin/settings/sign-in-image" enctype="multipart/form-data" hx-disabled-elt="find button" class="mt-6 border-t border-zinc-200 pt-5 dark:border-zinc-800">
+    {{$error := index $c.Errors "picture"}}
+    <label for="picture" class="block text-sm font-medium">{{if $c.SignInImage}}Replace the picture{{else}}Add a picture{{end}}</label>
+    <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
+      <input id="picture" name="picture" type="file" accept="image/jpeg,image/png,image/gif,image/webp" required
+        {{if $error}}aria-invalid="true" aria-describedby="picture-error"{{end}}
+        class="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-800 hover:file:bg-zinc-200 dark:text-zinc-400 dark:file:bg-zinc-800 dark:file:text-zinc-200 dark:hover:file:bg-zinc-700">
+      <button type="submit" class="shrink-0 {{template "primary-class"}}">Upload</button>
+    </div>
+    {{if $error}}<p id="picture-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$error}}</p>
+    {{else}}<p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">JPEG, PNG, GIF, or WebP, up to {{$c.MaxPictureMB}} MB. It is turned upright and reduced to {{$c.MaxPictureSide}} pixels on its longest side.</p>{{end}}
+  </form>
+</section>
 {{end}}

@@ -1,6 +1,6 @@
 {{define "content"}}
 {{$c := .Content}}{{$d := $c.Door}}
-{{template "back" (link "/admin/doors" "All doors")}}
+{{template "back" $c.Back}}
 <div class="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
   <div class="flex items-center gap-5">
     {{template "door-thumbnail" (thumb $c.Row "size-20")}}
@@ -10,10 +10,10 @@
         {{if $d.Public}}{{template "public-badge"}}{{end}}
         {{if $d.DeletedAt}}{{template "status" "Deleted"}}{{end}}
       </div>
-      <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{{with $d.Location}}{{.}} · {{end}}created {{$d.CreatedAt.UTC.Format "2 Jan 2006"}}</p>
+      <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{{with $d.Location}}{{.}} · {{end}}created {{date $.Zone $d.CreatedAt}}</p>
     </div>
   </div>
-  <a href="/admin/doors/{{$d.ID}}/calendar" hx-boost="false" class="shrink-0 {{template "secondary-class"}}">{{template "calendar-icon"}}View timeline</a>
+  {{if $c.Opens}}<a href="/admin/doors/{{$d.ID}}/calendar" hx-boost="false" class="shrink-0 {{template "secondary-class"}}">{{template "calendar-icon"}}View timeline</a>{{end}}
 </div>
 
 {{with $c.Alert}}<div class="mt-6">{{template "alert" .}}</div>{{end}}
@@ -112,7 +112,7 @@
 {{end}}
 {{if $c.Manage}}{{with $d.DeletedAt}}
 <div class="mt-6 flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200">
-  <p>Deleted on {{.UTC.Format "2 Jan 2006"}}. The door is listed only under deleted doors; its history stays.</p>
+  <p>Deleted on {{date $.Zone .}}. The door is listed only under deleted doors; its history stays.</p>
   <form method="post" action="/admin/doors/{{$d.ID}}/restore">
     <button type="submit" class="{{template "secondary-class"}} bg-white py-1.5 dark:bg-zinc-900">Restore door</button>
   </form>
@@ -232,8 +232,9 @@
           <h2 id="overrides-heading" class="text-sm font-semibold">Overrides</h2>
           <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Force the door open or locked for a while. Locked wins over open, and both win over open mode; door commanders always get in.</p>
         </div>
-        <a href="/admin/doors/{{$d.ID}}/overrides/new" class="shrink-0 {{template "secondary-class"}}">{{template "plus-icon"}}New override</a>
+        {{if $c.Opens}}<a href="/admin/doors/{{$d.ID}}/overrides/new" class="shrink-0 {{template "secondary-class"}}">{{template "plus-icon"}}New override</a>{{end}}
       </div>
+      {{if not $c.Opens}}<p role="note" class="mx-6 mt-4 text-xs text-zinc-500 dark:text-zinc-400">Overrides are made and ended by holders of the manage-doors or door-commander role.</p>{{end}}
       <div class="mt-4 overflow-x-auto">
         <table aria-label="Overrides" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
           <thead class="{{template "table-head-class"}}">
@@ -257,6 +258,7 @@
               <td class="px-6 py-3 whitespace-nowrap tabular-nums text-zinc-600 dark:text-zinc-400">{{.Start}} – {{.End}}</td>
               <td class="px-6 py-3"><span class="block">{{.Reason}}</span><span class="block text-xs text-zinc-500 dark:text-zinc-400">by {{.Creator}}</span></td>
               <td class="px-6 py-3 text-right whitespace-nowrap">
+                {{if $c.Opens}}
                 <div class="flex justify-end gap-1">
                   <a href="/admin/doors/{{$d.ID}}/overrides/{{.ID}}" class="{{template "row-button-class"}}">Edit</a>
                   {{if .Active}}
@@ -268,6 +270,7 @@
                     <button type="submit" class="{{template "row-button-class"}} hover:text-red-700 dark:hover:text-red-300">Delete</button>
                   </form>
                 </div>
+                {{end}}
               </td>
             </tr>
             {{else}}
@@ -367,7 +370,9 @@
         {{template "door-status" $c.Row.Status}}
       </div>
       <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Releases the strike once, for {{$c.StrikeMS}} ms, as if a code had been accepted. The opening is logged under your name.</p>
-      {{if eq $c.Row.Status "Online"}}
+      {{if not $c.Opens}}
+      <p role="note" class="mt-4 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">Opening the door needs the manage-doors or door-commander role.</p>
+      {{else if eq $c.Row.Status "Online"}}
       <form method="post" action="/admin/doors/{{$d.ID}}/open" hx-confirm="Release the strike of {{$d.Name}} now?" hx-disabled-elt="find button" class="mt-4">
         <button type="submit" class="w-full {{template "primary-class"}}">
           <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M14.5 1A4.5 4.5 0 0 0 10 5.5V9H3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-1.5V5.5a3 3 0 1 1 6 0v2.75a.75.75 0 0 0 1.5 0V5.5A4.5 4.5 0 0 0 14.5 1Z" clip-rule="evenodd"/></svg>

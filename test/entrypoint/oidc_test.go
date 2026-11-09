@@ -694,7 +694,7 @@ func TestTheSettingsPageOffersSecretsAsBlankPasswordFields(t *testing.T) {
 	stored, _ := testsupport.OpenSecret("oidc_client_secret", f.StoreStub.StoredSetting("oidc_client_secret"))
 	page := pageOf(b.Get("/admin/settings"))
 
-	want := settingsPage(defaultSettings, map[string]shownSetting{"oidc_client_secret": {"oidc_client_secret", "", "database"}}, nil, nil)
+	want := settingsPage(defaultSettings, map[string]shownSetting{"oidc_client_secret": {"oidc_client_secret", "********", "database"}}, nil, nil)
 	want.Messages = []string{"The settings have been saved. Doors receive changed configuration defaults right away."}
 	if diff := cmp.Diff([]any{"an0ther", want}, []any{stored, page}); diff != "" {
 		t.Errorf("stored, page (-want +got):\n%s\n%v", diff, got)
@@ -818,5 +818,61 @@ func TestASignInNeedsNoUserinfoWhenTheIDTokenHoldsEveryClaimRead(t *testing.T) {
 
 	if diff := cmp.Diff([]any{303, "/me/code"}, []any{got.Status, got.Location}); diff != "" {
 		t.Errorf("status, location (-want +got):\n%s", diff)
+	}
+}
+
+func TestClearingTheClientSecretSignsInWithoutOne(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	h, admin := providerSite(t, f)
+	send(t, admin, "PUT", "/api/v1/settings/oidc_client_secret", `{"value":"s3cret"}`, 200)
+
+	cleared := send(t, admin, "PUT", "/api/v1/settings/oidc_client_secret", `{"clear":true}`, 200)
+	_, signedIn := viaProvider(t, f, h, annClaims())
+
+	shown := `{"key":"oidc_client_secret","value":"","source":"database","read_only":false,` +
+		`"env_var":"DOORCODE_OIDC_CLIENT_SECRET","secret":true,"updated_at":"` + testsupport.DefaultNow + `"}` + "\n"
+	want := []any{shown, "", 303, "/me/code"}
+	if diff := cmp.Diff(want, []any{cleared.Body, f.StoreStub.StoredSetting("oidc_client_secret"), signedIn.Status, signedIn.Location}); diff != "" {
+		t.Errorf("cleared, stored, sign-in status and location (-want +got):\n%s", diff)
+	}
+}
+
+func TestTickingClearOnTheSettingsPageEmptiesASecret(t *testing.T) {
+	t.Parallel()
+	cases := map[string][]string{
+		"left blank":       {"clear", "enrollment_password", "enrollment_password", "", "site_name", "doorcode"},
+		"with a new value": {"clear", "enrollment_password", "enrollment_password", "n3w", "site_name", "doorcode"},
+	}
+	for name, form := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			f := testsupport.NewFactory()
+			b := signedInAdmin(t, f)
+			b.Get("/")
+			send(t, b, "PUT", "/api/v1/settings/enrollment_password", `{"value":"s3cret"}`, 200)
+
+			saved := b.Post("/admin/settings", form...)
+			page := pageOf(b.Get("/admin/settings"))
+
+			wantPage := settingsPage(defaultSettings, map[string]shownSetting{"enrollment_password": {"enrollment_password", "", "database"}}, nil, nil)
+			wantPage.Messages = []string{"The settings have been saved. Doors receive changed configuration defaults right away."}
+			if diff := cmp.Diff([]any{303, "", wantPage}, []any{saved.Status, f.StoreStub.StoredSetting("enrollment_password"), page}); diff != "" {
+				t.Errorf("status, stored, page (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestClearingASecretThatHasNoValueLeavesItAtItsDefault(t *testing.T) {
+	t.Parallel()
+	b := signedInAdmin(t, testsupport.NewFactory())
+
+	saved := b.Post("/admin/settings", "clear", "oidc_client_secret", "clear", "site_name", "site_name", "doorcode")
+
+	got := []any{saved.Status, testsupport.JSONAt(b.Get("/api/v1/settings/oidc_client_secret").Body, "/source"),
+		testsupport.JSONAt(b.Get("/api/v1/settings/site_name").Body, "/value")}
+	if diff := cmp.Diff([]any{303, "default", "doorcode"}, got); diff != "" {
+		t.Errorf("status, secret's source, site name (-want +got):\n%s", diff)
 	}
 }

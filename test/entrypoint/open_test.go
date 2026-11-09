@@ -179,3 +179,57 @@ func TestOpeningADoorFailsWhenTheStoreDoes(t *testing.T) {
 		})
 	}
 }
+
+func TestDoorCommandersAndFirmwareManagersLoadThePicturesOfDoorsThePortalDoesNotShow(t *testing.T) {
+	t.Parallel()
+	for _, roles := range []string{`["door-commander"]`, `["manage-firmware"]`} {
+		t.Run(roles, func(t *testing.T) {
+			t.Parallel()
+			f := testsupport.NewFactory()
+			_, b, _, _ := enrolledDoor(t, f)
+			uploadPicture(t, b, "1", testsupport.PNG(30, 20))
+			holdingOnly(t, f, b, roles)
+
+			got := []any{
+				testsupport.ImageInfo(b.Get("/api/v1/doors/1/pictures/1").Body),
+				testsupport.ImageInfo(b.Get("/api/v1/doors/1/pictures/1/thumbnail").Body),
+			}
+
+			if diff := cmp.Diff([]any{"jpeg 30x20", "jpeg 30x20"}, got); diff != "" {
+				t.Errorf("image, thumbnail (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestAFirmwareManagersDoorPageIsReadOnlyApartFromTheFirmwareCard(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	_, b, _, _ := enrolledDoor(t, f)
+	createOverride(t, b, "1", lockedToday)
+	holdingOnly(t, f, b, `["manage-firmware"]`)
+
+	page := doorPage(t, b, "/admin/doors/1")
+	saved := b.Post("/admin/doors/1/firmware", "firmware_id", "")
+
+	want := []any{
+		"Lobby",
+		[]string{
+			"Choose a default version on the firmware page, or one for this door, to update it.",
+			"Overrides are made and ended by holders of the manage-doors or door-commander role.",
+			"Opening the door needs the manage-doors or door-commander role.",
+		},
+		[]string{"Locked Upcoming", "Mon 5 Jan 2026 10:00 – Mon 5 Jan 2026 12:00", "Floor polishing. by Administrator", ""},
+		[]string{"Running", "Target", "Rollout", "Latest update"},
+		303,
+	}
+	firmware := []string{}
+	for _, term := range []string{"Running", "Target", "Rollout", "Latest update"} {
+		if _, ok := page.Details[term]; ok {
+			firmware = append(firmware, term)
+		}
+	}
+	if diff := cmp.Diff(want, []any{page.Heading, page.Notes, page.Tables["Overrides"][1], firmware, saved.Status}); diff != "" {
+		t.Errorf("heading, notes, override, firmware card, saving its firmware (-want +got):\n%s", diff)
+	}
+}

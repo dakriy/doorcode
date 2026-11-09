@@ -8,7 +8,7 @@
       {{template "status" $c.Row.Status}}
       {{if $c.Self}}<span class="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">You</span>{{end}}
     </div>
-    <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{{$u.Email}}{{with $u.UserID}} · user id <span class="font-mono">{{.}}</span>{{end}} · created {{$u.CreatedAt.Format "2 Jan 2006"}}</p>
+    <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{{$u.Email}}{{with $u.UserID}} · user id <span class="font-mono">{{.}}</span>{{end}} · created {{date $.Zone $u.CreatedAt}}</p>
   </div>
   <a href="/admin/requests?state=all&amp;user={{$u.ID}}" class="mt-4 shrink-0 sm:mt-0 {{template "secondary-class"}}">Access requests</a>
 </div>
@@ -16,7 +16,7 @@
 {{if $c.Alert}}<div class="mt-6">{{template "alert" $c.Alert}}</div>{{end}}
 {{with $u.DeletedAt}}
 <div class="mt-6 flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200">
-  <p>Deleted on {{.Format "2 Jan 2006"}}. The user is refused everywhere; their history stays.</p>
+  <p>Deleted on {{date $.Zone .}}. The user is refused everywhere; their history stays.</p>
   <form method="post" action="/admin/users/{{$u.ID}}/restore">
     <button type="submit" class="{{template "secondary-class"}} bg-white py-1.5 dark:bg-zinc-900">Restore user</button>
   </form>
@@ -153,8 +153,8 @@
             {{range $c.Tokens}}
             <tr>
               <td class="px-4 py-3 font-medium">{{.Name}}</td>
-              <td class="px-4 py-3 whitespace-nowrap text-zinc-600 dark:text-zinc-400">{{.CreatedAt.UTC.Format "2 Jan 2006"}}</td>
-              <td class="px-4 py-3 whitespace-nowrap text-zinc-600 dark:text-zinc-400">{{if .Expired}}Expired {{.ExpiresAt.UTC.Format "2 Jan 2006"}}{{else if .ExpiresAt}}{{.ExpiresAt.UTC.Format "2 Jan 2006"}}{{else}}Never{{end}}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-zinc-600 dark:text-zinc-400">{{date $.Zone .CreatedAt}}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-zinc-600 dark:text-zinc-400">{{if .Expired}}Expired {{date $.Zone .ExpiresAt}}{{else if .ExpiresAt}}{{date $.Zone .ExpiresAt}}{{else}}Never{{end}}</td>
               <td class="px-4 py-3 text-right">
                 <form method="post" action="/admin/users/{{$u.ID}}/tokens/{{.ID}}/revoke" hx-confirm="Revoke “{{.Name}}”? Anything using it is refused at once. This cannot be undone.">
                   <button type="submit" class="{{template "danger-class"}}">Revoke</button>

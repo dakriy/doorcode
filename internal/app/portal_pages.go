@@ -379,10 +379,10 @@ type requestRow struct {
 func rowOfRequest(one connector.StoredRequest, zone *time.Location) requestRow {
 	row := requestRow{
 		ID: one.ID, Title: one.Title, Body: one.Body, Reply: one.Reply,
-		Created: one.CreatedAt.In(zone).Format(requestLayout), Updated: one.UpdatedAt.In(zone).Format(requestLayout),
+		Created: shownAt(zone, one.CreatedAt, requestLayout), Updated: shownAt(zone, one.UpdatedAt, requestLayout),
 	}
 	if one.ResolvedAt != nil {
-		row.Resolved = one.ResolvedAt.In(zone).Format(requestLayout)
+		row.Resolved = shownAt(zone, *one.ResolvedAt, requestLayout)
 	}
 	return row
 }

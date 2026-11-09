@@ -430,7 +430,7 @@ func (a *App) updateRolloutSettings(w http.ResponseWriter, r *http.Request, _ au
 			") and whose values are strings")
 		return
 	}
-	if _, err := a.settings.UpdateAll(r.Context(), body); err != nil {
+	if _, err := a.settings.UpdateAll(r.Context(), body, nil); err != nil {
 		a.settingError(w, err)
 		return
 	}

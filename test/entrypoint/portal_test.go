@@ -780,7 +780,7 @@ func TestMakingYourOwnAccountExpireInThePastIsRefused(t *testing.T) {
 	soon := b.PutJSON("/api/v1/users/1", admin+`2026-01-05T09:00:01Z"}`)
 	others := b.PutJSON("/api/v1/users/2", `{"email":"ann@example.com","display_name":"Ann","expires_at":"2025-12-31T00:00:00Z"}`)
 
-	refused := `{"error":"you cannot make your own account expire in the past"}` + "\n"
+	refused := `{"error":"you cannot make your own account expire now or earlier"}` + "\n"
 	want := []any{409, refused, 409, refused, 409,
 		[]string{"You are signed in.", "You cannot make your own account expire today or earlier. Ask another administrator to end it."}, 200, 200}
 	got := []any{now.Status, now.Body, past.Status, past.Body, page.Status, pageOf(page).Messages, soon.Status, others.Status}
@@ -805,7 +805,7 @@ func TestAnyoneSignedInSeesThePicturesOfDoorsThePortalShows(t *testing.T) {
 		testsupport.JSONString(ann.Get("/api/v1/doors/2/pictures/2").Body, "/error"),
 	}
 
-	want := []any{200, 200, 403, 403, 404, 200, "the manage-doors role is required for the pictures of a door the portal does not show"}
+	want := []any{200, 200, 403, 403, 404, 200, "the manage-doors or door-commander or manage-firmware role is required for the pictures of a door the portal does not show"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("public thumbnail and image, private, deleted, missing, private for a door manager, refusal (-want +got):\n%s", diff)
 	}
@@ -966,5 +966,25 @@ func TestThePortalShowsARequestIDWhenTheStoreFails(t *testing.T) {
 				t.Errorf("status, logged (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestCalendarKeysNameWhoseCodeTheyShow(t *testing.T) {
+	t.Parallel()
+	admin, ann := portalSite(t, testsupport.NewFactory())
+
+	got := []any{
+		testsupport.ParsePage(ann.Get("/me/access/1").Body).Lists["Calendar key"],
+		testsupport.ParsePage(ann.Get("/me/access").Body).Lists["Calendar key"],
+		testsupport.ParsePage(admin.Get("/admin/users/2/doors/1/calendar").Body).Lists["Calendar key"],
+	}
+
+	want := []any{
+		[]string{"Your code works", "Open mode: any keypress unlocks", "Locked: no code opens it"},
+		[]string{"Open mode: any keypress unlocks", "Your code works", "Locked: no code opens it"},
+		[]string{"Their code works", "Open mode: any keypress unlocks", "Locked: no code opens it"},
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("door calendar, access list, user's access calendar keys (-want +got):\n%s", diff)
 	}
 }

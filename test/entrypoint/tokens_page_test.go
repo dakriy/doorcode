@@ -237,3 +237,22 @@ func TestAPIDocsPageAsksForSignIn(t *testing.T) {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
 }
+
+func TestTokenDatesAreShownInTheSiteTimezone(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	f.EnvStub["DOORCODE_SITE_TIMEZONE"] = "Pacific/Auckland"
+	f.ClockStub.Set("2026-01-05T12:00:00Z")
+	b := signedInAdmin(t, f)
+	createToken(t, b, `{"name":"deploy","expires_in_days":27}`)
+
+	got := []any{pageOf(b.Get("/account/tokens")).Table, pageOf(b.Get("/admin/users/1")).Tables["API tokens"]}
+
+	want := []any{
+		[][]string{tokenTableHead, {"deploy", "6 Jan 2026", "2 Feb 2026", "Revoke"}},
+		[][]string{{"Name", "Created", "Expires", "Actions"}, {"deploy", "6 Jan 2026", "2 Feb 2026", "Revoke"}},
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("own tokens, user page tokens (-want +got):\n%s", diff)
+	}
+}

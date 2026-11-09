@@ -76,8 +76,8 @@ func TestStoreSumsUpTheEventsOfARangeByDayHourReasonDoorAndUser(t *testing.T) {
 					{Outcome: "denied", Reason: "no rule", Count: 1},
 				},
 				Doors: []connector.StoredDoorCount{
-					{DoorID: 1, DoorName: "Lobby", Outcome: "allowed", Count: 1}, {DoorID: 1, DoorName: "Lobby", Outcome: "denied", Count: 1},
-					{DoorID: 2, DoorName: "Dock", Outcome: "allowed", Count: 1}, {DoorID: 2, DoorName: "Dock", Outcome: "denied", Count: 1},
+					{DoorID: 1, Outcome: "allowed", Count: 1}, {DoorID: 1, Outcome: "denied", Count: 1},
+					{DoorID: 2, Outcome: "allowed", Count: 1}, {DoorID: 2, Outcome: "denied", Count: 1},
 				},
 				Users: 2,
 			}, nil}

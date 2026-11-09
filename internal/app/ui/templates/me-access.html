@@ -6,13 +6,5 @@
 <section aria-label="Doors" class="mt-8 overflow-hidden {{template "card-class"}}">
   {{template "portal-doors" .Content}}
 </section>
-{{template "calendar-key-portal"}}
-{{end}}
-
-{{define "calendar-key-portal"}}
-<ul class="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-xs text-zinc-600 dark:text-zinc-400">
-  <li class="flex items-center gap-2"><span class="size-3 rounded-sm bg-emerald-600" aria-hidden="true"></span>Open mode: anyone gets in with any keypress</li>
-  <li class="flex items-center gap-2"><span class="size-3 rounded-sm bg-sky-600" aria-hidden="true"></span>Your code works</li>
-  <li class="flex items-center gap-2"><span class="size-3 rounded-sm bg-red-600" aria-hidden="true"></span>Locked: no code opens it</li>
-</ul>
+{{template "calendar-key" (calendarkey "Your" "open" "code" "locked")}}
 {{end}}

@@ -27,6 +27,8 @@ func pageOf(r testsupport.Response) testsupport.Page {
 	p.NavTargets = nil
 	p.Choices = nil
 	p.Options = nil
+	p.Lists = nil
+	p.Styles = nil
 	return p
 }
 

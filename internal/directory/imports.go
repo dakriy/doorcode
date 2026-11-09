@@ -271,7 +271,7 @@ func (s Service) updatedProfile(ctx context.Context, im *importer, row ImportRow
 	}
 	var problems check.List
 	if endsOwnAccount(im.viewer, u.ID, p.ExpiresAt, im.now) {
-		problems.Add(ColumnExpiresAt, "You cannot make your own account expire in the past.")
+		problems.Add(ColumnExpiresAt, OwnExpiryRefusal)
 	}
 	p, err := s.profileProblems(ctx, u.ID, p, &problems)
 	if err != nil {

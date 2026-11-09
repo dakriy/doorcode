@@ -106,6 +106,11 @@ func (b *Browser) Delete(target string) Response {
 // in the field field, and then the other fields, alternating name and
 // value.
 func (b *Browser) Upload(target, field, filename string, content []byte, fields ...string) Response {
+	return b.UploadWith(http.MethodPost, target, field, filename, content, fields...)
+}
+
+// UploadWith sends, with method, what Upload posts.
+func (b *Browser) UploadWith(method, target, field, filename string, content []byte, fields ...string) Response {
 	var body bytes.Buffer
 	form := multipart.NewWriter(&body)
 	for i := 0; i+1 < len(fields); i += 2 {
@@ -114,7 +119,7 @@ func (b *Browser) Upload(target, field, filename string, content []byte, fields 
 	file, _ := form.CreateFormFile(field, filename)
 	_, _ = file.Write(content)
 	_ = form.Close()
-	return b.do(http.MethodPost, target, form.FormDataContentType(), &body)
+	return b.do(method, target, form.FormDataContentType(), &body)
 }
 
 // SendForm posts body as it is, with content type contentType.

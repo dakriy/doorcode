@@ -20,7 +20,7 @@ func (a *App) doorPageRoutes() []route {
 		pageRoute(http.MethodGet, "/admin/doors", opensDoors, a.doorsPage),
 		pageRoute(http.MethodGet, "/admin/doors/new", doors, a.newDoorPage),
 		pageRoute(http.MethodPost, "/admin/doors", doors, a.createDoorFromForm),
-		pageRoute(http.MethodGet, "/admin/doors/{id}", opensDoors, a.doorPage),
+		pageRoute(http.MethodGet, "/admin/doors/{id}", seesDoors, a.doorPage),
 		pageRoute(http.MethodPost, "/admin/doors/{id}", doors, a.doorSaver(readDoorDetails, "door-saved")),
 		pageRoute(http.MethodPost, "/admin/doors/{id}/open-mode", doors, a.doorSaver(readOpenMode, "open-mode-saved")),
 		pageRoute(http.MethodPost, "/admin/doors/{id}/zones", doors, a.doorSaver(readDoorZones, "door-zones-saved")),
@@ -255,6 +255,13 @@ type doorContent struct {
 	// Manage is true when the viewer may change the door, not only open
 	// it and manage its overrides.
 	Manage bool
+	// Opens is true when the viewer may open the door, manage its
+	// overrides, and see the door list and its timeline; a viewer who
+	// only manages firmware reads the page and changes its firmware.
+	Opens bool
+	// Back is the page the door page goes back to: the door list, or the
+	// firmware page for a viewer who may not see the list.
+	Back navItem
 	// Events is the door's newest events, nil when the viewer may not
 	// read the log.
 	Events *recentLog
@@ -340,7 +347,8 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 		return
 	}
 	content := doorContent{
-		Manage: viewer.Has(auth.RoleManageDoors), Events: events, StrikeMS: config.StrikePulseMS, State: state, Firmware: card,
+		Manage: viewer.Has(auth.RoleManageDoors), Opens: holds(viewer, opensDoors), Back: doorPageBack(viewer),
+		Events: events, StrikeMS: config.StrikePulseMS, State: state, Firmware: card,
 		Door: d.StoredDoor, Row: n.rowOfDoor(d.StoredDoor), Form: form, Alert: alert,
 		Entrants: []entrantRow{}, Overrides: []overrideRow{},
 		Schedules: scheduleChoices(n.schedules, form.OpenScheduleIDs), Zones: zoneChoices(n.zones, form.ZoneIDs),
@@ -361,6 +369,14 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 		content.Overrides = append(content.Overrides, a.rowOfOverride(o, zone))
 	}
 	a.render(w, r, status, doorTemplate, d.Name, &viewer, content)
+}
+
+// doorPageBack is the page a door's page goes back to for viewer.
+func doorPageBack(viewer auth.User) navItem {
+	if holds(viewer, opensDoors) {
+		return navItem{Href: "/admin/doors", Label: "All doors"}
+	}
+	return navItem{Href: "/admin/firmware", Label: "Firmware"}
 }
 
 // fresh is the form of d as it is stored.

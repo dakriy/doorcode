@@ -7,10 +7,9 @@ import (
 	"hash/crc32"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"image/png"
-
-	// The format pictures are served in.
-	_ "image/jpeg"
+	"slices"
 )
 
 // PNG is a PNG image width by height pixels, shaded from corner to corner,
@@ -57,4 +56,117 @@ func ImageInfo(body string) string {
 // upload of a given size; image decoders ignore what follows the image.
 func Padded(content []byte, size int) []byte {
 	return append(bytes.Clone(content), make([]byte, size-len(content))...)
+}
+
+// Upright is how an oriented test picture looks when seen the right way
+// up: 64 by 32 pixels, red at the top left, green at the top right, blue
+// at the bottom left, and white at the bottom right.
+const Upright = "jpeg 64x32 red green blue white"
+
+// quadrantColors are the colors of an upright test picture's quarters, top
+// left, top right, bottom left, bottom right.
+var quadrantColors = []color.RGBA{{R: 255, A: 255}, {G: 255, A: 255}, {B: 255, A: 255}, {R: 255, G: 255, B: 255, A: 255}}
+
+// Oriented is a JPEG of the upright test picture stored as a camera held
+// in EXIF orientation o stores it, carrying that orientation, so turning
+// it as o says shows it upright.
+func Oriented(o uint16) []byte {
+	return WithEXIF(StoredAs(o), Orientation, 3, 1, o)
+}
+
+// Orientation is the EXIF tag of a picture's orientation.
+const Orientation = 0x0112
+
+// StoredAs is the upright test picture as a camera stores it in EXIF
+// orientation o: the stored pixel at x, y is the upright one where o's
+// reading puts it.
+func StoredAs(o uint16) image.Image {
+	width, height := 64, 32
+	if o >= 5 {
+		width, height = 32, 64
+	}
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
+	for y := range height {
+		for x := range width {
+			ux, uy := uprightAt(o, x, y, width, height)
+			img.Set(x, y, quadrantColors[uy/16*2+ux/32])
+		}
+	}
+	return img
+}
+
+// uprightAt is where the stored pixel at x, y of a width by height image
+// in EXIF orientation o is seen upright.
+func uprightAt(o uint16, x, y, width, height int) (int, int) {
+	switch o {
+	case 2:
+		return width - 1 - x, y
+	case 3:
+		return width - 1 - x, height - 1 - y
+	case 4:
+		return x, height - 1 - y
+	case 5:
+		return y, x
+	case 6:
+		return height - 1 - y, x
+	case 7:
+		return height - 1 - y, width - 1 - x
+	case 8:
+		return y, width - 1 - x
+	}
+	return x, y
+}
+
+// WithEXIF is img as a JPEG carrying one EXIF entry: tag, of the TIFF
+// field type kind (3 is a short, 2 text), count values, and value.
+func WithEXIF(img image.Image, tag, kind, count, value uint16) []byte {
+	var encoded bytes.Buffer
+	if err := jpeg.Encode(&encoded, img, &jpeg.Options{Quality: 95}); err != nil {
+		panic(err)
+	}
+	tiff := []byte("MM\x00\x2a\x00\x00\x00\x08\x00\x01")
+	tiff = binary.BigEndian.AppendUint16(tiff, tag)
+	tiff = binary.BigEndian.AppendUint16(tiff, kind)
+	tiff = binary.BigEndian.AppendUint32(tiff, uint32(count))
+	tiff = binary.BigEndian.AppendUint16(tiff, value)
+	tiff = append(tiff, 0, 0, 0, 0, 0, 0)
+	app1 := append([]byte("Exif\x00\x00"), tiff...)
+	segment := binary.BigEndian.AppendUint16([]byte{0xff, 0xe1}, uint16(len(app1)+2))
+	data := encoded.Bytes()
+	return slices.Concat(data[:2], segment, app1, data[2:])
+}
+
+// Quadrants says what JPEG or PNG image body holds as its format, size,
+// and the color of each corner, top left, top right, bottom left, bottom
+// right: red, green, blue, white, or other.
+func Quadrants(body string) string {
+	img, format, err := image.Decode(bytes.NewReader([]byte(body)))
+	if err != nil {
+		return "not an image: " + err.Error()
+	}
+	b := img.Bounds()
+	corners := []image.Point{{b.Min.X, b.Min.Y}, {b.Max.X - 1, b.Min.Y}, {b.Min.X, b.Max.Y - 1}, {b.Max.X - 1, b.Max.Y - 1}}
+	out := fmt.Sprintf("%s %dx%d", format, b.Dx(), b.Dy())
+	for _, p := range corners {
+		out += " " + colorName(img.At(p.X, p.Y))
+	}
+	return out
+}
+
+// colorName names c when it is near red, green, blue, or white.
+func colorName(c color.Color) string {
+	r, g, b, _ := c.RGBA()
+	high := func(v uint32) bool { return v > 0xb000 }
+	low := func(v uint32) bool { return v < 0x5000 }
+	switch {
+	case high(r) && high(g) && high(b):
+		return "white"
+	case high(r) && low(g) && low(b):
+		return "red"
+	case low(r) && high(g) && low(b):
+		return "green"
+	case low(r) && low(g) && high(b):
+		return "blue"
+	}
+	return "other"
 }

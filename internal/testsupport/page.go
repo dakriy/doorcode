@@ -57,8 +57,13 @@ type Page struct {
 	// element in its rows that sets one, such as a bar's "width: 40%", in
 	// order.
 	Bars map[string][]string
+	// Lists maps the label of each labelled list to the text of its items,
+	// in order.
+	Lists map[string][]string
 	// Assets is every stylesheet and script the page loads.
 	Assets []string
+	// Styles is the text of each style sheet the page holds itself.
+	Styles []string
 }
 
 // Image is an image a page shows: where it is served from and its
@@ -234,7 +239,31 @@ func (p *Page) readResource(n *html.Node) {
 		p.Assets = append(p.Assets, attr(n, "href"))
 	case n.Data == "script" && attr(n, "src") != "":
 		p.Assets = append(p.Assets, attr(n, "src"))
+	default:
+		p.readText(n)
 	}
+}
+
+// readText reads a labelled list's item and a style sheet's text.
+func (p *Page) readText(n *html.Node) {
+	switch n.Data {
+	case "li":
+		p.readItem(n)
+	case "style":
+		p.Styles = append(p.Styles, rawText(n))
+	}
+}
+
+// readItem reads an item of a labelled list.
+func (p *Page) readItem(li *html.Node) {
+	label := attr(li.Parent, "aria-label")
+	if label == "" {
+		return
+	}
+	if p.Lists == nil {
+		p.Lists = map[string][]string{}
+	}
+	p.Lists[label] = append(p.Lists[label], text(li))
 }
 
 // readLink reads where a labelled link goes.

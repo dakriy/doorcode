@@ -1,11 +1,15 @@
 package app
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/openapi"
+	"github.com/dakriy/doorcode/internal/picture"
 	"github.com/dakriy/doorcode/internal/settings"
 )
 
@@ -15,7 +19,7 @@ type settingView struct {
 	Source    string     `json:"source" doc:"Where the value comes from: environment, database, or default."`
 	ReadOnly  bool       `json:"read_only" doc:"True when the environment provides the value, which then cannot be changed here."`
 	EnvVar    string     `json:"env_var" doc:"The environment variable that overrides the setting."`
-	Secret    bool       `json:"secret,omitempty" doc:"True for a secret, which is stored encrypted and whose value shows only as ******** when it has one. Storing an empty value leaves a secret as it is."`
+	Secret    bool       `json:"secret,omitempty" doc:"True for a secret, which is stored encrypted and whose value shows only as ******** when it has one. Storing an empty value leaves a secret as it is; clearing it empties it."`
 	UpdatedAt *time.Time `json:"updated_at,omitempty" doc:"When an administrator last stored a value; absent when none is stored."`
 }
 
@@ -24,7 +28,20 @@ type settingList struct {
 }
 
 type settingUpdate struct {
-	Value *string `json:"value" doc:"The new value."`
+	Value *string `json:"value,omitempty" doc:"The new value. Give either it or clear."`
+	Clear bool    `json:"clear,omitempty" doc:"True stores the empty value, which for a secret removes it, where an empty value leaves a secret as it is. Give either it or value."`
+}
+
+// signInImagePath is where the sign-in page's picture is served.
+const signInImagePath = "/api/v1/sign-in-image"
+
+// signInImageCache lets browsers keep the sign-in page's picture, whose
+// address changes with every new picture.
+const signInImageCache = "public, max-age=31536000, immutable"
+
+// signInImageUpload is the body that sets the sign-in page's picture.
+type signInImageUpload struct {
+	Picture openapi.File `json:"picture" doc:"The image: JPEG, PNG, GIF, or WebP."`
 }
 
 // settingKey is the path parameter naming a setting.
@@ -54,13 +71,40 @@ func (a *App) settingsRoutes() []route {
 			request: settingUpdate{Value: &example},
 			responses: []openapi.Response{
 				{Status: http.StatusOK, Description: "The setting with its new value.", Body: settingView{}},
-				{Status: http.StatusBadRequest, Description: "The body is not a JSON object with a string value, or the setting does not accept the value.", Body: errorBody{}},
+				{Status: http.StatusBadRequest, Description: "The body is not a JSON object with either a string value or clear set to true, or the setting does not accept the value.", Body: errorBody{}},
 				{Status: http.StatusNotFound, Description: "No setting has this key.", Body: errorBody{}},
 				{Status: http.StatusConflict, Description: "The environment provides the setting, so it is read-only.", Body: errorBody{}},
 			},
 		}),
+		apiRoute(http.MethodGet, "/sign-in-image", anyone, a.serveSignInImage, apiDoc{
+			id: "getSignInImage", summary: "Read the sign-in page's picture", tag: "settings",
+			params: []openapi.Param{{Name: "v", In: "query", Description: "Ignored. The sign-in page adds when the picture was stored, so browsers fetch a new picture at a new address.", Example: "1767603600"}},
+			responses: []openapi.Response{
+				{Status: http.StatusOK, Description: "The picture, as JPEG.", Body: openapi.File{}, Type: picture.ContentType},
+				noSignInImage,
+				{Status: http.StatusInternalServerError, Description: "The server failed; the body names a request id to give an administrator.", Body: errorBody{}},
+			},
+		}),
+		apiRoute(http.MethodPut, "/sign-in-image", admin, a.putSignInImage, apiDoc{
+			id: "setSignInImage", summary: "Set the sign-in page's picture", tag: "settings", form: signInImageUpload{},
+			responses: []openapi.Response{
+				{Status: http.StatusNoContent, Description: fmt.Sprintf("The sign-in page shows the picture, reduced to at most %d pixels on its longest side.", picture.MaxSide)},
+				{Status: http.StatusBadRequest, Description: "The body is not a multipart form with the file in the field picture, or the file is not an image that can be read.", Body: errorBody{}},
+				{Status: http.StatusRequestEntityTooLarge, Description: fmt.Sprintf("The file is larger than %d MB.", picture.Megabytes()), Body: errorBody{}},
+			},
+		}),
+		apiRoute(http.MethodDelete, "/sign-in-image", admin, a.deleteSignInImage, apiDoc{
+			id: "deleteSignInImage", summary: "Take the picture off the sign-in page", tag: "settings",
+			responses: []openapi.Response{{Status: http.StatusNoContent, Description: "The sign-in page shows no picture."}, noSignInImage},
+		}),
+		pageRoute(http.MethodPost, "/admin/settings/sign-in-image", admin, a.uploadSignInImageFromForm),
+		pageRoute(http.MethodPost, "/admin/settings/sign-in-image/delete", admin, a.deleteSignInImageFromForm),
 	}
 }
+
+// noSignInImage answers a request for the sign-in page's picture when it
+// shows none.
+var noSignInImage = openapi.Response{Status: http.StatusNotFound, Description: "The sign-in page shows no picture.", Body: errorBody{}}
 
 func viewOf(s settings.Setting) settingView {
 	view := settingView{
@@ -103,11 +147,16 @@ func (a *App) getSetting(w http.ResponseWriter, r *http.Request, _ auth.User) {
 func (a *App) updateSetting(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	var body settingUpdate
 	err := decodeJSON(w, r, &body)
-	if err != nil || body.Value == nil {
-		writeError(w, http.StatusBadRequest, `body must be a JSON object with a string "value"`)
+	if err != nil || (body.Value != nil) == body.Clear {
+		writeError(w, http.StatusBadRequest, `body must be a JSON object with either a string "value" or "clear": true`)
 		return
 	}
-	s, err := a.settings.Update(r.Context(), r.PathValue("key"), *body.Value)
+	var s settings.Setting
+	if body.Clear {
+		s, err = a.settings.Clear(r.Context(), r.PathValue("key"))
+	} else {
+		s, err = a.settings.Update(r.Context(), r.PathValue("key"), *body.Value)
+	}
 	if err != nil {
 		a.settingError(w, err)
 		return
@@ -122,6 +171,8 @@ var settingStatuses = []refusalStatus{
 	{settings.ErrUnknown, http.StatusNotFound},
 	{settings.ErrInvalid, http.StatusBadRequest},
 	{settings.ErrReadOnly, http.StatusConflict},
+	{settings.ErrNoSignInImage, http.StatusNotFound},
+	{errTooBig, http.StatusRequestEntityTooLarge},
 }
 
 // settingError answers an API request with what err, from the settings,
@@ -130,12 +181,24 @@ func (a *App) settingError(w http.ResponseWriter, err error) {
 	a.refuse(w, err, settingStatuses)
 }
 
-// settingsContent is the settings page's content: every setting, with
-// the value entered for it when a form was refused, and what is wrong
-// with each refused value.
+// settingsContent is the settings page's content: every setting in its
+// section, with the value entered for it when a form was refused, and
+// what is wrong with each refused value; where the sign-in page's picture
+// is served, empty when it shows none; and an alert to show above
+// everything else.
 type settingsContent struct {
-	Settings []settingRow
-	Errors   map[string]string
+	Sections       []settingSection
+	Errors         map[string]string
+	SignInImage    string
+	Alert          string
+	MaxPictureMB   int
+	MaxPictureSide int
+}
+
+// settingSection is one part of the settings page and its settings.
+type settingSection struct {
+	settings.Section
+	Rows []settingRow
 }
 
 // settingRow is one setting as the settings page shows it, with the value
@@ -147,42 +210,124 @@ type settingRow struct {
 
 // showSettings shows the settings page with status, its inputs holding
 // entered, or each setting's value where entered has none.
-func (a *App) showSettings(w http.ResponseWriter, r *http.Request, status int, viewer auth.User, entered map[string]string, errs map[string]string) {
+func (a *App) showSettings(w http.ResponseWriter, r *http.Request, status int, viewer auth.User, entered map[string]string, errs map[string]string, alert string) {
 	all, err := a.settings.List(r.Context())
 	if err != nil {
 		a.pageError(w, err)
 		return
 	}
-	content := settingsContent{Errors: errs}
+	image, err := a.signInImageURL(r)
+	if err != nil {
+		a.pageError(w, err)
+		return
+	}
+	content := settingsContent{Errors: errs, SignInImage: image, Alert: alert, MaxPictureMB: picture.Megabytes(), MaxPictureSide: picture.MaxSide}
 	for _, s := range all {
 		value, given := entered[s.Key]
 		if !given {
 			value = s.Value
 		}
-		content.Settings = append(content.Settings, settingRow{Setting: s, Entered: value})
+		last := len(content.Sections) - 1
+		if last < 0 || content.Sections[last].Name != s.Section.Name {
+			content.Sections = append(content.Sections, settingSection{Section: s.Section})
+			last++
+		}
+		content.Sections[last].Rows = append(content.Sections[last].Rows, settingRow{Setting: s, Entered: value})
 	}
 	a.render(w, r, status, settingsTemplate, "Settings", &viewer, content)
 }
 
 func (a *App) settingsPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	a.showSettings(w, r, http.StatusOK, viewer, nil, nil)
+	a.showSettings(w, r, http.StatusOK, viewer, nil, nil, "")
 }
 
-// saveSettingsFromForm stores every setting the form changed, or none
-// when one is refused, and sends the doors what that changes for them.
+// saveSettingsFromForm stores every setting the form changed, and clears
+// every secret it ticks, or none when one is refused, and sends the doors
+// what that changes for them.
 func (a *App) saveSettingsFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	_ = r.ParseForm()
 	entered := map[string]string{}
 	for key := range r.PostForm {
 		entered[key] = r.PostForm.Get(key)
 	}
-	changed, err := a.settings.UpdateAll(r.Context(), entered)
+	changed, err := a.settings.UpdateAll(r.Context(), entered, r.PostForm["clear"])
 	if errs, rejected := fieldErrors(err); rejected {
-		a.showSettings(w, r, http.StatusUnprocessableEntity, viewer, entered, errs)
+		a.showSettings(w, r, http.StatusUnprocessableEntity, viewer, entered, errs, "")
 		return
 	}
 	if err == nil {
 		a.settingsChanged(r.Context(), changed)
 	}
 	a.changed(w, r, err, "/admin/settings", "settings-saved")
+}
+
+// signInImageURL is where the sign-in page's picture is served, with when
+// it was stored so a new picture has a new address; empty when the page
+// shows none.
+func (a *App) signInImageURL(r *http.Request) (string, error) {
+	image, found, err := a.settings.SignInImage(r.Context())
+	if !found {
+		return "", err
+	}
+	return signInImagePath + "?v=" + strconv.FormatInt(image.UpdatedAt.Unix(), 10), err
+}
+
+func (a *App) serveSignInImage(w http.ResponseWriter, r *http.Request, _ auth.User) {
+	image, found, err := a.settings.SignInImage(r.Context())
+	if err != nil {
+		a.internalError(w, err)
+		return
+	}
+	if !found {
+		a.settingError(w, settings.ErrNoSignInImage)
+		return
+	}
+	w.Header().Set("Content-Type", picture.ContentType)
+	w.Header().Set("Cache-Control", signInImageCache)
+	_, _ = w.Write(image.Data)
+}
+
+// setSignInImage makes the picture r uploads the sign-in page's.
+func (a *App) setSignInImage(w http.ResponseWriter, r *http.Request) error {
+	data, err := readUpload(w, r)
+	if err != nil {
+		return err
+	}
+	return a.settings.SetSignInImage(r.Context(), data)
+}
+
+func (a *App) putSignInImage(w http.ResponseWriter, r *http.Request, _ auth.User) {
+	a.settingDone(w, a.setSignInImage(w, r))
+}
+
+func (a *App) deleteSignInImage(w http.ResponseWriter, r *http.Request, _ auth.User) {
+	a.settingDone(w, a.settings.RemoveSignInImage(r.Context()))
+}
+
+// settingDone answers an API request that changed the settings with no
+// content, or with what err means.
+func (a *App) settingDone(w http.ResponseWriter, err error) {
+	if err != nil {
+		a.settingError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *App) uploadSignInImageFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
+	err := a.setSignInImage(w, r)
+	if status, refused := uploadRefusal(err); refused {
+		a.showSettings(w, r, status, viewer, nil, map[string]string{picture.Field: err.Error()}, "")
+		return
+	}
+	a.changed(w, r, err, "/admin/settings", "sign-in-image-saved")
+}
+
+func (a *App) deleteSignInImageFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
+	err := a.settings.RemoveSignInImage(r.Context())
+	if errors.Is(err, settings.ErrNoSignInImage) {
+		a.showSettings(w, r, http.StatusNotFound, viewer, nil, nil, "The sign-in page shows no picture any more. It may have been removed already.")
+		return
+	}
+	a.changed(w, r, err, "/admin/settings", "sign-in-image-removed")
 }

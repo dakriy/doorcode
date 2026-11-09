@@ -3,6 +3,7 @@
 package testsupport
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"maps"
@@ -143,6 +144,7 @@ type Store struct {
 	members      []membership
 	nextGroup    int64
 	codeParams   string
+	signInImage  *connector.StoredImage
 	sessions     map[string]connector.StoredSession
 	tokens       []connector.StoredToken
 	nextToken    int64
@@ -190,6 +192,7 @@ const (
 	zonesAggregate
 	zoneWrites
 	primaryPictureWrites
+	signInImageReads
 	rulesAggregate
 	ruleWrites
 	overridesAggregate
@@ -269,6 +272,39 @@ func (s *Store) CodeHashing(_ context.Context, candidate string) (string, error)
 		s.codeParams = candidate
 	}
 	return s.codeParams, nil
+}
+
+// SignInImage returns a copy of the stored sign-in page picture.
+func (s *Store) SignInImage(context.Context) (connector.StoredImage, bool, error) {
+	if err := s.writable(settingsAggregate, signInImageReads); err != nil {
+		return connector.StoredImage{}, false, err
+	}
+	if s.signInImage == nil {
+		return connector.StoredImage{}, false, nil
+	}
+	image := *s.signInImage
+	image.Data = bytes.Clone(image.Data)
+	return image, true, nil
+}
+
+// PutSignInImage stores a copy of image as the sign-in page picture.
+func (s *Store) PutSignInImage(_ context.Context, image connector.StoredImage) error {
+	if err := s.writable(settingsAggregate, settingWrites); err != nil {
+		return err
+	}
+	image.Data = bytes.Clone(image.Data)
+	s.signInImage = &image
+	return nil
+}
+
+// RemoveSignInImage removes the sign-in page picture.
+func (s *Store) RemoveSignInImage(context.Context) (bool, error) {
+	if err := s.writable(settingsAggregate, settingWrites); err != nil {
+		return false, err
+	}
+	held := s.signInImage != nil
+	s.signInImage = nil
+	return held, nil
 }
 
 // CreateSession stores a session.
@@ -465,6 +501,12 @@ func (s *Store) ReplacePasswordHash(email, hash string) {
 // FailMigration makes Migrate report ErrUnavailable.
 func (s *Store) FailMigration() {
 	s.migrateErr = ErrUnavailable
+}
+
+// FailSignInImageReads makes SignInImage report ErrUnavailable, while
+// the settings can still be read.
+func (s *Store) FailSignInImageReads() {
+	s.failing[signInImageReads] = true
 }
 
 // Fail makes every aggregate method report ErrUnavailable.

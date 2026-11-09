@@ -82,16 +82,16 @@ func (s Service) secret(key string, stored map[string]connector.StoredSetting) (
 		return value, nil
 	}
 	row, found := stored[key]
-	if !found {
+	if !found || row.Value == "" {
 		return "", nil
 	}
 	return s.Secrets.open(key, row.Value)
 }
 
 // storable is value as the store holds it for the setting def: encrypted
-// when def is secret.
+// when def is secret, unless it is empty, which a cleared secret is.
 func (s Service) storable(def definition, value string) string {
-	if def.secret {
+	if def.secret && value != "" {
 		return s.Secrets.seal(def.key, value)
 	}
 	return value
@@ -103,9 +103,10 @@ func keeps(def definition, value string) bool {
 	return def.secret && value == ""
 }
 
-// shown is s as the setting def lets it be seen: a secret's value masked.
+// shown is s as the setting def lets it be seen, in its section with its
+// label and help: a secret's value masked.
 func shown(def definition, s Setting) Setting {
-	s.Secret = def.secret
+	s.Secret, s.Section, s.Label, s.Help = def.secret, def.section, def.label, def.help
 	if def.secret && s.Value != "" {
 		s.Value = Mask
 	}

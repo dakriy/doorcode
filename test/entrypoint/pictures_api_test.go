@@ -346,3 +346,50 @@ func TestUploadAnswersWithARequestIDWhenThePictureCannotBeStored(t *testing.T) {
 		})
 	}
 }
+
+func TestPicturesAreTurnedUprightAsTheirEXIFOrientationSays(t *testing.T) {
+	t.Parallel()
+	for o := range uint16(8) {
+		t.Run("orientation "+itoa(int(o+1)), func(t *testing.T) {
+			t.Parallel()
+			b := signedInAdmin(t, testsupport.NewFactory())
+			createDoor(t, b, frontDoor)
+			uploadPicture(t, b, "1", testsupport.Oriented(o+1))
+
+			got := []string{
+				testsupport.Quadrants(b.Get("/api/v1/doors/1/pictures/1").Body),
+				testsupport.Quadrants(b.Get("/api/v1/doors/1/pictures/1/thumbnail").Body),
+			}
+
+			if diff := cmp.Diff([]string{testsupport.Upright, testsupport.Upright}, got); diff != "" {
+				t.Errorf("image, thumbnail (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestPicturesWhoseOrientationCannotBeReadAreKeptAsStored(t *testing.T) {
+	t.Parallel()
+	stored := testsupport.StoredAs(6)
+	cases := map[string][]byte{
+		"another tag":            testsupport.WithEXIF(stored, 0x0110, 3, 1, 6),
+		"an orientation as text": testsupport.WithEXIF(stored, testsupport.Orientation, 2, 1, 6),
+		"no orientation value":   testsupport.WithEXIF(stored, testsupport.Orientation, 3, 0, 6),
+		"two orientations":       testsupport.WithEXIF(stored, testsupport.Orientation, 3, 2, 6),
+		"an unknown orientation": testsupport.WithEXIF(stored, testsupport.Orientation, 3, 1, 9),
+	}
+	for name, upload := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			b := signedInAdmin(t, testsupport.NewFactory())
+			createDoor(t, b, frontDoor)
+			uploadPicture(t, b, "1", upload)
+
+			got := testsupport.Quadrants(b.Get("/api/v1/doors/1/pictures/1").Body)
+
+			if diff := cmp.Diff("jpeg 32x64 green white red blue", got); diff != "" {
+				t.Errorf("image (-want +got):\n%s", diff)
+			}
+		})
+	}
+}

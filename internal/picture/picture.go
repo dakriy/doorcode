@@ -15,6 +15,7 @@ import (
 	"image/jpeg"
 	_ "image/png"
 
+	"github.com/rwcarlsen/goexif/exif"
 	xdraw "golang.org/x/image/draw"
 	_ "golang.org/x/image/webp"
 
@@ -69,7 +70,8 @@ type Prepared struct {
 }
 
 // Prepare reads data as an image and returns its renditions, or the
-// problem with it. Transparent parts become white.
+// problem with it. Transparent parts become white, and an image whose EXIF
+// orientation says it is stored turned or mirrored is turned upright.
 func Prepare(data []byte) (Prepared, error) {
 	config, _, err := image.DecodeConfig(bytes.NewReader(data))
 	if err != nil {
@@ -82,12 +84,81 @@ func Prepare(data []byte) (Prepared, error) {
 	if err != nil {
 		return Prepared{}, problem(unreadable)
 	}
-	full := fit(decoded, MaxSide)
+	full := upright(fit(decoded, MaxSide), orientation(data))
 	thumbnail := fit(full, ThumbnailSide)
 	return Prepared{
 		Image: encode(full), Width: full.Bounds().Dx(), Height: full.Bounds().Dy(),
 		Thumbnail: encode(thumbnail),
 	}, nil
+}
+
+// orientation is the EXIF orientation data's metadata gives, from 1 to 8,
+// or 1, upright as stored, when it gives none that can be read.
+func orientation(data []byte) int {
+	x, err := exif.Decode(bytes.NewReader(data))
+	if err != nil {
+		return 1
+	}
+	tag, err := x.Get(exif.Orientation)
+	if err != nil || tag.Count != 1 {
+		return 1
+	}
+	o, err := tag.Int(0)
+	if err != nil {
+		return 1
+	}
+	return o
+}
+
+// turn is how to read an image stored in an EXIF orientation to see it
+// upright: the pixel at x, y upright is the stored one at y, x when swap is
+// set, then counted from the right when flipX is set and from the bottom
+// when flipY is.
+type turn struct {
+	swap, flipX, flipY bool
+}
+
+// turns is the turn of each EXIF orientation that is not upright as
+// stored; any other is read as stored.
+var turns = map[int]turn{
+	2: {flipX: true},
+	3: {flipX: true, flipY: true},
+	4: {flipY: true},
+	5: {swap: true},
+	6: {swap: true, flipY: true},
+	7: {swap: true, flipX: true, flipY: true},
+	8: {swap: true, flipX: true},
+}
+
+// upright is src, stored in the EXIF orientation o, as it is meant to be
+// seen.
+func upright(src image.Image, o int) image.Image {
+	t, turned := turns[o]
+	if !turned {
+		return src
+	}
+	width, height := src.Bounds().Dx(), src.Bounds().Dy()
+	size := image.Pt(width, height)
+	if t.swap {
+		size = image.Pt(height, width)
+	}
+	dst := image.NewRGBA(image.Rectangle{Max: size})
+	for y := range size.Y {
+		for x := range size.X {
+			u, v := x, y
+			if t.swap {
+				u, v = y, x
+			}
+			if t.flipX {
+				u = width - 1 - u
+			}
+			if t.flipY {
+				v = height - 1 - v
+			}
+			dst.Set(x, y, src.At(u, v))
+		}
+	}
+	return dst
 }
 
 // fit is src scaled down, keeping its proportions, so that its longest side

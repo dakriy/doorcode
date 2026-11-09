@@ -561,7 +561,7 @@ func TestAnImportMayEndAnotherUsersAccountButNotTheImporters(t *testing.T) {
 
 	want := []any{
 		"update", nil,
-		"skip", testsupport.JSON(`[{"column":"expires_at","message":"You cannot make your own account expire in the past."}]`),
+		"skip", testsupport.JSON(`[{"column":"expires_at","message":"You cannot make your own account expire today or earlier. Ask another administrator to end it."}]`),
 		"create", nil,
 	}
 	if diff := cmp.Diff(want, []any{

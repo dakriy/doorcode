@@ -277,9 +277,9 @@
 
 {{/* A key to the colors of a calendar's events, given the kinds it shows. */}}
 {{define "calendar-key"}}
-<ul class="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-zinc-600 dark:text-zinc-400">
-  {{range .}}
-  <li class="flex items-center gap-2"><span class="size-3 rounded-sm {{if eq . "open"}}bg-emerald-600{{else if eq . "locked"}}bg-red-600{{else if eq . "code"}}bg-sky-600{{else}}bg-brand-600 dark:bg-brand-500{{end}}" aria-hidden="true"></span>{{if eq . "open"}}Open mode: any keypress unlocks{{else if eq . "locked"}}Locked: no code opens it{{else if eq . "code"}}Their code works{{else}}An access rule lets its group in{{end}}</li>
+<ul aria-label="Calendar key" class="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-zinc-600 dark:text-zinc-400">
+  {{range .Kinds}}
+  <li class="flex items-center gap-2"><span class="size-3 rounded-sm {{if eq . "open"}}bg-emerald-600{{else if eq . "locked"}}bg-red-600{{else if eq . "code"}}bg-sky-600{{else}}bg-brand-600 dark:bg-brand-500{{end}}" aria-hidden="true"></span>{{if eq . "open"}}Open mode: any keypress unlocks{{else if eq . "locked"}}Locked: no code opens it{{else if eq . "code"}}{{$.Whose}} code works{{else}}An access rule lets its group in{{end}}</li>
   {{end}}
 </ul>
 {{end}}

@@ -26,6 +26,10 @@ type Service struct {
 	Clock connector.Clock
 }
 
+// OwnExpiryRefusal is what a page or an import row says when a person
+// would make their own account expire on a date of today or earlier.
+const OwnExpiryRefusal = "You cannot make your own account expire today or earlier. Ask another administrator to end it."
+
 var (
 	// ErrNoUser reports an id that names no user.
 	ErrNoUser = errors.New("no user has this id")
@@ -40,7 +44,7 @@ var (
 	ErrOwnAccount = errors.New("you cannot delete your own account")
 	// ErrOwnExpiry reports a person making their own account expire now
 	// or earlier.
-	ErrOwnExpiry = errors.New("you cannot make your own account expire in the past")
+	ErrOwnExpiry = errors.New("you cannot make your own account expire now or earlier")
 	// ErrNoUserID reports a person without a user id choosing a door
 	// code, which starts with it.
 	ErrNoUserID = errors.New("you have no user id, so you cannot choose a door code; an administrator can set one for you")

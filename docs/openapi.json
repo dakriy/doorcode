@@ -2666,7 +2666,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The image. Anyone signed in may read the pictures of a door the portal shows; other doors' need the manage-doors role.",
+            "description": "The image. Anyone signed in may read the pictures of a door the portal shows; other doors' need the manage-doors or door-commander or manage-firmware role.",
             "content": {
               "image/jpeg": {
                 "schema": {
@@ -2687,7 +2687,7 @@
             }
           },
           "403": {
-            "description": "The door is not one the portal shows, and the caller does not hold the manage-doors role.",
+            "description": "The door is not one the portal shows, and the caller does not hold the manage-doors or door-commander or manage-firmware role.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2842,7 +2842,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The image reduced to at most 320 pixels on its longest side. Anyone signed in may read the pictures of a door the portal shows; other doors' need the manage-doors role.",
+            "description": "The image reduced to at most 320 pixels on its longest side. Anyone signed in may read the pictures of a door the portal shows; other doors' need the manage-doors or door-commander or manage-firmware role.",
             "content": {
               "image/jpeg": {
                 "schema": {
@@ -2863,7 +2863,7 @@
             }
           },
           "403": {
-            "description": "The door is not one the portal shows, and the caller does not hold the manage-doors role.",
+            "description": "The door is not one the portal shows, and the caller does not hold the manage-doors or door-commander or manage-firmware role.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7054,7 +7054,7 @@
             }
           },
           "400": {
-            "description": "The body is not a JSON object with a string value, or the setting does not accept the value.",
+            "description": "The body is not a JSON object with either a string value or clear set to true, or the setting does not accept the value.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7095,6 +7095,201 @@
           },
           "409": {
             "description": "The environment provides the setting, so it is read-only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sign-in-image": {
+      "delete": {
+        "operationId": "deleteSignInImage",
+        "summary": "Take the picture off the sign-in page",
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The sign-in page shows no picture."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the admin role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The sign-in page shows no picture.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getSignInImage",
+        "summary": "Read the sign-in page's picture",
+        "tags": [
+          "settings"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "v",
+            "in": "query",
+            "required": false,
+            "description": "Ignored. The sign-in page adds when the picture was stored, so browsers fetch a new picture at a new address.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "1767603600"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The picture, as JPEG.",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The sign-in page shows no picture.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setSignInImage",
+        "summary": "Set the sign-in page's picture",
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/SignInImageUpload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The sign-in page shows the picture, reduced to at most 1600 pixels on its longest side."
+          },
+          "400": {
+            "description": "The body is not a multipart form with the file in the field picture, or the file is not an image that can be read.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the admin role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The file is larger than 10 MB.",
             "content": {
               "application/json": {
                 "schema": {
@@ -11533,14 +11728,15 @@
       "SettingUpdate": {
         "type": "object",
         "properties": {
+          "clear": {
+            "type": "boolean",
+            "description": "True stores the empty value, which for a secret removes it, where an empty value leaves a secret as it is. Give either it or value."
+          },
           "value": {
             "type": "string",
-            "description": "The new value."
+            "description": "The new value. Give either it or clear."
           }
-        },
-        "required": [
-          "value"
-        ]
+        }
       },
       "SettingView": {
         "type": "object",
@@ -11559,7 +11755,7 @@
           },
           "secret": {
             "type": "boolean",
-            "description": "True for a secret, which is stored encrypted and whose value shows only as ******** when it has one. Storing an empty value leaves a secret as it is."
+            "description": "True for a secret, which is stored encrypted and whose value shows only as ******** when it has one. Storing an empty value leaves a secret as it is; clearing it empties it."
           },
           "source": {
             "type": "string",
@@ -11581,6 +11777,19 @@
           "source",
           "read_only",
           "env_var"
+        ]
+      },
+      "SignInImageUpload": {
+        "type": "object",
+        "properties": {
+          "picture": {
+            "type": "string",
+            "format": "binary",
+            "description": "The image: JPEG, PNG, GIF, or WebP."
+          }
+        },
+        "required": [
+          "picture"
         ]
       },
       "SpanView": {

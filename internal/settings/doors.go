@@ -160,9 +160,15 @@ func doorDefinitions() []definition {
 	for _, f := range DoorFields {
 		out = append(out, definition{key: doorPrefix + f.Name, fallback: f.fallback, validate: func(_ Service, value string) error {
 			return f.set(&DoorConfig{}, value)
-		}})
+		}, section: doorSection, label: f.Label, help: sentence(f.Hint)})
 	}
 	return out
+}
+
+// sentence is text as a sentence: its first letter upper case, ending in a
+// full stop.
+func sentence(text string) string {
+	return strings.ToUpper(text[:1]) + text[1:] + "."
 }
 
 // doorField is the door field named name, and whether there is one.

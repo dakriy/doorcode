@@ -47,7 +47,7 @@ var kindLabels = map[string]string{timeline.Open: "Open", timeline.Locked: "Lock
 func (a *App) rowOfOverride(o connector.StoredOverride, zone *time.Location) overrideRow {
 	return overrideRow{
 		ID: o.ID, Kind: kindLabels[o.Kind], Active: door.Active(o, a.clock.Now()),
-		Start: o.Start.In(zone).Format(overrideLayout), End: o.End.In(zone).Format(overrideLayout),
+		Start: shownAt(zone, o.Start, overrideLayout), End: shownAt(zone, o.End, overrideLayout),
 		Reason: o.Reason, Creator: o.CreatorName,
 	}
 }
@@ -66,7 +66,7 @@ func formOfOverride(o connector.StoredOverride, zone *time.Location) overrideFor
 }
 
 func inputTime(t time.Time, zone *time.Location) string {
-	return t.In(zone).Format(inputTimeLayout)
+	return shownAt(zone, t, inputTimeLayout)
 }
 
 // fields is f as an override's fields, its times read in zone; a time that

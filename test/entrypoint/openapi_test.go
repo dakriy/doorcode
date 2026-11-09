@@ -130,6 +130,9 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 		{Method: "GET", Target: "/api/v1/settings/site_name", ID: "getSetting", Statuses: []int{200, 401, 403, 404, 500}},
 		{Method: "PUT", Target: "/api/v1/settings/site_name", ID: "updateSetting", Body: `{"value":"North Campus"}`,
 			Statuses: []int{200, 400, 401, 403, 404, 409, 500}},
+		{Method: "DELETE", Target: "/api/v1/sign-in-image", ID: "deleteSignInImage", Statuses: []int{204, 401, 403, 404, 500}},
+		{Method: "GET", Target: "/api/v1/sign-in-image", ID: "getSignInImage", Statuses: []int{200, 404, 500}},
+		{Method: "PUT", Target: "/api/v1/sign-in-image", ID: "setSignInImage", Statuses: []int{204, 400, 401, 403, 413, 500}},
 		{Method: "GET", Target: "/api/v1/stats/doors", ID: "getDoorStats", Statuses: []int{200, 400, 401, 403, 500}},
 		{Method: "GET", Target: "/api/v1/stats/entries", ID: "getEntryStats", Statuses: []int{200, 400, 401, 403, 500}},
 		{Method: "GET", Target: "/api/v1/stats/firmware", ID: "getFirmwareStats", Statuses: []int{200, 401, 403, 500}},
@@ -349,7 +352,7 @@ func TestOpenAPIDescribesPictureUploadsAndImages(t *testing.T) {
 		{"required": true, "content": {"multipart/form-data": {"schema": {"$ref": "#/components/schemas/PictureUpload"}}}},
 		{"type": "object", "required": ["picture"], "properties": {
 			"picture": {"type": "string", "format": "binary", "description": "The image: JPEG, PNG, GIF, or WebP."}}},
-		{"description": "The image reduced to at most 320 pixels on its longest side. Anyone signed in may read the pictures of a door the portal shows; other doors' need the manage-doors role.",
+		{"description": "The image reduced to at most 320 pixels on its longest side. Anyone signed in may read the pictures of a door the portal shows; other doors' need the manage-doors or door-commander or manage-firmware role.",
 		 "content": {"image/jpeg": {"schema": {"type": "string", "format": "binary"}}}}
 	]`)
 	if diff := cmp.Diff(want, got); diff != "" {

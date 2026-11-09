@@ -14,7 +14,7 @@
 {{if not $c.Reached}}
 <p role="note" class="mt-6 rounded-lg border border-dashed border-zinc-300 px-4 py-3 text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">None of your groups has access to this door, so your code does not open it; you get in only while it is in open mode. <a href="/me/requests" class="{{template "link-class"}}">Ask for access</a>.</p>
 {{end}}
-{{template "calendar-key" (list "code" "open" "locked")}}
+{{template "calendar-key" (calendarkey "Your" "code" "open" "locked")}}
 {{template "calendar" $w}}
 
 <div class="mt-8 grid gap-8 lg:grid-cols-2">

@@ -1,7 +1,6 @@
 package app
 
 import (
-	"fmt"
 	"math"
 	"slices"
 	"strconv"
@@ -59,7 +58,7 @@ type chartFrame struct {
 // in unit, all on one scale. A series without points draws no line.
 func (f chartFrame) chart(name, unit string, series ...[]point) chartView {
 	view := chartView{
-		Label: name + " " + f.over, Start: f.from.In(f.zone).Format(chartLayout), End: f.to.In(f.zone).Format(chartLayout),
+		Label: name + " " + f.over, Start: shownAt(f.zone, f.from, chartLayout), End: shownAt(f.zone, f.to, chartLayout),
 		Empty: "Nothing reported " + f.during + ".",
 	}
 	all := slices.Concat(series...)
@@ -89,7 +88,7 @@ func (f chartFrame) line(points []point, low, high float64) string {
 		if high > low {
 			y = plotTop + (high-p.Value)/(high-low)*plotHeight
 		}
-		coordinates = append(coordinates, fmt.Sprintf("%.1f,%.1f", x, y))
+		coordinates = append(coordinates, coordinate(x)+","+coordinate(y))
 	}
 	return strings.Join(coordinates, " ")
 }

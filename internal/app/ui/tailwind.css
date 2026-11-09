@@ -4,19 +4,31 @@
 
 @source "./templates";
 
-/* The brand color. A later theme setting overrides these variables. */
+/* The theme colors. --accent is the accent color of the light theme and
+   --accent-dark, when set, that of the dark theme; the theme_accent and
+   theme_accent_dark settings override both through a style block in every
+   page's head. --brand is the accent of the theme in use, and every tone of
+   the brand ramp is mixed from it, so one color recolors the whole site. */
+:root {
+  --accent: #4f39f6;
+  --brand: var(--accent);
+}
+@media (prefers-color-scheme: dark) {
+  :root { --brand: var(--accent-dark, var(--accent)); }
+}
+
 @theme {
-  --color-brand-50: oklch(0.962 0.018 272.3);
-  --color-brand-100: oklch(0.93 0.034 272.8);
-  --color-brand-200: oklch(0.87 0.065 274);
-  --color-brand-300: oklch(0.785 0.115 274.7);
-  --color-brand-400: oklch(0.673 0.182 276.9);
-  --color-brand-500: oklch(0.585 0.233 277.1);
-  --color-brand-600: oklch(0.511 0.262 276.97);
-  --color-brand-700: oklch(0.457 0.24 277.02);
-  --color-brand-800: oklch(0.398 0.195 277.37);
-  --color-brand-900: oklch(0.359 0.144 278.7);
-  --color-brand-950: oklch(0.257 0.09 281.29);
+  --color-brand-50: color-mix(in oklab, var(--brand) 7%, white);
+  --color-brand-100: color-mix(in oklab, var(--brand) 14%, white);
+  --color-brand-200: color-mix(in oklab, var(--brand) 27%, white);
+  --color-brand-300: color-mix(in oklab, var(--brand) 45%, white);
+  --color-brand-400: color-mix(in oklab, var(--brand) 68%, white);
+  --color-brand-500: color-mix(in oklab, var(--brand) 85%, white);
+  --color-brand-600: var(--brand);
+  --color-brand-700: color-mix(in oklab, var(--brand) 86%, black);
+  --color-brand-800: color-mix(in oklab, var(--brand) 72%, black);
+  --color-brand-900: color-mix(in oklab, var(--brand) 58%, black);
+  --color-brand-950: color-mix(in oklab, var(--brand) 38%, black);
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 

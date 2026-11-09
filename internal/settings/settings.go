@@ -45,6 +45,10 @@ const envPrefix = "DOORCODE_"
 const (
 	keySiteName            = "site_name"
 	keySiteTimezone        = "site_timezone"
+	keyThemeAccent         = "theme_accent"
+	keyThemeAccentDark     = "theme_accent_dark"
+	defaultAccent          = "#4f39f6"
+	colorHint              = "must be a color as #rrggbb, such as #4f39f6"
 	siteTimezoneHint       = "must be a time zone name from the tz database, such as UTC or Europe/Berlin"
 	keyAdminEmail          = "admin_email"
 	keyPasswordHashMemory  = "password_hash_memory_kib"
@@ -134,46 +138,93 @@ type definition struct {
 	validate func(s Service, value string) error
 	// secret settings are stored encrypted and shown masked.
 	secret bool
+	// section is the part of the settings page that shows the setting,
+	// under label, explained by help.
+	section Section
+	label   string
+	help    string
 }
+
+// Section is a part of the settings page: its name and what it is about.
+type Section struct {
+	Name  string
+	About string
+}
+
+// The sections of the settings page, in display order.
+var (
+	siteSection       = Section{Name: "Site", About: "What the site is called and the timezone every time it shows is read in."}
+	themeSection      = Section{Name: "Theme", About: "The accent color of buttons, links, and highlights. Lighter and darker tones are worked out from it for both the light and the dark theme."}
+	passwordSection   = Section{Name: "Accounts and passwords", About: "How passwords are hashed and chosen, and how long accounts made at sign-in last."}
+	providerSection   = Section{Name: "Single sign-on", About: "Signing in through an OpenID Connect provider. Register public_url followed by /sign-in/oidc/callback as the redirect address, and public_url followed by /sign-in as the address to return to after signing out."}
+	claimsSection     = Section{Name: "Identity claims", About: "The claims of the provider's ID token or userinfo that say who someone is, and the groups its entitlements decide. An empty claim name is a claim the site does not read."}
+	enrollmentSection = Section{Name: "Door enrollment", About: "The broker account every new controller enrolls with, and how long a door's old credentials keep working. A changed enrollment username or password takes effect when the server next starts."}
+	telemetrySection  = Section{Name: "Telemetry", About: "How long door reports are kept and when a silent door counts as unresponsive."}
+	updatesSection    = Section{Name: "Firmware updates", About: "Where doors download firmware from, and when and how fast updates roll out."}
+	doorSection       = Section{Name: "Door defaults", About: "The configuration every door runs with unless its own page overrides a field. Doors receive a changed default as soon as it is saved."}
+)
 
 // siteDefinitions is every setting that is not a door configuration
 // default, in display order.
 var siteDefinitions = []definition{
-	{key: keySiteName, fallback: "doorcode"},
+	{key: keySiteName, fallback: "doorcode", section: siteSection, label: "Site name", help: "Shown in the header and every page title."},
 	{key: keySiteTimezone, fallback: "UTC", validate: func(s Service, value string) error {
 		_, err := s.siteZone(value)
 		return err
-	}},
-	{key: keyAdminEmail, fallback: "admin@example.com"},
-	{key: keyPasswordHashMemory, fallback: "19456", validate: accepting(passwordHashMemory)},
-	{key: keyPasswordMinLength, fallback: "12", validate: accepting(passwordMinLength)},
-	{key: keyNewUserExpiry, fallback: "1826", validate: accepting(newUserExpiry)},
-	{key: keyOIDCEnabled, fallback: "false", validate: accepting(boolean)},
-	{key: keyOIDCAutoSignIn, fallback: "false", validate: accepting(boolean)},
-	{key: keyOIDCIssuer, fallback: "", validate: accepting(issuer)},
-	{key: keyOIDCClientID, fallback: ""},
-	{key: keyOIDCClientSecret, fallback: "", secret: true},
-	{key: keyOIDCScopes, fallback: "openid email profile", validate: accepting(scopes)},
-	{key: keyClaimUserID, fallback: ""},
-	{key: keyClaimEmail, fallback: "email", validate: accepting(claimName)},
-	{key: keyClaimFirstName, fallback: "given_name"},
-	{key: keyClaimLastName, fallback: "family_name"},
-	{key: keyClaimDisplayName, fallback: "name"},
-	{key: keyClaimEntitlements, fallback: ""},
-	{key: keyEntitlementGroups, fallback: "", validate: accepting(slugs)},
-	{key: keyDefaultGroups, fallback: "", validate: accepting(slugs)},
-	{key: keyEnrollmentUsername, fallback: "doorcode-enroll"},
-	{key: keyEnrollmentPassword, fallback: "", secret: true},
-	{key: keyGraceHours, fallback: "24", validate: accepting(graceHours)},
-	{key: keyTelemetryRetention, fallback: "7", validate: accepting(telemetryRetention)},
-	{key: keyRollupRetention, fallback: "730", validate: accepting(rollupRetention)},
-	{key: keyUnresponsive, fallback: "5", validate: accepting(unresponsiveAfter)},
-	{key: keyPublicURL, fallback: "", validate: accepting(publicURL)},
-	{key: KeyUpdateDays, fallback: EveryDay, validate: accepting(updateDays)},
-	{key: keyUpdateStart, fallback: "02:00", validate: accepting(timeOfDay)},
-	{key: keyUpdateLength, fallback: "120", validate: accepting(updateLength)},
-	{key: keyUpdateConcurrency, fallback: "5", validate: accepting(updateConcurrency)},
-	{key: keyUpdateTimeout, fallback: "30", validate: accepting(updateTimeout)},
+	}, section: siteSection, label: "Timezone", help: "A tz database name such as Europe/Berlin. Schedules, dates typed on pages, and every time shown are read in it."},
+	{key: keyAdminEmail, fallback: "admin@example.com", section: siteSection, label: "First administrator's email",
+		help: "The account created on first start when there are no users."},
+	{key: keyThemeAccent, fallback: defaultAccent, validate: accepting(color), section: themeSection, label: "Accent color",
+		help: "A color as #rrggbb, such as #4f39f6."},
+	{key: keyThemeAccentDark, fallback: "", validate: accepting(optionalColor), section: themeSection, label: "Accent color in the dark theme",
+		help: "A color as #rrggbb, or empty to use the accent color."},
+	{key: keyPasswordHashMemory, fallback: "19456", validate: accepting(passwordHashMemory), section: passwordSection, label: "Password hashing memory",
+		help: "KiB of memory hashing one password takes, from 8 to 1048576. More is slower to guess."},
+	{key: keyPasswordMinLength, fallback: "12", validate: accepting(passwordMinLength), section: passwordSection, label: "Shortest password",
+		help: "How many characters a password chosen in the portal has at least, from 8 to 128."},
+	{key: keyNewUserExpiry, fallback: "1826", validate: accepting(newUserExpiry), section: passwordSection, label: "New account lifetime",
+		help: "Days until the account of a user created by signing in at the provider expires."},
+	{key: keyOIDCEnabled, fallback: "false", validate: accepting(boolean), section: providerSection, label: "Single sign-on enabled", help: "true or false."},
+	{key: keyOIDCAutoSignIn, fallback: "false", validate: accepting(boolean), section: providerSection, label: "Automatic sign-in",
+		help: "true sends the sign-in page straight on to the provider and hides the password forms; add ?auto_sign_in=false to reach them."},
+	{key: keyOIDCIssuer, fallback: "", validate: accepting(issuer), section: providerSection, label: "Issuer",
+		help: "The provider's https:// address, exactly as it names itself."},
+	{key: keyOIDCClientID, fallback: "", section: providerSection, label: "Client id", help: "The id the site is registered with at the provider."},
+	{key: keyOIDCClientSecret, fallback: "", secret: true, section: providerSection, label: "Client secret",
+		help: "The secret the site is registered with, if the provider gave one."},
+	{key: keyOIDCScopes, fallback: "openid email profile", validate: accepting(scopes), section: providerSection, label: "Scopes",
+		help: "Scopes asked for, separated by spaces, openid among them."},
+	{key: keyClaimUserID, fallback: "", section: claimsSection, label: "User id claim", help: "The claim holding the user id people are matched by first."},
+	{key: keyClaimEmail, fallback: "email", validate: accepting(claimName), section: claimsSection, label: "Email claim", help: "Required."},
+	{key: keyClaimFirstName, fallback: "given_name", section: claimsSection, label: "First name claim"},
+	{key: keyClaimLastName, fallback: "family_name", section: claimsSection, label: "Last name claim"},
+	{key: keyClaimDisplayName, fallback: "name", section: claimsSection, label: "Display name claim"},
+	{key: keyClaimEntitlements, fallback: "", section: claimsSection, label: "Entitlements claim",
+		help: "The claim listing what someone is entitled to; values equal to a slug below decide membership of that group."},
+	{key: keyEntitlementGroups, fallback: "", validate: accepting(slugs), section: claimsSection, label: "Groups entitlements decide",
+		help: "Group slugs separated by commas. Signing in joins those the entitlements name and leaves the others."},
+	{key: keyDefaultGroups, fallback: "", validate: accepting(slugs), section: claimsSection, label: "Groups new users join",
+		help: "Group slugs separated by commas."},
+	{key: keyEnrollmentUsername, fallback: "doorcode-enroll", section: enrollmentSection, label: "Enrollment username"},
+	{key: keyEnrollmentPassword, fallback: "", secret: true, section: enrollmentSection, label: "Enrollment password",
+		help: "Generated and logged on first start when empty."},
+	{key: keyGraceHours, fallback: "24", validate: accepting(graceHours), section: enrollmentSection, label: "Credential grace period",
+		help: "Hours a door's old credentials keep working after new ones are issued."},
+	{key: keyTelemetryRetention, fallback: "7", validate: accepting(telemetryRetention), section: telemetrySection, label: "Reports kept",
+		help: "Days each telemetry report is kept."},
+	{key: keyRollupRetention, fallback: "730", validate: accepting(rollupRetention), section: telemetrySection, label: "Hourly summaries kept",
+		help: "Days the hourly summaries of the reports are kept."},
+	{key: keyUnresponsive, fallback: "5", validate: accepting(unresponsiveAfter), section: telemetrySection, label: "Unresponsive after",
+		help: "Minutes a connected door may stay silent before it counts as unresponsive."},
+	{key: keyPublicURL, fallback: "", validate: accepting(publicURL), section: updatesSection, label: "Public address",
+		help: "The https:// address doors and browsers reach the server at. Nothing is sent to doors to download while it is empty."},
+	{key: KeyUpdateDays, fallback: EveryDay, validate: accepting(updateDays), section: updatesSection, label: "Update days",
+		help: "daily, or weekdays separated by commas such as sat,sun."},
+	{key: keyUpdateStart, fallback: "02:00", validate: accepting(timeOfDay), section: updatesSection, label: "Update window opens", help: "HH:MM in the site timezone."},
+	{key: keyUpdateLength, fallback: "120", validate: accepting(updateLength), section: updatesSection, label: "Update window length", help: "Minutes."},
+	{key: keyUpdateConcurrency, fallback: "5", validate: accepting(updateConcurrency), section: updatesSection, label: "Doors updating at once"},
+	{key: keyUpdateTimeout, fallback: "30", validate: accepting(updateTimeout), section: updatesSection, label: "Update timeout",
+		help: "Minutes a door may take to come back on its new version before the update fails."},
 }
 
 // UpdateKeys are the keys of the settings that say how firmware updates
@@ -222,6 +273,15 @@ type Current struct {
 	NewUserExpiry time.Duration
 	// OIDC is how people sign in through an OpenID Connect provider.
 	OIDC OIDC
+	// Theme is the colors pages are drawn in.
+	Theme Theme
+}
+
+// Theme is the colors pages are drawn in: Accent, as #rrggbb, and
+// AccentDark in the dark theme, empty to use Accent there too.
+type Theme struct {
+	Accent     string
+	AccentDark string
 }
 
 // OIDC is how people sign in through an OpenID Connect provider. Its
@@ -304,6 +364,22 @@ func boolean(value string) (bool, error) {
 		return false, errors.New("must be true or false")
 	}
 	return value == "true", nil
+}
+
+// color parses a color written as #rrggbb, kept in lowercase.
+func color(value string) (string, error) {
+	if len(value) != 7 || value[0] != '#' || strings.Trim(strings.ToLower(value[1:]), "0123456789abcdef") != "" {
+		return "", errors.New(colorHint)
+	}
+	return strings.ToLower(value), nil
+}
+
+// optionalColor parses a color as color does, or the empty value.
+func optionalColor(value string) (string, error) {
+	if value == "" {
+		return "", nil
+	}
+	return color(value)
 }
 
 // scopes parses the scopes asked of an OpenID Connect provider.
@@ -429,6 +505,11 @@ type Setting struct {
 	// UpdatedAt is when the stored value was written; zero unless Source is
 	// SourceDatabase.
 	UpdatedAt time.Time
+	// Section is the part of the settings page that shows the setting,
+	// under Label, explained by Help.
+	Section Section
+	Label   string
+	Help    string
 }
 
 // ReadOnly reports whether the setting cannot be changed from the
@@ -487,6 +568,12 @@ func (s Service) Current(ctx context.Context) (Current, error) {
 	}
 	c, err = c.withUpdates(values)
 	if err != nil {
+		return Current{}, err
+	}
+	if c.Theme.Accent, err = parsed(values, keyThemeAccent, color); err != nil {
+		return Current{}, err
+	}
+	if c.Theme.AccentDark, err = parsed(values, keyThemeAccentDark, optionalColor); err != nil {
 		return Current{}, err
 	}
 	return c.withSignIn(values)
@@ -599,7 +686,20 @@ func (s Service) Get(ctx context.Context, key string) (Setting, error) {
 }
 
 // Update stores value for the setting named key and returns the result.
+// An empty value leaves a secret as it is.
 func (s Service) Update(ctx context.Context, key, value string) (Setting, error) {
+	return s.put(ctx, key, value, false)
+}
+
+// Clear stores the empty value for the setting named key, a secret
+// included, and returns the result.
+func (s Service) Clear(ctx context.Context, key string) (Setting, error) {
+	return s.put(ctx, key, "", true)
+}
+
+// put stores value for the setting named key, even an empty value for a
+// secret when clearing, and returns the result.
+func (s Service) put(ctx context.Context, key, value string, clearing bool) (Setting, error) {
 	def, err := lookup(key)
 	if err != nil {
 		return Setting{}, err
@@ -608,7 +708,7 @@ func (s Service) Update(ctx context.Context, key, value string) (Setting, error)
 	if _, set := s.Env.Lookup(envVar); set {
 		return Setting{}, fmt.Errorf("%w: %s is set by environment variable %s", ErrReadOnly, key, envVar)
 	}
-	if keeps(def, value) {
+	if !clearing && keeps(def, value) {
 		return s.Get(ctx, key)
 	}
 	if def.validate != nil {
@@ -624,25 +724,33 @@ func (s Service) Update(ctx context.Context, key, value string) (Setting, error)
 }
 
 // UpdateAll stores each of values, keyed by setting key, that differs from
-// the setting's value now, and returns the keys of those it stored, in
+// the setting's value now, and the empty value for each secret setting
+// whose key is in cleared, and returns the keys of those it stored, in
 // display order. It stores none when one is refused, and reports each
 // refusal as the problem with its key. It passes over values for keys no
 // setting has and for settings the environment provides, which a form
-// does not offer. An empty value for a secret setting leaves it as it is.
-func (s Service) UpdateAll(ctx context.Context, values map[string]string) ([]string, error) {
+// does not offer. An empty value for a secret setting leaves it as it is,
+// unless the secret is cleared.
+func (s Service) UpdateAll(ctx context.Context, values map[string]string, cleared []string) ([]string, error) {
 	all, err := s.List(ctx)
 	if err != nil {
 		return nil, err
 	}
 	var found check.List
 	var changed []definition
+	stored := map[string]string{}
 	for i, def := range definitions {
 		value, given := values[def.key]
-		if !given || value == all[i].Value || all[i].ReadOnly() || keeps(def, value) {
+		clearing := def.secret && slices.Contains(cleared, def.key)
+		if clearing {
+			value, given = "", true
+		}
+		if !given || value == all[i].Value || all[i].ReadOnly() || !clearing && keeps(def, value) {
 			continue
 		}
 		found.Add(def.key, s.refusal(def, value))
 		changed = append(changed, def)
+		stored[def.key] = value
 	}
 	if err := found.Err(); err != nil {
 		return nil, err
@@ -650,7 +758,7 @@ func (s Service) UpdateAll(ctx context.Context, values map[string]string) ([]str
 	now := s.Clock.Now()
 	keys := make([]string, 0, len(changed))
 	for _, def := range changed {
-		if err := s.Store.PutSetting(ctx, def.key, s.storable(def, values[def.key]), now); err != nil {
+		if err := s.Store.PutSetting(ctx, def.key, s.storable(def, stored[def.key]), now); err != nil {
 			return nil, err
 		}
 		keys = append(keys, def.key)
@@ -665,8 +773,7 @@ func (s Service) refusal(def definition, value string) string {
 		return ""
 	}
 	if err := def.validate(s, value); err != nil {
-		text := err.Error()
-		return strings.ToUpper(text[:1]) + text[1:] + "."
+		return sentence(err.Error())
 	}
 	return ""
 }

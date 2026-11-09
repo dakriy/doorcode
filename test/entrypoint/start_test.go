@@ -181,6 +181,14 @@ func TestStartupFails(t *testing.T) {
 			want: "create first administrator: invalid value for password_min_length: " +
 				"must be a whole number of characters from 8 to 128",
 		},
+		"an accent color that is not one": {
+			arrange: func(f *testsupport.Factory) { f.EnvStub["DOORCODE_THEME_ACCENT"] = "teal" },
+			want:    "create first administrator: invalid value for theme_accent: must be a color as #rrggbb, such as #4f39f6",
+		},
+		"a dark accent color that is not one": {
+			arrange: func(f *testsupport.Factory) { f.EnvStub["DOORCODE_THEME_ACCENT_DARK"] = "teal" },
+			want:    "create first administrator: invalid value for theme_accent_dark: must be a color as #rrggbb, such as #4f39f6",
+		},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

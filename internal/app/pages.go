@@ -9,9 +9,11 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/settings"
 )
 
 //go:embed ui/templates/*.html
@@ -147,7 +149,7 @@ var livePages = map[*template.Template]bool{
 // (those who open doors, and those who manage firmware, whose page follows
 // the rollout), and those who answer access requests, whose navigation
 // counts the requests waiting.
-var watchesLive = eitherOf(opensDoors, holding(auth.RoleManageFirmware), answersRequests)
+var watchesLive = eitherOf(seesDoors, answersRequests)
 
 // navItem is one link in the main navigation. A Reload link loads its page
 // in full rather than through htmx, for a page whose scripts must run in
@@ -178,6 +180,10 @@ var templateFuncs = template.FuncMap{
 		return choiceList{Name: name, Legend: legend, Choices: choices, Error: problem, Empty: empty}
 	},
 	"list": func(items ...string) []string { return items },
+	"date": func(zone *time.Location, t time.Time) string { return shownAt(zone, t, longDateLayout) },
+	"calendarkey": func(whose string, kinds ...string) calendarKey {
+		return calendarKey{Whose: whose, Kinds: kinds}
+	},
 	"thumb": func(row doorRow, size string) thumbnailView {
 		return thumbnailView{Row: row, Size: size}
 	},
@@ -193,6 +199,13 @@ var templateFuncs = template.FuncMap{
 	"bartable": func(label, name, unit, class string, rows []barRow, empty string) barTable {
 		return barTable{Label: label, Name: name, Unit: unit, Class: class, Rows: rows, Empty: empty}
 	},
+}
+
+// calendarKey is a calendar's key: what each of Kinds of interval means,
+// with the code whose times it shows called Whose ("Your" or "Their").
+type calendarKey struct {
+	Whose string
+	Kinds []string
 }
 
 // spanTable is a door's timeline as a table labelled Label.
@@ -317,6 +330,11 @@ type pageData struct {
 	Waiting int
 	Live    bool
 	Flash   string
+	// Theme is the colors the page is drawn in, and Zone the site
+	// timezone every time it shows is read in; both are zero on a page
+	// drawn without the settings.
+	Theme settings.Theme
+	Zone  *time.Location
 	// Content is the page's own data.
 	Content any
 }
@@ -340,6 +358,8 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, status int, page *t
 		Portal:    inPortal(r.URL.Path),
 		Passwords: !current.OIDC.HidesPasswordForms(),
 		Flash:     takeFlash(w, r),
+		Theme:     current.Theme,
+		Zone:      current.Zone,
 		Content:   content,
 	}
 	if viewer != nil {

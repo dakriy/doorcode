@@ -2,8 +2,13 @@
 {{$form := .Content}}
 <div class="flex min-h-full">
   <aside class="relative hidden w-0 flex-1 overflow-hidden bg-brand-950 lg:flex lg:flex-col lg:justify-between lg:p-12">
+    {{with $form.Image}}
+    <img src="{{.}}" alt="" class="absolute inset-0 size-full object-cover">
+    <div aria-hidden="true" class="absolute inset-0 bg-gradient-to-t from-brand-950/90 via-brand-950/30 to-brand-950/60"></div>
+    {{else}}
     <div aria-hidden="true" class="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,var(--color-brand-600),transparent_60%),radial-gradient(ellipse_at_bottom_right,var(--color-brand-800),transparent_55%)] opacity-90"></div>
     <div aria-hidden="true" class="absolute inset-0 bg-[linear-gradient(to_right,rgb(255_255_255/0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgb(255_255_255/0.06)_1px,transparent_1px)] bg-[size:48px_48px]"></div>
+    {{end}}
     <div class="relative flex items-center gap-3 text-white">
       {{template "logo" "size-9"}}
       <span class="text-lg font-semibold tracking-tight">{{.Site}}</span>

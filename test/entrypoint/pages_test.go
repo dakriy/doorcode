@@ -18,11 +18,11 @@ func TestHomeAsksForSignIn(t *testing.T) {
 	}
 }
 
-// settingsNote is what the settings page says about door defaults.
-var settingsNote = []string{"Settings starting with door_ are the defaults every door is configured with; a door's own page overrides " +
-	"them for that door. Doors receive a changed default as soon as it is saved. A changed enrollment username or password takes " +
-	"effect when the server next starts. Secret settings are stored encrypted and never shown; leave one blank to keep it, or " +
-	"enter a new value to replace it."}
+// settingsNote is what the settings page says about the environment and
+// secrets.
+var settingsNote = "Every setting can also be given by an environment variable, DOORCODE_ followed by its key in capitals; " +
+	"a setting the environment gives is read-only here. Secret settings are stored encrypted and never shown: leave one blank " +
+	"to keep it, enter a new value to replace it, or tick Clear to remove it."
 
 // shownSetting is a setting as the settings page shows it.
 type shownSetting struct {
@@ -34,6 +34,7 @@ type shownSetting struct {
 // hashing cost, in order.
 var defaultSettings = []shownSetting{
 	{"site_name", "doorcode", "default"}, {"site_timezone", "UTC", "default"}, {"admin_email", "admin@example.com", "default"},
+	{"theme_accent", "#4f39f6", "default"}, {"theme_accent_dark", "", "default"},
 	{"password_hash_memory_kib", "8", "environment, read-only"}, {"password_min_length", "12", "default"},
 	{"new_user_expiry_days", "1826", "default"}, {"oidc_enabled", "false", "default"}, {"oidc_auto_sign_in", "false", "default"},
 	{"oidc_issuer", "", "default"}, {"oidc_client_id", "", "default"}, {"oidc_client_secret", "", "default"},
@@ -55,6 +56,59 @@ var defaultSettings = []shownSetting{
 	{"door_ntp_server", "pool.ntp.org", "default"}, {"door_log_level", "info", "default"},
 }
 
+// settingRows is the section each setting is shown in, and its label and
+// help text.
+var settingRows = map[string]struct{ section, label, help string }{
+	"site_name":                       {"Site", "Site name", "Shown in the header and every page title."},
+	"site_timezone":                   {"Site", "Timezone", "A tz database name such as Europe/Berlin. Schedules, dates typed on pages, and every time shown are read in it."},
+	"admin_email":                     {"Site", "First administrator's email", "The account created on first start when there are no users."},
+	"theme_accent":                    {"Theme", "Accent color", "A color as #rrggbb, such as #4f39f6."},
+	"theme_accent_dark":               {"Theme", "Accent color in the dark theme", "A color as #rrggbb, or empty to use the accent color."},
+	"password_hash_memory_kib":        {"Accounts and passwords", "Password hashing memory", "KiB of memory hashing one password takes, from 8 to 1048576. More is slower to guess."},
+	"password_min_length":             {"Accounts and passwords", "Shortest password", "How many characters a password chosen in the portal has at least, from 8 to 128."},
+	"new_user_expiry_days":            {"Accounts and passwords", "New account lifetime", "Days until the account of a user created by signing in at the provider expires."},
+	"oidc_enabled":                    {"Single sign-on", "Single sign-on enabled", "true or false."},
+	"oidc_auto_sign_in":               {"Single sign-on", "Automatic sign-in", "true sends the sign-in page straight on to the provider and hides the password forms; add ?auto_sign_in=false to reach them."},
+	"oidc_issuer":                     {"Single sign-on", "Issuer", "The provider's https:// address, exactly as it names itself."},
+	"oidc_client_id":                  {"Single sign-on", "Client id", "The id the site is registered with at the provider."},
+	"oidc_client_secret":              {"Single sign-on", "Client secret", "The secret the site is registered with, if the provider gave one."},
+	"oidc_scopes":                     {"Single sign-on", "Scopes", "Scopes asked for, separated by spaces, openid among them."},
+	"oidc_claim_user_id":              {"Identity claims", "User id claim", "The claim holding the user id people are matched by first."},
+	"oidc_claim_email":                {"Identity claims", "Email claim", "Required."},
+	"oidc_claim_first_name":           {"Identity claims", "First name claim", ""},
+	"oidc_claim_last_name":            {"Identity claims", "Last name claim", ""},
+	"oidc_claim_display_name":         {"Identity claims", "Display name claim", ""},
+	"oidc_claim_entitlements":         {"Identity claims", "Entitlements claim", "The claim listing what someone is entitled to; values equal to a slug below decide membership of that group."},
+	"oidc_entitlement_groups":         {"Identity claims", "Groups entitlements decide", "Group slugs separated by commas. Signing in joins those the entitlements name and leaves the others."},
+	"oidc_default_groups":             {"Identity claims", "Groups new users join", "Group slugs separated by commas."},
+	"enrollment_username":             {"Door enrollment", "Enrollment username", ""},
+	"enrollment_password":             {"Door enrollment", "Enrollment password", "Generated and logged on first start when empty."},
+	"door_credential_grace_hours":     {"Door enrollment", "Credential grace period", "Hours a door's old credentials keep working after new ones are issued."},
+	"telemetry_retention_days":        {"Telemetry", "Reports kept", "Days each telemetry report is kept."},
+	"telemetry_rollup_retention_days": {"Telemetry", "Hourly summaries kept", "Days the hourly summaries of the reports are kept."},
+	"unresponsive_minutes":            {"Telemetry", "Unresponsive after", "Minutes a connected door may stay silent before it counts as unresponsive."},
+	"public_url":                      {"Firmware updates", "Public address", "The https:// address doors and browsers reach the server at. Nothing is sent to doors to download while it is empty."},
+	"update_window_days":              {"Firmware updates", "Update days", "daily, or weekdays separated by commas such as sat,sun."},
+	"update_window_start":             {"Firmware updates", "Update window opens", "HH:MM in the site timezone."},
+	"update_window_minutes":           {"Firmware updates", "Update window length", "Minutes."},
+	"update_concurrency":              {"Firmware updates", "Doors updating at once", ""},
+	"update_timeout_minutes":          {"Firmware updates", "Update timeout", "Minutes a door may take to come back on its new version before the update fails."},
+	"door_strike_pulse_ms":            {"Door defaults", "Strike pulse", "A whole number of milliseconds from 100 to 60000."},
+	"door_keypad_idle_clear_ms":       {"Door defaults", "Keypad idle clear", "A whole number of milliseconds from 1000 to 600000."},
+	"door_min_code_length":            {"Door defaults", "Shortest code", "A whole number of digits from 1 to 16."},
+	"door_max_code_length":            {"Door defaults", "Longest code", "A whole number of digits from 16 to 64."},
+	"door_submit_key":                 {"Door defaults", "Submit key", "One of #, A, B, C, D."},
+	"door_reply_timeout_ms":           {"Door defaults", "Reply timeout", "A whole number of milliseconds from 100 to 60000."},
+	"door_telemetry_interval_s":       {"Door defaults", "Telemetry interval", "A whole number of seconds from 5 to 86400."},
+	"door_held_open_s":                {"Door defaults", "Held open after", "A whole number of seconds from 5 to 86400."},
+	"door_timeline_refresh_hours":     {"Door defaults", "Timeline refresh", "A whole number of hours from 1 to 24."},
+	"door_credential_rotation_days":   {"Door defaults", "Credential rotation", "A whole number of days from 1 to 3650."},
+	"door_rate_limit_per_minute":      {"Door defaults", "Code checks a minute", "A whole number of checks from 1 to 6000."},
+	"door_rate_limit_burst":           {"Door defaults", "Code checks in a burst", "A whole number of checks from 1 to 1000."},
+	"door_ntp_server":                 {"Door defaults", "Time server", "A host name of up to 253 letters, digits, dots, and hyphens."},
+	"door_log_level":                  {"Door defaults", "Log level", "One of error, warn, info, debug."},
+}
+
 // secretSettings are the settings the settings page offers as password
 // fields, which are left blank.
 var secretSettings = map[string]bool{"oidc_client_secret": true, "enrollment_password": true}
@@ -62,28 +116,42 @@ var secretSettings = map[string]bool{"oidc_client_secret": true, "enrollment_pas
 // settingsPage is the settings page showing shown, where changed replaces
 // the value and source of the settings it names, entered the value an
 // input holds, and refused what is wrong with a value; a read-only
-// setting shows its value in place of an input.
+// setting shows its value in place of an input, and a secret that has a
+// value offers to clear it.
 func settingsPage(shown []shownSetting, changed map[string]shownSetting, entered, refused map[string]string) testsupport.Page {
 	page := testsupport.Page{
-		Title: "Settings · doorcode", Heading: "Settings", Notes: settingsNote, Values: map[string]string{},
+		Title: "Settings · doorcode", Heading: "Settings", Notes: []string{settingsNote}, Values: map[string]string{"picture": ""},
 		Nav:    []string{"Home", "Dashboard", "Users", "Requests", "Groups", "Schedules", "Doors", "Zones", "Firmware", "Events", "Settings (current)", "API tokens", "API docs"},
-		Tables: map[string][][]string{"Settings": {{"Setting", "Value", "Source", "Environment variable"}}},
+		Tables: map[string][][]string{},
 	}
 	for _, s := range shown {
 		if c, ok := changed[s.key]; ok {
 			s = c
 		}
+		row := settingRows[s.key]
 		cell := refused[s.key]
-		if s.source == "environment, read-only" {
-			cell = s.value
-		} else if secretSettings[s.key] {
+		switch {
+		case s.source == "environment, read-only":
+			note := "Set by DOORCODE_" + upper(s.key) + " in the environment; change it there."
+			cell = s.value + " " + note
+			page.Notes = append(page.Notes, note)
+		case secretSettings[s.key] && s.value != "":
 			// A secret's input is a password field, whose value is not read.
-		} else if value, ok := entered[s.key]; ok {
-			page.Values[s.key] = value
-		} else {
+			cell = "Clear"
+		case secretSettings[s.key]:
+		case entered[s.key] != "" || refused[s.key] != "":
+			page.Values[s.key] = entered[s.key]
+		default:
 			page.Values[s.key] = s.value
 		}
-		page.Tables["Settings"] = append(page.Tables["Settings"], []string{s.key, cell, s.source, "DOORCODE_" + upper(s.key)})
+		setting := row.label + " " + s.key
+		if row.help != "" {
+			setting += " " + row.help
+		}
+		if page.Tables[row.section] == nil {
+			page.Tables[row.section] = [][]string{{"Setting", "Value", "Source"}}
+		}
+		page.Tables[row.section] = append(page.Tables[row.section], []string{setting, cell, s.source})
 	}
 	if refused != nil {
 		page.FieldErrors = refused

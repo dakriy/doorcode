@@ -399,3 +399,48 @@ func TestStoreRefusesASecondSessionWithTheSameToken(t *testing.T) {
 		})
 	}
 }
+
+// signInImageOf is the sign-in page picture store holds, its time in UTC,
+// and whether it holds one.
+func signInImageOf(t *testing.T, store connector.Store) []any {
+	t.Helper()
+	image, found, err := store.SignInImage(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	image.UpdatedAt = image.UpdatedAt.UTC()
+	return []any{image, found}
+}
+
+// putSignInImage stores image as store's sign-in page picture.
+func putSignInImage(t *testing.T, store connector.Store, image connector.StoredImage) {
+	t.Helper()
+	if err := store.PutSignInImage(context.Background(), image); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestStoreKeepsOneSignInImageUntilItIsRemoved(t *testing.T) {
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			store := migrated(t, impl)
+			first := connector.StoredImage{Data: []byte{1, 2, 3}, UpdatedAt: time.Date(2026, 3, 1, 9, 0, 0, 0, time.UTC)}
+			second := connector.StoredImage{Data: []byte{4, 5}, UpdatedAt: time.Date(2026, 3, 2, 9, 0, 0, 0, time.UTC)}
+
+			none := signInImageOf(t, store)
+			putSignInImage(t, store, first)
+			stored := signInImageOf(t, store)
+			putSignInImage(t, store, second)
+			replaced := signInImageOf(t, store)
+			removed, err := store.RemoveSignInImage(context.Background())
+			again, againErr := store.RemoveSignInImage(context.Background())
+			after := signInImageOf(t, store)
+
+			empty := []any{connector.StoredImage{}, false}
+			want := []any{empty, []any{first, true}, []any{second, true}, true, nil, false, nil, empty}
+			if diff := cmp.Diff(want, []any{none, stored, replaced, removed, err, again, againErr, after}); diff != "" {
+				t.Errorf("none, first, second, removed, removed again, after (-want +got):\n%s", diff)
+			}
+		})
+	}
+}

@@ -61,6 +61,22 @@ type SettingsStore interface {
 	// parameters unless some are stored already, and returns the stored
 	// ones.
 	CodeHashing(ctx context.Context, candidate string) (string, error)
+	// SignInImage returns the picture the sign-in page shows, and whether
+	// one is stored.
+	SignInImage(ctx context.Context) (StoredImage, bool, error)
+	// PutSignInImage stores image as the picture the sign-in page shows,
+	// replacing any stored before.
+	PutSignInImage(ctx context.Context, image StoredImage) error
+	// RemoveSignInImage removes the picture the sign-in page shows, and
+	// reports whether one was stored.
+	RemoveSignInImage(ctx context.Context) (bool, error)
+}
+
+// StoredImage is a picture the site shows as the store holds it: its JPEG
+// data and when it was stored.
+type StoredImage struct {
+	Data      []byte
+	UpdatedAt time.Time
 }
 
 // StoredUser is a user as the store holds it. Nil pointers are absent
@@ -833,12 +849,11 @@ type StoredReasonCount struct {
 }
 
 // StoredDoorCount is how many events with Outcome happened at the door
-// whose id is DoorID, named DoorName.
+// whose id is DoorID.
 type StoredDoorCount struct {
-	DoorID   int64
-	DoorName string
-	Outcome  string
-	Count    int
+	DoorID  int64
+	Outcome string
+	Count   int
 }
 
 // StoredFirmware is an uploaded firmware image as the store holds it,

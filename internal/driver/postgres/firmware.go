@@ -60,11 +60,13 @@ func (s *Store) FirmwareImage(ctx context.Context, id int64) ([]byte, bool, erro
 	return found(image, err)
 }
 
-// SetDefaultFirmware makes the firmware with id the only default one.
+// SetDefaultFirmware makes the firmware with id the only default one; the
+// current default stays when no firmware has id.
 func (s *Store) SetDefaultFirmware(ctx context.Context, id int64) (bool, error) {
 	var held bool
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `update firmware set is_default = false where is_default`); err != nil {
+		if _, err := tx.Exec(ctx, `update firmware set is_default = false
+			where is_default and exists (select 1 from firmware chosen where chosen.id = $1)`, id); err != nil {
 			return err
 		}
 		tag, err := tx.Exec(ctx, `update firmware set is_default = true where id = $1`, id)

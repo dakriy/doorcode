@@ -57,7 +57,7 @@ func sentence(s string) string {
 
 func rowOfEvent(e connector.StoredEvent, zone *time.Location) eventRow {
 	row := eventRow{
-		At: e.At.In(zone).Format(eventLayout), Door: nameRef{ID: e.DoorID, Name: e.DoorName}, Type: typeLabels[e.Type],
+		At: shownAt(zone, e.At, eventLayout), Door: nameRef{ID: e.DoorID, Name: e.DoorName}, Type: typeLabels[e.Type],
 		Outcome: sentence(e.Outcome), Reason: sentence(e.Reason), RequestID: e.RequestID, Detail: e.Detail,
 	}
 	if e.UserID != nil {
