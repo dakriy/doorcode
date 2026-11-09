@@ -393,13 +393,14 @@ func TestSessionCookieIsSecureWhenTheBrowserUsesHTTPS(t *testing.T) {
 		target string
 		header string
 	}{
-		"directly":        {target: "https://doors.example.com/sign-in"},
-		"through a proxy": {target: "/sign-in", header: "https"},
+		"directly":                {target: "https://doors.example.com/sign-in"},
+		"through a trusted proxy": {target: "/sign-in", header: "https"},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			f := testsupport.NewFactory()
-			b := startBrowser(t, f)
+			b := trustedSite(t, f, "10.0.0.0/8")
+			b.SetRemote("10.0.0.5:4000")
 			b.SetHeader("X-Forwarded-Proto", c.header)
 
 			got := b.Post(c.target, "email", adminEmail, "password", adminPassword(t, f))
@@ -407,6 +408,34 @@ func TestSessionCookieIsSecureWhenTheBrowserUsesHTTPS(t *testing.T) {
 			want := []string{
 				"doorcode_session=" + sessionToken + "; Path=/; Max-Age=43200; HttpOnly; Secure; SameSite=Lax",
 				"doorcode_flash=signed-in; Path=/; HttpOnly; Secure; SameSite=Lax",
+			}
+			if diff := cmp.Diff(want, got.SetCookie); diff != "" {
+				t.Errorf("cookies (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestSessionCookieIsForAnyConnectionUnlessATrustedProxySaysHTTPS(t *testing.T) {
+	t.Parallel()
+	cases := map[string]struct {
+		remote, header string
+	}{
+		"from an untrusted address":       {"198.51.100.20:5000", "https"},
+		"from a trusted proxy using HTTP": {"10.0.0.5:4000", "http"},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			f := testsupport.NewFactory()
+			b := trustedSite(t, f, "10.0.0.0/8")
+			b.SetRemote(c.remote)
+			b.SetHeader("X-Forwarded-Proto", c.header)
+
+			got := b.Post("/sign-in", "email", adminEmail, "password", adminPassword(t, f))
+
+			want := []string{
+				"doorcode_session=" + sessionToken + "; Path=/; Max-Age=43200; HttpOnly; SameSite=Lax",
+				"doorcode_flash=signed-in; Path=/; HttpOnly; SameSite=Lax",
 			}
 			if diff := cmp.Diff(want, got.SetCookie); diff != "" {
 				t.Errorf("cookies (-want +got):\n%s", diff)

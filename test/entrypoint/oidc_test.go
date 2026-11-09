@@ -366,7 +366,7 @@ func TestASignInIsRefusedWithWhatWentWrong(t *testing.T) {
 			b, got := viaProvider(t, f, h, c.claims)
 
 			want := []any{c.status, refusedPage(c.message, true), "/sign-in?next=%2F",
-				testsupport.LogEntry{Level: "error", Message: providerSays, Fields: map[string]string{"error": c.logged}}}
+				testsupport.LogEntry{Level: "error", Message: providerSays, Fields: map[string]string{"error": c.logged, "client": testsupport.ClientAddress}}}
 			if diff := cmp.Diff(want, []any{got.Status, pageOf(got), b.Get("/").Location, lastLog(f)}); diff != "" {
 				t.Errorf("status, page, where home sends the browser, log (-want +got):\n%s", diff)
 			}
@@ -397,7 +397,7 @@ func TestAnAnswerThatIsNotTheBrowsersSignInIsRefused(t *testing.T) {
 			b, got := answer(f, h)
 
 			want := []any{400, refusedPage(staleSignIn, true), "/sign-in?next=%2F", testsupport.LogEntry{Level: "error", Message: providerSays,
-				Fields: map[string]string{"error": "the answer does not belong to a sign-in this browser started"}}}
+				Fields: map[string]string{"error": "the answer does not belong to a sign-in this browser started", "client": testsupport.ClientAddress}}}
 			if diff := cmp.Diff(want, []any{got.Status, pageOf(got), b.Get("/").Location, lastLog(f)}); diff != "" {
 				t.Errorf("status, page, where home sends the browser, log (-want +got):\n%s", diff)
 			}
@@ -414,7 +414,7 @@ func TestAPersonTheProviderDoesNotSignInIsToldSo(t *testing.T) {
 	got := b.Get(f.IdentityStub.Deny(b.Get("/sign-in/oidc").Location))
 
 	want := []any{403, refusedPage("The identity provider did not sign you in.", true), testsupport.LogEntry{Level: "error", Message: providerSays,
-		Fields: map[string]string{"error": "the identity provider did not sign the person in: access_denied: The person cancelled."}}}
+		Fields: map[string]string{"error": "the identity provider did not sign the person in: access_denied: The person cancelled.", "client": testsupport.ClientAddress}}}
 	if diff := cmp.Diff(want, []any{got.Status, pageOf(got), lastLog(f)}); diff != "" {
 		t.Errorf("status, page, log (-want +got):\n%s", diff)
 	}
@@ -468,7 +468,7 @@ func TestSigningInAtTheProviderIsRefusedUntilItIsSetUp(t *testing.T) {
 			if c.unset == "DOORCODE_OIDC_ENABLED" {
 				page.LinkTargets = nil
 			}
-			want := []any{c.status, page, testsupport.LogEntry{Level: "error", Message: providerSays, Fields: map[string]string{"error": c.logged}}}
+			want := []any{c.status, page, testsupport.LogEntry{Level: "error", Message: providerSays, Fields: map[string]string{"error": c.logged, "client": testsupport.ClientAddress}}}
 			if diff := cmp.Diff(want, []any{got.Status, pageOf(got), lastLog(f)}); diff != "" {
 				t.Errorf("status, page, log (-want +got):\n%s", diff)
 			}
@@ -548,7 +548,7 @@ func TestUnderAutoSignInAProviderThatCannotBeReachedLeavesOnlyItsButton(t *testi
 	got := testsupport.Get(h, "/sign-in")
 
 	want := []any{502, refusedPage(unreachable, false), testsupport.LogEntry{Level: "error", Message: providerSays,
-		Fields: map[string]string{"error": "the identity provider could not be reached: stub: unavailable"}}}
+		Fields: map[string]string{"error": "the identity provider could not be reached: stub: unavailable", "client": testsupport.ClientAddress}}}
 	if diff := cmp.Diff(want, []any{got.Status, pageOf(got), lastLog(f)}); diff != "" {
 		t.Errorf("status, page, log (-want +got):\n%s", diff)
 	}
@@ -885,7 +885,7 @@ func TestUserinfoAboutAnotherSubjectIsRefused(t *testing.T) {
 	got := b.Get(back)
 
 	want := []any{403, refusedPage(unverified, true), testsupport.LogEntry{Level: "error", Message: providerSays,
-		Fields: map[string]string{"error": "the identity provider's answer could not be verified: the userinfo subject is not the ID token's"}}}
+		Fields: map[string]string{"error": "the identity provider's answer could not be verified: the userinfo subject is not the ID token's", "client": testsupport.ClientAddress}}}
 	if diff := cmp.Diff(want, []any{got.Status, pageOf(got), lastLog(f)}); diff != "" {
 		t.Errorf("status, page, log (-want +got):\n%s", diff)
 	}

@@ -65,7 +65,7 @@ func rowOfSchedule(sch connector.StoredSchedule) scheduleRow {
 func (a *App) schedulesPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	all, err := a.schedules.Schedules(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	rows := []scheduleRow{}

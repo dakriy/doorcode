@@ -337,6 +337,13 @@ read-only in the UI). The environment also supplies the database URL, the
 broker address and admin credentials, the listen address, and the key that
 encrypts stored secrets.
 
+Forwarded headers (`X-Forwarded-For` for the client address, which sign-ins,
+refused sign-ins, and failed requests are logged with, and
+`X-Forwarded-Proto` for marking cookies secure) are believed only from a
+connection whose address is on the trusted proxies setting: IP addresses,
+CIDR ranges, and host names, which the server looks up periodically and which
+trust nobody until looked up.
+
 `doorcode-demo` is a second binary that runs the same application over
 seeded in-memory stand-ins with simulated doors, so the UI can be explored
 without Postgres, a broker, or data entry.

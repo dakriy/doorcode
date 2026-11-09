@@ -149,7 +149,7 @@ func (a *App) listRequests(w http.ResponseWriter, r *http.Request, _ auth.User) 
 	q := request.Query{Search: r.URL.Query().Get("q"), Resolved: resolved, UserID: user, Page: page, PerPage: perPage}
 	found, err := a.requests.Find(r.Context(), q)
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	views := []adminRequestView{}
@@ -161,9 +161,9 @@ func (a *App) listRequests(w http.ResponseWriter, r *http.Request, _ auth.User) 
 
 // writeAdminRequest answers with one, which err may say could not be read
 // or changed.
-func (a *App) writeAdminRequest(w http.ResponseWriter, one connector.StoredRequest, err error) {
+func (a *App) writeAdminRequest(w http.ResponseWriter, r *http.Request, one connector.StoredRequest, err error) {
 	if err != nil {
-		a.refuse(w, err, requestStatuses)
+		a.refuse(w, r, err, requestStatuses)
 		return
 	}
 	writeJSON(w, http.StatusOK, viewOfAdminRequest(one))
@@ -171,7 +171,7 @@ func (a *App) writeAdminRequest(w http.ResponseWriter, one connector.StoredReque
 
 func (a *App) getRequest(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	one, err := a.requests.Get(r.Context(), pathID(r, "id"))
-	a.writeAdminRequest(w, one, err)
+	a.writeAdminRequest(w, r, one, err)
 }
 
 func (a *App) replyToRequest(w http.ResponseWriter, r *http.Request, _ auth.User) {
@@ -181,15 +181,15 @@ func (a *App) replyToRequest(w http.ResponseWriter, r *http.Request, _ auth.User
 		return
 	}
 	one, err := a.requests.Reply(r.Context(), pathID(r, "id"), body.Reply)
-	a.writeAdminRequest(w, one, err)
+	a.writeAdminRequest(w, r, one, err)
 }
 
 func (a *App) resolveRequest(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	one, err := a.requests.Resolve(r.Context(), pathID(r, "id"))
-	a.writeAdminRequest(w, one, err)
+	a.writeAdminRequest(w, r, one, err)
 }
 
 func (a *App) reopenRequest(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	one, err := a.requests.Reopen(r.Context(), pathID(r, "id"))
-	a.writeAdminRequest(w, one, err)
+	a.writeAdminRequest(w, r, one, err)
 }

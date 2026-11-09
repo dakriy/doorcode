@@ -117,12 +117,12 @@ func (a *App) adminRequestsPage(w http.ResponseWriter, r *http.Request, viewer a
 	resolved, _ := resolvedBy(f.State)
 	found, err := a.requests.Find(r.Context(), request.Query{Search: f.Search, Resolved: resolved, UserID: f.UserID, Page: f.Page, PerPage: requestsPerPage})
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content.User, err = a.filterUser(r.Context(), f.UserID)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content.Filters = f

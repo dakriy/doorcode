@@ -108,7 +108,7 @@ func picturePath(doorID, id int64) string {
 func (a *App) listPictures(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	d, pictures, err := a.doors.Pictures(r.Context(), pathID(r, "id"))
 	if err != nil {
-		a.doorError(w, err)
+		a.doorError(w, r, err)
 		return
 	}
 	views := []pictureView{}
@@ -175,7 +175,7 @@ func (a *App) addPicture(w http.ResponseWriter, r *http.Request) (connector.Stor
 func (a *App) uploadPicture(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	d, p, err := a.addPicture(w, r)
 	if err != nil {
-		a.doorError(w, err)
+		a.doorError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, viewOfPicture(d, p))
@@ -189,12 +189,12 @@ func (a *App) servePicture(read func(ctx context.Context, doorID, id int64) ([]b
 	return func(w http.ResponseWriter, r *http.Request, caller auth.User) {
 		d, err := a.doors.Door(r.Context(), pathID(r, "id"))
 		if err != nil {
-			a.doorError(w, err)
+			a.doorError(w, r, err)
 			return
 		}
 		shown, err := a.seesPictures(r, caller, d)
 		if err != nil {
-			a.internalError(w, err)
+			a.internalError(w, r, err)
 			return
 		}
 		if !shown {
@@ -203,7 +203,7 @@ func (a *App) servePicture(read func(ctx context.Context, doorID, id int64) ([]b
 		}
 		data, err := read(r.Context(), d.ID, pathID(r, "picture"))
 		if err != nil {
-			a.doorError(w, err)
+			a.doorError(w, r, err)
 			return
 		}
 		w.Header().Set("Content-Type", picture.ContentType)
@@ -226,9 +226,9 @@ func (a *App) seesPictures(r *http.Request, caller auth.User, d connector.Stored
 }
 
 func (a *App) makePrimary(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	a.doorDone(w, a.doors.SetPrimaryPicture(r.Context(), pathID(r, "id"), pathID(r, "picture")))
+	a.doorDone(w, r, a.doors.SetPrimaryPicture(r.Context(), pathID(r, "id"), pathID(r, "picture")))
 }
 
 func (a *App) deletePicture(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	a.doorDone(w, a.doors.DeletePicture(r.Context(), pathID(r, "id"), pathID(r, "picture")))
+	a.doorDone(w, r, a.doors.DeletePicture(r.Context(), pathID(r, "id"), pathID(r, "picture")))
 }

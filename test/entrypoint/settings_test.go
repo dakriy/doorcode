@@ -30,6 +30,10 @@ const hashMemoryJSON = `{"key":"password_hash_memory_kib","value":"8","source":"
 
 // themeSettingsJSON is how the settings API shows the theme colors when
 // nothing sets them.
+// proxySettingJSON is how the settings API shows the trusted proxies
+// setting when nothing sets it.
+var proxySettingJSON = defaultSetting("trusted_proxies", "")
+
 var themeSettingsJSON = defaultSetting("theme_accent", "#4f39f6") + `,` + defaultSetting("theme_accent_dark", "")
 
 // signInSettingsJSON is how the settings API shows the settings of
@@ -107,7 +111,7 @@ func TestSettingsListShowsDefaultsAndTheEnvironmentWhenNothingIsStored(t *testin
 		`{"key":"site_name","value":"doorcode","source":"default","read_only":false,"env_var":"DOORCODE_SITE_NAME"},` +
 		`{"key":"site_timezone","value":"UTC","source":"default","read_only":false,"env_var":"DOORCODE_SITE_TIMEZONE"},` +
 		`{"key":"admin_email","value":"admin@example.com","source":"default","read_only":false,"env_var":"DOORCODE_ADMIN_EMAIL"},` +
-		themeSettingsJSON + `,` + hashMemoryJSON + `,` + signInSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
+		proxySettingJSON + `,` + themeSettingsJSON + `,` + hashMemoryJSON + `,` + signInSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -125,7 +129,7 @@ func TestSettingsListShowsStoredAndEnvironmentValuesWithTheirSources(t *testing.
 		`{"key":"site_name","value":"Main Building","source":"database","read_only":false,"env_var":"DOORCODE_SITE_NAME","updated_at":"2026-01-02T08:00:00Z"},` +
 		`{"key":"site_timezone","value":"Europe/Berlin","source":"environment","read_only":true,"env_var":"DOORCODE_SITE_TIMEZONE"},` +
 		`{"key":"admin_email","value":"admin@example.com","source":"default","read_only":false,"env_var":"DOORCODE_ADMIN_EMAIL"},` +
-		themeSettingsJSON + `,` + hashMemoryJSON + `,` + signInSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
+		proxySettingJSON + `,` + themeSettingsJSON + `,` + hashMemoryJSON + `,` + signInSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -330,7 +334,7 @@ func TestSettingsStoreFailureAnswersWithARequestIDThatTheLogCarries(t *testing.T
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
 			wantLog := testsupport.LogEntry{Level: "error", Message: "request failed",
-				Fields: map[string]string{"request_id": "4243444546474849", "error": "stub: unavailable"}}
+				Fields: map[string]string{"request_id": "4243444546474849", "error": "stub: unavailable", "client": testsupport.ClientAddress}}
 			if diff := cmp.Diff(wantLog, lastLog(f)); diff != "" {
 				t.Errorf("last log line (-want +got):\n%s", diff)
 			}

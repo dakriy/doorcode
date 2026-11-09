@@ -170,20 +170,20 @@ var doorStatuses = []refusalStatus{
 
 // doorError answers an API request with what err, about doors, zones, or
 // pictures, means.
-func (a *App) doorError(w http.ResponseWriter, err error) {
-	a.refuse(w, err, doorStatuses)
+func (a *App) doorError(w http.ResponseWriter, r *http.Request, err error) {
+	a.refuse(w, r, err, doorStatuses)
 }
 
 // writeDoor answers with d, which err may say could not be read or
 // stored, as status.
 func (a *App) writeDoor(w http.ResponseWriter, r *http.Request, status int, d connector.StoredDoor, err error) {
 	if err != nil {
-		a.doorError(w, err)
+		a.doorError(w, r, err)
 		return
 	}
 	c, err := a.catalog(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	writeJSON(w, status, c.viewOfDoor(d))
@@ -213,12 +213,12 @@ func (a *App) listDoors(w http.ResponseWriter, r *http.Request, _ auth.User) {
 		Search: r.URL.Query().Get("q"), Deleted: show == showDeleted, ZoneID: zone, Page: page, PerPage: perPage,
 	})
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	c, err := a.catalog(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	views := []doorView{}
@@ -259,18 +259,18 @@ func (a *App) updateDoor(w http.ResponseWriter, r *http.Request, _ auth.User) {
 
 // doorDone answers with 204 when err is nil and with what err means
 // otherwise.
-func (a *App) doorDone(w http.ResponseWriter, err error) {
+func (a *App) doorDone(w http.ResponseWriter, r *http.Request, err error) {
 	if err != nil {
-		a.doorError(w, err)
+		a.doorError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *App) deleteDoor(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	a.doorDone(w, a.controllers.Delete(r.Context(), pathID(r, "id")))
+	a.doorDone(w, r, a.controllers.Delete(r.Context(), pathID(r, "id")))
 }
 
 func (a *App) restoreDoor(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	a.doorDone(w, a.doors.Restore(r.Context(), pathID(r, "id")))
+	a.doorDone(w, r, a.doors.Restore(r.Context(), pathID(r, "id")))
 }

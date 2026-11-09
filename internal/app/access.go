@@ -92,7 +92,7 @@ func (a *App) page(need access, next viewerHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		viewer, ok, err := a.viewer(r)
 		if err != nil {
-			a.pageError(w, err)
+			a.pageError(w, r, err)
 			return
 		}
 		if !ok {
@@ -113,7 +113,7 @@ func (a *App) api(need access, next viewerHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		caller, ok, err := a.caller(r)
 		if err != nil {
-			a.internalError(w, err)
+			a.internalError(w, r, err)
 			return
 		}
 		if !ok {

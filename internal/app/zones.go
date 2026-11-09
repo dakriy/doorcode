@@ -72,12 +72,12 @@ func (n names) viewOfZone(z connector.StoredZone) zoneView {
 // as status.
 func (a *App) writeZone(w http.ResponseWriter, r *http.Request, status int, z connector.StoredZone, err error) {
 	if err != nil {
-		a.doorError(w, err)
+		a.doorError(w, r, err)
 		return
 	}
 	n, err := a.names(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	writeJSON(w, status, n.viewOfZone(z))
@@ -86,7 +86,7 @@ func (a *App) writeZone(w http.ResponseWriter, r *http.Request, status int, z co
 func (a *App) listZones(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	n, err := a.names(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	views := []zoneView{}
@@ -126,5 +126,5 @@ func (a *App) updateZone(w http.ResponseWriter, r *http.Request, _ auth.User) {
 }
 
 func (a *App) deleteZone(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	a.doorDone(w, a.removeZone(r.Context(), pathID(r, "id")))
+	a.doorDone(w, r, a.removeZone(r.Context(), pathID(r, "id")))
 }

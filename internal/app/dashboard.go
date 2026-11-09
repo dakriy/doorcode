@@ -168,12 +168,12 @@ func chooseRange(r *http.Request, now time.Time, zone *time.Location) (stats.Ran
 func (a *App) apiRange(w http.ResponseWriter, r *http.Request) (stats.Range, *time.Location, bool) {
 	current, err := a.settings.Current(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return stats.Range{}, nil, false
 	}
 	chosen, err := chooseRange(r, a.clock.Now(), current.Zone)
 	if err != nil {
-		a.refuse(w, err, nil)
+		a.refuse(w, r, err, nil)
 		return stats.Range{}, nil, false
 	}
 	return chosen, current.Zone, true
@@ -193,7 +193,7 @@ func (a *App) getEntryStats(w http.ResponseWriter, r *http.Request, _ auth.User)
 	}
 	e, err := a.stats.Entries(r.Context(), chosen, zone)
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, viewOfEntries(chosen, zone, e))
@@ -226,7 +226,7 @@ func (a *App) getDoorStats(w http.ResponseWriter, r *http.Request, _ auth.User) 
 	}
 	h, err := a.stats.Health(r.Context(), chosen, a.clock.Now(), zone)
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	view := doorStats{Range: viewOfRange(chosen, zone), Unit: h.Unit, Hours: h.Hours, Doors: []doorHealthView{}}
@@ -251,7 +251,7 @@ func viewOfDoorHealth(h stats.Health, d stats.DoorHealth) doorHealthView {
 func (a *App) getFirmwareStats(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	versions, err := a.stats.Versions(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	view := firmwareStats{Versions: []versionView{}}
@@ -264,7 +264,7 @@ func (a *App) getFirmwareStats(w http.ResponseWriter, r *http.Request, _ auth.Us
 func (a *App) getLiveCounts(w http.ResponseWriter, r *http.Request, caller auth.User) {
 	counts, err := a.liveCounts(r.Context(), caller)
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, counts)

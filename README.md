@@ -120,6 +120,13 @@ put TLS in front of the web server and the broker, change the passwords,
 and keep the volumes backed up. The `app` service answers its healthcheck on
 `/healthz`.
 
+Behind a reverse proxy that terminates TLS, list the proxy in the
+`trusted_proxies` setting (such as `DOORCODE_TRUSTED_PROXIES=10.0.0.0/8` or
+the proxy's host name). The server believes `X-Forwarded-For` (the client
+address it logs for sign-ins, refused sign-ins, and failed requests) and
+`X-Forwarded-Proto` (whether cookies are marked `Secure`) only from a
+connection whose address is on that list, and ignores both from anyone else.
+
 ## Environment variables
 
 ### Wiring
@@ -154,6 +161,7 @@ page applies, and without that the default.
 | `site_name` | Shown in the header and every page title. | `doorcode` |
 | `site_timezone` | A tz database name; schedules, dates typed on pages, and every time shown are read in it. | `UTC` |
 | `admin_email` | The email of the administrator created on first start when there are no users. | `admin@example.com` |
+| `trusted_proxies` | IP addresses, CIDR ranges, and host names, separated by commas, of the reverse proxies whose `X-Forwarded-For` and `X-Forwarded-Proto` headers are believed. A host name is looked up by the periodic work, about once a minute, and trusts nobody until it has been. Empty believes no one. | empty |
 | `theme_accent` | The accent color, `#rrggbb`. | `#4f39f6` |
 | `theme_accent_dark` | The accent color in the dark theme; empty uses `theme_accent`. | empty |
 | `password_hash_memory_kib` | KiB of memory hashing one password takes, 8 to 1048576. | `19456` |

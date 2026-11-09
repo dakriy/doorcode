@@ -164,7 +164,7 @@ func (a *App) previewImportFromForm(w http.ResponseWriter, r *http.Request, view
 		return
 	}
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content := importedOf(reportOf(imp, false), string(file))
@@ -183,13 +183,13 @@ func (a *App) applyImportFromForm(w http.ResponseWriter, r *http.Request, viewer
 	content := importedOf(reportOf(imp, true), "")
 	status := http.StatusOK
 	if err != nil && len(imp.Rows) == 0 {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	if err != nil {
 		status = http.StatusInternalServerError
 		content.Alert = "The server failed partway, so only the rows marked done were applied. Apply the same file again to finish: " +
-			"rows done already show as nothing to change. Give an administrator the request id " + a.logFailure(err) + "."
+			"rows done already show as nothing to change. Give an administrator the request id " + a.logFailure(r, err) + "."
 	}
 	a.render(w, r, status, importedTemplate, "Import result", &viewer, content)
 }

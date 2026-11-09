@@ -26,7 +26,7 @@ func (a *App) groupPageRoutes() []route {
 func (a *App) groupsPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	groups, err := a.directory.Groups(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	a.render(w, r, http.StatusOK, groupsTemplate, "Groups", &viewer, groups)
@@ -116,12 +116,12 @@ func (a *App) pageGroup(w http.ResponseWriter, r *http.Request, viewer auth.User
 	}
 	rules, err := a.rules.Rules(r.Context(), g.ID)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return groupContent{}, false
 	}
 	n, err := a.names(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return groupContent{}, false
 	}
 	content := groupContent{Group: g, Members: a.rowsOf(members), Rules: []ruleRow{}, Form: formOfGroup(g)}

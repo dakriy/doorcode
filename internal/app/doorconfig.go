@@ -75,12 +75,12 @@ func (a *App) effectiveConfig(ctx context.Context, d connector.StoredDoor) (sett
 // could not be read or stored.
 func (a *App) writeDoorConfig(w http.ResponseWriter, r *http.Request, d connector.StoredDoor, err error) {
 	if err != nil {
-		a.doorError(w, err)
+		a.doorError(w, r, err)
 		return
 	}
 	config, _, err := a.effectiveConfig(r.Context(), d)
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, doorConfigBody{Effective: doorConfigView(config), Overrides: d.Config})

@@ -16,6 +16,7 @@ import (
 
 	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/proxy"
 	"github.com/dakriy/doorcode/internal/schedule"
 )
 
@@ -95,6 +96,7 @@ const (
 	keyClaimEntitlements  = "oidc_claim_entitlements"
 	keyDefaultGroups      = "oidc_default_groups"
 	keyPortalDoorPictures = "portal_door_pictures"
+	keyTrustedProxies     = "trusted_proxies"
 	slugsHint             = "must be group slugs separated by commas, such as staff,contractors"
 )
 
@@ -165,6 +167,10 @@ var sections = []section{
 		}, label: "Timezone", help: "A tz database name such as Europe/Berlin. Schedules, dates typed on pages, and every time shown are read in it."},
 		{key: keyAdminEmail, fallback: "admin@example.com", label: "First administrator's email",
 			help: "The account created on first start when there are no users."},
+	}},
+	{Section{Name: "Proxies", About: "The reverse proxies in front of the server. A listed proxy is believed when it says, in X-Forwarded-For and X-Forwarded-Proto, whom it passes a request on for and whether it was reached over HTTPS; those headers are ignored from anyone else."}, []definition{
+		{key: keyTrustedProxies, fallback: "", validate: accepting(proxy.Parse), label: "Trusted proxies",
+			help: "IP addresses, CIDR ranges, and host names separated by commas, such as 10.0.0.0/8,proxy.example.com. A host name is looked up by the periodic work, about once a minute, and trusts nobody until then."},
 	}},
 	{Section{Name: "Theme", About: "The accent color of buttons, links, and highlights. Lighter and darker tones are worked out from it for both the light and the dark theme."}, []definition{
 		{key: keyThemeAccent, fallback: defaultAccent, validate: accepting(color), label: "Accent color",
@@ -295,6 +301,9 @@ type Current struct {
 	// PortalDoorPictures is true when the portal shows the primary
 	// pictures of the doors it lists.
 	PortalDoorPictures bool
+	// TrustedProxies is the proxies believed about whom they pass a
+	// request on for and how they were reached.
+	TrustedProxies proxy.List
 }
 
 // Theme is the colors pages are drawn in: Accent, as #rrggbb, and
@@ -593,6 +602,9 @@ func (s Service) Current(ctx context.Context) (Current, error) {
 		return Current{}, err
 	}
 	if c.PortalDoorPictures, err = parsed(values, keyPortalDoorPictures, boolean); err != nil {
+		return Current{}, err
+	}
+	if c.TrustedProxies, err = parsed(values, keyTrustedProxies, proxy.Parse); err != nil {
 		return Current{}, err
 	}
 	return c.withSignIn(values)

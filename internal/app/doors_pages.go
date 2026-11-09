@@ -111,12 +111,12 @@ func (a *App) doorsPage(w http.ResponseWriter, r *http.Request, viewer auth.User
 	}
 	found, err := a.doors.Find(r.Context(), q)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	c, err := a.catalog(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	link := func(page int) string { return doorsURL(q, page) }
@@ -304,42 +304,42 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 	zone := current.Zone
 	n, err := a.names(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	entrants, err := a.rules.Entrants(r.Context(), d.StoredDoor)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	_, overrides, err := a.doors.Overrides(r.Context(), d.ID)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	creds, err := a.controllers.Credentials(r.Context(), d.ID)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	config, defaults, err := a.effectiveConfig(r.Context(), d.StoredDoor)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	events, err := a.recent(r.Context(), viewer, connector.EventQuery{DoorID: d.ID}, zone)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	state, err := a.stateOf(r, viewer, d.StoredDoor, zone)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	card, err := a.firmwareCard(r.Context(), viewer, d.StoredDoor, zone)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content := doorContent{

@@ -58,15 +58,15 @@ func (a *App) unloaded(w http.ResponseWriter, r *http.Request, viewer auth.User,
 		return true
 	}
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return true
 	}
 	return false
 }
 
 // done sends the browser to location with a flash message.
-func done(w http.ResponseWriter, r *http.Request, location, flash string) {
-	setCookie(w, r, flashCookie, flash, 0)
+func (a *App) done(w http.ResponseWriter, r *http.Request, location, flash string) {
+	a.setCookie(w, r, flashCookie, flash, 0)
 	redirect(w, location)
 }
 
@@ -75,10 +75,10 @@ func done(w http.ResponseWriter, r *http.Request, location, flash string) {
 // flash.
 func (a *App) changed(w http.ResponseWriter, r *http.Request, err error, location, flash string) {
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
-	done(w, r, location, flash)
+	a.done(w, r, location, flash)
 }
 
 // fieldErrors maps each field err finds a problem with to the problem, and
@@ -122,7 +122,7 @@ func (a *App) siteZone(w http.ResponseWriter, r *http.Request) (*time.Location, 
 func (a *App) siteSettings(w http.ResponseWriter, r *http.Request) (settings.Current, bool) {
 	current, err := a.settings.Current(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 	}
 	return current, err == nil
 }

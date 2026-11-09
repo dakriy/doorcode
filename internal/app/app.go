@@ -20,6 +20,7 @@ import (
 	"github.com/dakriy/doorcode/internal/event"
 	"github.com/dakriy/doorcode/internal/firmware"
 	"github.com/dakriy/doorcode/internal/identity"
+	"github.com/dakriy/doorcode/internal/proxy"
 	"github.com/dakriy/doorcode/internal/push"
 	"github.com/dakriy/doorcode/internal/request"
 	"github.com/dakriy/doorcode/internal/rule"
@@ -61,6 +62,8 @@ type App struct {
 	stats stats.Service
 	// identity signs people in through the OpenID Connect provider.
 	identity identity.Service
+	// proxies decides whom to believe about where a request came from.
+	proxies proxy.Service
 	// enrolling says Run has set up the enrollment credentials, and
 	// nextSweep is when it next does the periodic work. Only Run reads and
 	// changes them.
@@ -111,6 +114,7 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 		decisions: decision.Service{Store: store, Auth: authService, Settings: s, Clock: clock, Limits: decision.NewLimiter()},
 		broker:    f.Broker(),
 		live:      live,
+		proxies:   proxy.Service{Resolver: f.Resolver(), Resolved: proxy.NewResolved()},
 	}
 	a.pushes = push.Service{Store: store, Settings: s, Broker: a.broker, Clock: clock, Sent: push.NewSent()}
 	a.controllers = controller.Service{

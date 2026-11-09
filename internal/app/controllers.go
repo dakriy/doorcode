@@ -170,7 +170,7 @@ func (a *App) approveEnrollment(w http.ResponseWriter, r *http.Request, _ auth.U
 func (a *App) listCredentials(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	creds, err := a.controllers.Credentials(r.Context(), pathID(r, "id"))
 	if err != nil {
-		a.doorError(w, err)
+		a.doorError(w, r, err)
 		return
 	}
 	views := []credentialView{}
@@ -181,9 +181,9 @@ func (a *App) listCredentials(w http.ResponseWriter, r *http.Request, _ auth.Use
 }
 
 func (a *App) rotateCredentials(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	a.doorDone(w, a.controllers.Rotate(r.Context(), pathID(r, "id")))
+	a.doorDone(w, r, a.controllers.Rotate(r.Context(), pathID(r, "id")))
 }
 
 func (a *App) revokeCredentials(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	a.doorDone(w, a.controllers.Revoke(r.Context(), pathID(r, "id")))
+	a.doorDone(w, r, a.controllers.Revoke(r.Context(), pathID(r, "id")))
 }

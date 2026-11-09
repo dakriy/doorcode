@@ -215,17 +215,17 @@ func (a *App) eventsPage(w http.ResponseWriter, r *http.Request, viewer auth.Use
 	}
 	found, err := a.events.Find(r.Context(), event.Query{EventQuery: f.EventQuery, Page: f.Page, PerPage: eventsPerPage})
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	doors, err := a.doors.Doors(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	user, err := a.filterUser(r.Context(), f.UserID)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content.Filters, content.User, content.Rows = f, user, rowsOfEvents(found.Events, zone)

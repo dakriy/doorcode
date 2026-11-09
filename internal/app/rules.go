@@ -138,20 +138,20 @@ var ruleStatuses = []refusalStatus{
 
 // ruleError answers an API request with what err, about access rules,
 // means.
-func (a *App) ruleError(w http.ResponseWriter, err error) {
-	a.refuse(w, err, ruleStatuses)
+func (a *App) ruleError(w http.ResponseWriter, r *http.Request, err error) {
+	a.refuse(w, r, err, ruleStatuses)
 }
 
 // writeRule answers with r, which err may say could not be read or
 // stored, as status.
 func (a *App) writeRule(w http.ResponseWriter, r *http.Request, status int, stored connector.StoredRule, err error) {
 	if err != nil {
-		a.ruleError(w, err)
+		a.ruleError(w, r, err)
 		return
 	}
 	n, err := a.names(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	writeJSON(w, status, n.viewOfRule(stored))
@@ -165,12 +165,12 @@ func (a *App) listRules(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	}
 	all, err := a.rules.Rules(r.Context(), group)
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	n, err := a.names(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	views := []ruleView{}
@@ -211,7 +211,7 @@ func (a *App) updateRule(w http.ResponseWriter, r *http.Request, _ auth.User) {
 
 func (a *App) deleteRule(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	if err := a.rules.Delete(r.Context(), pathID(r, "id")); err != nil {
-		a.ruleError(w, err)
+		a.ruleError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -227,17 +227,17 @@ func (n names) viewOfEntrant(reach rule.Reach) entrantView {
 func (a *App) listEntrants(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	d, err := a.doors.Door(r.Context(), pathID(r, "id"))
 	if err != nil {
-		a.doorError(w, err)
+		a.doorError(w, r, err)
 		return
 	}
 	entrants, err := a.rules.Entrants(r.Context(), d)
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	n, err := a.names(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	views := []entrantView{}

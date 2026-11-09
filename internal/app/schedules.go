@@ -140,14 +140,14 @@ var scheduleStatuses = []refusalStatus{
 
 // scheduleError answers an API request with what err, from the schedules,
 // means.
-func (a *App) scheduleError(w http.ResponseWriter, err error) {
-	a.refuse(w, err, scheduleStatuses)
+func (a *App) scheduleError(w http.ResponseWriter, r *http.Request, err error) {
+	a.refuse(w, r, err, scheduleStatuses)
 }
 
 func (a *App) listSchedules(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	all, err := a.schedules.Schedules(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	views := []scheduleView{}
@@ -181,7 +181,7 @@ func (a *App) createSchedule(w http.ResponseWriter, r *http.Request, _ auth.User
 	}
 	sch, err := a.schedules.Create(r.Context(), f)
 	if err != nil {
-		a.scheduleError(w, err)
+		a.scheduleError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, viewOfSchedule(sch))
@@ -190,7 +190,7 @@ func (a *App) createSchedule(w http.ResponseWriter, r *http.Request, _ auth.User
 func (a *App) getSchedule(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	sch, err := a.schedules.Schedule(r.Context(), pathID(r, "id"))
 	if err != nil {
-		a.scheduleError(w, err)
+		a.scheduleError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, viewOfSchedule(sch))
@@ -203,7 +203,7 @@ func (a *App) updateSchedule(w http.ResponseWriter, r *http.Request, _ auth.User
 	}
 	sch, err := a.changeSchedule(r.Context(), pathID(r, "id"), f)
 	if err != nil {
-		a.scheduleError(w, err)
+		a.scheduleError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, viewOfSchedule(sch))
@@ -211,7 +211,7 @@ func (a *App) updateSchedule(w http.ResponseWriter, r *http.Request, _ auth.User
 
 func (a *App) deleteSchedule(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	if err := a.schedules.Delete(r.Context(), pathID(r, "id")); err != nil {
-		a.scheduleError(w, err)
+		a.scheduleError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -224,7 +224,7 @@ func (a *App) listOccurrences(w http.ResponseWriter, r *http.Request, _ auth.Use
 	}
 	sch, err := a.schedules.Schedule(r.Context(), pathID(r, "id"))
 	if err != nil {
-		a.scheduleError(w, err)
+		a.scheduleError(w, r, err)
 		return
 	}
 	views := []occurrenceView{}
@@ -279,7 +279,7 @@ func (a *App) apiDays(w http.ResponseWriter, r *http.Request) (dayRange, bool) {
 func (a *App) apiSettings(w http.ResponseWriter, r *http.Request) (settings.Current, bool) {
 	current, err := a.settings.Current(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 	}
 	return current, err == nil
 }

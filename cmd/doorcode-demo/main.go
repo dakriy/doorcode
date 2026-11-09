@@ -24,6 +24,7 @@ import (
 	"github.com/dakriy/doorcode/internal/demo"
 	"github.com/dakriy/doorcode/internal/demo/memstore"
 	"github.com/dakriy/doorcode/internal/driver/cryptoentropy"
+	"github.com/dakriy/doorcode/internal/driver/dnsresolver"
 	"github.com/dakriy/doorcode/internal/driver/oidcprovider"
 	"github.com/dakriy/doorcode/internal/driver/osenv"
 	"github.com/dakriy/doorcode/internal/driver/slogjson"
@@ -41,6 +42,7 @@ type factory struct {
 func (factory) Clock() connector.Clock               { return systemclock.Clock{} }
 func (factory) Entropy() connector.Entropy           { return cryptoentropy.Source{} }
 func (f factory) Environment() connector.Environment { return f.env }
+func (factory) Resolver() connector.Resolver         { return dnsresolver.Resolver{} }
 func (factory) TimeZones() connector.TimeZones       { return tzdb.Zones{} }
 func (f factory) Log() connector.Log                 { return f.log }
 func (f factory) Store() connector.Store             { return f.store }

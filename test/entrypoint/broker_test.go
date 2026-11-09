@@ -171,6 +171,14 @@ func TestRunLogsWhenThePeriodicWorkFails(t *testing.T) {
 			},
 			at: "2026-01-05T09:01:00Z", want: "invalid value for telemetry_retention_days: must be a whole number of days from 1 to 365",
 		},
+		"when the trusted proxies are invalid": {
+			arrange: func(_ *testing.T, f *testsupport.Factory, _ *testsupport.Browser) {
+				f.StoreStub.SeedSetting("trusted_proxies", "10.0.0.0/33", testsupport.DefaultNow)
+			},
+			at: "2026-01-05T09:01:00Z",
+			want: "invalid value for trusted_proxies: must be IP addresses, CIDR ranges, and host names separated by commas, " +
+				"such as 10.0.0.0/8,proxy.example.com",
+		},
 		"when the rotation interval is invalid": {
 			arrange: func(_ *testing.T, f *testsupport.Factory, _ *testsupport.Browser) {
 				f.StoreStub.SeedSetting("door_credential_rotation_days", "3651", testsupport.DefaultNow)

@@ -103,7 +103,7 @@ func (a *App) showApproval(w http.ResponseWriter, r *http.Request, status int, v
 	}
 	n, err := a.names(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content := approvalContent{

@@ -30,7 +30,7 @@ func zonePath(id int64) string {
 func (a *App) zonesPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	n, err := a.names(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	views := []zoneView{}
@@ -67,7 +67,7 @@ func readZoneForm(r *http.Request) door.ZoneFields {
 func (a *App) showZone(w http.ResponseWriter, r *http.Request, status int, viewer auth.User, z connector.StoredZone, f door.ZoneFields, errs map[string]string) {
 	n, err := a.names(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content := zoneContent{

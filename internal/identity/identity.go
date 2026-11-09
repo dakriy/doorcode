@@ -100,8 +100,10 @@ type Begun struct {
 type Finished struct {
 	Token string
 	Next  string
-	// Created is true when the sign-in created the user.
+	// Created is true when the sign-in created the user, whose email is
+	// Email.
 	Created bool
+	Email   string
 }
 
 // Start begins a sign-in that returns to next.
@@ -153,7 +155,7 @@ func (s Service) Finish(ctx context.Context, cookie string, query url.Values) (F
 		return Finished{}, err
 	}
 	token, err := s.Auth.StartSession(ctx, u.ID, true)
-	return Finished{Token: token, Next: pending.Get("next"), Created: created}, err
+	return Finished{Token: token, Next: pending.Get("next"), Created: created, Email: u.Email}, err
 }
 
 // EndSession returns the address of the provider's page that ends its

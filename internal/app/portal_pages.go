@@ -184,18 +184,18 @@ func (a *App) home(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	}
 	u, err := a.directory.User(r.Context(), viewer.ID)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content := homeContent{Code: ownCode(u)}
 	content.Doors, err = a.portalDoors(r, viewer, current)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	mine, err := a.requests.Mine(r.Context(), viewer.ID)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	for _, one := range mine {
@@ -205,7 +205,7 @@ func (a *App) home(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	}
 	found, err := a.events.Find(r.Context(), ownEntries(viewer.ID, 1, homeEntries))
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content.Entries = rowsOfEvents(found.Events, current.Zone)
@@ -225,7 +225,7 @@ func (a *App) codePage(w http.ResponseWriter, r *http.Request, viewer auth.User)
 func (a *App) renderCode(w http.ResponseWriter, r *http.Request, status int, viewer auth.User, problem string) {
 	u, err := a.directory.User(r.Context(), viewer.ID)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	a.render(w, r, status, codeTemplate, "Door code", &viewer, codeContent{Code: ownCode(u), Error: problem})
@@ -262,12 +262,12 @@ func (a *App) passwordPage(w http.ResponseWriter, r *http.Request, viewer auth.U
 func (a *App) renderPassword(w http.ResponseWriter, r *http.Request, status int, viewer auth.User, errs map[string]string) {
 	current, err := a.settings.Current(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	u, err := a.directory.User(r.Context(), viewer.ID)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content := passwordContent{
@@ -301,7 +301,7 @@ func (a *App) accessPage(w http.ResponseWriter, r *http.Request, viewer auth.Use
 	}
 	doors, err := a.portalDoors(r, viewer, current)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	a.render(w, r, http.StatusOK, accessTemplate, "Access", &viewer, doors)
@@ -330,7 +330,7 @@ func (a *App) doorAccessPage(w http.ResponseWriter, r *http.Request, viewer auth
 	wk := a.weekOf(r, zone, accessPath+"/"+strconv.FormatInt(doorID, 10))
 	doors, err := a.publicDoors(r, viewer, current, wk.days.from(), wk.days.to())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	i := slices.IndexFunc(doors, func(d rule.DoorAccess) bool { return d.Door.ID == doorID })
@@ -370,7 +370,7 @@ func (a *App) entriesPage(w http.ResponseWriter, r *http.Request, viewer auth.Us
 	}
 	found, err := a.events.Find(r.Context(), ownEntries(viewer.ID, page, entriesPerPage))
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content := entriesContent{Rows: rowsOfEvents(found.Events, zone), Empty: "You have no entries yet. Each time you enter your code at a door, it is listed here with what the door decided."}
@@ -432,7 +432,7 @@ func (a *App) renderRequests(w http.ResponseWriter, r *http.Request, status int,
 	}
 	mine, err := a.requests.Mine(r.Context(), viewer.ID)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content := requestsContent{Rows: []requestRow{}, Form: form, MaxTitle: request.MaxTitleLength, MaxBody: request.MaxBodyLength}

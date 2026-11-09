@@ -79,7 +79,7 @@ func (a *App) pageRule(w http.ResponseWriter, r *http.Request, viewer auth.User)
 	}
 	stored, err := a.rules.Rule(r.Context(), pathID(r, "rule"))
 	if err != nil && !errors.Is(err, rule.ErrNoRule) {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return g, stored, false
 	}
 	if stored.GroupID != g.ID {
@@ -100,7 +100,7 @@ func readRuleForm(r *http.Request, groupID int64) rule.Fields {
 func (a *App) showRule(w http.ResponseWriter, r *http.Request, status int, viewer auth.User, g connector.StoredGroup, stored connector.StoredRule, f rule.Fields, errs map[string]string) {
 	n, err := a.names(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content := ruleContent{Group: g, Rule: stored, Errors: errs, Action: groupPath(g.ID) + "/rules"}

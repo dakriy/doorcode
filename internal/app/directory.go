@@ -24,8 +24,8 @@ var directoryStatuses = []refusalStatus{
 
 // directoryError answers an API request with what err, from the
 // directory, means.
-func (a *App) directoryError(w http.ResponseWriter, err error) {
-	a.refuse(w, err, directoryStatuses)
+func (a *App) directoryError(w http.ResponseWriter, r *http.Request, err error) {
+	a.refuse(w, r, err, directoryStatuses)
 }
 
 // pathID is the id the path parameter name holds; zero, which names

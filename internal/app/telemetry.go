@@ -130,7 +130,7 @@ const doorUnknown = "unknown"
 func (a *App) getDoorState(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	d, err := a.doors.Door(r.Context(), pathID(r, "id"))
 	if err != nil {
-		a.doorError(w, err)
+		a.doorError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, viewOfDoorState(d.Controller))
@@ -161,7 +161,7 @@ func (a *App) listSamples(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	}
 	samples, err := a.telemetry.Samples(r.Context(), pathID(r, "id"), from, to)
 	if err != nil {
-		a.doorError(w, err)
+		a.doorError(w, r, err)
 		return
 	}
 	views := []telemetryView{}
@@ -183,7 +183,7 @@ func (a *App) listRollups(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	}
 	rollups, err := a.telemetry.Rollups(r.Context(), pathID(r, "id"), from, to)
 	if err != nil {
-		a.doorError(w, err)
+		a.doorError(w, r, err)
 		return
 	}
 	views := []rollupView{}

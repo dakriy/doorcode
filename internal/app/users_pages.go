@@ -83,7 +83,7 @@ func (a *App) usersPage(w http.ResponseWriter, r *http.Request, viewer auth.User
 	}
 	found, err := a.directory.Users(r.Context(), directory.Query{Search: search, Deleted: deleted, Page: page, PerPage: usersPerPage})
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	link := func(page int) string { return usersURL(search, deleted, page) }
@@ -251,20 +251,20 @@ func (a *App) renderUser(w http.ResponseWriter, r *http.Request, status int, vie
 	content.Self = u.ID == viewer.ID
 	access, err := a.accessRows(r, u)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content.Access = access
 	content.Events, err = a.recent(r.Context(), viewer, connector.EventQuery{UserID: u.ID}, content.zone)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content.ShowTokens = viewer.Has(auth.RoleAdmin)
 	if content.ShowTokens {
 		tokens, err := a.auth.Tokens(r.Context(), u.ID)
 		if err != nil {
-			a.pageError(w, err)
+			a.pageError(w, r, err)
 			return
 		}
 		content.Tokens = tokens
@@ -352,7 +352,7 @@ func (a *App) createUserTokenFromForm(w http.ResponseWriter, r *http.Request, vi
 	}
 	token, secret, err := a.auth.CreateToken(r.Context(), u.ID, form.Name, days)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content.Created = &createdSecret{Name: token.Name, Secret: secret}

@@ -152,12 +152,12 @@ func (a *App) doorCalendarPage(w http.ResponseWriter, r *http.Request, viewer au
 	}
 	n, err := a.names(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	entrants, err := a.rules.Entrants(r.Context(), d)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content := doorCalendarContent{Calendar: wk, Door: d, Row: n.rowOfDoor(d), Windows: []windowRow{}}
@@ -202,7 +202,7 @@ func (a *App) accessCalendarPage(w http.ResponseWriter, r *http.Request, viewer 
 	}
 	reachable, err := a.rules.UserAccess(r.Context(), u.Groups, zone, wk.days.from(), wk.days.to())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	calendar := accessCalendarContent{Calendar: wk, User: a.viewOfUser(u), Door: d, Works: []occurrenceRow{}}

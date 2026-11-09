@@ -34,6 +34,7 @@ type shownSetting struct {
 // hashing cost, in order.
 var defaultSettings = []shownSetting{
 	{"site_name", "doorcode", "default"}, {"site_timezone", "UTC", "default"}, {"admin_email", "admin@example.com", "default"},
+	{"trusted_proxies", "", "default"},
 	{"theme_accent", "#4f39f6", "default"}, {"theme_accent_dark", "", "default"},
 	{"password_hash_memory_kib", "8", "environment, read-only"}, {"password_min_length", "12", "default"},
 	{"new_user_expiry_days", "1826", "default"}, {"oidc_enabled", "false", "default"}, {"oidc_auto_sign_in", "false", "default"},
@@ -58,9 +59,11 @@ var defaultSettings = []shownSetting{
 // settingRows is the section each setting is shown in, and its label and
 // help text.
 var settingRows = map[string]struct{ section, label, help string }{
-	"site_name":                       {"Site", "Site name", "Shown in the header and every page title."},
-	"site_timezone":                   {"Site", "Timezone", "A tz database name such as Europe/Berlin. Schedules, dates typed on pages, and every time shown are read in it."},
-	"admin_email":                     {"Site", "First administrator's email", "The account created on first start when there are no users."},
+	"site_name":     {"Site", "Site name", "Shown in the header and every page title."},
+	"site_timezone": {"Site", "Timezone", "A tz database name such as Europe/Berlin. Schedules, dates typed on pages, and every time shown are read in it."},
+	"admin_email":   {"Site", "First administrator's email", "The account created on first start when there are no users."},
+	"trusted_proxies": {"Proxies", "Trusted proxies", "IP addresses, CIDR ranges, and host names separated by commas, such as 10.0.0.0/8,proxy.example.com. " +
+		"A host name is looked up by the periodic work, about once a minute, and trusts nobody until then."},
 	"theme_accent":                    {"Theme", "Accent color", "A color as #rrggbb, such as #4f39f6."},
 	"theme_accent_dark":               {"Theme", "Accent color in the dark theme", "A color as #rrggbb, or empty to use the accent color."},
 	"password_hash_memory_kib":        {"Accounts and passwords", "Password hashing memory", "KiB of memory hashing one password takes, from 8 to 1048576. More is slower to guess."},
@@ -302,7 +305,7 @@ func TestPageStoreFailureShowsARequestIDThatTheLogCarries(t *testing.T) {
 				t.Errorf("status and type (-want +got):\n%s", diff)
 			}
 			wantLog := testsupport.LogEntry{Level: "error", Message: "request failed",
-				Fields: map[string]string{"request_id": c.id, "error": "stub: unavailable"}}
+				Fields: map[string]string{"request_id": c.id, "error": "stub: unavailable", "client": testsupport.ClientAddress}}
 			if diff := cmp.Diff(wantLog, lastLog(f)); diff != "" {
 				t.Errorf("last log line (-want +got):\n%s", diff)
 			}

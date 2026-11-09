@@ -344,7 +344,7 @@ type pageData struct {
 func (a *App) render(w http.ResponseWriter, r *http.Request, status int, page *template.Template, title string, viewer *auth.User, content any) {
 	current, err := a.settings.Current(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	data := pageData{
@@ -357,7 +357,7 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, status int, page *t
 		IsAdmin:   viewer != nil && viewer.Has(auth.RoleAdmin),
 		Portal:    inPortal(r.URL.Path),
 		Passwords: !current.OIDC.HidesPasswordForms(),
-		Flash:     takeFlash(w, r),
+		Flash:     a.takeFlash(w, r),
 		Theme:     current.Theme,
 		Zone:      current.Zone,
 		Content:   content,
@@ -369,7 +369,7 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, status int, page *t
 	if data.Counted {
 		data.Waiting, err = a.requests.Waiting(r.Context())
 		if err != nil {
-			a.pageError(w, err)
+			a.pageError(w, r, err)
 			return
 		}
 	}
@@ -379,8 +379,8 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, status int, page *t
 
 // pageError logs err under a fresh request id and shows a page naming only
 // the id. It reads no settings, since they may be what failed.
-func (a *App) pageError(w http.ResponseWriter, err error) {
-	id := a.logFailure(err)
+func (a *App) pageError(w http.ResponseWriter, r *http.Request, err error) {
+	id := a.logFailure(r, err)
 	writePage(w, http.StatusInternalServerError, errorTemplate, pageData{
 		Title:   "Something went wrong",
 		Assets:  assetURLs,
@@ -388,11 +388,14 @@ func (a *App) pageError(w http.ResponseWriter, err error) {
 	})
 }
 
-func (a *App) logFailure(err error) string {
+// logFailure logs err under a fresh request id, naming the client that
+// made r, and returns the id.
+func (a *App) logFailure(r *http.Request, err error) string {
 	id := hex.EncodeToString(a.entropy.Bytes(requestIDBytes))
 	a.log.Error("request failed",
 		connector.Field{Key: "request_id", Value: id},
-		connector.Field{Key: "error", Value: err.Error()})
+		connector.Field{Key: "error", Value: err.Error()},
+		connector.Field{Key: "client", Value: a.client(r)})
 	return id
 }
 

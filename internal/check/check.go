@@ -24,6 +24,31 @@ func Slug(s string) bool {
 	return slugPattern.MatchString(s) && len(s) <= MaxSlugLength
 }
 
+// MaxHostLength is the longest a host name may be.
+const MaxHostLength = 253
+
+// HostName reports whether s is a host name: 1 to MaxHostLength letters,
+// digits, dots, and hyphens.
+func HostName(s string) bool {
+	if s == "" || utf8.RuneCountInString(s) > MaxHostLength {
+		return false
+	}
+	for _, r := range s {
+		if !hostRune(r) {
+			return false
+		}
+	}
+	return true
+}
+
+// hostRune reports whether r may appear in a host name: a letter, a
+// digit, a dot, or a hyphen.
+func hostRune(r rune) bool {
+	letter := ('a' <= r && r <= 'z') || ('A' <= r && r <= 'Z')
+	digit := '0' <= r && r <= '9'
+	return letter || digit || r == '.' || r == '-'
+}
+
 // Problem is what is wrong with one submitted field.
 type Problem struct {
 	Field   string

@@ -4,6 +4,7 @@ package connector
 
 import (
 	"context"
+	"net/netip"
 	"time"
 )
 
@@ -30,6 +31,13 @@ type TimeZones interface {
 	// Zone returns the zone the tz database names name, such as
 	// "Europe/Berlin", or an error when it has no such zone.
 	Zone(name string) (*time.Location, error)
+}
+
+// Resolver looks host names up in the DNS.
+type Resolver interface {
+	// Addresses returns the IP addresses name resolves to, or an error
+	// when it resolves to none or cannot be looked up.
+	Addresses(ctx context.Context, name string) ([]netip.Addr, error)
 }
 
 // Field is one key and value attached to a log line.
@@ -1055,4 +1063,5 @@ type Factory interface {
 	Store() Store
 	Broker() Broker
 	Identity() Identity
+	Resolver() Resolver
 }

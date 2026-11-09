@@ -126,12 +126,12 @@ func reportOf(imp directory.Import, applied bool) importReport {
 func (a *App) importing(w http.ResponseWriter, r *http.Request, caller auth.User, apply bool) {
 	current, err := a.settings.Current(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	file, err := readImportFile(w, r)
 	if err != nil {
-		a.refuse(w, err, importStatuses)
+		a.refuse(w, r, err, importStatuses)
 		return
 	}
 	run := a.directory.PreviewImport
@@ -141,12 +141,12 @@ func (a *App) importing(w http.ResponseWriter, r *http.Request, caller auth.User
 	imp, err := run(r.Context(), caller, file, current.Zone)
 	if err != nil && len(imp.Rows) > 0 {
 		report := reportOf(imp, apply)
-		failure := importFailure{Error: "internal error", RequestID: a.logFailure(err), Report: &report}
+		failure := importFailure{Error: "internal error", RequestID: a.logFailure(r, err), Report: &report}
 		writeJSON(w, http.StatusInternalServerError, failure)
 		return
 	}
 	if err != nil {
-		a.refuse(w, err, importStatuses)
+		a.refuse(w, r, err, importStatuses)
 		return
 	}
 	writeJSON(w, http.StatusOK, reportOf(imp, apply))

@@ -157,7 +157,7 @@ func (a *App) listUsers(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	q := directory.Query{Search: r.URL.Query().Get("q"), Deleted: show == showDeleted, Page: page, PerPage: perPage}
 	found, err := a.directory.Users(r.Context(), q)
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, userList{Users: a.viewsOfUsers(found.Users), Total: found.Total, Page: page, PerPage: perPage})
@@ -190,7 +190,7 @@ func (a *App) createUser(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	}
 	u, err := a.directory.CreateUser(r.Context(), p)
 	if err != nil {
-		a.directoryError(w, err)
+		a.directoryError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, a.viewOfUser(u))
@@ -199,7 +199,7 @@ func (a *App) createUser(w http.ResponseWriter, r *http.Request, _ auth.User) {
 func (a *App) getUser(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	u, err := a.directory.User(r.Context(), pathID(r, "id"))
 	if err != nil {
-		a.directoryError(w, err)
+		a.directoryError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, a.viewOfUser(u))
@@ -212,7 +212,7 @@ func (a *App) updateUser(w http.ResponseWriter, r *http.Request, caller auth.Use
 	}
 	u, err := a.directory.ChangeUser(r.Context(), caller, pathID(r, "id"), p)
 	if err != nil {
-		a.directoryError(w, err)
+		a.directoryError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, a.viewOfUser(u))
@@ -220,20 +220,20 @@ func (a *App) updateUser(w http.ResponseWriter, r *http.Request, caller auth.Use
 
 // noContent answers with 204 when err is nil and with what err means
 // otherwise.
-func (a *App) noContent(w http.ResponseWriter, err error) {
+func (a *App) noContent(w http.ResponseWriter, r *http.Request, err error) {
 	if err != nil {
-		a.directoryError(w, err)
+		a.directoryError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *App) deleteUser(w http.ResponseWriter, r *http.Request, caller auth.User) {
-	a.noContent(w, a.directory.DeleteUser(r.Context(), caller, pathID(r, "id")))
+	a.noContent(w, r, a.directory.DeleteUser(r.Context(), caller, pathID(r, "id")))
 }
 
 func (a *App) restoreUser(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	a.noContent(w, a.directory.RestoreUser(r.Context(), pathID(r, "id")))
+	a.noContent(w, r, a.directory.RestoreUser(r.Context(), pathID(r, "id")))
 }
 
 func (a *App) setCode(w http.ResponseWriter, r *http.Request, _ auth.User) {
@@ -242,11 +242,11 @@ func (a *App) setCode(w http.ResponseWriter, r *http.Request, _ auth.User) {
 		writeError(w, http.StatusBadRequest, `body must be a JSON object with a string "code"`)
 		return
 	}
-	a.noContent(w, a.directory.SetCode(r.Context(), pathID(r, "id"), body.Code))
+	a.noContent(w, r, a.directory.SetCode(r.Context(), pathID(r, "id"), body.Code))
 }
 
 func (a *App) clearCode(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	a.noContent(w, a.directory.ClearCode(r.Context(), pathID(r, "id")))
+	a.noContent(w, r, a.directory.ClearCode(r.Context(), pathID(r, "id")))
 }
 
 // tokenOwner is the id of the user the path names, after answering with a
@@ -254,7 +254,7 @@ func (a *App) clearCode(w http.ResponseWriter, r *http.Request, _ auth.User) {
 func (a *App) tokenOwner(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	u, err := a.directory.User(r.Context(), pathID(r, "id"))
 	if err != nil {
-		a.directoryError(w, err)
+		a.directoryError(w, r, err)
 		return 0, false
 	}
 	return u.ID, true
