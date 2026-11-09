@@ -83,14 +83,13 @@ func TestHomeGreetsTheSignedInAdministratorAndShowsTheFlashOnce(t *testing.T) {
 	second := pageOf(b.Get("/"))
 
 	want := testsupport.Page{
-		Title:       "Home · doorcode",
-		Heading:     "Welcome, Administrator",
-		Nav:         portalNav("Home"),
-		Messages:    []string{"You are signed in."},
-		Notes:       []string{"You have no door code. " + noUserIDNote},
-		Tables:      map[string][][]string{"Your recent entries": noEntries},
-		Details:     homeCards(false, ""),
-		LinkTargets: toAdministration,
+		Title:    "Home · doorcode",
+		Heading:  "Welcome, Administrator",
+		Nav:      heldPortalNav("Home"),
+		Messages: []string{"You are signed in."},
+		Notes:    []string{"You have no door code. " + noUserIDNote},
+		Tables:   map[string][][]string{"Your recent entries": noEntries},
+		Details:  homeCards(false, ""),
 	}
 	if diff := cmp.Diff(want, first); diff != "" {
 		t.Errorf("first visit (-want +got):\n%s", diff)

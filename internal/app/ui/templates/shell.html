@@ -1,33 +1,9 @@
 {{define "body"}}
 <div class="group/shell min-h-full">
-  {{if .Portal}}
-  <header class="border-b border-brand-100 bg-gradient-to-b from-brand-50 to-white/80 backdrop-blur dark:border-brand-950 dark:from-brand-950/60 dark:to-zinc-900/80">
-    <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-8 gap-y-3 px-4 py-3 sm:px-6 lg:px-8">
-      <a href="/" class="flex items-center gap-2.5 font-semibold tracking-tight">
-        {{template "logo" "size-8"}}
-        <span>{{.Site}}</span>
-      </a>
-      <nav aria-label="Portal" class="order-last flex w-full flex-wrap items-center gap-1 text-sm font-medium lg:order-none lg:w-auto lg:flex-1">
-        {{template "portallink" (navlink "/" "Home" .Path)}}
-        {{template "portallink" (navlink "/me/code" "Door code" .Path)}}
-        {{if .Passwords}}{{template "portallink" (navlink "/me/password" "Password" .Path)}}{{end}}
-        {{template "portallink" (navlink "/me/access" "Access" .Path)}}
-        {{template "portallink" (navlink "/me/entries" "Entries" .Path)}}
-        {{template "portallink" (navlink "/me/requests" "Requests" .Path)}}
-        {{template "portallink" (navlink "/account/tokens" "API tokens" .Path)}}
-      </nav>
-      <div class="ml-auto flex items-center gap-3">
-        {{with .AdminEntry}}<a href="{{.}}" aria-label="Administration" class="inline-flex rounded-lg px-3 py-1.5 text-sm font-medium text-brand-700 ring-1 ring-brand-300 ring-inset transition hover:bg-brand-100 dark:text-brand-300 dark:ring-brand-800 dark:hover:bg-brand-950">Administration</a>{{end}}
-        {{template "viewer-menu" .}}
-      </div>
-    </div>
-  </header>
-  <main class="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-    {{if .Flash}}<div class="mb-6">{{template "flash" .}}</div>{{end}}
-    {{template "content" .}}
-  </main>
-  {{else}}
-  <header class="border-b border-zinc-200 bg-white/80 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/80">
+  {{/* One header and one navigation for the portal and the
+       administration; the portal's header is tinted, the
+       administration's carries the Admin mark. */}}
+  <header class="border-b {{if .Portal}}border-brand-100 bg-gradient-to-b from-brand-50 to-white/80 dark:border-brand-950 dark:from-brand-950/60 dark:to-zinc-900/80{{else}}border-zinc-200 bg-white/80 dark:border-zinc-800 dark:bg-zinc-900/80{{end}} backdrop-blur">
     <div class="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
       {{/* The menu toggle shows the navigation below large screens, without
            script: the navigation is shown while the box is checked. */}}
@@ -40,7 +16,7 @@
       <a href="/" class="flex min-w-0 items-center gap-2.5 font-semibold tracking-tight">
         {{template "logo" "size-8 shrink-0"}}
         <span class="truncate">{{.Site}}</span>
-        <span class="rounded-md bg-zinc-900 px-1.5 py-0.5 text-[0.6875rem] font-semibold tracking-wide text-white uppercase dark:bg-zinc-100 dark:text-zinc-900">Admin</span>
+        {{if not .Portal}}<span class="rounded-md bg-zinc-900 px-1.5 py-0.5 text-[0.6875rem] font-semibold tracking-wide text-white uppercase dark:bg-zinc-100 dark:text-zinc-900">Admin</span>{{end}}
       </a>
       <div class="ml-auto">{{template "viewer-menu" .}}</div>
     </div>
@@ -52,20 +28,53 @@
       {{template "content" .}}
     </main>
   </div>
-  {{end}}
 </div>
 {{if .Live}}{{template "live" .}}{{end}}
 {{end}}
 
-{{/* The administration's navigation: the dashboard, the pages of each
-     part of the administration under its name, the pages every role holder
-     has, and the site settings apart from them. Each link shows only to
-     those who may use it, and a part with none shows not at all. A sidebar
-     on large screens; below them, shown by the menu toggle. Given the page
-     data. */}}
+{{/* The navigation of the portal and of the administration alike, each
+     with its own links: a sidebar on large screens; below them, shown by
+     the menu toggle. Given the page data. */}}
 {{define "main-nav"}}
 <nav aria-label="Main" class="hidden border-b border-zinc-200 py-5 text-sm font-medium group-has-[#main-menu:checked]/shell:block lg:block lg:w-52 lg:shrink-0 lg:border-0 lg:py-10 dark:border-zinc-800">
   <div class="flex flex-col gap-6">
+    {{if .Portal}}{{template "portal-links" .}}{{else}}{{template "admin-links" .}}{{end}}
+  </div>
+</nav>
+{{end}}
+
+{{/* The portal's links in the navigation: home, the pages about the
+     viewer's doors, those about their account, and the way into the
+     administration for role holders. Given the page data. */}}
+{{define "portal-links"}}
+    <div class="flex flex-col">{{template "navlink" (navlink "/" "Home" .Path)}}</div>
+    <div class="grid grid-cols-2 gap-x-4 gap-y-6 lg:grid-cols-1">
+      <div role="group" aria-label="Doors">
+        <p aria-hidden="true" class="{{template "navheading-class"}}">Doors</p>
+        <div class="flex flex-col gap-0.5">
+          {{template "navlink" (navlink "/me/code" "Door code" .Path)}}
+          {{template "navlink" (navlink "/me/access" "Access" .Path)}}
+          {{template "navlink" (navlink "/me/entries" "Entries" .Path)}}
+          {{template "navlink" (navlink "/me/requests" "Requests" .Path)}}
+        </div>
+      </div>
+      <div role="group" aria-label="Account">
+        <p aria-hidden="true" class="{{template "navheading-class"}}">Account</p>
+        <div class="flex flex-col gap-0.5">
+          {{if .Passwords}}{{template "navlink" (navlink "/me/password" "Password" .Path)}}{{end}}
+          {{template "navlink" (navlink "/account/tokens" "API tokens" .Path)}}
+        </div>
+      </div>
+    </div>
+    {{with .AdminEntry}}<div class="flex flex-col border-t border-zinc-200 pt-4 dark:border-zinc-800">{{template "navlink" (navlink . "Administration" $.Path)}}</div>{{end}}
+{{end}}
+
+{{/* The administration's links in the navigation: the dashboard, the
+     pages of each part of the administration under its name, the pages
+     every role holder has, and the site settings apart from them. Each
+     link shows only to those who may use it, and a part with none shows
+     not at all. Given the page data. */}}
+{{define "admin-links"}}
     {{with .AdminEntry}}<div class="flex flex-col">{{template "navlink" (navlink . "Dashboard" $.Path)}}</div>{{end}}
     <div class="grid grid-cols-2 gap-x-4 gap-y-6 lg:grid-cols-1">
       {{if or (.Viewer.Has "manage-users") .Counted (.Viewer.Has "manage-groups")}}
@@ -116,8 +125,6 @@
       <div class="mt-2 flex flex-col">{{template "navlink" (navlink "/admin/settings" "Settings" .Path)}}</div>
     </div>
     {{end}}
-  </div>
-</nav>
 {{end}}
 
 {{define "navheading-class"}}mb-1 px-3 text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:text-zinc-400{{end}}
@@ -133,10 +140,6 @@
      Given the page data. */}}
 {{define "requests-navlink"}}{{$n := navlink "/admin/requests" "Requests" .Path}}
 <a href="{{$n.Href}}"{{if $n.Current}} aria-current="page"{{end}} class="{{template "navlink-class"}}">{{$n.Label}}<span id="waiting-requests" hx-get="{{.URI}}" hx-select="#waiting-requests" hx-swap="outerHTML" hx-trigger="live-requests from:body">{{with .Waiting}}<span class="inline-flex min-w-5 justify-center rounded-full bg-amber-500 px-1.5 py-0.5 text-[0.6875rem] leading-none font-semibold text-white tabular-nums dark:bg-amber-400 dark:text-zinc-950">{{.}}<span class="sr-only"> waiting</span></span>{{end}}</span></a>
-{{end}}
-
-{{define "portallink"}}
-<a href="{{.Href}}"{{if .Current}} aria-current="page"{{end}} class="shrink-0 rounded-full px-3.5 py-1.5 text-zinc-600 transition hover:bg-white hover:text-zinc-900 hover:shadow-xs aria-[current=page]:bg-brand-600 aria-[current=page]:text-white aria-[current=page]:shadow-xs dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:aria-[current=page]:bg-brand-500">{{.Label}}</a>
 {{end}}
 
 {{define "viewer-menu"}}

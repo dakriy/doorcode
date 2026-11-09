@@ -8,12 +8,17 @@ import (
 	"github.com/dakriy/doorcode/internal/testsupport"
 )
 
-// portalNav is the portal's navigation with the link labelled current
-// marked as the page shown; an empty current marks none.
+// portalNav is the portal's navigation, as an ordinary user sees it,
+// with the link labelled current marked as the page shown; an empty
+// current marks none.
 func portalNav(current string) []string {
 	nav := []string{}
-	for _, label := range []string{"Home", "Door code", "Password", "Access", "Entries", "Requests", "API tokens"} {
-		if label == current {
+	for _, link := range [][2]string{
+		{"", "Home"}, {"Doors: ", "Door code"}, {"Doors: ", "Access"}, {"Doors: ", "Entries"}, {"Doors: ", "Requests"},
+		{"Account: ", "Password"}, {"Account: ", "API tokens"},
+	} {
+		label := link[0] + link[1]
+		if link[1] == current {
 			label += " (current)"
 		}
 		nav = append(nav, label)
@@ -21,9 +26,11 @@ func portalNav(current string) []string {
 	return nav
 }
 
-// toAdministration is where the portal's Administration link leads the
-// first administrator.
-var toAdministration = map[string]string{"Administration": "/admin"}
+// heldPortalNav is the portal's navigation as a role holder sees it, with
+// the way into the administration last.
+func heldPortalNav(current string) []string {
+	return append(portalNav(current), "Administration")
+}
 
 // noUserIDNote is what the portal says to a user without a user id about
 // their door code.
@@ -253,7 +260,7 @@ func TestThePasswordFormIsOfferedUnlessEveryoneSignsInAtTheProvider(t *testing.T
 	withForm := testsupport.Page{Title: "Password · doorcode", Heading: "Password", Nav: portalNav("Password"), Notes: []string{lengthNote}}
 	without := testsupport.Page{
 		Title: "Password · doorcode", Heading: "Password",
-		Nav:   []string{"Home", "Door code", "Access", "Entries", "Requests", "API tokens"},
+		Nav:   []string{"Home", "Doors: Door code", "Doors: Access", "Doors: Entries", "Doors: Requests", "Account: API tokens"},
 		Notes: []string{"Everyone signs in to this site with single sign-on, so it has no password for you to change. Change your password with your organization’s identity provider instead."},
 	}
 	if diff := cmp.Diff([]any{withForm, without, 403, without}, []any{pageOf(offered), pageOf(hidden), posted.Status, pageOf(posted)}); diff != "" {
@@ -291,9 +298,8 @@ func TestAUserWithoutAPasswordChoosesOneWithoutGivingTheCurrent(t *testing.T) {
 	signedIn := b.Another().Post("/sign-in", "email", adminEmail, "password", "a brand new password")
 
 	want := testsupport.Page{
-		Title: "Password · doorcode", Heading: "Password", Nav: portalNav("Password"),
-		Notes:       []string{"You have no password yet. Choose one to sign in with your email address and password.", lengthNote},
-		LinkTargets: toAdministration,
+		Title: "Password · doorcode", Heading: "Password", Nav: heldPortalNav("Password"),
+		Notes: []string{"You have no password yet. Choose one to sign in with your email address and password.", lengthNote},
 	}
 	if diff := cmp.Diff([]any{want, 303, 303}, []any{page, chosen.Status, signedIn.Status}); diff != "" {
 		t.Errorf("page, choosing, signing in (-want +got):\n%s", diff)
@@ -921,7 +927,7 @@ func TestHomeAsksAUserWithoutACodeToChooseOne(t *testing.T) {
 	withoutPassword := homeCards(false, "")
 	delete(withoutPassword, "Password")
 	got := []any{offered.Notes, offered.Details, hidden.Details, hidden.Nav}
-	want := []any{note, homeCards(false, ""), withoutPassword, []string{"Home (current)", "Door code", "Access", "Entries", "Requests", "API tokens"}}
+	want := []any{note, homeCards(false, ""), withoutPassword, []string{"Home (current)", "Doors: Door code", "Doors: Access", "Doors: Entries", "Doors: Requests", "Account: API tokens"}}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("notes and cards, cards and navigation under auto sign-in (-want +got):\n%s", diff)
 	}
@@ -937,10 +943,11 @@ func TestThePortalLeadsEveryRoleHolderToTheDashboard(t *testing.T) {
 			t.Parallel()
 			_, b := adminHolding(t, testsupport.NewFactory(), roles)
 
-			got := pageOf(b.Get("/me/entries")).LinkTargets
+			got := testsupport.ParsePage(b.Get("/me/entries").Body)
 
-			if diff := cmp.Diff(toAdministration, got); diff != "" {
-				t.Errorf("links (-want +got):\n%s", diff)
+			want := []any{heldPortalNav("Entries"), "/admin"}
+			if diff := cmp.Diff(want, []any{got.Nav, got.NavTargets[len(got.NavTargets)-1]}); diff != "" {
+				t.Errorf("navigation, where its last link leads (-want +got):\n%s", diff)
 			}
 		})
 	}

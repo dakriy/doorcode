@@ -9,7 +9,7 @@ import (
 )
 
 // tokenNav is the navigation of the API tokens page, part of the portal.
-var tokenNav = portalNav("API tokens")
+var tokenNav = heldPortalNav("API tokens")
 
 // tokenTableHead is the header row of the token table.
 var tokenTableHead = []string{"Name", "Created", "Expires", "Actions"}
@@ -22,11 +22,10 @@ func TestTokensPageInvitesCreatingTheFirstToken(t *testing.T) {
 	got := b.Get("/account/tokens")
 
 	want := testsupport.Page{
-		Title:       "API tokens · doorcode",
-		Heading:     "API tokens",
-		Nav:         tokenNav,
-		Values:      map[string]string{"name": ""},
-		LinkTargets: toAdministration,
+		Title:   "API tokens · doorcode",
+		Heading: "API tokens",
+		Nav:     tokenNav,
+		Values:  map[string]string{"name": ""},
 		Table: [][]string{
 			tokenTableHead,
 			{"You have no API tokens yet. Create one to call the API from a script."},
@@ -49,13 +48,12 @@ func TestTokenCreatedOnThePageShowsItsSecretOnce(t *testing.T) {
 	again := b.Get("/account/tokens")
 
 	want := testsupport.Page{
-		Title:       "API tokens · doorcode",
-		Heading:     "API tokens",
-		Nav:         tokenNav,
-		Messages:    []string{"Token “deploy” created. Copy it now: it is shown only this once and cannot be recovered."},
-		Values:      map[string]string{"secret": firstSecret, "name": ""},
-		Table:       [][]string{tokenTableHead, {"deploy", "5 Jan 2026", "4 Feb 2026", "Revoke"}},
-		LinkTargets: toAdministration,
+		Title:    "API tokens · doorcode",
+		Heading:  "API tokens",
+		Nav:      tokenNav,
+		Messages: []string{"Token “deploy” created. Copy it now: it is shown only this once and cannot be recovered."},
+		Values:   map[string]string{"secret": firstSecret, "name": ""},
+		Table:    [][]string{tokenTableHead, {"deploy", "5 Jan 2026", "4 Feb 2026", "Revoke"}},
 	}
 	if diff := cmp.Diff(want, pageOf(created)); diff != "" {
 		t.Errorf("page after creating (-want +got):\n%s", diff)
