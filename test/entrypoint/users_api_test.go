@@ -509,3 +509,62 @@ func TestUserStoreFailureAnswersWithARequestID(t *testing.T) {
 		})
 	}
 }
+
+// searchSite is the administrator, Ann Smith (2), and 21 users named Zed
+// 11 to Zed 31 (3 to 23), with Zed 32 (24) deleted.
+func searchSite(t *testing.T, f *testsupport.Factory) *testsupport.Browser {
+	t.Helper()
+	b := signedInAdmin(t, f)
+	createUser(t, b, ann)
+	for i := range 22 {
+		n := testsupport.Itoa(i + 11)
+		createUser(t, b, `{"email":"zed`+n+`@example.com","display_name":"Zed `+n+`"}`)
+	}
+	send(t, b, "DELETE", "/api/v1/users/24", "", 204)
+	return b
+}
+
+func TestTheUserSearchFindsCurrentUsersByNameEmailOrUserID(t *testing.T) {
+	t.Parallel()
+	annFound := `{"users":[{"id":2,"name":"Ann Smith","email":"ann@example.com"}],"total":1}`
+	for query, want := range map[string]string{"q=smith": annFound, "q=+ANN@EXAMPLE": annFound, "q=100234": annFound, "q=nobody": `{"users":[],"total":0}`} {
+		t.Run(query, func(t *testing.T) {
+			t.Parallel()
+			b := searchSite(t, testsupport.NewFactory())
+
+			got := b.Get("/api/v1/users/search?" + query)
+
+			if diff := cmp.Diff(testsupport.JSON(want), testsupport.JSON(got.Body)); diff != "" {
+				t.Errorf("users found (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestTheUserSearchReturnsTheFirstTwentyMatchesAndHowManyMatch(t *testing.T) {
+	t.Parallel()
+	b := searchSite(t, testsupport.NewFactory())
+
+	got := b.Get("/api/v1/users/search?q=zed")
+
+	want := []any{"Zed 11", "Zed 30", 20.0, 21.0}
+	users, _ := testsupport.JSONAt(got.Body, "/users").([]any)
+	gotFound := []any{testsupport.JSONAt(got.Body, "/users/0/name"), testsupport.JSONAt(got.Body, "/users/19/name"), float64(len(users)), testsupport.JSONAt(got.Body, "/total")}
+	if diff := cmp.Diff(want, gotFound); diff != "" {
+		t.Errorf("first, twentieth, how many returned, how many match (-want +got):\n%s", diff)
+	}
+}
+
+func TestTheUserSearchIsForThoseWhoManageUsersOrViewTheLog(t *testing.T) {
+	t.Parallel()
+	for roles, want := range map[string]int{`["manage-users"]`: 200, `["view-logs"]`: 200, `["manage-doors"]`: 403} {
+		t.Run(roles, func(t *testing.T) {
+			t.Parallel()
+			_, b := adminHolding(t, testsupport.NewFactory(), roles)
+
+			if diff := cmp.Diff(want, b.Get("/api/v1/users/search?q=a").Status); diff != "" {
+				t.Errorf("status (-want +got):\n%s", diff)
+			}
+		})
+	}
+}

@@ -14,6 +14,16 @@
 // checkboxes marked data-combobox gets a search input above it that
 // narrows its checkboxes as above. Without this script both stay as they
 // are.
+//
+// A text input marked data-user-search asks the address it names for the
+// users matching what is typed (at most a page of them, as JSON: users,
+// each with id, name, and email, and total) and lists them below it as a
+// combobox does. Choosing one puts their id in the hidden input of the
+// form named in data-user-field and their name in the element marked
+// data-user-name inside the chip whose id is in data-user-chip, shows the
+// chip, and hides the input; the chip's × clears the choice and brings the
+// input back. Without this script the input stays a text box whose value
+// the server matches as an email or user id, and the chip's × is a link.
 (() => {
   if (window.doorcodeSearch) {
     return;
@@ -189,6 +199,114 @@
     list.after(empty);
   }
 
+  function userSearch(input) {
+    const field = input.form.elements[input.dataset.userField];
+    const chip = document.getElementById(input.dataset.userChip);
+    const name = chip.querySelector("[data-user-name]");
+    const list = element("ul", { id: `${input.id}-options`, className: "combobox-list", hidden: true });
+    list.setAttribute("role", "listbox");
+    const note = none();
+    const box = element("div", { className: "combobox" });
+    input.replaceWith(box);
+    box.append(input, list, note);
+    input.placeholder = "Search by name, email, or user id";
+    input.setAttribute("role", "combobox");
+    input.setAttribute("aria-autocomplete", "list");
+    input.setAttribute("aria-expanded", "false");
+    input.setAttribute("aria-controls", list.id);
+    let found = [];
+    let active = -1;
+    let asking = null;
+    let wait = 0;
+
+    const mark = (i) => {
+      active = i;
+      [...list.children].forEach((item, at) => item.setAttribute("aria-selected", String(at === i)));
+      if (i >= 0) {
+        input.setAttribute("aria-activedescendant", list.children[i].id);
+        list.children[i].scrollIntoView({ block: "nearest" });
+      } else {
+        input.removeAttribute("aria-activedescendant");
+      }
+    };
+    const close = () => {
+      if (asking) {
+        asking.abort();
+      }
+      clearTimeout(wait);
+      list.hidden = true;
+      note.hidden = true;
+      input.setAttribute("aria-expanded", "false");
+      mark(-1);
+    };
+    const show = (chosen) => {
+      field.value = chosen ? chosen.id : "";
+      name.textContent = chosen ? chosen.name : "";
+      chip.hidden = !chosen;
+      box.hidden = Boolean(chosen);
+      input.value = "";
+      close();
+    };
+    const option = (user, i) => {
+      const item = element("li", { id: `${input.id}-option-${i}`, className: "combobox-option", textContent: user.name });
+      item.setAttribute("role", "option");
+      item.append(element("span", { className: "combobox-detail", textContent: user.email }));
+      item.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        show(user);
+      });
+      return item;
+    };
+    const answered = (answer) => {
+      found = answer.users;
+      list.replaceChildren(...found.map(option));
+      const more = answer.total - found.length;
+      list.hidden = found.length === 0;
+      note.hidden = found.length > 0 && more === 0;
+      note.textContent = found.length === 0 ? "Nobody matches what you typed." : `${more} more match; keep typing to narrow them.`;
+      input.setAttribute("aria-expanded", String(!list.hidden));
+      mark(found.length > 0 ? 0 : -1);
+    };
+    const ask = () => {
+      if (asking) {
+        asking.abort();
+      }
+      asking = new AbortController();
+      const url = `${input.dataset.userSearch}?q=${encodeURIComponent(input.value.trim())}`;
+      fetch(url, { headers: { Accept: "application/json" }, signal: asking.signal })
+        .then((response) => (response.ok ? response.json() : Promise.reject(response.status)))
+        .then(answered)
+        .catch(() => {});
+    };
+    const later = () => {
+      clearTimeout(wait);
+      wait = setTimeout(ask, 150);
+    };
+
+    input.addEventListener("input", later);
+    input.addEventListener("focus", later);
+    input.addEventListener("blur", close);
+    input.addEventListener("keydown", (e) => {
+      const keys = {
+        ArrowDown: () => (list.hidden ? ask() : mark(Math.min(active + 1, found.length - 1))),
+        ArrowUp: () => mark(Math.max(active - 1, 0)),
+        Enter: () => show(found[active]),
+        Escape: close,
+      };
+      const open = !list.hidden && active >= 0;
+      if (keys[e.key] && (open || e.key === "ArrowDown")) {
+        e.preventDefault();
+        keys[e.key]();
+      }
+    });
+    chip.querySelector("a").addEventListener("click", (e) => {
+      e.preventDefault();
+      show(null);
+      input.focus();
+    });
+    box.hidden = !chip.hidden;
+  }
+
   function enhance(root) {
     for (const el of root.querySelectorAll("[data-combobox]")) {
       if (el.dataset.combobox === "done") {
@@ -196,6 +314,13 @@
       }
       el.dataset.combobox = "done";
       (el.tagName === "SELECT" ? selectBox : checkboxes)(el);
+    }
+    for (const el of root.querySelectorAll("[data-user-search]")) {
+      if (el.dataset.userSearchDone) {
+        continue;
+      }
+      el.dataset.userSearchDone = "true";
+      userSearch(el);
     }
   }
 
