@@ -145,8 +145,20 @@ Mosquitto 2 with its dynamic-security plugin. Migrations apply on start.
 The compose file is a starting point: the broker listens without TLS on
 1883, and the database and broker passwords are `doorcode`. For production,
 put TLS in front of the web server and the broker, change the passwords,
-and keep the volumes backed up. The `app` service answers its healthcheck on
-`/healthz`.
+and keep the volumes backed up.
+
+The server answers two unauthenticated probes, which log nothing:
+
+- `GET /healthz` is the liveness probe. It answers 200 `ok` while the
+  process serves; restart the server when it stops answering.
+- `GET /readyz` is the readiness probe. It answers 200 `ok` when the
+  database answers a ping (within two seconds) and the connection to the
+  broker is up, and otherwise 503 with what is not ready, one per line
+  (`store: <error>`, `broker: not connected`); send no traffic to the
+  server while it answers 503.
+
+The `app` service's healthcheck asks `/readyz`; the image's own
+`HEALTHCHECK` asks `/healthz`.
 
 Behind a reverse proxy that terminates TLS, list the proxy in the
 `trusted_proxies` setting (such as `DOORCODE_TRUSTED_PROXIES=10.0.0.0/8` or

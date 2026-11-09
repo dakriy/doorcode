@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -48,6 +49,8 @@ type App struct {
 	// decisions decides the codes doors ask about.
 	decisions decision.Service
 	broker    connector.Broker
+	// store is asked whether it answers when the server's readiness is.
+	store connector.Store
 	// pushes sends doors their configuration and timelines.
 	pushes push.Service
 	// controllers enrolls door controllers and looks after them; live
@@ -115,6 +118,7 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 		requests:  request.Service{Store: store, Clock: clock, Changed: live.requested},
 		decisions: decision.Service{Store: store, Auth: authService, Settings: s, Clock: clock, Limits: decision.NewLimiter()},
 		broker:    f.Broker(),
+		store:     store,
 		live:      live,
 		proxies:   proxy.Service{Resolver: f.Resolver(), Resolved: proxy.NewResolved()},
 	}
@@ -151,6 +155,27 @@ func (a *App) Handler() http.Handler {
 	return a.root
 }
 
+// healthz is the liveness probe: it answers while the process serves.
 func healthz(w http.ResponseWriter, _ *http.Request, _ auth.User) {
+	_, _ = io.WriteString(w, "ok\n")
+}
+
+// readyz is the readiness probe: it answers 200 when the store answers a
+// ping and the broker connection is up, and otherwise 503 naming, one per
+// line, what is not ready.
+func (a *App) readyz(w http.ResponseWriter, r *http.Request, _ auth.User) {
+	var unready []string
+	if err := a.store.Ping(r.Context()); err != nil {
+		unready = append(unready, "store: "+err.Error()+"\n")
+	}
+	if !a.broker.Connected() {
+		unready = append(unready, "broker: not connected\n")
+	}
+	if len(unready) > 0 {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = io.WriteString(w, strings.Join(unready, ""))
+		return
+	}
 	_, _ = io.WriteString(w, "ok\n")
 }

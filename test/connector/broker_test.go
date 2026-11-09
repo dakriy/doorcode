@@ -37,6 +37,18 @@ func connectDoor(t *testing.T, s brokerSession) peer {
 	return p
 }
 
+func TestBrokerReportsTheApplicationConnected(t *testing.T) {
+	for _, impl := range brokerImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			s := impl.open(t)
+
+			if !s.app.Connected() {
+				t.Error("Connected reported false on an open connection")
+			}
+		})
+	}
+}
+
 func TestBrokerDeliversWhatAClientPublishesOnItsTopics(t *testing.T) {
 	for _, impl := range brokerImpls {
 		t.Run(impl.name, func(t *testing.T) {

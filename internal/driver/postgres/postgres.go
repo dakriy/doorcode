@@ -36,6 +36,17 @@ func (s *Store) Close() {
 	s.pool.Close()
 }
 
+// pingTimeout is how long Ping waits for the database's answer.
+const pingTimeout = 2 * time.Second
+
+// Ping runs select 1, waiting at most pingTimeout.
+func (s *Store) Ping(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, pingTimeout)
+	defer cancel()
+	_, err := s.pool.Exec(ctx, "select 1")
+	return err
+}
+
 // Migrate applies every embedded migration not yet recorded in the version
 // table, holding tern's advisory lock while it does.
 func (s *Store) Migrate(ctx context.Context) error {

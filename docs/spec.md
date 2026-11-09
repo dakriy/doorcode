@@ -466,6 +466,13 @@ read-only in the UI). The environment also supplies the database URL, the
 broker address and admin credentials, the listen address, and the key that
 encrypts stored secrets.
 
+Two unauthenticated probes sit outside the JSON API and log nothing.
+`/healthz` is liveness: 200 `ok` while the process serves. `/readyz` is
+readiness: 200 `ok` when the database answers a ping and the broker
+connection is up, otherwise 503 naming what is not ready, one per line
+(`store: <error>`, `broker: not connected`). The compose `app` service's
+healthcheck asks `/readyz`.
+
 Forwarded headers (`X-Forwarded-For` for the client address, which sign-ins,
 refused sign-ins, and failed requests are logged with, and
 `X-Forwarded-Proto` for marking cookies secure) are believed only from a

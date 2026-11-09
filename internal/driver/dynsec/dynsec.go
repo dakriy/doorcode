@@ -105,6 +105,11 @@ func (b *Broker) Close() {
 	b.control.Disconnect(250)
 }
 
+// Connected reports whether both connections are open.
+func (b *Broker) Connected() bool {
+	return b.messages.IsConnectionOpen() && b.control.IsConnectionOpen()
+}
+
 // wait waits for tok to complete, or for ctx to be done.
 func wait(ctx context.Context, tok mqtt.Token) error {
 	select {

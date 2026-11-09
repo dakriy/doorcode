@@ -25,6 +25,16 @@ func TestStoreReportsAnErrorBeforeTheSchemaIsMigrated(t *testing.T) {
 	}
 }
 
+func TestStoreAnswersAPing(t *testing.T) {
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			if err := migrated(t, impl).Ping(context.Background()); err != nil {
+				t.Errorf("Ping: %v", err)
+			}
+		})
+	}
+}
+
 func TestStoreMigrationCanRunAgain(t *testing.T) {
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {

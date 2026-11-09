@@ -97,6 +97,11 @@ func New() *Store {
 	}
 }
 
+// Ping answers at once: the store is in memory.
+func (s *Store) Ping(_ context.Context) error {
+	return nil
+}
+
 // Migrate seeds what the migrations seed, once: the administrators group
 // and the Always schedule.
 func (s *Store) Migrate(_ context.Context) error {
