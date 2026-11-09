@@ -25,6 +25,7 @@ func (a *App) controllerPageRoutes() []route {
 		pageRoute(http.MethodGet, "/admin/enrollments/{hardware_id}", doors, a.approvalPage),
 		pageRoute(http.MethodPost, "/admin/enrollments/{hardware_id}/new-door", doors, a.approveAsNewDoor),
 		pageRoute(http.MethodPost, "/admin/enrollments/{hardware_id}/door", doors, a.approveAsDoor),
+		pageRoute(http.MethodPost, "/admin/enrollments/{hardware_id}/reject", doors, a.rejectFromForm),
 		pageRoute(http.MethodPost, "/admin/doors/{id}/credentials/rotate", doors, a.rotateCredentialsFromForm),
 		pageRoute(http.MethodPost, "/admin/doors/{id}/credentials/revoke", doors, a.revokeCredentialsFromForm),
 	}
@@ -157,14 +158,25 @@ func (a *App) approveAsDoor(w http.ResponseWriter, r *http.Request, viewer auth.
 	a.approved(w, r, viewer, d, err)
 }
 
-// approved finishes an approval: a controller that stopped waiting is
-// shown as gone, a failure as an error, and success by going to the door.
+// approved finishes an approval by going to the door.
 func (a *App) approved(w http.ResponseWriter, r *http.Request, viewer auth.User, d connector.StoredDoor, err error) {
+	a.enrollmentChanged(w, r, viewer, err, doorPath(d.ID), "controller-approved")
+}
+
+func (a *App) rejectFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
+	err := a.controllers.Reject(r.Context(), r.PathValue("hardware_id"))
+	a.enrollmentChanged(w, r, viewer, err, "/admin/enrollments", "controller-rejected")
+}
+
+// enrollmentChanged finishes approving or rejecting a waiting controller:
+// one that stopped waiting is shown as gone, a failure as an error, and
+// success by going to location with flash.
+func (a *App) enrollmentChanged(w http.ResponseWriter, r *http.Request, viewer auth.User, err error, location, flash string) {
 	if errors.Is(err, controller.ErrNotPending) {
 		a.notFound(w, r, viewer, noEnrollmentHere)
 		return
 	}
-	a.changed(w, r, err, doorPath(d.ID), "controller-approved")
+	a.changed(w, r, err, location, flash)
 }
 
 func (a *App) rotateCredentialsFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {

@@ -236,6 +236,14 @@ pending list even if the credentials never reach it, so a controller still
 waiting after a while (such as ten minutes) should publish its announcement
 again; it is then pending again and can be approved again.
 
+An administrator may instead reject a waiting controller, to clear it from
+the list. The protocol has no message telling a controller it was
+rejected: the server takes it off the pending list and clears its retained
+announcement (an empty payload on `doorcode/enroll/<hwid>`), and the
+controller, which hears nothing, keeps waiting. When it announces itself
+again, as above or after reconnecting, it is pending again and appears in
+the list again.
+
 Approval also revokes any credentials the door had before, and, if this
 hardware id was enrolled as another door, takes it off that door and
 revokes that door's credentials.

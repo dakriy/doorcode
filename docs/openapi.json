@@ -3703,6 +3703,80 @@
         }
       }
     },
+    "/enrollments/{hardware_id}": {
+      "delete": {
+        "operationId": "rejectEnrollment",
+        "summary": "Reject a waiting controller",
+        "tags": [
+          "enrollment"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "hardware_id",
+            "in": "path",
+            "required": true,
+            "description": "The controller's hardware id.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "a4cf12f00e3b"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The controller is no longer waiting and its announcement is cleared. It is not told; one still connected is waiting again once it announces itself again."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No connected controller with this hardware id is waiting, or no door has the id given.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/enrollments/{hardware_id}/approve": {
       "post": {
         "operationId": "approveEnrollment",

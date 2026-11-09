@@ -1,9 +1,14 @@
 {{define "content"}}
 {{$c := .Content}}{{$e := $c.Enrollment}}
 {{template "back" (link "/admin/enrollments" "Pending enrollments")}}
-<div class="mt-4">
-  <h1 class="text-2xl font-semibold tracking-tight">Approve {{$e.HardwareID}}</h1>
-  <p class="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">Make this controller a door. It receives credentials of its own and connects with them as the door; the enrollment credentials let it do nothing else.</p>
+<div class="mt-4 flex flex-wrap items-start justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">Approve {{$e.HardwareID}}</h1>
+    <p class="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">Make this controller a door. It receives credentials of its own and connects with them as the door; the enrollment credentials let it do nothing else.</p>
+  </div>
+  <form method="post" action="{{$e.Path}}/reject" hx-disabled-elt="find button" hx-confirm="{{template "reject-question" $e.HardwareID}}">
+    <button type="submit" class="{{template "danger-class"}} py-2">Reject</button>
+  </form>
 </div>
 
 <dl class="mt-6 grid max-w-3xl gap-4 p-6 sm:grid-cols-3 {{template "card-class"}}">

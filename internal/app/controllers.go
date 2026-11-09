@@ -73,6 +73,14 @@ func (a *App) controllerRoutes() []route {
 				{Status: http.StatusConflict, Description: "The door is deleted.", Body: errorBody{}},
 			},
 		}),
+		apiRoute(http.MethodDelete, "/enrollments/{hardware_id}", doors, a.rejectEnrollment, apiDoc{
+			id: "rejectEnrollment", summary: "Reject a waiting controller", tag: "enrollment",
+			params: []openapi.Param{hardwareIDParam},
+			responses: []openapi.Response{
+				{Status: http.StatusNoContent, Description: "The controller is no longer waiting and its announcement is cleared. It is not told; one still connected is waiting again once it announces itself again."},
+				notPending,
+			},
+		}),
 		apiRoute(http.MethodGet, "/doors/{id}/credentials", doors, a.listCredentials, apiDoc{
 			id: "listDoorCredentials", summary: "List the broker credentials of a door's controller", tag: "enrollment", params: doorParams,
 			responses: []openapi.Response{{Status: http.StatusOK, Description: "The door's credentials.", Body: credentialList{}}, noDoor},
@@ -165,6 +173,10 @@ func (a *App) approveEnrollment(w http.ResponseWriter, r *http.Request, _ auth.U
 	}
 	d, err := a.approve(r.Context(), r.PathValue("hardware_id"), body.DoorID, fields)
 	a.writeDoor(w, r, http.StatusOK, d, err)
+}
+
+func (a *App) rejectEnrollment(w http.ResponseWriter, r *http.Request, _ auth.User) {
+	a.doorDone(w, r, a.controllers.Reject(r.Context(), r.PathValue("hardware_id")))
 }
 
 func (a *App) listCredentials(w http.ResponseWriter, r *http.Request, _ auth.User) {

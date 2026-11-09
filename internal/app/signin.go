@@ -60,6 +60,7 @@ var flashes = map[string]string{
 	"sign-in-image-saved":    "The sign-in page shows the new picture.",
 	"sign-in-image-removed":  "The sign-in page shows no picture.",
 	"controller-approved":    "The controller has been approved. Its credentials are on their way, and it connects as this door once it has them.",
+	"controller-rejected":    "The controller has been rejected and taken off the list. It is not told, so one still connected appears again when it next announces itself.",
 	"credentials-rotated":    "New credentials are on their way to the controller. The old ones work until it connects with the new ones.",
 	"credentials-revoked":    "The controller's credentials have been revoked and it has been disconnected. It connects again only by enrolling and being approved.",
 	"door-zones-saved":       "The door's zones have been saved.",
