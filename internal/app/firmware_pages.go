@@ -97,8 +97,8 @@ type firmwareContent struct {
 	Window  windowForm
 	Rollout []rolloutGroup
 	MaxMiB  int
-	// NoAddress is true while the public_url setting is empty, so no
-	// update can be sent.
+	// NoAddress is true while neither door_server_url nor public_url
+	// gives an address, so no update can be sent.
 	NoAddress bool
 	// Unprovisionable is what the page warns of while no provisioning
 	// file can be made, each why.
@@ -237,7 +237,7 @@ func (a *App) showFirmware(w http.ResponseWriter, r *http.Request, status int, v
 	}
 	content := firmwareContent{
 		Defaults: firmwareOptions(plan.Firmware, "No default", defaultOf(plan)), Upload: upload, Errors: errs, Window: window,
-		MaxMiB: firmware.MaxMiB, NoAddress: current.PublicURL == "", Versions: []firmwareRow{}, Unprovisionable: unprovisionable(all),
+		MaxMiB: firmware.MaxMiB, NoAddress: current.DoorURL == "", Versions: []firmwareRow{}, Unprovisionable: unprovisionable(all),
 	}
 	zone := current.Zone
 	for _, f := range plan.Firmware {

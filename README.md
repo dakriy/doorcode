@@ -123,7 +123,19 @@ Mosquitto 2 with its dynamic-security plugin. Migrations apply on start.
 
 4. In Settings, set `public_url` to the `https://` address people and doors
    reach the server at (such as `https://doorcode.example.com`). Firmware
-   downloads and single sign-on need it.
+   downloads and single sign-on need it. An `http://` address is accepted
+   for development only: doors verify the server's certificate only over
+   https.
+
+   Doors verify the server, when they download firmware, against the same
+   CA certificate as the broker (`door_broker_ca_pem`), usually an internal
+   CA, while people's browsers want a certificate from a public CA. Give
+   the server a second entrypoint wherever TLS is terminated that serves a
+   certificate chain from the internal CA the doors trust, such as a second
+   port or host name on the reverse proxy forwarding to the same server,
+   and set `door_server_url` to it (such as
+   `https://doors.doorcode.example.com`). The main entrypoint may use any
+   public CA. While `door_server_url` is empty doors use `public_url`.
 
 The compose file is a starting point: the broker listens without TLS on
 1883, and the database and broker passwords are `doorcode`. For production,
@@ -200,7 +212,8 @@ single sign-on and identity claims parts while `oidc_enabled` is off.
 | `telemetry_retention_days` | Days each telemetry report is kept. | `7` |
 | `telemetry_rollup_retention_days` | Days the hourly summaries of the reports are kept. | `730` |
 | `unresponsive_minutes` | Minutes a connected door may stay silent before it counts as unresponsive. | `5` |
-| `public_url` | The `https://` address doors and browsers reach the server at. Firmware is not sent while it is empty, and single sign-on needs it. | empty |
+| `public_url` | The `https://` address, without a query, doors and browsers reach the server at; `http://` only for development, since doors verify the server's certificate only over https. Firmware is not sent while it is empty, and single sign-on needs it. | empty |
+| `door_server_url` | The address, without a query, doors download firmware from when it is not `public_url`: an entrypoint whose certificate chains to the CA in `door_broker_ca_pem`. Sent in the `update` command and in the provisioning file's `server`. Empty uses `public_url`. | empty |
 | `update_window_days` | `daily`, or weekdays separated by commas such as `sat,sun`. | `daily` |
 | `update_window_start` | When the update window opens, `HH:MM` in the site timezone. | `02:00` |
 | `update_window_minutes` | How long the update window lasts, in minutes. | `120` |
@@ -272,7 +285,8 @@ simulated controller, `internal/demo/doors.go`, is a reference
 implementation. In short:
 
 0. **Provision.** Flash the controller with a provisioning file: the
-   broker, its CA certificate, the Wi-Fi network, the enrollment
+   broker, its CA certificate, the server's address for firmware
+   (`door_server_url` or `public_url`), the Wi-Fi network, the enrollment
    credentials, and a starting configuration. A holder of manage-firmware
    downloads it from the firmware page, or a door's page for a controller
    meant for that door, or from `GET /api/v1/firmware/provisioning` and
@@ -334,9 +348,9 @@ While the update window is open (`update_window_days`, `update_window_start`,
 `update_window_minutes`, in the site timezone), the server sends pending
 online doors, in id order, an `update` command until `update_concurrency`
 doors are updating; a door's page can also update it at once. The command's
-`url` is `public_url` + `/api/v1/doors/<id>/firmware/<version>?token=...`,
-valid only for that update until it times out, so nothing is sent while
-`public_url` is empty. The door downloads and checks the image against
+`url` is `door_server_url` (or `public_url` while that is empty) +
+`/api/v1/doors/<id>/firmware/<version>?token=...`, valid only for that
+update until it times out, so nothing is sent while both are empty. The door downloads and checks the image against
 `sha256`, installs it, and reconnects reporting the new version, which ends
 the update as succeeded. A door that cannot install it answers `failed` on
 its ack topic; one that does not come back within `update_timeout_minutes`

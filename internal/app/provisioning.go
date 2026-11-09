@@ -33,10 +33,15 @@ type provisioningWifi struct {
 	Password string `json:"password" doc:"Its password, in the clear."`
 }
 
+type provisioningServer struct {
+	URL string `json:"url" doc:"The address to download firmware from: door_server_url, or public_url while that is empty; empty when neither is set."`
+}
+
 type provisioningFile struct {
 	Format      int                    `json:"format" doc:"The version of this file's layout, 1."`
 	GeneratedAt int64                  `json:"generated_at" doc:"When the file was made, in Unix seconds."`
 	Broker      provisioningBroker     `json:"broker" doc:"The broker to connect to."`
+	Server      provisioningServer     `json:"server" doc:"The server to download firmware from."`
 	Enrollment  provisioningEnrollment `json:"enrollment" doc:"The credentials to enroll with."`
 	Wifi        provisioningWifi       `json:"wifi" doc:"The Wi-Fi network to join."`
 	DoorConfig  doorConfigView         `json:"door_config" doc:"The configuration to run with until the server sends one, with the names and types of the configuration message; secrets in the clear."`
@@ -87,7 +92,8 @@ func (a *App) writeProvisioning(w http.ResponseWriter, r *http.Request, d connec
 	}
 	config, _, err := a.effectiveConfig(r.Context(), d)
 	username, password, enrollErr := a.settings.Enrollment(r.Context())
-	if err := errors.Join(err, enrollErr); err != nil {
+	current, currentErr := a.settings.Current(r.Context())
+	if err := errors.Join(err, enrollErr, currentErr); err != nil {
 		a.internalError(w, r, err)
 		return
 	}
@@ -98,6 +104,7 @@ func (a *App) writeProvisioning(w http.ResponseWriter, r *http.Request, d connec
 	file := provisioningFile{
 		Format: provisioningFormat, GeneratedAt: a.clock.Now().Unix(),
 		Broker:     provisioningBroker{Host: config.BrokerHost, Port: config.BrokerPort, TLS: config.BrokerTLS},
+		Server:     provisioningServer{URL: current.DoorURL},
 		Enrollment: provisioningEnrollment{Username: username, Password: password},
 		Wifi:       provisioningWifi{SSID: config.WifiSSID, Password: config.WifiPassword},
 		DoorConfig: doorConfigView(config),

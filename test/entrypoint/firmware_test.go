@@ -855,26 +855,88 @@ func TestRolloutSettingsThatAreWrongAreRefused(t *testing.T) {
 	}
 }
 
-func TestThePublicAddressMustBeAnHTTPSAddressWithoutAQuery(t *testing.T) {
+func TestThePublicAddressMustBeAnHTTPSOrHTTPAddressWithoutAQuery(t *testing.T) {
 	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
-	refused := `{"error":"invalid value for public_url: must be empty or an https:// address without a query, such as https://doorcode.example.com"}` + "\n"
+	refused := `{"error":"invalid value for public_url: must be empty or an https:// or http:// address without a query, such as https://doorcode.example.com"}` + "\n"
 	cases := []struct {
 		value  string
 		status int
 	}{
-		{"http://doorcode.example.com", 400},
+		{"ftp://doorcode.example.com", 400},
+		{"http://", 400},
 		{"https://", 400},
+		{"http://doorcode.example.com/?x=1", 400},
 		{"https://doorcode.example.com/?x=1", 400},
 		{"https://doorcode.example.com/#top", 400},
 		{"https://doorcode.example.com/%zz", 400},
 		{"https://doorcode.example.com/", 200},
+		{"http://doorcode.example.com:8080/", 200},
 		{"", 200},
 	}
 
 	var got, want []string
 	for _, c := range cases {
 		r := send(t, b, "PUT", "/api/v1/settings/public_url", `{"value":"`+c.value+`"}`, c.status)
+		if c.status == 400 {
+			got, want = append(got, r.Body), append(want, refused)
+		}
+	}
+
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("refusals (-want +got):\n%s", diff)
+	}
+}
+
+func TestUpdatesGoToAnHTTPPublicAddress(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	fl := fleetSite(t, f)
+	delete(f.EnvStub, "DOORCODE_PUBLIC_URL")
+	send(t, fl.b, "PUT", "/api/v1/settings/public_url", `{"value":"http://localhost:8080"}`, 200)
+	send(t, fl.b, "POST", "/api/v1/doors/1/update", "", 200)
+
+	url, _ := lastReceived(t, fl.conns[0])["url"].(string)
+
+	if diff := cmp.Diff("http://localhost:8080/api/v1/doors/1/firmware/1.5.0?token=", url[:len(url)-43]); diff != "" {
+		t.Errorf("url without its token (-want +got):\n%s", diff)
+	}
+}
+
+func TestUpdatesGoToTheDoorsServerAddressWhenOneIsSet(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	fl := fleetSite(t, f)
+	delete(f.EnvStub, "DOORCODE_PUBLIC_URL")
+	send(t, fl.b, "PUT", "/api/v1/settings/door_server_url", `{"value":"https://doors.example.com:8443/"}`, 200)
+	send(t, fl.b, "POST", "/api/v1/doors/1/update", "", 200)
+
+	url, _ := lastReceived(t, fl.conns[0])["url"].(string)
+
+	if diff := cmp.Diff("https://doors.example.com:8443/api/v1/doors/1/firmware/1.5.0?token=", url[:len(url)-43]); diff != "" {
+		t.Errorf("url without its token (-want +got):\n%s", diff)
+	}
+}
+
+func TestTheDoorsServerAddressMustBeAnHTTPSOrHTTPAddressWithoutAQuery(t *testing.T) {
+	t.Parallel()
+	b := signedInAdmin(t, testsupport.NewFactory())
+	refused := `{"error":"invalid value for door_server_url: must be empty or an https:// or http:// address without a query, such as https://doors.doorcode.example.com"}` + "\n"
+	cases := []struct {
+		value  string
+		status int
+	}{
+		{"ftp://doors.example.com", 400},
+		{"https://", 400},
+		{"https://doors.example.com/?x=1", 400},
+		{"https://doors.example.com:8443/", 200},
+		{"http://doors.example.com:8080", 200},
+		{"", 200},
+	}
+
+	var got, want []string
+	for _, c := range cases {
+		r := send(t, b, "PUT", "/api/v1/settings/door_server_url", `{"value":"`+c.value+`"}`, c.status)
 		if c.status == 400 {
 			got, want = append(got, r.Body), append(want, refused)
 		}
