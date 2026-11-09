@@ -69,9 +69,12 @@ docker run --rm -p 8080:8080 doorcode-demo
 ```
 
 or, with Go installed, `go run ./cmd/doorcode-demo`. Open
-<http://localhost:8080> and sign in with the email and password the demo
-prints at start (`admin@example.com` and `doorcode-demo`). It comes with
-users, groups, zones, schedules, access rules, overrides, doors with
+<http://localhost:8080> and sign in with one of the two accounts the demo
+prints at start: the administrator (`admin@example.com` and
+`doorcode-demo`), or a member of staff with a door code and no role
+(`user@example.com` and `doorcode-demo`), who sees the user portal: their
+access to the public doors, with pictures, and their own entries. It comes
+with users, groups, zones, schedules, access rules, overrides, doors with
 pictures, a few weeks of events and telemetry, firmware versions, and access
 requests. One simulated controller waits for approval under Enrollments; the
 others are online, report telemetry, open and close, answer open commands,

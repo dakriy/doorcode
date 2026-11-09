@@ -92,7 +92,8 @@ func serve(ctx context.Context, a *app.App, f factory, site demo.Site, listen st
 	}
 	srv := &http.Server{Addr: listen, Handler: a.Handler(), ReadHeaderTimeout: 10 * time.Second}
 	go func() { stopped <- srv.ListenAndServe() }()
-	fmt.Printf("doorcode demo on %s\nsign in as %s with the password %s\n", listen, site.AdminEmail, demo.AdminPassword)
+	fmt.Printf("doorcode demo on %s\nsign in as %s with the password %s to administer the site,\nor as %s with the password %s to see it as a member of staff\n",
+		listen, site.AdminEmail, demo.AdminPassword, demo.MemberEmail, demo.MemberPassword)
 	return <-stopped
 }
 

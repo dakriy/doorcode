@@ -15,6 +15,13 @@ import (
 // AdminPassword is the password the demo gives the first administrator.
 const AdminPassword = "doorcode-demo"
 
+// MemberEmail and MemberPassword sign in as a member of staff who holds no
+// role, to see the site as most people do: through the portal.
+const (
+	MemberEmail    = "user@example.com"
+	MemberPassword = "doorcode-demo"
+)
+
 // enrollmentPassword is the password the simulated controllers enroll
 // with.
 const enrollmentPassword = "demo-enrollment"
@@ -155,6 +162,15 @@ var people = []person{
 // firstPerson is the user id of the first of people.
 const firstPerson = 2
 
+// memberProfile is the member of staff who signs in with MemberEmail, the
+// user created after people.
+var memberProfile = map[string]any{
+	"email": MemberEmail, "user_id": "100243", "first_name": "Sam", "last_name": "Rivera",
+}
+
+// memberCode is the member's door code.
+const memberCode = "369791"
+
 // The user ids of people, in its order.
 const (
 	ann = firstPerson + iota
@@ -166,12 +182,14 @@ const (
 	grace
 	hugo
 	ivy
+	member
 )
 
 // hasExpired reports whether the person whose user id is user is marked
-// expired.
+// expired; the member, who comes after people, is not.
 func hasExpired(user int64) bool {
-	return people[user-firstPerson].expired
+	i := int(user - firstPerson)
+	return i < len(people) && people[i].expired
 }
 
 // expiredAt is when the account of every person marked expired ended: a
@@ -202,7 +220,8 @@ var waiting = SimulatedDoor{HardwareID: "a4cf12e0b1f6", Firmware: "1.4.1", Signa
 // Seed signs in as the first administrator with the password it logged,
 // gives them AdminPassword, and builds the demo site through the API:
 // settings, schedules, doors with pictures, zones, groups, users with
-// codes, access rules, overrides, firmware, and access requests. Then it
+// codes, the member who signs in with MemberPassword, access rules,
+// overrides, firmware, and access requests. Then it
 // writes weeks of history into store. It runs before Run, so the
 // controllers find the enrollment password set.
 func Seed(ctx context.Context, h http.Handler, store connector.Store, log *Log, now time.Time) (Site, error) {
@@ -219,7 +238,9 @@ func Seed(ctx context.Context, h http.Handler, store connector.Store, log *Log, 
 		return Site{}, err
 	}
 	site := Site{AdminEmail: email, Waiting: waiting, start: now.AddDate(0, 0, -historyDays)}
-	steps := []func(client, time.Time, *Site) error{seedSettings, seedSchedules, seedDoors, seedZones, seedGroups, seedPeople, seedRules, seedOverrides, seedFirmware, seedRequests}
+	steps := []func(client, time.Time, *Site) error{
+		seedSettings, seedSchedules, seedDoors, seedZones, seedGroups, seedPeople, seedMember, seedRules, seedOverrides, seedFirmware, seedRequests,
+	}
 	for _, step := range steps {
 		if err := step(admin, now, &site); err != nil {
 			return Site{}, fmt.Errorf("seed the demo: %w", err)
@@ -237,6 +258,7 @@ func seedSettings(admin client, _ time.Time, _ *Site) error {
 		{"public_url", "https://doorcode.example.com"},
 		{"enrollment_password", enrollmentPassword},
 		{"door_telemetry_interval_s", "15"},
+		{"portal_door_pictures", "true"},
 	}
 	for _, v := range values {
 		if err := admin.call(http.MethodPut, "/api/v1/settings/"+v[0], map[string]string{"value": v[1]}, nil); err != nil {
@@ -323,6 +345,29 @@ func seedPeople(admin client, now time.Time, site *Site) error {
 		}
 	}
 	return nil
+}
+
+// seedMember creates the member of staff, with a code, and has them choose
+// MemberPassword through a token the administrator makes them.
+func seedMember(admin client, now time.Time, site *Site) error {
+	body := map[string]any{"expires_at": now.AddDate(2, 0, 0).UTC().Format(time.RFC3339)}
+	for key, value := range memberProfile {
+		body[key] = value
+	}
+	if err := admin.call(http.MethodPost, "/api/v1/users", body, nil); err != nil {
+		return err
+	}
+	if err := setCode(admin, member, memberCode, site); err != nil {
+		return err
+	}
+	if err := admin.call(http.MethodPut, fmt.Sprintf("/api/v1/groups/%d/members/%d", staff, member), nil, nil); err != nil {
+		return err
+	}
+	var token struct{ Secret string }
+	if err := admin.call(http.MethodPost, fmt.Sprintf("/api/v1/users/%d/tokens", member), map[string]any{"name": "demo"}, &token); err != nil {
+		return err
+	}
+	return admin.as(token.Secret).call(http.MethodPut, "/api/v1/me/password", map[string]string{"new_password": MemberPassword}, nil)
 }
 
 func setCode(admin client, id int, code string, site *Site) error {
