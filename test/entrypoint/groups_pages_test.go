@@ -21,6 +21,18 @@ var membersHead = []string{"Name", "Email", "Status", "Actions"}
 var nightForm = map[string]string{"name": "Night", "slug": "night", "description": "Late shifts.",
 	"preassigned_user_ids": "100234\n100877", "member": ""}
 
+// preassignedNote is what a group form says in place of the pre-assigned
+// user ids while sign-in reads no user id claim.
+const preassignedNote = "Pre-assigned user ids, which add people to the group when their account is created, " +
+	"are offered here once the user id claim is set in the settings."
+
+// readingUserIDs makes sign-in read a user id claim, so group forms offer
+// the pre-assigned user ids that match it.
+func readingUserIDs(f *testsupport.Factory) *testsupport.Factory {
+	f.StoreStub.SeedSetting("oidc_claim_user_id", "employee_id", testsupport.DefaultNow)
+	return f
+}
+
 const night = `{"slug":"night","name":"Night","description":"Late shifts.","roles":["view-logs","door-commander"],` +
 	`"preassigned_user_ids":["100234","100877"]}`
 
@@ -56,7 +68,7 @@ func TestNewGroupPageOffersAnEmptyForm(t *testing.T) {
 
 	want := testsupport.Page{
 		Title: "New group · doorcode", Heading: "New group", Nav: groupsNav,
-		Values: map[string]string{"name": "", "slug": "", "description": "", "preassigned_user_ids": ""},
+		Values: map[string]string{"name": "", "slug": "", "description": ""}, Notes: []string{preassignedNote},
 	}
 	if diff := cmp.Diff(want, pageOf(got)); diff != "" {
 		t.Errorf("page (-want +got):\n%s", diff)
@@ -86,7 +98,7 @@ func TestTheGroupFormSaysWhatEachRoleLetsItsHoldersDo(t *testing.T) {
 
 func TestCreatingAGroupFromTheFormOpensItsPage(t *testing.T) {
 	t.Parallel()
-	b := signedInAdmin(t, testsupport.NewFactory())
+	b := signedInAdmin(t, readingUserIDs(testsupport.NewFactory()))
 	b.Get("/")
 
 	created := b.Post("/admin/groups", "name", "Night", "slug", "night", "description", "Late shifts.",
@@ -113,7 +125,7 @@ func TestCreatingAGroupFromTheFormOpensItsPage(t *testing.T) {
 
 func TestGroupFormSaysWhatIsWrongAndKeepsWhatWasEntered(t *testing.T) {
 	t.Parallel()
-	got := signedInAdmin(t, testsupport.NewFactory()).Post("/admin/groups", "name", "", "slug", "administrators",
+	got := signedInAdmin(t, readingUserIDs(testsupport.NewFactory())).Post("/admin/groups", "name", "", "slug", "administrators",
 		"description", repeat("x", 1001), "roles", "admin", "roles", "root", "preassigned_user_ids", "a b")
 
 	page := pageOf(got)
@@ -145,7 +157,7 @@ func TestCreatingAGroupWithARoleYouDoNotHoldIsRefusedOnTheForm(t *testing.T) {
 
 func TestGroupPageListsItsMembers(t *testing.T) {
 	t.Parallel()
-	b := signedInAdmin(t, testsupport.NewFactory())
+	b := signedInAdmin(t, readingUserIDs(testsupport.NewFactory()))
 	createGroup(t, b, night)
 	createUser(t, b, ann)
 	createUser(t, b, `{"email":"bo@example.com","display_name":"Bo"}`)
@@ -172,6 +184,51 @@ func TestGroupPageListsItsMembers(t *testing.T) {
 	}
 	if diff := cmp.Diff(want, pageOf(got)); diff != "" {
 		t.Errorf("page (-want +got):\n%s", diff)
+	}
+}
+
+func TestAGroupFormOffersThePreassignedUserIDsOnceSignInReadsAUserIDClaim(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	b := signedInAdmin(t, f)
+	createGroup(t, b, night)
+
+	before := pageOf(b.Get("/admin/groups/2"))
+	send(t, b, "PUT", "/api/v1/settings/oidc_claim_user_id", `{"value":"employee_id"}`, 200)
+	after := pageOf(b.Get("/admin/groups/2"))
+
+	want := []any{[]string{"This group keeps 2 pre-assigned user ids. " + preassignedNote}, "", "100234\n100877"}
+	if diff := cmp.Diff(want, []any{before.Notes, before.Values["preassigned_user_ids"], after.Values["preassigned_user_ids"]}); diff != "" {
+		t.Errorf("notes and pre-assigned user ids before, pre-assigned user ids after the claim is set (-want +got):\n%s", diff)
+	}
+}
+
+func TestSavingAGroupWhoseFormDoesNotOfferThePreassignedUserIDsKeepsThem(t *testing.T) {
+	t.Parallel()
+	b := signedInAdmin(t, testsupport.NewFactory())
+	createGroup(t, b, night)
+	createGroup(t, b, `{"slug":"day","name":"Day","preassigned_user_ids":["100555"]}`)
+
+	refused := pageOf(b.Post("/admin/groups/2", "name", "Nights", "slug", "Night"))
+	saved := b.Post("/admin/groups/3", "name", "Days", "slug", "day")
+
+	want := []any{[]string{"This group keeps 2 pre-assigned user ids. " + preassignedNote}, 303,
+		[]any{"100555"}}
+	got := []any{refused.Notes, saved.Status, testsupport.JSONAt(b.Get("/api/v1/groups/3").Body, "/preassigned_user_ids")}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("refused form's notes, saved status, pre-assigned user ids kept (-want +got):\n%s", diff)
+	}
+}
+
+func TestAGroupFormSaysWhenTheGroupKeepsOnePreassignedUserID(t *testing.T) {
+	t.Parallel()
+	b := signedInAdmin(t, testsupport.NewFactory())
+	createGroup(t, b, `{"slug":"day","name":"Day","preassigned_user_ids":["100555"]}`)
+
+	got := pageOf(b.Get("/admin/groups/2"))
+
+	if diff := cmp.Diff([]string{"This group keeps 1 pre-assigned user id. " + preassignedNote}, got.Notes); diff != "" {
+		t.Errorf("notes (-want +got):\n%s", diff)
 	}
 }
 

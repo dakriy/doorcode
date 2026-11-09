@@ -6,7 +6,7 @@ BASE ?= main
 # Runtime budget for everything verify-fast runs as tests, in seconds.
 FAST_BUDGET_SECONDS ?= 10
 
-.PHONY: verify-fast verify-mutation verify-mutation-diff verify-integration verify-all fmt ui openapi
+.PHONY: verify-fast verify-mutation verify-mutation-diff verify-integration verify-all fmt ui openapi zones
 
 verify-fast:
 	$(GO) build ./...
@@ -47,3 +47,8 @@ ui:
 # Rewrites docs/openapi.json from the route table.
 openapi:
 	$(GO) run ./cmd/doorcode-openapi >docs/openapi.json
+
+# Rewrites the names of the time zones the tzdb driver embeds from the tz
+# database the Go toolchain ships, the one time/tzdata embeds.
+zones:
+	$(GO) run ./cmd/doorcode-zones "$$($(GO) env GOROOT)/lib/time/zoneinfo.zip" >internal/driver/tzdb/zones.txt

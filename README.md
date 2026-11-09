@@ -145,7 +145,10 @@ Every setting can also be given as `DOORCODE_` followed by its key in upper
 case, such as `DOORCODE_SITE_TIMEZONE=Europe/Berlin`. A variable that is set,
 even to the empty value, wins over the value stored in the database and makes
 the setting read-only in the UI. Without one, the value saved on the settings
-page applies, and without that the default.
+page applies, and without that the default. The settings page asks for each
+setting with an input of its kind (a color picker, a checkbox, a number, a
+select, and a searchable list of zones for the timezone) and folds away the
+single sign-on and identity claims parts while `oidc_enabled` is off.
 
 | Setting | Meaning | Default |
 | --- | --- | --- |

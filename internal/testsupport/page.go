@@ -68,6 +68,12 @@ type Page struct {
 	Comboboxes []string
 	// Styles is the text of each style sheet the page holds itself.
 	Styles []string
+	// Inputs maps each named control a person fills in, every one but a
+	// hidden input, to its kind: an input's type, select, or textarea.
+	Inputs map[string]string
+	// Disclosures maps the heading in the summary of each disclosure that
+	// has one, a part of the page that folds away, to whether it is open.
+	Disclosures map[string]bool
 }
 
 // Image is an image a page shows: where it is served from and its
@@ -117,6 +123,7 @@ func ParsePage(body string) Page {
 		if hasAttr(n, "data-combobox") {
 			p.Comboboxes = append(p.Comboboxes, attr(n, "name"))
 		}
+		p.readControl(n)
 		p.read(n)
 	}
 	for _, n := range invalid {
@@ -251,13 +258,45 @@ func (p *Page) readResource(n *html.Node) {
 	}
 }
 
-// readText reads a labelled list's item and a style sheet's text.
+// readText reads a labelled list's item, a style sheet's text, and a
+// disclosure.
 func (p *Page) readText(n *html.Node) {
 	switch n.Data {
 	case "li":
 		p.readItem(n)
 	case "style":
 		p.Styles = append(p.Styles, rawText(n))
+	case "details":
+		p.readDisclosure(n)
+	}
+}
+
+// readControl reads the kind of a named control a person fills in.
+func (p *Page) readControl(n *html.Node) {
+	kind := n.Data
+	if kind == "input" {
+		kind = attr(n, "type")
+	}
+	named := attr(n, "name") != ""
+	if named && kind != "hidden" && (n.Data == "input" || n.Data == "select" || n.Data == "textarea") {
+		if p.Inputs == nil {
+			p.Inputs = map[string]string{}
+		}
+		p.Inputs[attr(n, "name")] = kind
+	}
+}
+
+// readDisclosure reads whether a disclosure whose summary holds a heading
+// is open.
+func (p *Page) readDisclosure(details *html.Node) {
+	for d := range details.Descendants() {
+		if d.Data == "h2" && within(d, "summary") {
+			if p.Disclosures == nil {
+				p.Disclosures = map[string]bool{}
+			}
+			p.Disclosures[text(d)] = hasAttr(details, "open")
+			return
+		}
 	}
 }
 

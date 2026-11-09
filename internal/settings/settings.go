@@ -133,8 +133,9 @@ var durations = []struct {
 type definition struct {
 	key      string
 	fallback string
-	// validate rejects a value the setting cannot take; nil accepts any.
-	validate func(s Service, value string) error
+	// validate is the values the setting takes and how a page asks for
+	// one; the zero rule takes any value in a text box.
+	validate rule
 	// secret settings are stored encrypted and shown masked.
 	secret bool
 	// section is the part of the settings page that shows the setting,
@@ -144,10 +145,77 @@ type definition struct {
 	help    string
 }
 
-// Section is a part of the settings page: its name and what it is about.
+// Section is a part of the settings page: its name and what it is about,
+// and the key of the yes or no setting that turns its settings on, empty
+// when they are always in use.
 type Section struct {
-	Name  string
-	About string
+	Name   string
+	About  string
+	Toggle string
+}
+
+// rule is the values a setting takes, which check rejects the others of
+// (a nil check takes any), and how a page asks for one.
+type rule struct {
+	check func(s Service, value string) error
+	input Input
+}
+
+// askedWith is the rule r with a page asking for its values with in.
+func (r rule) askedWith(in Input) rule {
+	r.input = in
+	return r
+}
+
+// refusal is why the rule does not take value, nil when it does.
+func (r rule) refusal(s Service, value string) error {
+	if r.check == nil {
+		return nil
+	}
+	return r.check(s, value)
+}
+
+// InputKind is the kind of input a page asks for a setting's value with.
+type InputKind string
+
+// The kinds of input. The zero kind is a text box.
+const (
+	KindNumber InputKind = "number"
+	KindYesNo  InputKind = "yes-no"
+	KindColor  InputKind = "color"
+	KindTime   InputKind = "time"
+	KindChoice InputKind = "choice"
+	KindZone   InputKind = "zone"
+)
+
+// The values of a yes or no setting.
+const (
+	Yes = "true"
+	No  = "false"
+)
+
+// Input is how a page asks for a setting's value: with an input of Kind,
+// offering Choices for a choice (a zone offers every zone the tz database
+// lists), and, for a setting that may be empty, the label of the choice
+// to leave it so, Empty.
+type Input struct {
+	Kind    InputKind
+	Choices []string
+	Empty   string
+}
+
+// inputOf is how a page asks for a value parsed as T: a yes or no for a
+// truth, a number for a whole number or a length of time, a text box for
+// anything else.
+func inputOf[T any]() Input {
+	var zero T
+	switch any(zero).(type) {
+	case bool:
+		return Input{Kind: KindYesNo}
+	case int, uint32, time.Duration:
+		return Input{Kind: KindNumber}
+	}
+	return Input{}
 }
 
 // section is a part of the settings page and the definitions of the
@@ -162,18 +230,18 @@ type section struct {
 var sections = []section{
 	{Section{Name: "Site", About: "What the site is called and the timezone every time it shows is read in."}, []definition{
 		{key: keySiteName, fallback: "doorcode", label: "Site name", help: "Shown in the header and every page title."},
-		{key: keySiteTimezone, fallback: "UTC", validate: func(s Service, value string) error {
+		{key: keySiteTimezone, fallback: "UTC", validate: rule{check: func(s Service, value string) error {
 			_, err := s.siteZone(value)
 			return err
-		}, label: "Timezone", help: "A tz database name such as Europe/Berlin. Schedules, dates typed on pages, and every time shown are read in it."},
+		}, input: Input{Kind: KindZone}}, label: "Timezone", help: "A zone of the tz database, such as Europe/Berlin; type to find one. Schedules, dates typed on pages, and every time shown are read in it."},
 		{key: keyAdminEmail, fallback: "admin@example.com", label: "First administrator's email",
 			help: "The account created on first start when there are no users."},
 	}},
 	{Section{Name: "Theme", About: "The accent color of buttons, links, and highlights. Lighter and darker tones are worked out from it for both the light and the dark theme."}, []definition{
-		{key: keyThemeAccent, fallback: defaultAccent, validate: accepting(color), label: "Accent color",
+		{key: keyThemeAccent, fallback: defaultAccent, validate: accepting(color).askedWith(Input{Kind: KindColor}), label: "Accent color",
 			help: "A color as #rrggbb, such as #4f39f6."},
-		{key: keyThemeAccentDark, fallback: "", validate: accepting(optionalColor), label: "Accent color in the dark theme",
-			help: "A color as #rrggbb, or empty to use the accent color."},
+		{key: keyThemeAccentDark, fallback: "", validate: accepting(optionalColor).askedWith(Input{Kind: KindColor, Empty: "Use the accent color"}),
+			label: "Accent color in the dark theme", help: "A color as #rrggbb, or empty to use the accent color."},
 	}},
 	{Section{Name: "Accounts and passwords", About: "How passwords are hashed and chosen, and how long accounts made at sign-in last."}, []definition{
 		{key: keyPasswordHashMemory, fallback: "19456", validate: accepting(passwordHashMemory), label: "Password hashing memory",
@@ -183,10 +251,11 @@ var sections = []section{
 		{key: keyNewUserExpiry, fallback: "1826", validate: accepting(newUserExpiry), label: "New account lifetime",
 			help: "Days until the account of a user created by signing in at the provider expires."},
 	}},
-	{Section{Name: "Single sign-on", About: "Signing in through an OpenID Connect provider. Register public_url followed by /sign-in/oidc/callback as the redirect address, and public_url followed by /sign-in as the address to return to after signing out."}, []definition{
-		{key: keyOIDCEnabled, fallback: "false", validate: accepting(boolean), label: "Single sign-on enabled", help: "true or false."},
+	{Section{Name: "Single sign-on", About: "Signing in through an OpenID Connect provider. Register public_url followed by /sign-in/oidc/callback as the redirect address, and public_url followed by /sign-in as the address to return to after signing out.", Toggle: keyOIDCEnabled}, []definition{
+		{key: keyOIDCEnabled, fallback: "false", validate: accepting(boolean), label: "Single sign-on enabled",
+			help: "Offers signing in at the provider set up here, beside signing in with a password."},
 		{key: keyOIDCAutoSignIn, fallback: "false", validate: accepting(boolean), label: "Automatic sign-in",
-			help: "true sends the sign-in page straight on to the provider and hides the password forms; add ?auto_sign_in=false to reach them."},
+			help: "Sends the sign-in page straight on to the provider and hides the password forms; add ?auto_sign_in=false to reach them."},
 		{key: keyOIDCIssuer, fallback: "", validate: accepting(issuer), label: "Issuer",
 			help: "The provider's https:// address, exactly as it names itself."},
 		{key: keyOIDCClientID, fallback: "", label: "Client id", help: "The id the site is registered with at the provider."},
@@ -195,7 +264,7 @@ var sections = []section{
 		{key: keyOIDCScopes, fallback: "openid email profile", validate: accepting(scopes), label: "Scopes",
 			help: "Scopes asked for, separated by spaces, openid among them."},
 	}},
-	{Section{Name: "Identity claims", About: "The claims of the provider's ID token or userinfo that say who someone is and which groups they are in. An empty claim name is a claim the site does not read."}, []definition{
+	{Section{Name: "Identity claims", About: "The claims of the provider's ID token or userinfo that say who someone is and which groups they are in. An empty claim name is a claim the site does not read.", Toggle: keyOIDCEnabled}, []definition{
 		{key: keyClaimUserID, fallback: "", label: "User id claim", help: "The claim holding the user id people are matched by first."},
 		{key: keyClaimEmail, fallback: "email", validate: accepting(claimName), label: "Email claim", help: "Required."},
 		{key: keyClaimFirstName, fallback: "given_name", label: "First name claim"},
@@ -209,7 +278,7 @@ var sections = []section{
 	{Section{Name: "Door enrollment", About: "The broker account every new controller enrolls with, and how long a door's old credentials keep working. A changed enrollment username or password takes effect when the server next starts."}, []definition{
 		{key: keyEnrollmentUsername, fallback: "doorcode-enroll", label: "Enrollment username"},
 		{key: keyEnrollmentPassword, fallback: "", secret: true, label: "Enrollment password",
-			help: "Generated and logged on first start when empty."},
+			help: "The password a new door controller signs in to the broker with, beside the enrollment username, until an administrator approves it and it gets credentials of its own. Enter both in the settings of each controller you install. When it is empty on first start, the server makes one up and writes it to its log."},
 		{key: keyGraceHours, fallback: "24", validate: accepting(graceHours), label: "Credential grace period",
 			help: "Hours a door's old credentials keep working after new ones are issued."},
 	}},
@@ -226,7 +295,7 @@ var sections = []section{
 			help: "The https:// address doors and browsers reach the server at. Nothing is sent to doors to download while it is empty."},
 		{key: KeyUpdateDays, fallback: EveryDay, validate: accepting(updateDays), label: "Update days",
 			help: "daily, or weekdays separated by commas such as sat,sun."},
-		{key: keyUpdateStart, fallback: "02:00", validate: accepting(timeOfDay), label: "Update window opens", help: "HH:MM in the site timezone."},
+		{key: keyUpdateStart, fallback: "02:00", validate: accepting(timeOfDay).askedWith(Input{Kind: KindTime}), label: "Update window opens", help: "A time of day in the site timezone."},
 		{key: keyUpdateLength, fallback: "120", validate: accepting(updateLength), label: "Update window length", help: "Minutes."},
 		{key: keyUpdateConcurrency, fallback: "5", validate: accepting(updateConcurrency), label: "Doors updating at once"},
 		{key: keyUpdateTimeout, fallback: "30", validate: accepting(updateTimeout), label: "Update timeout",
@@ -377,10 +446,10 @@ func httpsAddress(value string) bool {
 
 // boolean parses true or false.
 func boolean(value string) (bool, error) {
-	if value != "true" && value != "false" {
+	if value != Yes && value != No {
 		return false, errors.New("must be true or false")
 	}
-	return value == "true", nil
+	return value == Yes, nil
 }
 
 // color parses a color written as #rrggbb, kept in lowercase.
@@ -523,10 +592,11 @@ type Setting struct {
 	// SourceDatabase.
 	UpdatedAt time.Time
 	// Section is the part of the settings page that shows the setting,
-	// under Label, explained by Help.
+	// under Label, explained by Help, asking for a value with Input.
 	Section Section
 	Label   string
 	Help    string
+	Input   Input
 }
 
 // ReadOnly reports whether the setting cannot be changed from the
@@ -556,6 +626,15 @@ func (s Service) List(ctx context.Context) ([]Setting, error) {
 		resolved = append(resolved, s.resolve(def, stored))
 	}
 	return resolved, nil
+}
+
+// Choices is the values a page offers for setting: every zone the tz
+// database lists for a zone, the choices of its input otherwise.
+func (s Service) Choices(setting Setting) []string {
+	if setting.Input.Kind == KindZone {
+		return s.Zones.List()
+	}
+	return setting.Input.Choices
 }
 
 // Current resolves and parses the settings the application acts on.
@@ -661,12 +740,13 @@ func (s Service) SetEnrollmentPassword(ctx context.Context, password string) err
 	return err
 }
 
-// accepting is a validator that accepts the values parse accepts.
-func accepting[T any](parse func(string) (T, error)) func(Service, string) error {
-	return func(_ Service, value string) error {
+// accepting is the rule that takes the values parse takes, asked for as
+// inputOf says for what parse makes.
+func accepting[T any](parse func(string) (T, error)) rule {
+	return rule{check: func(_ Service, value string) error {
 		_, err := parse(value)
 		return err
-	}
+	}, input: inputOf[T]()}
 }
 
 // parsed is the value of the setting named key among values, parsed by
@@ -727,10 +807,8 @@ func (s Service) put(ctx context.Context, key, value string, clearing bool) (Set
 	if keeps(def, value, clearing) {
 		return s.Get(ctx, key)
 	}
-	if def.validate != nil {
-		if err := def.validate(s, value); err != nil {
-			return Setting{}, fmt.Errorf("%w for %s: %w", ErrInvalid, key, err)
-		}
+	if err := def.validate.refusal(s, value); err != nil {
+		return Setting{}, fmt.Errorf("%w for %s: %w", ErrInvalid, key, err)
 	}
 	row := connector.StoredSetting{Value: s.storable(def, value), UpdatedAt: s.Clock.Now()}
 	if err := s.Store.PutSetting(ctx, def.key, row.Value, row.UpdatedAt); err != nil {
@@ -779,9 +857,11 @@ func (s Service) UpdateAll(ctx context.Context, values map[string]string, cleare
 }
 
 // formValue is the value values or cleared give the setting def, whether
-// they give one, and whether it clears a secret, which only cleared does.
+// they give one, and whether it clears the setting, which only cleared
+// does, for a secret or a setting whose input offers to leave it empty.
 func formValue(def definition, values map[string]string, cleared []string) (value string, given, clearing bool) {
-	if def.secret && slices.Contains(cleared, def.key) {
+	clearable := def.secret || def.validate.input.Empty != ""
+	if clearable && slices.Contains(cleared, def.key) {
 		return "", true, true
 	}
 	value, given = values[def.key]
@@ -791,10 +871,7 @@ func formValue(def definition, values map[string]string, cleared []string) (valu
 // refusal is why the setting def cannot take value, as a sentence; empty
 // when it can.
 func (s Service) refusal(def definition, value string) string {
-	if def.validate == nil {
-		return ""
-	}
-	if err := def.validate(s, value); err != nil {
+	if err := def.validate.refusal(s, value); err != nil {
 		return sentence(err.Error())
 	}
 	return ""

@@ -105,9 +105,9 @@ func keeps(def definition, value string, clearing bool) bool {
 }
 
 // shown is s as the setting def lets it be seen, in its section with its
-// label and help: a secret's value masked.
+// label, help, and input: a secret's value masked.
 func shown(def definition, s Setting) Setting {
-	s.Secret, s.Section, s.Label, s.Help = def.secret, def.section, def.label, def.help
+	s.Secret, s.Section, s.Label, s.Help, s.Input = def.secret, def.section, def.label, def.help, def.validate.input
 	if def.secret && s.Value != "" {
 		s.Value = Mask
 	}

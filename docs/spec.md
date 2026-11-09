@@ -286,14 +286,18 @@ Pages: dashboard, doors (list, pending enrollments, detail with live state,
 timeline calendar, pictures, zones, open-mode schedules, who-can-enter, config,
 firmware, open button, events), zones, users (list, detail, groups, access
 calendar per door, events), groups (list with role badges, detail with
-members, roles, access rules, pre-assigned user ids), access rules,
+members, roles, access rules, and pre-assigned user ids while sign-in reads a
+user id claim), access rules,
 schedules (list, form, calendar, where used), overrides,
 firmware (versions, default, update window, rollout progress), events
 (filters by door, user, outcome, reason, type, date), access requests
 (reply, resolve), bulk import (CSV of user id and group slugs, preview
 before apply), settings (sign-in, identity claims, defaults, door config
 defaults, theme, login image, timezone, with env-provided values shown
-read-only), API docs.
+read-only; each asked for with an input of its kind: a color picker, a
+checkbox for yes or no, a number, a select of the choices, and a searchable
+select of every zone for the timezone; the single sign-on and identity claims
+parts fold away while single sign-on is off), API docs.
 
 Lists are searchable, filterable, server-paginated, and update live over
 Server-Sent Events where state changes without a page action (door status,

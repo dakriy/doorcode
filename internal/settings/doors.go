@@ -74,6 +74,8 @@ type DoorField struct {
 	Name  string
 	Label string
 	Hint  string
+	// Input is how a page asks for the field's value.
+	Input Input
 	// fallback is the default's default, and set parses a value into a
 	// configuration, reporting why it cannot.
 	fallback string
@@ -105,7 +107,7 @@ var DoorFields = []DoorField{
 // highest, kept where at says.
 func wholeField(name, label, fallback string, lowest, highest int, unit string, at func(*DoorConfig) *int) DoorField {
 	hint := fmt.Sprintf("a whole number of %s from %d to %d", unit, lowest, highest)
-	return DoorField{Name: name, Label: label, Hint: hint, fallback: fallback, set: func(c *DoorConfig, value string) error {
+	return DoorField{Name: name, Label: label, Hint: hint, Input: Input{Kind: KindNumber}, fallback: fallback, set: func(c *DoorConfig, value string) error {
 		n, err := wholeNumber(value, lowest, highest, "must be "+hint)
 		*at(c) = n
 		return err
@@ -115,7 +117,8 @@ func wholeField(name, label, fallback string, lowest, highest int, unit string, 
 // choiceField is a field that takes one of choices, kept where at says.
 func choiceField(name, label, fallback string, choices []string, at func(*DoorConfig) *string) DoorField {
 	hint := "one of " + strings.Join(choices, ", ")
-	return DoorField{Name: name, Label: label, Hint: hint, fallback: fallback, set: func(c *DoorConfig, value string) error {
+	input := Input{Kind: KindChoice, Choices: choices}
+	return DoorField{Name: name, Label: label, Hint: hint, Input: input, fallback: fallback, set: func(c *DoorConfig, value string) error {
 		*at(c) = value
 		if !slices.Contains(choices, value) {
 			return errors.New("must be " + hint)
@@ -158,9 +161,11 @@ func hostRune(r rune) bool {
 func doorDefinitions() []definition {
 	var out []definition
 	for _, f := range DoorFields {
-		out = append(out, definition{key: doorPrefix + f.Name, fallback: f.fallback, validate: func(_ Service, value string) error {
+		check := func(_ Service, value string) error {
 			return f.set(&DoorConfig{}, value)
-		}, label: f.Label, help: sentence(f.Hint)})
+		}
+		out = append(out, definition{key: doorPrefix + f.Name, fallback: f.fallback, validate: rule{check: check, input: f.Input},
+			label: f.Label, help: sentence(f.Hint)})
 	}
 	return out
 }

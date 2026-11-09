@@ -78,11 +78,15 @@
     </div>
     {{with index .Errors "roles"}}<p id="roles-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{.}}</p>{{end}}
   </fieldset>
+  {{if .Preassigning}}
   <div class="sm:col-span-2">
     <label for="preassigned_user_ids" class="block text-sm font-medium">Pre-assigned user ids</label>
     <textarea id="preassigned_user_ids" name="preassigned_user_ids" rows="4" spellcheck="false"{{with index .Errors "preassigned_user_ids"}} aria-invalid="true" aria-describedby="preassigned_user_ids-error"{{end}} class="{{template "input-class"}} font-mono">{{.Preassigned}}</textarea>
     {{template "field-note" (field "preassigned_user_ids" "" "" "" .Errors "One per line. A user with one of these user ids joins the group when they are created.")}}
   </div>
+  {{else}}
+  <p role="note" class="sm:col-span-2 rounded-lg border border-dashed border-zinc-300 px-4 py-3 text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">{{with .PreassignedCount}}This group keeps {{.}} pre-assigned user {{if eq . 1}}id{{else}}ids{{end}}. {{end}}Pre-assigned user ids, which add people to the group when their account is created, are offered here once the user id claim is set in the settings.</p>
+  {{end}}
 </div>
 {{end}}
 

@@ -94,12 +94,20 @@ func (e Environment) Lookup(name string) (string, bool) {
 
 // TimeZones is the stub connector.TimeZones. Zones are fixed data rather
 // than state, so it loads them as the real one does, from the host's tz
-// database or Go's embedded copy.
+// database or Go's embedded copy, and lists a few of them.
 type TimeZones struct{}
+
+// listedZones are the zones the stub lists, in ascending byte order.
+var listedZones = []string{"America/New_York", "Asia/Tokyo", "Europe/Berlin", "UTC"}
 
 // Zone loads the zone named name.
 func (TimeZones) Zone(name string) (*time.Location, error) {
 	return time.LoadLocation(name)
+}
+
+// List returns listedZones.
+func (TimeZones) List() []string {
+	return slices.Clone(listedZones)
 }
 
 // LogEntry is one line the stub log recorded.

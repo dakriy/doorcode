@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"time"
 
@@ -195,17 +196,21 @@ type settingsContent struct {
 	MaxPictureSide int
 }
 
-// settingSection is one part of the settings page and its settings.
+// settingSection is one part of the settings page and its settings, On
+// when they are in use: always, or while the setting that toggles them is
+// on.
 type settingSection struct {
 	settings.Section
 	Rows []settingRow
+	On   bool
 }
 
 // settingRow is one setting as the settings page shows it, with the value
-// its input holds.
+// its input holds and, for a choice, the options it offers.
 type settingRow struct {
 	settings.Setting
 	Entered string
+	Options []selectOption
 }
 
 // showSettings shows the settings page with status, its inputs holding
@@ -222,7 +227,7 @@ func (a *App) showSettings(w http.ResponseWriter, r *http.Request, status int, v
 		return
 	}
 	content := settingsContent{
-		Sections: sectionsOf(all, entered), Errors: errs, SignInImage: image, Alert: alert,
+		Sections: a.sectionsOf(all, entered), Errors: errs, SignInImage: image, Alert: alert,
 		MaxPictureMB: picture.Megabytes(), MaxPictureSide: picture.MaxSide,
 	}
 	a.render(w, r, status, settingsTemplate, "Settings", &viewer, content)
@@ -230,22 +235,45 @@ func (a *App) showSettings(w http.ResponseWriter, r *http.Request, status int, v
 
 // sectionsOf is all, settings listed section by section, as the settings
 // page's sections, each input holding entered or the setting's value where
-// entered has none.
-func sectionsOf(all []settings.Setting, entered map[string]string) []settingSection {
-	var sections []settingSection
+// entered has none, and each section on as what its toggle holds says.
+func (a *App) sectionsOf(all []settings.Setting, entered map[string]string) []settingSection {
+	held := map[string]string{}
 	for _, s := range all {
 		value, given := entered[s.Key]
 		if !given {
 			value = s.Value
 		}
+		held[s.Key] = value
+	}
+	var sections []settingSection
+	for _, s := range all {
 		last := len(sections) - 1
 		if last < 0 || sections[last].Name != s.Section.Name {
-			sections = append(sections, settingSection{Section: s.Section})
+			on := s.Section.Toggle == "" || held[s.Section.Toggle] == settings.Yes
+			sections = append(sections, settingSection{Section: s.Section, On: on})
 			last++
 		}
-		sections[last].Rows = append(sections[last].Rows, settingRow{Setting: s, Entered: value})
+		row := settingRow{Setting: s, Entered: held[s.Key]}
+		if choices := a.settings.Choices(s); len(choices) > 0 {
+			row.Options = choiceOptions(choices, row.Entered)
+		}
+		sections[last].Rows = append(sections[last].Rows, row)
 	}
 	return sections
+}
+
+// choiceOptions is the options of a select offering choices with value
+// chosen, and value first when it is not among them, so that saving the
+// form keeps it.
+func choiceOptions(choices []string, value string) []selectOption {
+	var options []selectOption
+	if !slices.Contains(choices, value) {
+		options = append(options, selectOption{Value: value, Label: value, Selected: true})
+	}
+	for _, c := range choices {
+		options = append(options, selectOption{Value: c, Label: c, Selected: c == value})
+	}
+	return options
 }
 
 func (a *App) settingsPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {

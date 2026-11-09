@@ -38,9 +38,15 @@ type groupForm struct {
 	Name        string
 	Description string
 	Roles       []string
-	// Preassigned is the pre-assigned user ids, one per line.
-	Preassigned string
-	Errors      map[string]string
+	// Preassigned is the pre-assigned user ids, one per line, and
+	// PreassignedCount how many there are.
+	Preassigned      string
+	PreassignedCount int
+	// Preassigning says the form offers the pre-assigned user ids, which
+	// it does while sign-in reads a user id claim; otherwise it says how
+	// many the group keeps.
+	Preassigning bool
+	Errors       map[string]string
 	// Alert is a refusal to show above the form.
 	Alert string
 	// Choices is every role, in order.
@@ -50,7 +56,7 @@ type groupForm struct {
 func formOfGroup(g connector.StoredGroup) groupForm {
 	return groupForm{
 		Slug: g.Slug, Name: g.Name, Description: g.Description, Roles: g.Roles,
-		Preassigned: strings.Join(g.PreassignedUserIDs, "\n"), Choices: auth.Roles,
+		Preassigned: strings.Join(g.PreassignedUserIDs, "\n"), PreassignedCount: len(g.PreassignedUserIDs), Choices: auth.Roles,
 	}
 }
 
@@ -61,6 +67,7 @@ func readGroupForm(r *http.Request) (directory.GroupFields, groupForm) {
 		Roles: r.PostForm["roles"], Preassigned: r.PostFormValue("preassigned_user_ids"), Choices: auth.Roles,
 	}
 	ids := strings.FieldsFunc(f.Preassigned, func(c rune) bool { return c == '\n' || c == '\r' || c == ',' })
+	f.PreassignedCount = len(ids)
 	return directory.GroupFields{Slug: f.Slug, Name: f.Name, Description: f.Description, Roles: f.Roles, PreassignedUserIDs: ids}, f
 }
 
@@ -76,16 +83,25 @@ func (f groupForm) rejected(err error) (groupForm, int, bool) {
 	return f, status, refused
 }
 
+// offering is f offering the pre-assigned user ids when sign-in reads a
+// user id claim, which is what matches them. Settings that cannot be read
+// offer none; rendering the page reports them.
+func (a *App) offering(r *http.Request, f groupForm) groupForm {
+	current, _ := a.settings.Current(r.Context())
+	f.Preassigning = current.OIDC.Claims.UserID != ""
+	return f
+}
+
 func (a *App) newGroupPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	form := groupForm{Choices: auth.Roles}
-	a.render(w, r, http.StatusOK, newGroupTemplate, "New group", &viewer, form)
+	a.render(w, r, http.StatusOK, newGroupTemplate, "New group", &viewer, a.offering(r, form))
 }
 
 func (a *App) createGroupFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	fields, form := readGroupForm(r)
 	g, err := a.directory.CreateGroup(r.Context(), viewer, fields)
 	if form, status, rejected := form.rejected(err); rejected {
-		a.render(w, r, status, newGroupTemplate, "New group", &viewer, form)
+		a.render(w, r, status, newGroupTemplate, "New group", &viewer, a.offering(r, form))
 		return
 	}
 	a.changed(w, r, err, groupPath(g.ID), "group-created")
@@ -138,6 +154,7 @@ func (a *App) groupPage(w http.ResponseWriter, r *http.Request, viewer auth.User
 }
 
 func (a *App) renderGroup(w http.ResponseWriter, r *http.Request, status int, viewer auth.User, content groupContent) {
+	content.Form = a.offering(r, content.Form)
 	a.render(w, r, status, groupTemplate, content.Group.Name, &viewer, content)
 }
 
@@ -147,6 +164,10 @@ func (a *App) saveGroupFromForm(w http.ResponseWriter, r *http.Request, viewer a
 		return
 	}
 	fields, form := readGroupForm(r)
+	if _, offered := r.PostForm["preassigned_user_ids"]; !offered {
+		// A form that does not offer the pre-assigned user ids keeps them.
+		fields.PreassignedUserIDs, form.PreassignedCount = content.Group.PreassignedUserIDs, content.Form.PreassignedCount
+	}
 	_, err := a.directory.UpdateGroup(r.Context(), viewer, content.Group.ID, fields)
 	if form, status, rejected := form.rejected(err); rejected {
 		content.Form = form

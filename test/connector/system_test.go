@@ -4,6 +4,7 @@ package connector_test
 
 import (
 	"bytes"
+	"slices"
 	"testing"
 	"time"
 
@@ -136,6 +137,26 @@ func TestTimeZonesLoadAZoneWithItsDaylightSavingRules(t *testing.T) {
 
 			if diff := cmp.Diff([]any{"America/New_York", -5 * 3600, -4 * 3600}, []any{zone.String(), winter, summer}); diff != "" {
 				t.Errorf("name, winter and summer offsets (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestTimeZonesListZonesInByteOrderEachOfWhichLoads(t *testing.T) {
+	for _, impl := range zonesImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			zones := impl.zones()
+			names := zones.List()
+
+			var loaded []string
+			for _, name := range names {
+				if zone, err := zones.Zone(name); err == nil {
+					loaded = append(loaded, zone.String())
+				}
+			}
+			got := []any{slices.IsSorted(names), slices.Contains(names, "UTC"), slices.Contains(names, "Europe/Berlin"), loaded}
+			if diff := cmp.Diff([]any{true, true, true, names}, got); diff != "" {
+				t.Errorf("sorted, lists UTC, lists Europe/Berlin, zones loaded by each name (-want +got):\n%s", diff)
 			}
 		})
 	}

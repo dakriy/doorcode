@@ -60,15 +60,15 @@ var defaultSettings = []shownSetting{
 // help text.
 var settingRows = map[string]struct{ section, label, help string }{
 	"site_name":                       {"Site", "Site name", "Shown in the header and every page title."},
-	"site_timezone":                   {"Site", "Timezone", "A tz database name such as Europe/Berlin. Schedules, dates typed on pages, and every time shown are read in it."},
+	"site_timezone":                   {"Site", "Timezone", "A zone of the tz database, such as Europe/Berlin; type to find one. Schedules, dates typed on pages, and every time shown are read in it."},
 	"admin_email":                     {"Site", "First administrator's email", "The account created on first start when there are no users."},
 	"theme_accent":                    {"Theme", "Accent color", "A color as #rrggbb, such as #4f39f6."},
 	"theme_accent_dark":               {"Theme", "Accent color in the dark theme", "A color as #rrggbb, or empty to use the accent color."},
 	"password_hash_memory_kib":        {"Accounts and passwords", "Password hashing memory", "KiB of memory hashing one password takes, from 8 to 1048576. More is slower to guess."},
 	"password_min_length":             {"Accounts and passwords", "Shortest password", "How many characters a password chosen in the portal has at least, from 8 to 128."},
 	"new_user_expiry_days":            {"Accounts and passwords", "New account lifetime", "Days until the account of a user created by signing in at the provider expires."},
-	"oidc_enabled":                    {"Single sign-on", "Single sign-on enabled", "true or false."},
-	"oidc_auto_sign_in":               {"Single sign-on", "Automatic sign-in", "true sends the sign-in page straight on to the provider and hides the password forms; add ?auto_sign_in=false to reach them."},
+	"oidc_enabled":                    {"Single sign-on", "Single sign-on enabled", "Offers signing in at the provider set up here, beside signing in with a password."},
+	"oidc_auto_sign_in":               {"Single sign-on", "Automatic sign-in", "Sends the sign-in page straight on to the provider and hides the password forms; add ?auto_sign_in=false to reach them."},
 	"oidc_issuer":                     {"Single sign-on", "Issuer", "The provider's https:// address, exactly as it names itself."},
 	"oidc_client_id":                  {"Single sign-on", "Client id", "The id the site is registered with at the provider."},
 	"oidc_client_secret":              {"Single sign-on", "Client secret", "The secret the site is registered with, if the provider gave one."},
@@ -81,14 +81,14 @@ var settingRows = map[string]struct{ section, label, help string }{
 	"oidc_claim_entitlements":         {"Identity claims", "Entitlements claim", "The claim listing the slugs of someone's groups. A sign-in that carries it makes them a member of exactly the groups it names, ignoring slugs no group has; one without it leaves their groups alone. While it is set, new users join no default or pre-assigned groups."},
 	"oidc_default_groups":             {"Identity claims", "Groups new users join", "Group slugs separated by commas. New users join these, and the groups whose pre-assigned list holds their user id, only while the entitlements claim is empty."},
 	"enrollment_username":             {"Door enrollment", "Enrollment username", ""},
-	"enrollment_password":             {"Door enrollment", "Enrollment password", "Generated and logged on first start when empty."},
+	"enrollment_password":             {"Door enrollment", "Enrollment password", "The password a new door controller signs in to the broker with, beside the enrollment username, until an administrator approves it and it gets credentials of its own. Enter both in the settings of each controller you install. When it is empty on first start, the server makes one up and writes it to its log."},
 	"door_credential_grace_hours":     {"Door enrollment", "Credential grace period", "Hours a door's old credentials keep working after new ones are issued."},
 	"telemetry_retention_days":        {"Telemetry", "Reports kept", "Days each telemetry report is kept."},
 	"telemetry_rollup_retention_days": {"Telemetry", "Hourly summaries kept", "Days the hourly summaries of the reports are kept."},
 	"unresponsive_minutes":            {"Telemetry", "Unresponsive after", "Minutes a connected door may stay silent before it counts as unresponsive."},
 	"public_url":                      {"Firmware updates", "Public address", "The https:// address doors and browsers reach the server at. Nothing is sent to doors to download while it is empty."},
 	"update_window_days":              {"Firmware updates", "Update days", "daily, or weekdays separated by commas such as sat,sun."},
-	"update_window_start":             {"Firmware updates", "Update window opens", "HH:MM in the site timezone."},
+	"update_window_start":             {"Firmware updates", "Update window opens", "A time of day in the site timezone."},
 	"update_window_minutes":           {"Firmware updates", "Update window length", "Minutes."},
 	"update_concurrency":              {"Firmware updates", "Doors updating at once", ""},
 	"update_timeout_minutes":          {"Firmware updates", "Update timeout", "Minutes a door may take to come back on its new version before the update fails."},
@@ -112,36 +112,112 @@ var settingRows = map[string]struct{ section, label, help string }{
 // fields, which are left blank.
 var secretSettings = map[string]bool{"oidc_client_secret": true, "enrollment_password": true}
 
+// settingChoices is what the settings page offers to choose from for each
+// setting it asks for with a select: the zones the stub lists for the
+// timezone, which is searchable.
+var settingChoices = map[string][]string{
+	"site_timezone":   {"America/New_York", "Asia/Tokyo", "Europe/Berlin", "UTC"},
+	"door_submit_key": {"#", "A", "B", "C", "D"},
+	"door_log_level":  {"error", "warn", "info", "debug"},
+}
+
+// yesNoSettings are the settings the settings page asks for with a
+// checkbox.
+var yesNoSettings = map[string]bool{"oidc_enabled": true, "oidc_auto_sign_in": true}
+
+// settingCell adds what page reads from the cell showing the setting s
+// whose input holds value, and is the cell's text: a read-only setting's
+// value and the note naming its variable, a secret's offer to clear it
+// when it has a value, or what its input shows.
+func settingCell(page *testsupport.Page, s shownSetting, value string) string {
+	switch {
+	case s.source == "environment, read-only":
+		note := "Set by DOORCODE_" + upper(s.key) + " in the environment; change it there."
+		page.Notes = append(page.Notes, note)
+		return s.value + " " + note
+	case secretSettings[s.key] && s.value != "":
+		// A secret's input is a password field, whose value is not read.
+		return "Clear"
+	case secretSettings[s.key]:
+		return ""
+	}
+	return settingInput(page, s.key, value)
+}
+
+// settingInput adds what page reads from the input that holds value for
+// the setting key, and is the text the input shows.
+func settingInput(page *testsupport.Page, key, value string) string {
+	switch {
+	case yesNoSettings[key]:
+		// The hidden no after the checkbox is what an unticked box sends.
+		page.Values[key] = "false"
+		if value == "true" {
+			page.Checked = append(page.Checked, key+"=true")
+		}
+		return "On"
+	case key == "theme_accent_dark":
+		// Its color picker starts at the accent color while it is empty,
+		// and the box beside it is ticked.
+		page.Values[key] = value
+		if value == "" {
+			page.Values[key] = "#4f39f6"
+			page.Checked = append(page.Checked, "clear="+key)
+		}
+		return "Use the accent color"
+	case settingChoices[key] != nil:
+		return optionsText(settingChoices[key], value)
+	}
+	page.Values[key] = value
+	return ""
+}
+
+// optionsText is the text of a select offering choices with value chosen,
+// which comes first when it is not among them.
+func optionsText(choices []string, value string) string {
+	text, listed := "", false
+	for _, c := range choices {
+		text = words(text, c)
+		listed = listed || c == value
+	}
+	if !listed {
+		return words(value, text)
+	}
+	return text
+}
+
+// words is a and b joined by a space, or the one that is not empty.
+func words(a, b string) string {
+	if a == "" || b == "" {
+		return a + b
+	}
+	return a + " " + b
+}
+
 // settingsPage is the settings page showing shown, where changed replaces
 // the value and source of the settings it names, entered the value an
 // input holds, and refused what is wrong with a value; a read-only
 // setting shows its value in place of an input, and a secret that has a
-// value offers to clear it.
+// value offers to clear it. The sections of single sign-on are open while
+// it is enabled.
 func settingsPage(shown []shownSetting, changed map[string]shownSetting, entered, refused map[string]string) testsupport.Page {
 	page := testsupport.Page{
 		Title: "Settings · doorcode", Heading: "Settings", Notes: []string{settingsNote}, Values: map[string]string{"picture": ""},
-		Nav:    mainNav("Site: Settings", ""),
-		Tables: map[string][][]string{},
+		Nav:        mainNav("Site: Settings", ""),
+		Tables:     map[string][][]string{},
+		Comboboxes: []string{"site_timezone"},
 	}
 	for _, s := range shown {
 		if c, ok := changed[s.key]; ok {
 			s = c
 		}
 		row := settingRows[s.key]
-		cell := refused[s.key]
-		switch {
-		case s.source == "environment, read-only":
-			note := "Set by DOORCODE_" + upper(s.key) + " in the environment; change it there."
-			cell = s.value + " " + note
-			page.Notes = append(page.Notes, note)
-		case secretSettings[s.key] && s.value != "":
-			// A secret's input is a password field, whose value is not read.
-			cell = "Clear"
-		case secretSettings[s.key]:
-		case entered[s.key] != "" || refused[s.key] != "":
-			page.Values[s.key] = entered[s.key]
-		default:
-			page.Values[s.key] = s.value
+		value := s.value
+		if entered[s.key] != "" || refused[s.key] != "" {
+			value = entered[s.key]
+		}
+		cell := words(settingCell(&page, s, value), refused[s.key])
+		if s.key == "oidc_enabled" {
+			page.Disclosures = map[string]bool{"Single sign-on": value == "true", "Identity claims": value == "true"}
 		}
 		setting := row.label + " " + s.key
 		if row.help != "" {
@@ -157,7 +233,6 @@ func settingsPage(shown []shownSetting, changed map[string]shownSetting, entered
 	}
 	return page
 }
-
 func TestAdministratorReachesTheSettingsPage(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()

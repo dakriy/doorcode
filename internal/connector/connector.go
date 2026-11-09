@@ -30,6 +30,9 @@ type TimeZones interface {
 	// Zone returns the zone the tz database names name, such as
 	// "Europe/Berlin", or an error when it has no such zone.
 	Zone(name string) (*time.Location, error)
+	// List returns the name of every zone the tz database has, in
+	// ascending byte order.
+	List() []string
 }
 
 // Field is one key and value attached to a log line.

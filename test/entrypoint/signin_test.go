@@ -19,10 +19,11 @@ const (
 
 // pageOf reads the page a response carries, leaving out the assets every
 // page loads, which TestPagesLoadTheirAssets covers, and where navigation
-// links lead, what checkboxes say, and what selects offer, which the few
-// tests that need them read themselves.
+// links lead, what checkboxes say, what selects offer, and the kind of
+// each input, which the few tests that need them read themselves.
 func pageOf(r testsupport.Response) testsupport.Page {
 	p := testsupport.ParsePage(r.Body)
+	p.Inputs = nil
 	p.Assets = nil
 	p.NavTargets = nil
 	p.Choices = nil
