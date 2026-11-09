@@ -10,6 +10,7 @@ import (
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/date"
 	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/rule"
 	"github.com/dakriy/doorcode/internal/schedule"
@@ -50,9 +51,9 @@ func (a *App) weekOf(r *http.Request, zone *time.Location, path string) week {
 		day = today
 	}
 	first := monday(day)
-	link := func(day time.Time) string { return path + "?week=" + day.Format(schedule.DateLayout) }
+	link := func(day time.Time) string { return path + "?week=" + day.Format(date.Layout) }
 	return week{
-		Monday: first.Format(schedule.DateLayout), Today: today.Format(schedule.DateLayout),
+		Monday: first.Format(date.Layout), Today: today.Format(date.Layout),
 		Heading:  "Week of " + first.Format(longDateLayout),
 		Previous: link(first.AddDate(0, 0, -7)), Next: link(first.AddDate(0, 0, 7)), This: path,
 		Zone: zone.String(), days: dayRange{zone: zone, first: first, last: first.AddDate(0, 0, 6)},
@@ -152,12 +153,12 @@ func (a *App) doorCalendarPage(w http.ResponseWriter, r *http.Request, viewer au
 	}
 	n, err := a.names(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	entrants, err := a.rules.Entrants(r.Context(), d)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content := doorCalendarContent{Calendar: wk, Door: d, Row: n.rowOfDoor(d), Windows: []windowRow{}}
@@ -202,7 +203,7 @@ func (a *App) accessCalendarPage(w http.ResponseWriter, r *http.Request, viewer 
 	}
 	reachable, err := a.rules.UserAccess(r.Context(), u.Groups, zone, wk.days.from(), wk.days.to())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	calendar := accessCalendarContent{Calendar: wk, User: a.viewOfUser(u), Door: d, Works: []occurrenceRow{}}

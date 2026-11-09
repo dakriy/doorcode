@@ -24,6 +24,11 @@ trap 'go clean -cache' EXIT
 diff=""
 if [ -n "${DOORCODE_MUTATION_BASE:-}" ]; then
 	diff="--diff=$DOORCODE_MUTATION_BASE"
+	# gremlins mutates only the first N lines of each hunk, N being its added
+	# lines, so a hunk that joins several changes through git's three lines of
+	# context would leave the later changes unmutated. No context: one hunk
+	# per change.
+	export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=diff.context GIT_CONFIG_VALUE_0=0
 	echo "mutating only lines changed since $DOORCODE_MUTATION_BASE"
 fi
 

@@ -83,7 +83,6 @@
       <thead class="{{template "table-head-class"}}">
         <tr>
           <th scope="col" class="px-5 py-3">Schedule</th>
-          <th scope="col" class="px-5 py-3">Doors</th>
           <th scope="col" class="px-5 py-3">Zones</th>
           <th scope="col" class="px-5 py-3"><span class="sr-only">Actions</span></th>
         </tr>
@@ -92,7 +91,6 @@
         {{range $c.Rules}}
         <tr>
           <td class="px-5 py-3 font-medium whitespace-nowrap">{{.Schedule.Name}}</td>
-          <td class="px-5 py-3 text-zinc-600 dark:text-zinc-400">{{if .Doors}}{{template "names" .Doors}}{{else}}None{{end}}</td>
           <td class="px-5 py-3 text-zinc-600 dark:text-zinc-400">{{if .Zones}}{{template "names" .Zones}}{{else}}None{{end}}</td>
           <td class="px-5 py-3 text-right whitespace-nowrap">
             <div class="flex justify-end gap-1">
@@ -104,7 +102,7 @@
           </td>
         </tr>
         {{else}}
-        <tr><td colspan="4" class="px-5 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">No access rules yet, so members cannot open any door with their code.</td></tr>
+        <tr><td colspan="3" class="px-5 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">No access rules yet, so members cannot open any door with their code.</td></tr>
         {{end}}
       </tbody>
     </table>

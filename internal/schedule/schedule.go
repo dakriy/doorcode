@@ -1,10 +1,11 @@
 // Package schedule keeps the site's schedules: named weekly patterns of
-// windows, with an optional effective date range and excluded dates, and
-// turns them into the absolute intervals they cover. The seeded Always
+// windows, with an optional effective date range and excluded date ranges,
+// and turns them into the absolute intervals they cover. The seeded Always
 // schedule is built in and cannot be changed or deleted.
 package schedule
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/date"
 )
 
 var (
@@ -25,18 +27,18 @@ var (
 	ErrInUse = errors.New("the schedule is in use")
 )
 
-// InUseError reports the deletion of a schedule something uses. Doors names
-// the doors in open mode during it and Groups the groups whose access rules
-// use it, each by name.
+// InUseError reports the deletion of a schedule something uses. Zones names
+// the zones whose doors are in open mode during it and Groups the groups
+// whose access rules use it, each by name.
 type InUseError struct {
-	Doors  []string
+	Zones  []string
 	Groups []string
 }
 
 func (e InUseError) Error() string {
 	var parts []string
-	if e.Doors != nil {
-		parts = append(parts, "doors are in open mode during this schedule: "+strings.Join(e.Doors, ", "))
+	if e.Zones != nil {
+		parts = append(parts, "zones are in open mode during this schedule: "+strings.Join(e.Zones, ", "))
 	}
 	if e.Groups != nil {
 		parts = append(parts, "access rules of these groups use this schedule: "+strings.Join(e.Groups, ", "))
@@ -53,30 +55,12 @@ const (
 	maxNameLength = 100
 	// MaxWindows is how many windows a schedule may have.
 	MaxWindows = 20
-	// MaxExcluded is how many excluded dates a schedule may list.
+	// MaxExcluded is how many excluded date ranges a schedule may list.
 	MaxExcluded = 366
 )
 
-// DateLayout is how a date is written: in fields, in the API, and by date
-// inputs.
-const DateLayout = "2006-01-02"
-
 // clockLayout is how a time of day is written.
 const clockLayout = "15:04"
-
-// DayNames names the weekdays as fields and the API write them, Monday
-// first; the name at index i is Weekday(i).
-var DayNames = []string{"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
-
-// Weekday is the weekday at index i of DayNames.
-func Weekday(i int) time.Weekday {
-	return time.Weekday((i + 1) % 7)
-}
-
-// DayIndex is the index in DayNames of day, the inverse of Weekday.
-func DayIndex(day time.Weekday) int {
-	return (int(day) + 6) % 7
-}
 
 // Fields is what an administrator says about a schedule, as typed. Text is
 // trimmed before it is checked.
@@ -87,14 +71,22 @@ type Fields struct {
 	StartsOn string
 	EndsOn   string
 	Windows  []WindowFields
-	// Excluded is dates on which no window opens; blank entries are
-	// ignored, repeats dropped, and the rest kept in date order.
-	Excluded []string
+	// Excluded is ranges of days on which no window opens; blank entries
+	// are ignored, repeats dropped, and the rest kept in date order.
+	Excluded []ExclusionFields
+}
+
+// ExclusionFields is one excluded range of days as typed: its first and
+// last days, both included. An empty last day makes the range the first day
+// alone.
+type ExclusionFields struct {
+	First string
+	Last  string
 }
 
 // WindowFields is one weekly window as typed: the days it opens on, named
-// as DayNames names them, and its start and end times of day. An end at or
-// before the start is on the next day.
+// as date.DayNames names them, and its start and end times of day. An end
+// at or before the start is on the next day.
 type WindowFields struct {
 	Days  []string
 	Start string
@@ -104,7 +96,7 @@ type WindowFields struct {
 // Store is the part of the store this package uses.
 type Store interface {
 	connector.SchedulesStore
-	connector.DoorsStore
+	connector.ZonesStore
 	connector.RulesStore
 	connector.GroupsStore
 }
@@ -121,14 +113,7 @@ func (s Service) Schedules(ctx context.Context) ([]connector.StoredSchedule, err
 
 // Schedule returns the schedule whose id is id.
 func (s Service) Schedule(ctx context.Context, id int64) (connector.StoredSchedule, error) {
-	sch, found, err := s.Store.Schedule(ctx, id)
-	if err != nil {
-		return connector.StoredSchedule{}, err
-	}
-	if !found {
-		return connector.StoredSchedule{}, ErrNoSchedule
-	}
-	return sch, nil
+	return check.Lookup(ctx, id, s.Store.Schedule, ErrNoSchedule)
 }
 
 // Create creates a schedule from f.
@@ -174,9 +159,8 @@ func (s Service) Update(ctx context.Context, id int64, f Fields) (connector.Stor
 	return s.Schedule(ctx, id)
 }
 
-// Delete removes the schedule whose id is id, unless a door that is not
-// deleted is in open mode during it or an access rule uses it. Deleted
-// doors stop being in open mode during it.
+// Delete removes the schedule whose id is id, unless a zone is in open
+// mode during it or an access rule uses it.
 func (s Service) Delete(ctx context.Context, id int64) error {
 	sch, err := s.Schedule(ctx, id)
 	if err != nil {
@@ -189,18 +173,18 @@ func (s Service) Delete(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	if inUse.Doors != nil || inUse.Groups != nil {
+	if inUse.Zones != nil || inUse.Groups != nil {
 		return inUse
 	}
 	_, err = s.Store.DeleteSchedule(ctx, id)
 	return err
 }
 
-// users names what uses the schedule whose id is id: the doors that are
-// not deleted in open mode during it, and the groups, in name order, whose
-// access rules use it.
+// users names what uses the schedule whose id is id: the zones in open
+// mode during it and the groups whose access rules use it, each in name
+// order.
 func (s Service) users(ctx context.Context, id int64) (InUseError, error) {
-	doors, err := s.Store.Doors(ctx)
+	zones, err := s.Store.Zones(ctx)
 	if err != nil {
 		return InUseError{}, err
 	}
@@ -213,9 +197,9 @@ func (s Service) users(ctx context.Context, id int64) (InUseError, error) {
 		return InUseError{}, err
 	}
 	var inUse InUseError
-	for _, d := range doors {
-		if d.DeletedAt == nil && slices.Contains(d.OpenScheduleIDs, id) {
-			inUse.Doors = append(inUse.Doors, d.Name)
+	for _, z := range zones {
+		if slices.Contains(z.OpenScheduleIDs, id) {
+			inUse.Zones = append(inUse.Zones, z.Name)
 		}
 	}
 	for _, g := range groups {
@@ -268,7 +252,7 @@ func optionalDate(value string) (*time.Time, string) {
 	if value == "" {
 		return nil, ""
 	}
-	day, err := time.Parse(DateLayout, value)
+	day, err := time.Parse(date.Layout, value)
 	if err != nil {
 		return nil, "Enter the date as YYYY-MM-DD, or leave it empty."
 	}
@@ -297,7 +281,7 @@ func checkWindow(found *check.List, i int, f WindowFields) connector.StoredWindo
 	n := i + 1
 	days, known := weekdays(f.Days)
 	if !known {
-		found.Add(field+"days", fmt.Sprintf("Choose days from %s for window %d.", strings.Join(DayNames, ", "), n))
+		found.Add(field+"days", fmt.Sprintf("Choose days from %s for window %d.", strings.Join(date.DayNames, ", "), n))
 	} else if len(days) == 0 {
 		found.Add(field+"days", fmt.Sprintf("Choose at least one day for window %d.", n))
 	}
@@ -313,15 +297,15 @@ func checkWindow(found *check.List, i int, f WindowFields) connector.StoredWindo
 }
 
 // weekdays reads day names into weekdays from Sunday on, without repeats,
-// and reports whether every name is one of DayNames.
+// and reports whether every name is one of date.DayNames.
 func weekdays(names []string) ([]time.Weekday, bool) {
 	days := []time.Weekday{}
 	for _, name := range names {
-		i := slices.Index(DayNames, strings.ToLower(strings.TrimSpace(name)))
+		i := slices.Index(date.DayNames, strings.ToLower(strings.TrimSpace(name)))
 		if i < 0 {
 			return days, false
 		}
-		days = append(days, Weekday(i))
+		days = append(days, date.Weekday(i))
 	}
 	return slices.Compact(slices.Sorted(slices.Values(days))), true
 }
@@ -332,45 +316,76 @@ func clock(value string) (int, bool) {
 	return t.Hour()*60 + t.Minute(), err == nil
 }
 
-// checkExcluded reads the excluded dates, adding their problems to found
+// checkExcluded reads the excluded ranges, adding their problems to found
 // under the field names the schedule form gives them.
-func checkExcluded(found *check.List, values []string) []time.Time {
-	if len(values) > MaxExcluded {
-		found.Add("excluded", fmt.Sprintf("Exclude at most %d dates.", MaxExcluded))
+func checkExcluded(found *check.List, fields []ExclusionFields) []connector.StoredExclusion {
+	if len(fields) > MaxExcluded {
+		found.Add("excluded", fmt.Sprintf("Exclude at most %d date ranges.", MaxExcluded))
 	}
-	dates := []time.Time{}
-	for i, value := range values {
-		value = strings.TrimSpace(value)
-		day, err := time.Parse(DateLayout, value)
-		if value != "" && err != nil {
-			found.Add(fmt.Sprintf("excluded-%d", i), fmt.Sprintf("Enter excluded dates as YYYY-MM-DD; “%s” is not one.", value))
-		}
-		if err == nil && !slices.ContainsFunc(dates, day.Equal) {
-			dates = append(dates, day)
+	ranges := []connector.StoredExclusion{}
+	for i, f := range fields {
+		r, ok := checkExclusion(found, i, f)
+		if ok && !slices.Contains(ranges, r) {
+			ranges = append(ranges, r)
 		}
 	}
-	slices.SortFunc(dates, time.Time.Compare)
-	return dates
+	slices.SortFunc(ranges, func(a, b connector.StoredExclusion) int {
+		return cmp.Or(a.First.Compare(b.First), a.Last.Compare(b.Last))
+	})
+	return ranges
+}
+
+// checkExclusion reads the excluded range at index i, adding its problems
+// to found, and reports whether it is a range rather than blank. A range
+// with problems is returned too; the problems refuse the schedule.
+func checkExclusion(found *check.List, i int, f ExclusionFields) (connector.StoredExclusion, bool) {
+	field := fmt.Sprintf("excluded-%d-", i)
+	firstText, lastText := strings.TrimSpace(f.First), strings.TrimSpace(f.Last)
+	if firstText == "" && lastText == "" {
+		return connector.StoredExclusion{}, false
+	}
+	first, _ := excludedDay(found, field+"first", firstText)
+	if firstText == "" {
+		found.Add(field+"first", fmt.Sprintf("Enter the first day of excluded range %d.", i+1))
+	}
+	last, lastOK := first, true
+	if lastText != "" {
+		last, lastOK = excludedDay(found, field+"last", lastText)
+	}
+	if lastOK && last.Before(first) {
+		found.Add(field+"last", fmt.Sprintf("End excluded range %d on or after its first day.", i+1))
+	}
+	return connector.StoredExclusion{First: first, Last: last}, true
+}
+
+// excludedDay reads the date value, adding its problem to found under
+// field when it is not blank and not a date.
+func excludedDay(found *check.List, field, value string) (time.Time, bool) {
+	day, err := time.Parse(date.Layout, value)
+	if value != "" && err != nil {
+		found.Add(field, fmt.Sprintf("Enter excluded dates as YYYY-MM-DD; “%s” is not one.", value))
+	}
+	return day, err == nil
 }
 
 // FieldsOf is sch as its fields are typed, so a form or the API can show
 // it.
 func FieldsOf(sch connector.StoredSchedule) Fields {
-	f := Fields{Name: sch.Name, StartsOn: dateText(sch.StartsOn), EndsOn: dateText(sch.EndsOn), Excluded: []string{}}
+	f := Fields{Name: sch.Name, StartsOn: dateText(sch.StartsOn), EndsOn: dateText(sch.EndsOn), Excluded: []ExclusionFields{}}
 	for _, w := range sch.Windows {
 		f.Windows = append(f.Windows, WindowFields{Days: DayNamesOf(w.Days), Start: ClockText(w.Start), End: ClockText(w.End)})
 	}
-	for _, day := range sch.Excluded {
-		f.Excluded = append(f.Excluded, day.Format(DateLayout))
+	for _, r := range sch.Excluded {
+		f.Excluded = append(f.Excluded, ExclusionFields{First: r.First.Format(date.Layout), Last: r.Last.Format(date.Layout)})
 	}
 	return f
 }
 
-// DayNamesOf names days as DayNames does, Monday first.
+// DayNamesOf names days as date.DayNames does, Monday first.
 func DayNamesOf(days []time.Weekday) []string {
 	names := []string{}
-	for i, name := range DayNames {
-		if slices.Contains(days, Weekday(i)) {
+	for i, name := range date.DayNames {
+		if slices.Contains(days, date.Weekday(i)) {
 			names = append(names, name)
 		}
 	}
@@ -381,7 +396,7 @@ func dateText(day *time.Time) string {
 	if day == nil {
 		return ""
 	}
-	return day.Format(DateLayout)
+	return day.Format(date.Layout)
 }
 
 // ClockText writes minutes after midnight as a time of day.

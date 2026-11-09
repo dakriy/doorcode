@@ -49,8 +49,8 @@ func TestStoreCreatesAndListsAccessRulesInIDOrder(t *testing.T) {
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {
 			store := ruleWorld(t, impl)
-			first := connector.StoredRule{GroupID: 2, ScheduleID: 2, DoorIDs: []int64{2, 1}, ZoneIDs: []int64{2}}
-			second := connector.StoredRule{GroupID: 1, ScheduleID: 1, DoorIDs: []int64{}, ZoneIDs: []int64{2, 1}}
+			first := connector.StoredRule{GroupID: 2, ScheduleID: 2, ZoneIDs: []int64{2}}
+			second := connector.StoredRule{GroupID: 1, ScheduleID: 1, ZoneIDs: []int64{2, 1}}
 
 			mustCreateRule(t, store, first)
 			mustCreateRule(t, store, second)
@@ -58,10 +58,10 @@ func TestStoreCreatesAndListsAccessRulesInIDOrder(t *testing.T) {
 
 			want := []any{
 				[]connector.StoredRule{
-					{ID: 1, GroupID: 2, ScheduleID: 2, DoorIDs: []int64{1, 2}, ZoneIDs: []int64{2}},
-					{ID: 2, GroupID: 1, ScheduleID: 1, DoorIDs: []int64{}, ZoneIDs: []int64{1, 2}},
+					{ID: 1, GroupID: 2, ScheduleID: 2, ZoneIDs: []int64{2}},
+					{ID: 2, GroupID: 1, ScheduleID: 1, ZoneIDs: []int64{1, 2}},
 				},
-				connector.StoredRule{ID: 2, GroupID: 1, ScheduleID: 1, DoorIDs: []int64{}, ZoneIDs: []int64{1, 2}}, true, nil,
+				connector.StoredRule{ID: 2, GroupID: 1, ScheduleID: 1, ZoneIDs: []int64{1, 2}}, true, nil,
 			}
 			if diff := cmp.Diff(want, []any{mustRules(t, store), one, found, err}); diff != "" {
 				t.Errorf("rules, one rule (-want +got):\n%s", diff)
@@ -70,12 +70,12 @@ func TestStoreCreatesAndListsAccessRulesInIDOrder(t *testing.T) {
 	}
 }
 
-func TestStoreUpdatesAnAccessRuleReplacingItsDoorsAndZones(t *testing.T) {
+func TestStoreUpdatesAnAccessRuleReplacingItsZones(t *testing.T) {
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {
 			store := ruleWorld(t, impl)
-			id := mustCreateRule(t, store, connector.StoredRule{GroupID: 2, ScheduleID: 2, DoorIDs: []int64{1}, ZoneIDs: []int64{1}})
-			changed := connector.StoredRule{ID: id, GroupID: 1, ScheduleID: 1, DoorIDs: []int64{2}, ZoneIDs: []int64{}}
+			id := mustCreateRule(t, store, connector.StoredRule{GroupID: 2, ScheduleID: 2, ZoneIDs: []int64{1}})
+			changed := connector.StoredRule{ID: id, GroupID: 1, ScheduleID: 1, ZoneIDs: []int64{2}}
 
 			updated, err := store.UpdateRule(context.Background(), changed)
 
@@ -90,7 +90,7 @@ func TestStoreDeletesAnAccessRule(t *testing.T) {
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {
 			store := ruleWorld(t, impl)
-			id := mustCreateRule(t, store, connector.StoredRule{GroupID: 2, ScheduleID: 2, DoorIDs: []int64{1}, ZoneIDs: []int64{1}})
+			id := mustCreateRule(t, store, connector.StoredRule{GroupID: 2, ScheduleID: 2, ZoneIDs: []int64{1}})
 
 			deleted, err := store.DeleteRule(context.Background(), id)
 
@@ -108,7 +108,7 @@ func TestStoreReportsAnAccessRuleThatIsNotThere(t *testing.T) {
 			store := ruleWorld(t, impl)
 
 			_, found, readErr := store.Rule(ctx, 9)
-			updated, updateErr := store.UpdateRule(ctx, connector.StoredRule{ID: 9, GroupID: 1, ScheduleID: 1, DoorIDs: []int64{}, ZoneIDs: []int64{}})
+			updated, updateErr := store.UpdateRule(ctx, connector.StoredRule{ID: 9, GroupID: 1, ScheduleID: 1, ZoneIDs: []int64{}})
 			deleted, deleteErr := store.DeleteRule(ctx, 9)
 
 			want := []any{false, nil, false, nil, false, nil}
@@ -121,10 +121,9 @@ func TestStoreReportsAnAccessRuleThatIsNotThere(t *testing.T) {
 
 func TestStoreRefusesAnAccessRuleNamingWhatItDoesNotHold(t *testing.T) {
 	cases := map[string]connector.StoredRule{
-		"a group":    {GroupID: 9, ScheduleID: 1, DoorIDs: []int64{}, ZoneIDs: []int64{}},
-		"a schedule": {GroupID: 1, ScheduleID: 9, DoorIDs: []int64{}, ZoneIDs: []int64{}},
-		"a door":     {GroupID: 1, ScheduleID: 1, DoorIDs: []int64{9}, ZoneIDs: []int64{}},
-		"a zone":     {GroupID: 1, ScheduleID: 1, DoorIDs: []int64{}, ZoneIDs: []int64{9}},
+		"a group":    {GroupID: 9, ScheduleID: 1, ZoneIDs: []int64{}},
+		"a schedule": {GroupID: 1, ScheduleID: 9, ZoneIDs: []int64{}},
+		"a zone":     {GroupID: 1, ScheduleID: 1, ZoneIDs: []int64{9}},
 	}
 	for _, impl := range storeImpls {
 		for name, r := range cases {
@@ -146,8 +145,8 @@ func TestStoreDropsTheRulesOfADeletedGroupAndADeletedZoneFromRules(t *testing.T)
 		t.Run(impl.name, func(t *testing.T) {
 			ctx := context.Background()
 			store := ruleWorld(t, impl)
-			mustCreateRule(t, store, connector.StoredRule{GroupID: 2, ScheduleID: 2, DoorIDs: []int64{1}, ZoneIDs: []int64{}})
-			kept := mustCreateRule(t, store, connector.StoredRule{GroupID: 1, ScheduleID: 2, DoorIDs: []int64{}, ZoneIDs: []int64{1, 2}})
+			mustCreateRule(t, store, connector.StoredRule{GroupID: 2, ScheduleID: 2, ZoneIDs: []int64{1}})
+			kept := mustCreateRule(t, store, connector.StoredRule{GroupID: 1, ScheduleID: 2, ZoneIDs: []int64{1, 2}})
 
 			if _, err := store.DeleteGroup(ctx, 2); err != nil {
 				t.Fatal(err)
@@ -156,7 +155,7 @@ func TestStoreDropsTheRulesOfADeletedGroupAndADeletedZoneFromRules(t *testing.T)
 				t.Fatal(err)
 			}
 
-			want := []connector.StoredRule{{ID: kept, GroupID: 1, ScheduleID: 2, DoorIDs: []int64{}, ZoneIDs: []int64{2}}}
+			want := []connector.StoredRule{{ID: kept, GroupID: 1, ScheduleID: 2, ZoneIDs: []int64{2}}}
 			if diff := cmp.Diff(want, mustRules(t, store)); diff != "" {
 				t.Errorf("rules (-want +got):\n%s", diff)
 			}
@@ -168,7 +167,7 @@ func TestStoreRefusesToDeleteAScheduleAnAccessRuleUses(t *testing.T) {
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {
 			store := ruleWorld(t, impl)
-			mustCreateRule(t, store, connector.StoredRule{GroupID: 2, ScheduleID: 2, DoorIDs: []int64{1}, ZoneIDs: []int64{}})
+			mustCreateRule(t, store, connector.StoredRule{GroupID: 2, ScheduleID: 2, ZoneIDs: []int64{1}})
 
 			_, err := store.DeleteSchedule(context.Background(), 2)
 

@@ -16,11 +16,14 @@ type ZoneFields struct {
 	Name        string
 	Description string
 	DoorIDs     []int64
+	// OpenScheduleIDs are the schedules during which the zone's doors are
+	// in open mode, unlocking on any keypress.
+	OpenScheduleIDs []int64
 }
 
 // ZoneFieldsOf is z as its fields are given.
 func ZoneFieldsOf(z connector.StoredZone) ZoneFields {
-	return ZoneFields{Name: z.Name, Description: z.Description, DoorIDs: z.DoorIDs}
+	return ZoneFields{Name: z.Name, Description: z.Description, DoorIDs: z.DoorIDs, OpenScheduleIDs: z.OpenScheduleIDs}
 }
 
 // Zones returns every zone in name order.
@@ -30,14 +33,7 @@ func (s Service) Zones(ctx context.Context) ([]connector.StoredZone, error) {
 
 // Zone returns the zone whose id is id.
 func (s Service) Zone(ctx context.Context, id int64) (connector.StoredZone, error) {
-	z, found, err := s.Store.Zone(ctx, id)
-	if err != nil {
-		return connector.StoredZone{}, err
-	}
-	if !found {
-		return connector.StoredZone{}, ErrNoZone
-	}
-	return z, nil
+	return check.Lookup(ctx, id, s.Store.Zone, ErrNoZone)
 }
 
 // CreateZone creates a zone from f.
@@ -85,16 +81,19 @@ func (s Service) DeleteZone(ctx context.Context, id int64) error {
 func (s Service) checkZone(ctx context.Context, id int64, f ZoneFields) (connector.StoredZone, error) {
 	zones, zonesErr := s.Store.Zones(ctx)
 	doors, doorsErr := s.Store.Doors(ctx)
-	if err := cmp.Or(zonesErr, doorsErr); err != nil {
+	schedules, schedulesErr := s.Store.Schedules(ctx)
+	if err := cmp.Or(zonesErr, doorsErr, schedulesErr); err != nil {
 		return connector.StoredZone{}, err
 	}
 	z := connector.StoredZone{
 		Name: strings.TrimSpace(f.Name), Description: strings.TrimSpace(f.Description), DoorIDs: check.Distinct(f.DoorIDs),
+		OpenScheduleIDs: check.Distinct(f.OpenScheduleIDs),
 	}
 	var found check.List
 	found.Add("name", zoneNameProblem(zones, id, z.Name))
 	found.Add("description", check.TooLong(z.Description, maxDescriptionLength, check.LongText))
 	found.Add("door_ids", check.Unknown(z.DoorIDs, doors, doorID, "No door has id %d."))
+	found.Add("open_schedule_ids", check.Unknown(z.OpenScheduleIDs, schedules, scheduleID, "No schedule has id %d."))
 	return z, found.Err()
 }
 

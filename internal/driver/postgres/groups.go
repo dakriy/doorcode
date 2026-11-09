@@ -99,3 +99,11 @@ func (s *Store) Preassign(ctx context.Context, groupID int64, userID string) err
 		where id = $1 and not ($2 = any(preassigned_user_ids))`, groupID, userID)
 	return err
 }
+
+// RemovePreassigned removes userID from the group's pre-assigned user ids.
+func (s *Store) RemovePreassigned(ctx context.Context, groupID int64, userID string) error {
+	_, err := s.pool.Exec(ctx, `
+		update groups set preassigned_user_ids = array_remove(preassigned_user_ids, $2)
+		where id = $1`, groupID, userID)
+	return err
+}

@@ -10,7 +10,7 @@ import (
 
 // alwaysJSON is the seeded Always schedule as the API shows it.
 const alwaysJSON = `{"id":1,"name":"Always","windows":[{"days":["mon","tue","wed","thu","fri","sat","sun"],"start":"00:00","end":"00:00"}],` +
-	`"excluded_dates":[],"builtin":true}`
+	`"exclusions":[],"builtin":true}`
 
 // createSchedule creates a schedule through the API as c's user. Always
 // has id 1, so the first schedule created after startup has id 2.
@@ -50,11 +50,13 @@ func TestCreatingAScheduleAnswersWithItTidied(t *testing.T) {
 	got := signedInAdmin(t, testsupport.NewFactory()).PostJSON("/api/v1/schedules", `{"name":" Night shift ",`+
 		`"starts_on":"2026-01-01","ends_on":"2026-01-01",`+
 		`"windows":[{"days":["FRI"," mon","mon"],"start":"22:00","end":"06:00"},{"days":["sun"],"start":" 7:05","end":"07:30"}],`+
-		`"excluded_dates":["2026-12-25","2026-01-01"," ","2026-12-25"]}`)
+		`"exclusions":[{"first":"2026-12-25"},{"first":"2026-01-01","last":"2026-01-03"},{"first":" ","last":""},`+
+		`{"first":"2026-12-25","last":"2026-12-25"},{"first":" 2026-01-01","last":"2026-01-02 "}]}`)
 
 	want := testsupport.Response{Status: 201, ContentType: jsonType, Body: `{"id":2,"name":"Night shift","starts_on":"2026-01-01","ends_on":"2026-01-01",` +
 		`"windows":[{"days":["mon","fri"],"start":"22:00","end":"06:00"},{"days":["sun"],"start":"07:05","end":"07:30"}],` +
-		`"excluded_dates":["2026-01-01","2026-12-25"],"builtin":false}` + "\n"}
+		`"exclusions":[{"first":"2026-01-01","last":"2026-01-02"},{"first":"2026-01-01","last":"2026-01-03"},{"first":"2026-12-25","last":"2026-12-25"}],` +
+		`"builtin":false}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -69,8 +71,8 @@ func TestSchedulesAreListedByName(t *testing.T) {
 	got := testsupport.JSONAt(b.Get("/api/v1/schedules").Body, "/schedules")
 
 	want := testsupport.JSON(`[` + alwaysJSON + `,
-		{"id":3,"name":"Day","windows":[{"days":["mon"],"start":"09:00","end":"17:00"}],"excluded_dates":[],"builtin":false},
-		{"id":2,"name":"night","windows":[{"days":["mon"],"start":"22:00","end":"06:00"}],"excluded_dates":[],"builtin":false}]`)
+		{"id":3,"name":"Day","windows":[{"days":["mon"],"start":"09:00","end":"17:00"}],"exclusions":[],"builtin":false},
+		{"id":2,"name":"night","windows":[{"days":["mon"],"start":"22:00","end":"06:00"}],"exclusions":[],"builtin":false}]`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("schedules (-want +got):\n%s", diff)
 	}
@@ -90,12 +92,12 @@ func TestUpdatingAScheduleReplacesIt(t *testing.T) {
 	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createSchedule(t, b, `{"name":"Night shift","starts_on":"2026-01-01","windows":[{"days":["mon"],"start":"22:00","end":"06:00"}],`+
-		`"excluded_dates":["2026-12-25"]}`)
+		`"exclusions":[{"first":"2026-12-25"}]}`)
 
 	updated := b.PutJSON("/api/v1/schedules/2", `{"name":"night shift","windows":[{"days":["sat","sun"],"start":"10:00","end":"16:00"}]}`)
 	got := b.Get("/api/v1/schedules/2")
 
-	want := `{"id":2,"name":"night shift","windows":[{"days":["sat","sun"],"start":"10:00","end":"16:00"}],"excluded_dates":[],"builtin":false}` + "\n"
+	want := `{"id":2,"name":"night shift","windows":[{"days":["sat","sun"],"start":"10:00","end":"16:00"}],"exclusions":[],"builtin":false}` + "\n"
 	if diff := cmp.Diff([]any{200, want, want}, []any{updated.Status, updated.Body, got.Body}); diff != "" {
 		t.Errorf("status, update, read back (-want +got):\n%s", diff)
 	}
@@ -110,14 +112,14 @@ func TestScheduleFieldsAreChecked(t *testing.T) {
 	}{
 		"not json":         {`windows`, `body must be a JSON object with a string \"name\" and a \"windows\" array`},
 		"no name":          {`{"name":" ","windows":[` + window + `]}`, "Enter a name."},
-		"a long name":      {`{"name":"` + repeat("x", 101) + `","windows":[` + window + `]}`, "Use at most 100 characters."},
+		"a long name":      {`{"name":"` + testsupport.Repeat("x", 101) + `","windows":[` + window + `]}`, "Use at most 100 characters."},
 		"a taken name":     {`{"name":"ALWAYS","windows":[` + window + `]}`, "Another schedule has this name."},
 		"a bad start date": {`{"name":"A","starts_on":"2026-02-30","windows":[` + window + `]}`, "Enter the date as YYYY-MM-DD, or leave it empty."},
 		"a bad end date":   {`{"name":"A","ends_on":"soon","windows":[` + window + `]}`, "Enter the date as YYYY-MM-DD, or leave it empty."},
 		"a backwards range": {`{"name":"A","starts_on":"2026-03-02","ends_on":"2026-03-01","windows":[` + window + `]}`,
 			"End the range on or after the day it starts."},
 		"no windows":       {`{"name":"A","windows":[]}`, "Add at least one window."},
-		"too many windows": {`{"name":"A","windows":[` + repeat(window+",", 20) + window + `]}`, "Use at most 20 windows."},
+		"too many windows": {`{"name":"A","windows":[` + testsupport.Repeat(window+",", 20) + window + `]}`, "Use at most 20 windows."},
 		"a window without days": {`{"name":"A","windows":[{"days":[],"start":"09:00","end":"17:00"}]}`,
 			"Choose at least one day for window 1."},
 		"an unknown day": {`{"name":"A","windows":[{"days":["mon","moon"],"start":"09:00","end":"17:00"}]}`,
@@ -126,10 +128,16 @@ func TestScheduleFieldsAreChecked(t *testing.T) {
 			"Enter the start of window 1 as HH:MM."},
 		"a missing end time": {`{"name":"A","windows":[` + window + `,{"days":["mon"],"start":"09:00"}]}`,
 			"Enter the end of window 2 as HH:MM."},
-		"a bad excluded date": {`{"name":"A","windows":[` + window + `],"excluded_dates":["2026-12-25","2026-13-01"]}`,
+		"a bad first excluded day": {`{"name":"A","windows":[` + window + `],"exclusions":[{"first":"2026-12-25"},{"first":"soon"}]}`,
+			"Enter excluded dates as YYYY-MM-DD; “soon” is not one."},
+		"a bad last excluded day": {`{"name":"A","windows":[` + window + `],"exclusions":[{"first":"2026-12-24","last":"2026-13-01"}]}`,
 			"Enter excluded dates as YYYY-MM-DD; “2026-13-01” is not one."},
-		"too many excluded dates": {`{"name":"A","windows":[` + window + `],"excluded_dates":[` + repeat(`"2026-12-25",`, 366) + `"2026-12-25"]}`,
-			"Exclude at most 366 dates."},
+		"an excluded range without a first day": {`{"name":"A","windows":[` + window + `],"exclusions":[{"first":"","last":"2026-12-25"}]}`,
+			"Enter the first day of excluded range 1."},
+		"a backwards excluded range": {`{"name":"A","windows":[` + window + `],"exclusions":[{"first":"2026-12-24"},{"first":"2026-12-26","last":"2026-12-25"}]}`,
+			"End excluded range 2 on or after its first day."},
+		"too many excluded ranges": {`{"name":"A","windows":[` + window + `],"exclusions":[` + testsupport.Repeat(`{"first":"2026-12-25"},`, 366) + `{"first":"2026-12-25"}]}`,
+			"Exclude at most 366 date ranges."},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -146,8 +154,8 @@ func TestScheduleFieldsAreChecked(t *testing.T) {
 func TestScheduleAtTheLimitsIsAccepted(t *testing.T) {
 	t.Parallel()
 	window := `{"days":["mon"],"start":"09:00","end":"17:00"}`
-	body := `{"name":"` + repeat("x", 100) + `","windows":[` + repeat(window+",", 19) + window + `],` +
-		`"excluded_dates":[` + repeat(`"2026-12-25",`, 365) + `"2026-12-25"]}`
+	body := `{"name":"` + testsupport.Repeat("x", 100) + `","windows":[` + testsupport.Repeat(window+",", 19) + window + `],` +
+		`"exclusions":[` + testsupport.Repeat(`{"first":"2026-12-25"},`, 365) + `{"first":"2026-12-25"}]}`
 
 	got := signedInAdmin(t, testsupport.NewFactory()).PostJSON("/api/v1/schedules", body)
 
@@ -252,7 +260,7 @@ func TestExcludedDateDropsTheWindowsThatOpenOnIt(t *testing.T) {
 	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createSchedule(t, b, `{"name":"Office","windows":[{"days":["mon","tue","wed","thu","fri"],"start":"09:00","end":"17:00"},`+
-		`{"days":["tue"],"start":"22:00","end":"02:00"}],"excluded_dates":["2026-11-11"]}`)
+		`{"days":["tue"],"start":"22:00","end":"02:00"}],"exclusions":[{"first":"2026-11-11"}]}`)
 
 	got := occurrences(t, b, "2", "from=2026-11-09&to=2026-11-15")
 
@@ -264,6 +272,23 @@ func TestExcludedDateDropsTheWindowsThatOpenOnIt(t *testing.T) {
 		{"start":"2026-11-13T09:00:00Z","end":"2026-11-13T17:00:00Z"}]}`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("occurrences (-want +got):\n%s", diff)
+	}
+}
+
+func TestExcludedRangesReadBackAsTheyWereSaved(t *testing.T) {
+	t.Parallel()
+	b := signedInAdmin(t, testsupport.NewFactory())
+	exclusions := `[{"first":"2026-04-03","last":"2026-04-06"},{"first":"2026-12-24","last":"2026-12-26"},{"first":"2026-12-31","last":"2026-12-31"}]`
+	createSchedule(t, b, `{"name":"Office","windows":[{"days":["mon"],"start":"09:00","end":"17:00"}],`+
+		`"exclusions":[{"first":"2026-12-24","last":"2026-12-26"},{"first":"2026-12-31"},{"first":"2026-04-03","last":"2026-04-06"}]}`)
+
+	created := testsupport.JSONAt(b.Get("/api/v1/schedules/2").Body, "/exclusions")
+	send(t, b, "PUT", "/api/v1/schedules/2", `{"name":"Office","windows":[{"days":["mon"],"start":"09:00","end":"17:00"}],"exclusions":`+exclusions+`}`, 200)
+	replaced := testsupport.JSONAt(b.Get("/api/v1/schedules/2").Body, "/exclusions")
+
+	want := testsupport.JSON(exclusions)
+	if diff := cmp.Diff([]any{want, want}, []any{created, replaced}); diff != "" {
+		t.Errorf("exclusions created, then saved again (-want +got):\n%s", diff)
 	}
 }
 
@@ -446,39 +471,25 @@ func TestSchedulesAPIRefusesAUserWithoutTheRole(t *testing.T) {
 	}
 }
 
-func TestDeletingAScheduleADoorIsInOpenModeDuringIsRefused(t *testing.T) {
+func TestDeletingAScheduleAZoneIsInOpenModeDuringIsRefused(t *testing.T) {
 	t.Parallel()
 	b := doorSite(t, testsupport.NewFactory())
-	createDoor(t, b, `{"name":"Lobby","open_schedule_ids":[2]}`)
-	createDoor(t, b, `{"name":"Atrium","open_schedule_ids":[2,3]}`)
+	send(t, b, "PUT", "/api/v1/zones/1", `{"name":"North","open_schedule_ids":[2]}`, 200)
+	send(t, b, "PUT", "/api/v1/zones/2", `{"name":"Annex","open_schedule_ids":[2,3]}`, 200)
 
 	got := b.Delete("/api/v1/schedules/2")
 
-	want := apiError(409, "doors are in open mode during this schedule: Atrium, Lobby")
+	want := apiError(409, "zones are in open mode during this schedule: Annex, North")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
 }
 
-func TestDeletingAScheduleTakesItOffDeletedDoors(t *testing.T) {
-	t.Parallel()
-	b := doorSite(t, testsupport.NewFactory())
-	createDoor(t, b, `{"name":"Lobby","open_schedule_ids":[2,3]}`)
-	send(t, b, "DELETE", "/api/v1/doors/1", "", 204)
-
-	deleted := b.Delete("/api/v1/schedules/2")
-	got := testsupport.JSONAt(b.Get("/api/v1/doors/1").Body, "/open_schedules")
-
-	if diff := cmp.Diff([]any{204, testsupport.JSON(`[{"id":3,"name":"Nights"}]`)}, []any{deleted.Status, got}); diff != "" {
-		t.Errorf("status, the door's open schedules (-want +got):\n%s", diff)
-	}
-}
-
-func TestDeletingAScheduleAnswersWithARequestIDWhenDoorsCannotBeRead(t *testing.T) {
+func TestDeletingAScheduleAnswersWithARequestIDWhenZonesCannotBeRead(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	b := doorSite(t, f)
-	f.StoreStub.FailDoors()
+	f.StoreStub.FailZones()
 
 	got := b.Delete("/api/v1/schedules/2")
 

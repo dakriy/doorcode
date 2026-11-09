@@ -18,17 +18,10 @@
     <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Create the door this controller is. Add pictures on its page afterwards.</p>
     <form method="post" action="{{$e.Path}}/new-door" novalidate hx-disabled-elt="find button" class="mt-5">
       {{template "door-fields" $c.Form}}
-      <div class="mt-6 grid gap-6 sm:grid-cols-2">
-        <div>
-          <h3 class="text-sm font-medium">Open mode</h3>
-          <p class="mt-1 mb-3 text-xs text-zinc-500 dark:text-zinc-400">While one of these is active the door unlocks on any keypress.</p>
-          {{template "choices" (choicelist "open_schedule_ids" "Open-mode schedules" $c.Schedules (index $c.Form.Errors "open_schedule_ids") "There are no schedules yet.")}}
-        </div>
-        <div>
-          <h3 class="text-sm font-medium">Zones</h3>
-          <p class="mt-1 mb-3 text-xs text-zinc-500 dark:text-zinc-400">Access rules that name a zone reach every door in it.</p>
-          {{template "choices" (choicelist "zone_ids" "Zones" $c.Zones (index $c.Form.Errors "zone_ids") "There are no zones yet.")}}
-        </div>
+      <div class="mt-6">
+        <h3 class="text-sm font-medium">Zones</h3>
+        <p class="mt-1 mb-3 text-xs text-zinc-500 dark:text-zinc-400">A door's zones decide who may enter it and when it is in open mode: access rules name zones, and a zone's open-mode schedules unlock its doors on any keypress.</p>
+        {{template "choices" (choicelist "zone_ids" "Zones" $c.Zones (index $c.Form.Errors "zone_ids") "There are no zones yet.")}}
       </div>
       <div class="mt-8 flex justify-end border-t border-zinc-200 pt-6 dark:border-zinc-800">
         <button type="submit" class="{{template "primary-class"}}">Create door and approve</button>

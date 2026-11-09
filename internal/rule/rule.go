@@ -1,7 +1,7 @@
 // Package rule keeps the site's access rules and works out what they
-// grant: which rules reach a door, directly or through its zones, which
-// doors a user's groups let them enter and when their code works there,
-// and whose timelines a change to a schedule or an override affects.
+// grant: which rules reach a door through its zones, which doors a user's
+// groups let them enter and when their code works there, and whose
+// timelines a change to a schedule, an override, or a zone affects.
 package rule
 
 import (
@@ -41,13 +41,12 @@ type Service struct {
 type Fields struct {
 	GroupID    int64
 	ScheduleID int64
-	DoorIDs    []int64
 	ZoneIDs    []int64
 }
 
 // FieldsOf is r as its fields are given.
 func FieldsOf(r connector.StoredRule) Fields {
-	return Fields{GroupID: r.GroupID, ScheduleID: r.ScheduleID, DoorIDs: r.DoorIDs, ZoneIDs: r.ZoneIDs}
+	return Fields{GroupID: r.GroupID, ScheduleID: r.ScheduleID, ZoneIDs: r.ZoneIDs}
 }
 
 // Rules returns the access rules of the group whose id is groupID, or
@@ -62,14 +61,7 @@ func (s Service) Rules(ctx context.Context, groupID int64) ([]connector.StoredRu
 
 // Rule returns the access rule whose id is id.
 func (s Service) Rule(ctx context.Context, id int64) (connector.StoredRule, error) {
-	r, found, err := s.Store.Rule(ctx, id)
-	if err != nil {
-		return r, err
-	}
-	if !found {
-		return r, ErrNoRule
-	}
-	return r, nil
+	return check.Lookup(ctx, id, s.Store.Rule, ErrNoRule)
 }
 
 // Create creates an access rule from f.
@@ -116,19 +108,17 @@ func (s Service) Delete(ctx context.Context, id int64) error {
 func (s Service) checkRule(ctx context.Context, f Fields) (connector.StoredRule, error) {
 	groups, groupsErr := s.Store.Groups(ctx)
 	schedules, schedulesErr := s.Store.Schedules(ctx)
-	doors, doorsErr := s.Store.Doors(ctx)
 	zones, zonesErr := s.Store.Zones(ctx)
-	if err := cmp.Or(groupsErr, schedulesErr, doorsErr, zonesErr); err != nil {
+	if err := cmp.Or(groupsErr, schedulesErr, zonesErr); err != nil {
 		return connector.StoredRule{}, err
 	}
-	r := connector.StoredRule{GroupID: f.GroupID, ScheduleID: f.ScheduleID, DoorIDs: check.Distinct(f.DoorIDs), ZoneIDs: check.Distinct(f.ZoneIDs)}
+	r := connector.StoredRule{GroupID: f.GroupID, ScheduleID: f.ScheduleID, ZoneIDs: check.Distinct(f.ZoneIDs)}
 	var found check.List
 	found.Add("group_id", check.Unknown([]int64{r.GroupID}, groups, func(g connector.StoredGroup) int64 { return g.ID }, "No group has id %d."))
 	found.Add("schedule_id", scheduleProblem(r.ScheduleID, schedules))
-	if len(r.DoorIDs) == 0 && len(r.ZoneIDs) == 0 {
-		found.Add("door_ids", "Choose at least one door or zone.")
+	if len(r.ZoneIDs) == 0 {
+		found.Add("zone_ids", "Choose at least one zone.")
 	}
-	found.Add("door_ids", check.Unknown(r.DoorIDs, doors, func(d connector.StoredDoor) int64 { return d.ID }, "No door has id %d."))
 	found.Add("zone_ids", check.Unknown(r.ZoneIDs, zones, func(z connector.StoredZone) int64 { return z.ID }, "No zone has id %d."))
 	return r, found.Err()
 }
@@ -140,23 +130,22 @@ func scheduleProblem(id int64, schedules []connector.StoredSchedule) string {
 	return check.Unknown([]int64{id}, schedules, func(sch connector.StoredSchedule) int64 { return sch.ID }, "No schedule has id %d.")
 }
 
-// Reach is how an access rule reaches a door: by naming it, through the
-// zones ZoneIDs names that it is in, or both.
+// Reach is how an access rule reaches a door: through the zones ZoneIDs
+// names, the ones the rule names that the door is in.
 type Reach struct {
 	Rule    connector.StoredRule
-	Direct  bool
 	ZoneIDs []int64
 }
 
 // ReachOf is how r reaches d, and whether it does.
 func ReachOf(r connector.StoredRule, d connector.StoredDoor) (Reach, bool) {
-	reach := Reach{Rule: r, Direct: slices.Contains(r.DoorIDs, d.ID), ZoneIDs: []int64{}}
+	reach := Reach{Rule: r, ZoneIDs: []int64{}}
 	for _, z := range r.ZoneIDs {
 		if slices.Contains(d.ZoneIDs, z) {
 			reach.ZoneIDs = append(reach.ZoneIDs, z)
 		}
 	}
-	return reach, reach.Direct || len(reach.ZoneIDs) > 0
+	return reach, len(reach.ZoneIDs) > 0
 }
 
 // reaches reports whether r reaches d.
@@ -281,6 +270,10 @@ func (s Service) Public(ctx context.Context, groups []connector.UserGroup, zone 
 // over is doors with when their rules let a code work and their timelines
 // from from up to to, read in zone.
 func (s Service) over(ctx context.Context, doors []DoorAccess, zone *time.Location, from, to time.Time) ([]DoorAccess, error) {
+	zones, err := s.Store.Zones(ctx)
+	if err != nil {
+		return nil, err
+	}
 	schedules, err := s.Store.Schedules(ctx)
 	if err != nil {
 		return nil, err
@@ -294,7 +287,7 @@ func (s Service) over(ctx context.Context, doors []DoorAccess, zone *time.Locati
 		for _, w := range Windows(d.Rules, schedules, zone, from, to) {
 			granted = append(granted, w.Interval)
 		}
-		doors[i].Spans = timeline.Of(d.Door, schedules, overrides, zone, from, to)
+		doors[i].Spans = timeline.Of(d.Door, zones, schedules, overrides, zone, from, to)
 		doors[i].Works = timeline.CodeWorks(granted, doors[i].Spans, from, to)
 	}
 	return doors, nil

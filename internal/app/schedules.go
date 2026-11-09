@@ -7,8 +7,10 @@ import (
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/date"
 	"github.com/dakriy/doorcode/internal/openapi"
 	"github.com/dakriy/doorcode/internal/schedule"
+	"github.com/dakriy/doorcode/internal/settings"
 )
 
 // maxOccurrenceSpan is how many days after from the last day of one
@@ -21,22 +23,32 @@ type windowBody struct {
 	End   string   `json:"end" doc:"When the window closes, as HH:MM in the site timezone. An end at or before the start is on the next day, so 00:00 to 00:00 is all day."`
 }
 
+type exclusionBody struct {
+	First string `json:"first" doc:"The first day, YYYY-MM-DD, on which no window opens."`
+	Last  string `json:"last,omitempty" doc:"The last day, YYYY-MM-DD, on which no window opens, on or after the first. Omit it to exclude the first day alone."`
+}
+
+type exclusionView struct {
+	First string `json:"first" doc:"The first day, YYYY-MM-DD, on which no window opens."`
+	Last  string `json:"last" doc:"The last day, YYYY-MM-DD, on which no window opens; the same as the first for a single day."`
+}
+
 type scheduleRequest struct {
-	Name          string       `json:"name" doc:"The schedule's name, up to 100 characters; unique, ignoring case."`
-	StartsOn      string       `json:"starts_on,omitempty" doc:"The first day, YYYY-MM-DD, on which windows open. Omit it for a schedule that has always been in effect."`
-	EndsOn        string       `json:"ends_on,omitempty" doc:"The last day, YYYY-MM-DD, on which windows open. Omit it for a schedule that never ends."`
-	Windows       []windowBody `json:"windows" doc:"One to 20 weekly windows."`
-	ExcludedDates []string     `json:"excluded_dates,omitempty" doc:"Up to 366 dates, YYYY-MM-DD, on which no window opens."`
+	Name       string          `json:"name" doc:"The schedule's name, up to 100 characters; unique, ignoring case."`
+	StartsOn   string          `json:"starts_on,omitempty" doc:"The first day, YYYY-MM-DD, on which windows open. Omit it for a schedule that has always been in effect."`
+	EndsOn     string          `json:"ends_on,omitempty" doc:"The last day, YYYY-MM-DD, on which windows open. Omit it for a schedule that never ends."`
+	Windows    []windowBody    `json:"windows" doc:"One to 20 weekly windows."`
+	Exclusions []exclusionBody `json:"exclusions,omitempty" doc:"Up to 366 ranges of days on which no window opens, such as holidays."`
 }
 
 type scheduleView struct {
-	ID            int64        `json:"id" doc:"Names the schedule in the API."`
-	Name          string       `json:"name" doc:"The schedule's name."`
-	StartsOn      string       `json:"starts_on,omitempty" doc:"The first day, YYYY-MM-DD, on which windows open; absent when the schedule has always been in effect."`
-	EndsOn        string       `json:"ends_on,omitempty" doc:"The last day, YYYY-MM-DD, on which windows open; absent when the schedule never ends."`
-	Windows       []windowBody `json:"windows" doc:"The weekly windows, in the order they were given."`
-	ExcludedDates []string     `json:"excluded_dates" doc:"The dates, YYYY-MM-DD, on which no window opens, in order."`
-	Builtin       bool         `json:"builtin" doc:"True for the seeded Always schedule, which cannot be changed or deleted."`
+	ID         int64           `json:"id" doc:"Names the schedule in the API."`
+	Name       string          `json:"name" doc:"The schedule's name."`
+	StartsOn   string          `json:"starts_on,omitempty" doc:"The first day, YYYY-MM-DD, on which windows open; absent when the schedule has always been in effect."`
+	EndsOn     string          `json:"ends_on,omitempty" doc:"The last day, YYYY-MM-DD, on which windows open; absent when the schedule never ends."`
+	Windows    []windowBody    `json:"windows" doc:"The weekly windows, in the order they were given."`
+	Exclusions []exclusionView `json:"exclusions" doc:"The ranges of days on which no window opens, in order of their first days."`
+	Builtin    bool            `json:"builtin" doc:"True for the seeded Always schedule, which cannot be changed or deleted."`
 }
 
 type scheduleList struct {
@@ -59,7 +71,7 @@ var (
 	scheduleIDParam = openapi.Param{Name: "id", In: "path", Description: "The schedule's id. The Always schedule has id 1.", Example: int64(1)}
 	noSchedule      = openapi.Response{Status: http.StatusNotFound, Description: "No schedule has this id.", Body: errorBody{}}
 	builtinRefused  = openapi.Response{Status: http.StatusConflict, Description: "The schedule is the built-in Always schedule, which cannot be changed or deleted.", Body: errorBody{}}
-	deleteRefused   = openapi.Response{Status: http.StatusConflict, Description: "The schedule is the built-in Always schedule, which cannot be deleted, doors that are not deleted are in open mode during it, or access rules use it; the error names the doors and the groups whose rules they are.", Body: errorBody{}}
+	deleteRefused   = openapi.Response{Status: http.StatusConflict, Description: "The schedule is the built-in Always schedule, which cannot be deleted, zones are in open mode during it, or access rules use it; the error names the zones and the groups whose rules they are.", Body: errorBody{}}
 	badSchedule     = openapi.Response{Status: http.StatusBadRequest, Description: "The body is not a JSON schedule, or a field is wrong; the error says which.", Body: errorBody{}}
 )
 
@@ -67,8 +79,8 @@ func (a *App) scheduleRoutes() []route {
 	schedules := holding(auth.RoleManageSchedules)
 	example := scheduleRequest{
 		Name: "Night shift", StartsOn: "2026-01-01", EndsOn: "2026-12-31",
-		Windows:       []windowBody{{Days: []string{"mon", "tue", "wed", "thu", "fri"}, Start: "22:00", End: "06:00"}},
-		ExcludedDates: []string{"2026-12-25"},
+		Windows:    []windowBody{{Days: []string{"mon", "tue", "wed", "thu", "fri"}, Start: "22:00", End: "06:00"}},
+		Exclusions: []exclusionBody{{First: "2026-12-24", Last: "2026-12-26"}, {First: "2026-12-31"}},
 	}
 	return []route{
 		apiRoute(http.MethodGet, "/schedules", schedules, a.listSchedules, apiDoc{
@@ -91,7 +103,7 @@ func (a *App) scheduleRoutes() []route {
 		}),
 		apiRoute(http.MethodDelete, "/schedules/{id}", schedules, a.deleteSchedule, apiDoc{
 			id: "deleteSchedule", summary: "Delete a schedule", tag: "schedules", params: []openapi.Param{scheduleIDParam},
-			responses: []openapi.Response{{Status: http.StatusNoContent, Description: "The schedule is gone. Deleted doors stop being in open mode during it."}, noSchedule, deleteRefused},
+			responses: []openapi.Response{{Status: http.StatusNoContent, Description: "The schedule is gone."}, noSchedule, deleteRefused},
 		}),
 		apiRoute(http.MethodGet, "/schedules/{id}/occurrences", schedules, a.listOccurrences, apiDoc{
 			id: "listScheduleOccurrences", summary: "List when a schedule is active", tag: "schedules", params: dayParams(scheduleIDParam),
@@ -109,9 +121,13 @@ func viewOfSchedule(sch connector.StoredSchedule) scheduleView {
 	for _, w := range f.Windows {
 		windows = append(windows, windowBody(w))
 	}
+	exclusions := []exclusionView{}
+	for _, e := range f.Excluded {
+		exclusions = append(exclusions, exclusionView(e))
+	}
 	return scheduleView{
 		ID: sch.ID, Name: f.Name, StartsOn: f.StartsOn, EndsOn: f.EndsOn,
-		Windows: windows, ExcludedDates: f.Excluded, Builtin: sch.Builtin,
+		Windows: windows, Exclusions: exclusions, Builtin: sch.Builtin,
 	}
 }
 
@@ -125,14 +141,14 @@ var scheduleStatuses = []refusalStatus{
 
 // scheduleError answers an API request with what err, from the schedules,
 // means.
-func (a *App) scheduleError(w http.ResponseWriter, err error) {
-	a.refuse(w, err, scheduleStatuses)
+func (a *App) scheduleError(w http.ResponseWriter, r *http.Request, err error) {
+	a.refuse(w, r, err, scheduleStatuses)
 }
 
 func (a *App) listSchedules(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	all, err := a.schedules.Schedules(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	views := []scheduleView{}
@@ -149,9 +165,12 @@ func readSchedule(w http.ResponseWriter, r *http.Request) (schedule.Fields, bool
 		writeError(w, http.StatusBadRequest, `body must be a JSON object with a string "name" and a "windows" array`)
 		return schedule.Fields{}, false
 	}
-	f := schedule.Fields{Name: body.Name, StartsOn: body.StartsOn, EndsOn: body.EndsOn, Excluded: body.ExcludedDates}
+	f := schedule.Fields{Name: body.Name, StartsOn: body.StartsOn, EndsOn: body.EndsOn}
 	for _, w := range body.Windows {
 		f.Windows = append(f.Windows, schedule.WindowFields(w))
+	}
+	for _, e := range body.Exclusions {
+		f.Excluded = append(f.Excluded, schedule.ExclusionFields(e))
 	}
 	return f, true
 }
@@ -163,7 +182,7 @@ func (a *App) createSchedule(w http.ResponseWriter, r *http.Request, _ auth.User
 	}
 	sch, err := a.schedules.Create(r.Context(), f)
 	if err != nil {
-		a.scheduleError(w, err)
+		a.scheduleError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, viewOfSchedule(sch))
@@ -172,7 +191,7 @@ func (a *App) createSchedule(w http.ResponseWriter, r *http.Request, _ auth.User
 func (a *App) getSchedule(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	sch, err := a.schedules.Schedule(r.Context(), pathID(r, "id"))
 	if err != nil {
-		a.scheduleError(w, err)
+		a.scheduleError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, viewOfSchedule(sch))
@@ -185,7 +204,7 @@ func (a *App) updateSchedule(w http.ResponseWriter, r *http.Request, _ auth.User
 	}
 	sch, err := a.changeSchedule(r.Context(), pathID(r, "id"), f)
 	if err != nil {
-		a.scheduleError(w, err)
+		a.scheduleError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, viewOfSchedule(sch))
@@ -193,7 +212,7 @@ func (a *App) updateSchedule(w http.ResponseWriter, r *http.Request, _ auth.User
 
 func (a *App) deleteSchedule(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	if err := a.schedules.Delete(r.Context(), pathID(r, "id")); err != nil {
-		a.scheduleError(w, err)
+		a.scheduleError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -206,7 +225,7 @@ func (a *App) listOccurrences(w http.ResponseWriter, r *http.Request, _ auth.Use
 	}
 	sch, err := a.schedules.Schedule(r.Context(), pathID(r, "id"))
 	if err != nil {
-		a.scheduleError(w, err)
+		a.scheduleError(w, r, err)
 		return
 	}
 	views := []occurrenceView{}
@@ -228,20 +247,20 @@ type dayRange struct {
 
 // from is the start of the first day.
 func (d dayRange) from() time.Time {
-	return schedule.StartOf(d.first, d.zone)
+	return date.StartOf(d.first, d.zone)
 }
 
 // to is the end of the last day.
 func (d dayRange) to() time.Time {
-	return schedule.StartOf(d.last.AddDate(0, 0, 1), d.zone)
+	return date.StartOf(d.last.AddDate(0, 0, 1), d.zone)
 }
 
 func (d dayRange) firstText() string {
-	return d.first.Format(schedule.DateLayout)
+	return d.first.Format(date.Layout)
 }
 
 func (d dayRange) lastText() string {
-	return d.last.Format(schedule.DateLayout)
+	return d.last.Format(date.Layout)
 }
 
 // apiDays reads the days an API request covers from its from and to
@@ -249,16 +268,31 @@ func (d dayRange) lastText() string {
 // the site timezone could not be read or that they are not a range it may
 // ask for.
 func (a *App) apiDays(w http.ResponseWriter, r *http.Request) (dayRange, bool) {
-	current, err := a.settings.Current(r.Context())
-	if err != nil {
-		a.internalError(w, err)
+	current, ok := a.apiSettings(w, r)
+	if !ok {
 		return dayRange{}, false
 	}
-	first, last, ok := occurrenceDays(r, a.today(current.Zone))
+	return a.daysIn(w, r, current.Zone)
+}
+
+// apiSettings reads the settings the application acts on, after answering
+// that they could not be read.
+func (a *App) apiSettings(w http.ResponseWriter, r *http.Request) (settings.Current, bool) {
+	current, err := a.settings.Current(r.Context())
+	if err != nil {
+		a.internalError(w, r, err)
+	}
+	return current, err == nil
+}
+
+// daysIn reads the days an API request covers in zone, as apiDays does,
+// after answering that they are not a range it may ask for.
+func (a *App) daysIn(w http.ResponseWriter, r *http.Request, zone *time.Location) (dayRange, bool) {
+	first, last, ok := occurrenceDays(r, a.today(zone))
 	if !ok {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("from and to must be dates as YYYY-MM-DD, with to on or after from and at most %d days after it", maxOccurrenceSpan))
 	}
-	return dayRange{zone: current.Zone, first: first, last: last}, ok
+	return dayRange{zone: zone, first: first, last: last}, ok
 }
 
 // occurrenceDays reads the days an occurrences request covers, first to
@@ -278,16 +312,16 @@ func queryDate(r *http.Request, name string, fallback time.Time) (time.Time, boo
 	if value == "" {
 		return fallback, true
 	}
-	day, err := time.Parse(schedule.DateLayout, value)
+	day, err := time.Parse(date.Layout, value)
 	return day, err == nil
 }
 
 // today is the date it is now in zone, as midnight UTC on that date.
 func (a *App) today(zone *time.Location) time.Time {
-	return schedule.DateOf(a.clock.Now(), zone)
+	return date.Of(a.clock.Now(), zone)
 }
 
 // monday is the Monday on or before day.
 func monday(day time.Time) time.Time {
-	return day.AddDate(0, 0, -schedule.DayIndex(day.Weekday()))
+	return day.AddDate(0, 0, -date.DayIndex(day.Weekday()))
 }

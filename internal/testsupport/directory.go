@@ -361,6 +361,17 @@ func (s *Store) Preassign(_ context.Context, groupID int64, userID string) error
 	return nil
 }
 
+// RemovePreassigned takes userID off the group's pre-assigned user ids.
+func (s *Store) RemovePreassigned(_ context.Context, groupID int64, userID string) error {
+	if err := s.writable(groupsAggregate, groupWrites); err != nil {
+		return err
+	}
+	if held := s.groupByID(groupID); held != nil {
+		held.PreassignedUserIDs = slices.DeleteFunc(slices.Clone(held.PreassignedUserIDs), func(id string) bool { return id == userID })
+	}
+	return nil
+}
+
 // RemoveMember removes the membership.
 func (s *Store) RemoveMember(_ context.Context, groupID, userID int64) (bool, error) {
 	if err := s.writable(groupsAggregate, groupWrites); err != nil {

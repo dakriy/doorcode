@@ -73,11 +73,12 @@ func TestUserCreatedWithAPreAssignedUserIDJoinsThatGroup(t *testing.T) {
 
 	joined := send(t, admin, "POST", "/api/v1/users", ann, 201)
 	other := send(t, admin, "POST", "/api/v1/users", `{"email":"bo@example.com","display_name":"Bo","user_id":"555"}`, 201)
+	night := testsupport.JSONAt(send(t, admin, "GET", "/api/v1/groups/2", "", 200).Body, "/preassigned_user_ids")
 
-	want := testsupport.JSON(`[[{"id": 2, "slug": "night", "name": "Night"}], []]`)
-	got := []any{testsupport.JSONAt(joined.Body, "/groups"), testsupport.JSONAt(other.Body, "/groups")}
+	want := testsupport.JSON(`[[{"id": 2, "slug": "night", "name": "Night"}], [], ["100877"]]`)
+	got := []any{testsupport.JSONAt(joined.Body, "/groups"), testsupport.JSONAt(other.Body, "/groups"), night}
 	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("groups of the pre-assigned user and of another (-want +got):\n%s", diff)
+		t.Errorf("groups of the pre-assigned user and of another, Night's pre-assigned ids (-want +got):\n%s", diff)
 	}
 }
 

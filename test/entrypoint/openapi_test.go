@@ -32,13 +32,13 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 	groupBody := `{"slug":"night-staff","name":"Night staff","description":"Security and cleaning crews.",` +
 		`"roles":["view-logs"],"preassigned_user_ids":["100234","100877"]}`
 	scheduleBody := `{"name":"Night shift","starts_on":"2026-01-01","ends_on":"2026-12-31",` +
-		`"windows":[{"days":["mon","tue","wed","thu","fri"],"start":"22:00","end":"06:00"}],"excluded_dates":["2026-12-25"]}`
+		`"windows":[{"days":["mon","tue","wed","thu","fri"],"start":"22:00","end":"06:00"}],"exclusions":[{"first":"2026-12-24","last":"2026-12-26"},{"first":"2026-12-31"}]}`
 	userBody := `{"email":"ann.smith@example.com","user_id":"100234","first_name":"Ann","last_name":"Smith",` +
 		`"expires_at":"2030-06-30T00:00:00Z"}`
 	doorBody := `{"name":"North entrance","location":"Building A, ground floor","notes":"Strike replaced in 2026.",` +
-		`"public":true,"open_schedule_ids":[1],"zone_ids":[1]}`
-	zoneBody := `{"name":"Building A","description":"Every outside door of building A.","door_ids":[1]}`
-	ruleBody := `{"group_id":1,"schedule_id":1,"door_ids":[1],"zone_ids":[1]}`
+		`"public":true,"zone_ids":[1]}`
+	zoneBody := `{"name":"Building A","description":"Every outside door of building A.","door_ids":[1],"open_schedule_ids":[1]}`
+	ruleBody := `{"group_id":1,"schedule_id":1,"zone_ids":[1]}`
 	requestBody := `{"title":"Lab access","body":"I start in the electronics lab on Monday and need to get in from 8:00."}`
 	overrideBody := `{"kind":"locked","start":"2026-12-24T18:00:00Z","end":"2026-12-27T06:00:00Z","reason":"Closed over the holiday."}`
 	want := []testsupport.APIOperation{
@@ -302,6 +302,7 @@ var specCallers = map[string]specCaller{
 	"an administrator's browser session": func(t *testing.T, f *testsupport.Factory) *testsupport.Browser {
 		return signedInAdmin(t, f)
 	},
+	"an administrator's token on a furnished site": furnishedSpecSite,
 	"a token while the store fails": func(t *testing.T, f *testsupport.Factory) *testsupport.Browser {
 		h, secret := adminWithToken(t, f, `{"name":"ci"}`)
 		f.StoreStub.Fail()
@@ -309,33 +310,57 @@ var specCallers = map[string]specCaller{
 	},
 }
 
-func TestEveryDocumentedOperationAnswersWithADocumentedStatus(t *testing.T) {
+// furnishedSpecSite is a fleet site where door 1 is in zone 1, has a
+// picture, an override, and a rule naming it, the administrator has asked
+// for access, and the caller's token is not the first, so the documented
+// examples find what they name.
+func furnishedSpecSite(t *testing.T, f *testsupport.Factory) *testsupport.Browser {
+	t.Helper()
+	fl := fleetSite(t, f)
+	b := tokenClient(fl.a.Handler(), createToken(t, fl.b, `{"name":"spec"}`))
+	createZone(t, b, `{"name":"Building A","door_ids":[1]}`)
+	send(t, b, "POST", "/api/v1/access-rules", `{"group_id":1,"schedule_id":1,"door_ids":[1],"zone_ids":[1]}`, 201)
+	send(t, b, "POST", "/api/v1/doors/1/overrides",
+		`{"kind":"locked","start":"2026-12-24T18:00:00Z","end":"2026-12-27T06:00:00Z","reason":"Closed over the holiday."}`, 201)
+	send(t, b, "POST", "/api/v1/me/requests", `{"title":"Lab access","body":"From Monday."}`, 201)
+	uploadPicture(t, b, "1", testsupport.PNG(30, 20))
+	return b
+}
+
+func TestEveryDocumentedOperationAnswersWithADocumentedStatusAndBody(t *testing.T) {
 	t.Parallel()
 	for name, arrange := range specCallers {
 		t.Run(name, func(t *testing.T) {
 			f := testsupport.NewFactory()
 			c := arrange(t, f)
-			ops := testsupport.OpenAPIOperations(c.Get("/api/v1/openapi.json").Body)
+			doc := c.Get("/api/v1/openapi.json").Body
+			ops, bodies := testsupport.OpenAPIOperations(doc), testsupport.DocumentedBodies(doc)
 
-			for _, op := range ops {
-				got := c.Send(op.Method, op.Target, op.Body)
-
-				if !listed(op.Statuses, got.Status) {
-					t.Errorf("%s %s (%s) answered %d, which the document does not list among %v:\n%s",
-						op.Method, op.Target, op.ID, got.Status, op.Statuses, got.Body)
+			// Deletions go last, so the operations before them find what
+			// they name.
+			for _, deletions := range []bool{false, true} {
+				for _, op := range ops {
+					if (op.Method == "DELETE") != deletions {
+						continue
+					}
+					checkDocumented(t, bodies, op, c.Send(op.Method, op.Target, op.Body))
 				}
 			}
 		})
 	}
 }
 
-func listed(statuses []int, status int) bool {
-	for _, s := range statuses {
-		if s == status {
-			return true
-		}
+// checkDocumented fails the test unless the document lists got's status
+// for op and describes its body.
+func checkDocumented(t *testing.T, bodies testsupport.Bodies, op testsupport.APIOperation, got testsupport.Response) {
+	t.Helper()
+	if !testsupport.Listed(op.Statuses, got.Status) {
+		t.Errorf("%s %s (%s) answered %d, which the document does not list among %v:\n%s",
+			op.Method, op.Target, op.ID, got.Status, op.Statuses, got.Body)
 	}
-	return false
+	for _, e := range bodies.Errors(op, got) {
+		t.Errorf("%s %s (%s) answered %d with %s:\n%s", op.Method, op.Target, op.ID, got.Status, e, got.Body)
+	}
 }
 
 func TestOpenAPIDescribesPictureUploadsAndImages(t *testing.T) {
@@ -352,7 +377,7 @@ func TestOpenAPIDescribesPictureUploadsAndImages(t *testing.T) {
 		{"required": true, "content": {"multipart/form-data": {"schema": {"$ref": "#/components/schemas/PictureUpload"}}}},
 		{"type": "object", "required": ["picture"], "properties": {
 			"picture": {"type": "string", "format": "binary", "description": "The image: JPEG, PNG, GIF, or WebP."}}},
-		{"description": "The image reduced to at most 320 pixels on its longest side. Anyone signed in may read the pictures of a door the portal shows; other doors' need the manage-doors or door-commander or manage-firmware role.",
+		{"description": "The image reduced to at most 320 pixels on its longest side. While the setting portal_door_pictures is true, anyone signed in may read the pictures of a door the portal shows; otherwise, and for other doors, they need the manage-doors or door-commander or manage-firmware role.",
 		 "content": {"image/jpeg": {"schema": {"type": "string", "format": "binary"}}}}
 	]`)
 	if diff := cmp.Diff(want, got); diff != "" {

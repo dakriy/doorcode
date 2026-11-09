@@ -37,11 +37,10 @@ func TestCreatingAnAccessRuleAnswersWithWhatItNames(t *testing.T) {
 	t.Parallel()
 	b := ruleSite(t, testsupport.NewFactory())
 
-	got := b.PostJSON("/api/v1/access-rules", `{"group_id":2,"schedule_id":2,"door_ids":[3,1,3],"zone_ids":[2,1,2]}`)
+	got := b.PostJSON("/api/v1/access-rules", `{"group_id":2,"schedule_id":2,"zone_ids":[2,1,2]}`)
 
 	want := testsupport.Response{Status: 201, ContentType: jsonType, Body: `{"id":1,"group":{"id":2,"name":"Staff"},` +
-		`"schedule":{"id":2,"name":"Weekdays"},"doors":[{"id":3,"name":"Attic"},{"id":1,"name":"Lobby"}],` +
-		`"zones":[{"id":2,"name":"Annex"},{"id":1,"name":"North"}]}` + "\n"}
+		`"schedule":{"id":2,"name":"Weekdays"},"zones":[{"id":2,"name":"Annex"},{"id":1,"name":"North"}]}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -51,13 +50,13 @@ func TestAccessRulesAreListedOldestFirstAndByGroup(t *testing.T) {
 	t.Parallel()
 	b := ruleSite(t, testsupport.NewFactory())
 	createRule(t, b, `{"group_id":3,"schedule_id":1,"zone_ids":[1]}`)
-	createRule(t, b, `{"group_id":2,"schedule_id":3,"door_ids":[2]}`)
+	createRule(t, b, `{"group_id":2,"schedule_id":3,"zone_ids":[2]}`)
 
 	all := testsupport.JSON(b.Get("/api/v1/access-rules").Body)
 	staff := testsupport.JSON(b.Get("/api/v1/access-rules?group=2").Body)
 
-	guests := `{"id":1,"group":{"id":3,"name":"Guests"},"schedule":{"id":1,"name":"Always"},"doors":[],"zones":[{"id":1,"name":"North"}]}`
-	staffRule := `{"id":2,"group":{"id":2,"name":"Staff"},"schedule":{"id":3,"name":"Nights"},"doors":[{"id":2,"name":"Dock"}],"zones":[]}`
+	guests := `{"id":1,"group":{"id":3,"name":"Guests"},"schedule":{"id":1,"name":"Always"},"zones":[{"id":1,"name":"North"}]}`
+	staffRule := `{"id":2,"group":{"id":2,"name":"Staff"},"schedule":{"id":3,"name":"Nights"},"zones":[{"id":2,"name":"Annex"}]}`
 	want := []any{testsupport.JSON(`{"rules":[` + guests + `,` + staffRule + `]}`), testsupport.JSON(`{"rules":[` + staffRule + `]}`)}
 	if diff := cmp.Diff(want, []any{all, staff}); diff != "" {
 		t.Errorf("every rule, Staff's rules (-want +got):\n%s", diff)
@@ -81,12 +80,12 @@ func TestListingAccessRulesRefusesAGroupThatIsNotAnID(t *testing.T) {
 func TestUpdatingAnAccessRuleReplacesWhatItNames(t *testing.T) {
 	t.Parallel()
 	b := ruleSite(t, testsupport.NewFactory())
-	createRule(t, b, `{"group_id":2,"schedule_id":2,"door_ids":[1],"zone_ids":[1]}`)
+	createRule(t, b, `{"group_id":2,"schedule_id":2,"zone_ids":[1]}`)
 
 	updated := b.PutJSON("/api/v1/access-rules/1", `{"group_id":3,"schedule_id":3,"zone_ids":[2]}`)
 	got := b.Get("/api/v1/access-rules/1")
 
-	want := `{"id":1,"group":{"id":3,"name":"Guests"},"schedule":{"id":3,"name":"Nights"},"doors":[],"zones":[{"id":2,"name":"Annex"}]}`
+	want := `{"id":1,"group":{"id":3,"name":"Guests"},"schedule":{"id":3,"name":"Nights"},"zones":[{"id":2,"name":"Annex"}]}`
 	if diff := cmp.Diff([]any{200, testsupport.JSON(want), testsupport.JSON(want)},
 		[]any{updated.Status, testsupport.JSON(updated.Body), testsupport.JSON(got.Body)}); diff != "" {
 		t.Errorf("status, update, read back (-want +got):\n%s", diff)
@@ -100,17 +99,17 @@ func TestAccessRuleFieldsAreChecked(t *testing.T) {
 		want string
 	}{
 		"not JSON":            {`[`, `body must be a JSON object with a \"group_id\" and a \"schedule_id\"`},
-		"an unknown group":    {`{"group_id":9,"schedule_id":1,"door_ids":[1]}`, "No group has id 9."},
-		"no schedule":         {`{"group_id":2,"door_ids":[1]}`, "Choose a schedule."},
-		"an unknown schedule": {`{"group_id":2,"schedule_id":9,"door_ids":[1]}`, "No schedule has id 9."},
-		"no door or zone":     {`{"group_id":2,"schedule_id":1}`, "Choose at least one door or zone."},
-		"an unknown door":     {`{"group_id":2,"schedule_id":1,"door_ids":[1,9]}`, "No door has id 9."},
-		"an unknown zone":     {`{"group_id":2,"schedule_id":1,"zone_ids":[9]}`, "No zone has id 9."},
+		"an unknown group":    {`{"group_id":9,"schedule_id":1,"zone_ids":[1]}`, "No group has id 9."},
+		"no schedule":         {`{"group_id":2,"zone_ids":[1]}`, "Choose a schedule."},
+		"an unknown schedule": {`{"group_id":2,"schedule_id":9,"zone_ids":[1]}`, "No schedule has id 9."},
+		"no zone":             {`{"group_id":2,"schedule_id":1}`, "Choose at least one zone."},
+		"only doors":          {`{"group_id":2,"schedule_id":1,"door_ids":[1,2]}`, "Choose at least one zone."},
+		"an unknown zone":     {`{"group_id":2,"schedule_id":1,"zone_ids":[1,9]}`, "No zone has id 9."},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			b := ruleSite(t, testsupport.NewFactory())
-			createRule(t, b, `{"group_id":2,"schedule_id":1,"door_ids":[1]}`)
+			createRule(t, b, `{"group_id":2,"schedule_id":1,"zone_ids":[1]}`)
 
 			created := b.PostJSON("/api/v1/access-rules", c.body)
 			updated := b.PutJSON("/api/v1/access-rules/1", c.body)
@@ -126,7 +125,7 @@ func TestAccessRuleFieldsAreChecked(t *testing.T) {
 func TestDeletingAnAccessRule(t *testing.T) {
 	t.Parallel()
 	b := ruleSite(t, testsupport.NewFactory())
-	createRule(t, b, `{"group_id":2,"schedule_id":1,"door_ids":[1]}`)
+	createRule(t, b, `{"group_id":2,"schedule_id":1,"zone_ids":[1]}`)
 
 	deleted := b.Delete("/api/v1/access-rules/1")
 	got := testsupport.JSON(b.Get("/api/v1/access-rules").Body)
@@ -142,7 +141,7 @@ func TestAnAccessRuleThatIsNotThereIsNotFound(t *testing.T) {
 
 	got := []testsupport.Response{
 		b.Get("/api/v1/access-rules/9"),
-		b.PutJSON("/api/v1/access-rules/9", `{"group_id":2,"schedule_id":1,"door_ids":[1]}`),
+		b.PutJSON("/api/v1/access-rules/9", `{"group_id":2,"schedule_id":1,"zone_ids":[1]}`),
 		b.Delete("/api/v1/access-rules/9"),
 	}
 
@@ -156,13 +155,13 @@ func TestAnAccessRuleGoesWithItsGroupAndLosesADeletedZone(t *testing.T) {
 	t.Parallel()
 	b := ruleSite(t, testsupport.NewFactory())
 	createRule(t, b, `{"group_id":2,"schedule_id":1,"zone_ids":[1,2]}`)
-	createRule(t, b, `{"group_id":3,"schedule_id":1,"door_ids":[1]}`)
+	createRule(t, b, `{"group_id":3,"schedule_id":1,"zone_ids":[1]}`)
 
 	send(t, b, "DELETE", "/api/v1/zones/1", "", 204)
 	send(t, b, "DELETE", "/api/v1/groups/3", "", 204)
 	got := testsupport.JSON(b.Get("/api/v1/access-rules").Body)
 
-	want := `{"rules":[{"id":1,"group":{"id":2,"name":"Staff"},"schedule":{"id":1,"name":"Always"},"doors":[],"zones":[{"id":2,"name":"Annex"}]}]}`
+	want := `{"rules":[{"id":1,"group":{"id":2,"name":"Staff"},"schedule":{"id":1,"name":"Always"},"zones":[{"id":2,"name":"Annex"}]}]}`
 	if diff := cmp.Diff(testsupport.JSON(want), got); diff != "" {
 		t.Errorf("rules (-want +got):\n%s", diff)
 	}
@@ -171,11 +170,11 @@ func TestAnAccessRuleGoesWithItsGroupAndLosesADeletedZone(t *testing.T) {
 func TestDeletingAScheduleAnAccessRuleUsesIsRefused(t *testing.T) {
 	t.Parallel()
 	b := ruleSite(t, testsupport.NewFactory())
-	createRule(t, b, `{"group_id":3,"schedule_id":2,"door_ids":[1]}`)
-	createRule(t, b, `{"group_id":2,"schedule_id":2,"door_ids":[2]}`)
-	createRule(t, b, `{"group_id":2,"schedule_id":2,"door_ids":[3]}`)
-	createRule(t, b, `{"group_id":2,"schedule_id":3,"door_ids":[3]}`)
-	createDoor(t, b, `{"name":"Gate","open_schedule_ids":[2]}`)
+	createRule(t, b, `{"group_id":3,"schedule_id":2,"zone_ids":[1]}`)
+	createRule(t, b, `{"group_id":2,"schedule_id":2,"zone_ids":[2]}`)
+	createRule(t, b, `{"group_id":2,"schedule_id":2,"zone_ids":[1]}`)
+	createRule(t, b, `{"group_id":2,"schedule_id":3,"zone_ids":[1]}`)
+	createZone(t, b, `{"name":"Gate","open_schedule_ids":[2]}`)
 
 	refused := b.Delete("/api/v1/schedules/2")
 	unused := b.Delete("/api/v1/schedules/3")
@@ -183,7 +182,7 @@ func TestDeletingAScheduleAnAccessRuleUsesIsRefused(t *testing.T) {
 	freed := b.Delete("/api/v1/schedules/3")
 
 	want := []testsupport.Response{
-		apiError(409, "doors are in open mode during this schedule: Gate; access rules of these groups use this schedule: Guests, Staff"),
+		apiError(409, "zones are in open mode during this schedule: Gate; access rules of these groups use this schedule: Guests, Staff"),
 		apiError(409, "access rules of these groups use this schedule: Staff"),
 		{Status: 204},
 	}
@@ -196,8 +195,8 @@ func TestARuleThroughAZoneReachesTheDoorsInIt(t *testing.T) {
 	t.Parallel()
 	b := ruleSite(t, testsupport.NewFactory())
 	createRule(t, b, `{"group_id":2,"schedule_id":2,"zone_ids":[1]}`)
-	createRule(t, b, `{"group_id":3,"schedule_id":3,"door_ids":[1,2],"zone_ids":[2]}`)
-	createRule(t, b, `{"group_id":2,"schedule_id":1,"door_ids":[3]}`)
+	createRule(t, b, `{"group_id":3,"schedule_id":3,"zone_ids":[2,1]}`)
+	createRule(t, b, `{"group_id":2,"schedule_id":1,"zone_ids":[2]}`)
 	send(t, b, "PUT", "/api/v1/doors/1", `{"name":"Lobby","zone_ids":[1,2]}`, 200)
 
 	lobby := testsupport.JSON(b.Get("/api/v1/doors/1/entrants").Body)
@@ -205,10 +204,12 @@ func TestARuleThroughAZoneReachesTheDoorsInIt(t *testing.T) {
 
 	want := []any{
 		testsupport.JSON(`{"entrants":[` +
-			`{"rule_id":1,"group":{"id":2,"name":"Staff"},"schedule":{"id":2,"name":"Weekdays"},"direct":false,"zones":[{"id":1,"name":"North"}]},` +
-			`{"rule_id":2,"group":{"id":3,"name":"Guests"},"schedule":{"id":3,"name":"Nights"},"direct":true,"zones":[{"id":2,"name":"Annex"}]}]}`),
+			`{"rule_id":1,"group":{"id":2,"name":"Staff"},"schedule":{"id":2,"name":"Weekdays"},"zones":[{"id":1,"name":"North"}]},` +
+			`{"rule_id":2,"group":{"id":3,"name":"Guests"},"schedule":{"id":3,"name":"Nights"},"zones":[{"id":2,"name":"Annex"},{"id":1,"name":"North"}]},` +
+			`{"rule_id":3,"group":{"id":2,"name":"Staff"},"schedule":{"id":1,"name":"Always"},"zones":[{"id":2,"name":"Annex"}]}]}`),
 		testsupport.JSON(`{"entrants":[` +
-			`{"rule_id":2,"group":{"id":3,"name":"Guests"},"schedule":{"id":3,"name":"Nights"},"direct":true,"zones":[{"id":2,"name":"Annex"}]}]}`),
+			`{"rule_id":2,"group":{"id":3,"name":"Guests"},"schedule":{"id":3,"name":"Nights"},"zones":[{"id":2,"name":"Annex"}]},` +
+			`{"rule_id":3,"group":{"id":2,"name":"Staff"},"schedule":{"id":1,"name":"Always"},"zones":[{"id":2,"name":"Annex"}]}]}`),
 	}
 	if diff := cmp.Diff(want, []any{lobby, dock}); diff != "" {
 		t.Errorf("entrants of Lobby, Dock (-want +got):\n%s", diff)
@@ -249,10 +250,10 @@ func TestAccessRulesAPIAnswersWithARequestIDWhenTheStoreFails(t *testing.T) {
 		"listing's names":             {(*testsupport.Store).FailGroups, "GET", "/api/v1/access-rules", ""},
 		"reading":                     {(*testsupport.Store).FailRules, "GET", "/api/v1/access-rules/1", ""},
 		"reading's schedule names":    {(*testsupport.Store).FailSchedules, "GET", "/api/v1/access-rules/1", ""},
-		"reading's door names":        {(*testsupport.Store).FailDoors, "GET", "/api/v1/access-rules/1", ""},
-		"creating":                    {(*testsupport.Store).FailRuleWrites, "POST", "/api/v1/access-rules", `{"group_id":2,"schedule_id":1,"door_ids":[1]}`},
-		"checking a new rule's zones": {(*testsupport.Store).FailZones, "POST", "/api/v1/access-rules", `{"group_id":2,"schedule_id":1,"door_ids":[1]}`},
-		"updating":                    {(*testsupport.Store).FailRuleWrites, "PUT", "/api/v1/access-rules/1", `{"group_id":2,"schedule_id":1,"door_ids":[1]}`},
+		"reading's zone names":        {(*testsupport.Store).FailZones, "GET", "/api/v1/access-rules/1", ""},
+		"creating":                    {(*testsupport.Store).FailRuleWrites, "POST", "/api/v1/access-rules", `{"group_id":2,"schedule_id":1,"zone_ids":[1]}`},
+		"checking a new rule's zones": {(*testsupport.Store).FailZones, "POST", "/api/v1/access-rules", `{"group_id":2,"schedule_id":1,"zone_ids":[1]}`},
+		"updating":                    {(*testsupport.Store).FailRuleWrites, "PUT", "/api/v1/access-rules/1", `{"group_id":2,"schedule_id":1,"zone_ids":[1]}`},
 		"deleting":                    {(*testsupport.Store).FailRuleWrites, "DELETE", "/api/v1/access-rules/1", ""},
 		"listing entrants":            {(*testsupport.Store).FailRules, "GET", "/api/v1/doors/1/entrants", ""},
 		"naming entrants":             {(*testsupport.Store).FailGroups, "GET", "/api/v1/doors/1/entrants", ""},
@@ -263,7 +264,7 @@ func TestAccessRulesAPIAnswersWithARequestIDWhenTheStoreFails(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			f := testsupport.NewFactory()
 			b := ruleSite(t, f)
-			createRule(t, b, `{"group_id":2,"schedule_id":3,"door_ids":[1]}`)
+			createRule(t, b, `{"group_id":2,"schedule_id":3,"zone_ids":[1]}`)
 			c.fail(f.StoreStub)
 
 			got := b.Send(c.method, c.target, c.body)

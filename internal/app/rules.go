@@ -14,15 +14,13 @@ type ruleView struct {
 	ID       int64     `json:"id" doc:"Names the access rule in the API."`
 	Group    nameRef   `json:"group" doc:"The group whose members the rule lets in."`
 	Schedule nameRef   `json:"schedule" doc:"The schedule during which it lets them in."`
-	Doors    []nameRef `json:"doors" doc:"The doors it names, by name."`
 	Zones    []nameRef `json:"zones" doc:"The zones it names, by name; it reaches every door in them."`
 }
 
 type ruleRequest struct {
 	GroupID    int64   `json:"group_id" doc:"The id of the group whose members the rule lets in."`
 	ScheduleID int64   `json:"schedule_id" doc:"The id of the schedule during which it lets them in; the Always schedule has id 1."`
-	DoorIDs    []int64 `json:"door_ids,omitempty" doc:"The ids of the doors it names."`
-	ZoneIDs    []int64 `json:"zone_ids,omitempty" doc:"The ids of the zones it names. A rule names at least one door or zone."`
+	ZoneIDs    []int64 `json:"zone_ids,omitempty" doc:"The ids of the zones it names, at least one; it reaches every door in them."`
 }
 
 type ruleList struct {
@@ -33,7 +31,6 @@ type entrantView struct {
 	RuleID   int64     `json:"rule_id" doc:"The access rule that lets them in."`
 	Group    nameRef   `json:"group" doc:"The group whose members may enter."`
 	Schedule nameRef   `json:"schedule" doc:"The schedule during which they may enter."`
-	Direct   bool      `json:"direct" doc:"True when the rule names the door itself."`
 	Zones    []nameRef `json:"zones" doc:"The zones the door is in through which the rule reaches it, by name."`
 }
 
@@ -49,7 +46,7 @@ var (
 
 func (a *App) ruleRoutes() []route {
 	groups := holding(auth.RoleManageGroups)
-	example := ruleRequest{GroupID: 1, ScheduleID: 1, DoorIDs: []int64{1}, ZoneIDs: []int64{1}}
+	example := ruleRequest{GroupID: 1, ScheduleID: 1, ZoneIDs: []int64{1}}
 	return []route{
 		apiRoute(http.MethodGet, "/access-rules", groups, a.listRules, apiDoc{
 			id: "listAccessRules", summary: "List access rules", tag: "access rules",
@@ -77,7 +74,7 @@ func (a *App) ruleRoutes() []route {
 		}),
 		apiRoute(http.MethodGet, "/doors/{id}/entrants", holding(auth.RoleManageDoors), a.listEntrants, apiDoc{
 			id: "listDoorEntrants", summary: "List who may enter a door", tag: "doors", params: []openapi.Param{doorIDParam},
-			responses: []openapi.Response{{Status: http.StatusOK, Description: "Each access rule that reaches the door, directly or through its zones.", Body: entrantList{}}, noDoor},
+			responses: []openapi.Response{{Status: http.StatusOK, Description: "Each access rule that reaches the door through its zones.", Body: entrantList{}}, noDoor},
 		}),
 	}
 }
@@ -129,8 +126,7 @@ func (n names) schedule(id int64) nameRef { return nameOf(n.schedules, id, sched
 
 func (n names) viewOfRule(r connector.StoredRule) ruleView {
 	return ruleView{
-		ID: r.ID, Group: n.group(r.GroupID), Schedule: n.schedule(r.ScheduleID),
-		Doors: refs(n.doors, r.DoorIDs, doorRef), Zones: refs(n.zones, r.ZoneIDs, zoneRef),
+		ID: r.ID, Group: n.group(r.GroupID), Schedule: n.schedule(r.ScheduleID), Zones: refs(n.zones, r.ZoneIDs, zoneRef),
 	}
 }
 
@@ -142,20 +138,20 @@ var ruleStatuses = []refusalStatus{
 
 // ruleError answers an API request with what err, about access rules,
 // means.
-func (a *App) ruleError(w http.ResponseWriter, err error) {
-	a.refuse(w, err, ruleStatuses)
+func (a *App) ruleError(w http.ResponseWriter, r *http.Request, err error) {
+	a.refuse(w, r, err, ruleStatuses)
 }
 
 // writeRule answers with r, which err may say could not be read or
 // stored, as status.
 func (a *App) writeRule(w http.ResponseWriter, r *http.Request, status int, stored connector.StoredRule, err error) {
 	if err != nil {
-		a.ruleError(w, err)
+		a.ruleError(w, r, err)
 		return
 	}
 	n, err := a.names(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	writeJSON(w, status, n.viewOfRule(stored))
@@ -169,12 +165,12 @@ func (a *App) listRules(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	}
 	all, err := a.rules.Rules(r.Context(), group)
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	n, err := a.names(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	views := []ruleView{}
@@ -215,7 +211,7 @@ func (a *App) updateRule(w http.ResponseWriter, r *http.Request, _ auth.User) {
 
 func (a *App) deleteRule(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	if err := a.rules.Delete(r.Context(), pathID(r, "id")); err != nil {
-		a.ruleError(w, err)
+		a.ruleError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -224,24 +220,24 @@ func (a *App) deleteRule(w http.ResponseWriter, r *http.Request, _ auth.User) {
 func (n names) viewOfEntrant(reach rule.Reach) entrantView {
 	return entrantView{
 		RuleID: reach.Rule.ID, Group: n.group(reach.Rule.GroupID), Schedule: n.schedule(reach.Rule.ScheduleID),
-		Direct: reach.Direct, Zones: refs(n.zones, reach.ZoneIDs, zoneRef),
+		Zones: refs(n.zones, reach.ZoneIDs, zoneRef),
 	}
 }
 
 func (a *App) listEntrants(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	d, err := a.doors.Door(r.Context(), pathID(r, "id"))
 	if err != nil {
-		a.doorError(w, err)
+		a.doorError(w, r, err)
 		return
 	}
 	entrants, err := a.rules.Entrants(r.Context(), d)
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	n, err := a.names(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	views := []entrantView{}

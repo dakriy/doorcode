@@ -31,7 +31,7 @@ type passwordRequest struct {
 type portalDoorView struct {
 	Door         nameRef          `json:"door" doc:"The door."`
 	Location     string           `json:"location" doc:"Where the door is; may be empty."`
-	ThumbnailURL string           `json:"thumbnail_url,omitempty" doc:"Where a thumbnail of the door's primary picture is served; absent without one."`
+	ThumbnailURL string           `json:"thumbnail_url,omitempty" doc:"Where a thumbnail of the door's primary picture is served; absent without one, and while the setting portal_door_pictures is false."`
 	Reached      bool             `json:"reached" doc:"True when an access rule naming one of your groups reaches the door."`
 	Works        []occurrenceView `json:"works" doc:"When your code opens the door during the days asked for: while such a rule's schedule is active and the door is not locked."`
 	Spans        []spanView       `json:"spans" doc:"When the door is in open mode, and anyone gets in, or locked during those days, in order."`
@@ -76,8 +76,8 @@ var portalStatuses = []refusalStatus{
 
 // portalError answers an API request with what err, from the portal's
 // services, means.
-func (a *App) portalError(w http.ResponseWriter, err error) {
-	a.refuse(w, err, portalStatuses)
+func (a *App) portalError(w http.ResponseWriter, r *http.Request, err error) {
+	a.refuse(w, r, err, portalStatuses)
 }
 
 var (
@@ -166,7 +166,7 @@ func ownCode(u connector.StoredUser) ownCodeView {
 func (a *App) getOwnCode(w http.ResponseWriter, r *http.Request, caller auth.User) {
 	u, err := a.directory.User(r.Context(), caller.ID)
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, ownCode(u))
@@ -178,14 +178,14 @@ func (a *App) setOwnCode(w http.ResponseWriter, r *http.Request, caller auth.Use
 		writeError(w, http.StatusBadRequest, `body must be a JSON object with a string "digits"`)
 		return
 	}
-	a.portalDone(w, a.directory.SetOwnCode(r.Context(), caller.ID, body.Digits))
+	a.portalDone(w, r, a.directory.SetOwnCode(r.Context(), caller.ID, body.Digits))
 }
 
 // portalDone answers with 204 when err is nil and with what err means
 // otherwise.
-func (a *App) portalDone(w http.ResponseWriter, err error) {
+func (a *App) portalDone(w http.ResponseWriter, r *http.Request, err error) {
 	if err != nil {
-		a.portalError(w, err)
+		a.portalError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -197,7 +197,7 @@ func (a *App) setOwnPassword(w http.ResponseWriter, r *http.Request, caller auth
 		writeError(w, http.StatusBadRequest, `body must be a JSON object with a string "new_password"`)
 		return
 	}
-	a.portalDone(w, a.auth.ChoosePassword(r.Context(), caller.ID, body.CurrentPassword, body.NewPassword))
+	a.portalDone(w, r, a.auth.ChoosePassword(r.Context(), caller.ID, body.CurrentPassword, body.NewPassword))
 }
 
 // viewOfPortalDoor is d with its times in zone.
@@ -216,13 +216,17 @@ func viewOfPortalDoor(d rule.DoorAccess, zone *time.Location) portalDoorView {
 }
 
 func (a *App) getOwnAccess(w http.ResponseWriter, r *http.Request, caller auth.User) {
-	days, ok := a.apiDays(w, r)
+	current, ok := a.apiSettings(w, r)
 	if !ok {
 		return
 	}
-	doors, err := a.publicDoors(r, caller, days.zone, days.from(), days.to())
+	days, ok := a.daysIn(w, r, current.Zone)
+	if !ok {
+		return
+	}
+	doors, err := a.publicDoors(r, caller, current, days.from(), days.to())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	views := []portalDoorView{}
@@ -241,7 +245,7 @@ func (a *App) listOwnEntries(w http.ResponseWriter, r *http.Request, caller auth
 	}
 	found, err := a.events.Find(r.Context(), ownEntries(caller.ID, page, perPage))
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	writeEvents(w, found, page, perPage)
@@ -257,7 +261,7 @@ func viewOfRequest(r connector.StoredRequest) requestView {
 func (a *App) listOwnRequests(w http.ResponseWriter, r *http.Request, caller auth.User) {
 	mine, err := a.requests.Mine(r.Context(), caller.ID)
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	views := []requestView{}
@@ -279,9 +283,9 @@ func readRequest(w http.ResponseWriter, r *http.Request) (request.Fields, bool) 
 
 // writeRequest answers with one, which err may say could not be read or
 // stored, as status.
-func (a *App) writeRequest(w http.ResponseWriter, status int, one connector.StoredRequest, err error) {
+func (a *App) writeRequest(w http.ResponseWriter, r *http.Request, status int, one connector.StoredRequest, err error) {
 	if err != nil {
-		a.portalError(w, err)
+		a.portalError(w, r, err)
 		return
 	}
 	writeJSON(w, status, viewOfRequest(one))
@@ -290,22 +294,22 @@ func (a *App) writeRequest(w http.ResponseWriter, status int, one connector.Stor
 func (a *App) createOwnRequest(w http.ResponseWriter, r *http.Request, caller auth.User) {
 	if f, ok := readRequest(w, r); ok {
 		one, err := a.requests.Create(r.Context(), caller.ID, f)
-		a.writeRequest(w, http.StatusCreated, one, err)
+		a.writeRequest(w, r, http.StatusCreated, one, err)
 	}
 }
 
 func (a *App) getOwnRequest(w http.ResponseWriter, r *http.Request, caller auth.User) {
 	one, err := a.requests.One(r.Context(), caller.ID, pathID(r, "id"))
-	a.writeRequest(w, http.StatusOK, one, err)
+	a.writeRequest(w, r, http.StatusOK, one, err)
 }
 
 func (a *App) updateOwnRequest(w http.ResponseWriter, r *http.Request, caller auth.User) {
 	if f, ok := readRequest(w, r); ok {
 		one, err := a.requests.Update(r.Context(), caller.ID, pathID(r, "id"), f)
-		a.writeRequest(w, http.StatusOK, one, err)
+		a.writeRequest(w, r, http.StatusOK, one, err)
 	}
 }
 
 func (a *App) deleteOwnRequest(w http.ResponseWriter, r *http.Request, caller auth.User) {
-	a.portalDone(w, a.requests.Delete(r.Context(), caller.ID, pathID(r, "id")))
+	a.portalDone(w, r, a.requests.Delete(r.Context(), caller.ID, pathID(r, "id")))
 }

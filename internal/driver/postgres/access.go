@@ -10,13 +10,12 @@ import (
 )
 
 // ruleColumns lists the access_rules columns, and the ids of each rule's
-// doors and zones, in the order ruleFields reads them.
+// zones, in the order ruleFields reads them.
 const ruleColumns = `id, group_id, schedule_id,
-	array(select door_id from access_rule_doors where rule_id = access_rules.id order by door_id),
 	array(select zone_id from access_rule_zones where rule_id = access_rules.id order by zone_id)`
 
 func ruleFields(r *connector.StoredRule) []any {
-	return []any{&r.ID, &r.GroupID, &r.ScheduleID, &r.DoorIDs, &r.ZoneIDs}
+	return []any{&r.ID, &r.GroupID, &r.ScheduleID, &r.ZoneIDs}
 }
 
 // Rules returns every rule in id order.
@@ -35,7 +34,7 @@ func (s *Store) Rule(ctx context.Context, id int64) (connector.StoredRule, bool,
 	return found(r, err)
 }
 
-// CreateRule inserts r with its doors and zones and returns its id.
+// CreateRule inserts r with its zones and returns its id.
 func (s *Store) CreateRule(ctx context.Context, r connector.StoredRule) (int64, error) {
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		err := tx.QueryRow(ctx, `insert into access_rules (group_id, schedule_id) values ($1, $2) returning id`,
@@ -48,8 +47,7 @@ func (s *Store) CreateRule(ctx context.Context, r connector.StoredRule) (int64, 
 	return r.ID, err
 }
 
-// UpdateRule stores r over the rule with r.ID and replaces its doors and
-// zones.
+// UpdateRule stores r over the rule with r.ID and replaces its zones.
 func (s *Store) UpdateRule(ctx context.Context, r connector.StoredRule) (bool, error) {
 	var updated bool
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
@@ -64,17 +62,9 @@ func (s *Store) UpdateRule(ctx context.Context, r connector.StoredRule) (bool, e
 	return updated, err
 }
 
-// linkRule replaces the doors and zones of the rule with r.ID within tx.
+// linkRule replaces the zones of the rule with r.ID within tx.
 func linkRule(ctx context.Context, tx pgx.Tx, r connector.StoredRule) error {
-	_, err := tx.Exec(ctx, `delete from access_rule_doors where rule_id = $1`, r.ID)
-	if err != nil {
-		return err
-	}
-	_, err = tx.Exec(ctx, `insert into access_rule_doors (rule_id, door_id) select $1, unnest($2::bigint[])`, r.ID, r.DoorIDs)
-	if err != nil {
-		return err
-	}
-	_, err = tx.Exec(ctx, `delete from access_rule_zones where rule_id = $1`, r.ID)
+	_, err := tx.Exec(ctx, `delete from access_rule_zones where rule_id = $1`, r.ID)
 	if err != nil {
 		return err
 	}
@@ -82,7 +72,7 @@ func linkRule(ctx context.Context, tx pgx.Tx, r connector.StoredRule) error {
 	return err
 }
 
-// DeleteRule removes the rule with id; its doors and zones go with it.
+// DeleteRule removes the rule with id; its zones go with it.
 func (s *Store) DeleteRule(ctx context.Context, id int64) (bool, error) {
 	tag, err := s.pool.Exec(ctx, `delete from access_rules where id = $1`, id)
 	return tag.RowsAffected() == 1, err

@@ -15,6 +15,7 @@ import (
 	"github.com/dakriy/doorcode/internal/event"
 	"github.com/dakriy/doorcode/internal/request"
 	"github.com/dakriy/doorcode/internal/rule"
+	"github.com/dakriy/doorcode/internal/settings"
 	"github.com/dakriy/doorcode/internal/timeline"
 )
 
@@ -121,13 +122,30 @@ func searched(doors []rule.DoorAccess, search string) []rule.DoorAccess {
 }
 
 // publicDoors is every door the portal shows, with the access viewer has
-// there from from up to to, read in zone.
-func (a *App) publicDoors(r *http.Request, viewer auth.User, zone *time.Location, from, to time.Time) ([]rule.DoorAccess, error) {
+// there from from up to to, read in the site timezone of current. The
+// doors have no primary picture while current says the portal shows no
+// door pictures.
+func (a *App) publicDoors(r *http.Request, viewer auth.User, current settings.Current, from, to time.Time) ([]rule.DoorAccess, error) {
 	u, err := a.directory.User(r.Context(), viewer.ID)
 	if err != nil {
 		return nil, err
 	}
-	return a.rules.Public(r.Context(), u.Groups, zone, from, to)
+	doors, err := a.rules.Public(r.Context(), u.Groups, current.Zone, from, to)
+	if current.PortalDoorPictures {
+		return doors, err
+	}
+	return withoutPictures(doors), err
+}
+
+// withoutPictures is doors, each without its primary picture, as the
+// portal shows them while it shows no door pictures.
+func withoutPictures(doors []rule.DoorAccess) []rule.DoorAccess {
+	shown := make([]rule.DoorAccess, 0, len(doors))
+	for _, d := range doors {
+		d.Door.PrimaryPictureID = nil
+		shown = append(shown, d)
+	}
+	return shown
 }
 
 // ownEntries asks for page page, of perPage, of the events of the user
@@ -137,10 +155,11 @@ func ownEntries(userID int64, page, perPage int) event.Query {
 }
 
 // portalDoors is every door the portal shows that search matches, as it is
-// today in zone, for viewer.
-func (a *App) portalDoors(r *http.Request, viewer auth.User, zone *time.Location, search string) ([]portalDoor, error) {
+// today in the site timezone of current, for viewer.
+func (a *App) portalDoors(r *http.Request, viewer auth.User, current settings.Current, search string) ([]portalDoor, error) {
+	zone := current.Zone
 	today := dayRange{zone: zone, first: a.today(zone), last: a.today(zone)}
-	doors, err := a.publicDoors(r, viewer, zone, today.from(), today.to())
+	doors, err := a.publicDoors(r, viewer, current, today.from(), today.to())
 	shown := []portalDoor{}
 	for _, d := range searched(doors, search) {
 		shown = append(shown, portalDoorOf(d, a.clock.Now()))
@@ -157,19 +176,19 @@ type homeContent struct {
 }
 
 func (a *App) home(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	zone, ok := a.siteZone(w, r)
+	current, ok := a.siteSettings(w, r)
 	if !ok {
 		return
 	}
 	u, err := a.directory.User(r.Context(), viewer.ID)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content := homeContent{Code: ownCode(u)}
 	mine, err := a.requests.Mine(r.Context(), viewer.ID)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	for _, one := range mine {
@@ -179,10 +198,10 @@ func (a *App) home(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	}
 	found, err := a.events.Find(r.Context(), ownEntries(viewer.ID, 1, homeEntries))
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
-	content.Entries = rowsOfEvents(found.Events, zone)
+	content.Entries = rowsOfEvents(found.Events, current.Zone)
 	a.render(w, r, http.StatusOK, homeTemplate, "Home", &viewer, content)
 }
 
@@ -199,7 +218,7 @@ func (a *App) codePage(w http.ResponseWriter, r *http.Request, viewer auth.User)
 func (a *App) renderCode(w http.ResponseWriter, r *http.Request, status int, viewer auth.User, problem string) {
 	u, err := a.directory.User(r.Context(), viewer.ID)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	a.render(w, r, status, codeTemplate, "Door code", &viewer, codeContent{Code: ownCode(u), Error: problem})
@@ -236,12 +255,12 @@ func (a *App) passwordPage(w http.ResponseWriter, r *http.Request, viewer auth.U
 func (a *App) renderPassword(w http.ResponseWriter, r *http.Request, status int, viewer auth.User, errs map[string]string) {
 	current, err := a.settings.Current(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	u, err := a.directory.User(r.Context(), viewer.ID)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content := passwordContent{
@@ -276,14 +295,14 @@ type accessContent struct {
 }
 
 func (a *App) accessPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	zone, ok := a.siteZone(w, r)
+	current, ok := a.siteSettings(w, r)
 	if !ok {
 		return
 	}
 	search := r.URL.Query().Get("q")
-	doors, err := a.portalDoors(r, viewer, zone, search)
+	doors, err := a.portalDoors(r, viewer, current, search)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	a.render(w, r, http.StatusOK, accessTemplate, "Access", &viewer, accessContent{Search: search, Doors: doors})
@@ -303,15 +322,16 @@ type doorAccessContent struct {
 const noPortalDoor = "This door is not shown in the portal. Doors an administrator has not made public, and doors that are gone, are left out."
 
 func (a *App) doorAccessPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	zone, ok := a.siteZone(w, r)
+	current, ok := a.siteSettings(w, r)
 	if !ok {
 		return
 	}
+	zone := current.Zone
 	doorID := pathID(r, "door")
 	wk := a.weekOf(r, zone, accessPath+"/"+strconv.FormatInt(doorID, 10))
-	doors, err := a.publicDoors(r, viewer, zone, wk.days.from(), wk.days.to())
+	doors, err := a.publicDoors(r, viewer, current, wk.days.from(), wk.days.to())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	i := slices.IndexFunc(doors, func(d rule.DoorAccess) bool { return d.Door.ID == doorID })
@@ -351,7 +371,7 @@ func (a *App) entriesPage(w http.ResponseWriter, r *http.Request, viewer auth.Us
 	}
 	found, err := a.events.Find(r.Context(), ownEntries(viewer.ID, page, entriesPerPage))
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content := entriesContent{Rows: rowsOfEvents(found.Events, zone), Empty: "You have no entries yet. Each time you enter your code at a door, it is listed here with what the door decided."}
@@ -413,7 +433,7 @@ func (a *App) renderRequests(w http.ResponseWriter, r *http.Request, status int,
 	}
 	mine, err := a.requests.Mine(r.Context(), viewer.ID)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content := requestsContent{Rows: []requestRow{}, Form: form, MaxTitle: request.MaxTitleLength, MaxBody: request.MaxBodyLength}

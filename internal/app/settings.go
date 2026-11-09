@@ -126,7 +126,7 @@ func viewOf(s settings.Setting) settingView {
 func (a *App) listSettings(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	all, err := a.settings.List(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	views := make([]settingView, 0, len(all))
@@ -139,7 +139,7 @@ func (a *App) listSettings(w http.ResponseWriter, r *http.Request, _ auth.User) 
 func (a *App) getSetting(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	s, err := a.settings.Get(r.Context(), r.PathValue("key"))
 	if err != nil {
-		a.settingError(w, err)
+		a.settingError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, viewOf(s))
@@ -159,7 +159,7 @@ func (a *App) updateSetting(w http.ResponseWriter, r *http.Request, _ auth.User)
 		s, err = a.settings.Update(r.Context(), r.PathValue("key"), *body.Value)
 	}
 	if err != nil {
-		a.settingError(w, err)
+		a.settingError(w, r, err)
 		return
 	}
 	a.settingsChanged(r.Context(), []string{s.Key})
@@ -178,8 +178,8 @@ var settingStatuses = []refusalStatus{
 
 // settingError answers an API request with what err, from the settings,
 // means.
-func (a *App) settingError(w http.ResponseWriter, err error) {
-	a.refuse(w, err, settingStatuses)
+func (a *App) settingError(w http.ResponseWriter, r *http.Request, err error) {
+	a.refuse(w, r, err, settingStatuses)
 }
 
 // settingsContent is the settings page's content: every setting in its
@@ -218,12 +218,12 @@ type settingRow struct {
 func (a *App) showSettings(w http.ResponseWriter, r *http.Request, status int, viewer auth.User, entered map[string]string, errs map[string]string, alert string) {
 	all, err := a.settings.List(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	image, err := a.signInImageURL(r)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content := settingsContent{
@@ -314,11 +314,11 @@ func (a *App) signInImageURL(r *http.Request) (string, error) {
 func (a *App) serveSignInImage(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	image, found, err := a.settings.SignInImage(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	if !found {
-		a.settingError(w, settings.ErrNoSignInImage)
+		a.settingError(w, r, settings.ErrNoSignInImage)
 		return
 	}
 	w.Header().Set("Content-Type", picture.ContentType)
@@ -336,18 +336,18 @@ func (a *App) setSignInImage(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (a *App) putSignInImage(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	a.settingDone(w, a.setSignInImage(w, r))
+	a.settingDone(w, r, a.setSignInImage(w, r))
 }
 
 func (a *App) deleteSignInImage(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	a.settingDone(w, a.settings.RemoveSignInImage(r.Context()))
+	a.settingDone(w, r, a.settings.RemoveSignInImage(r.Context()))
 }
 
 // settingDone answers an API request that changed the settings with no
 // content, or with what err means.
-func (a *App) settingDone(w http.ResponseWriter, err error) {
+func (a *App) settingDone(w http.ResponseWriter, r *http.Request, err error) {
 	if err != nil {
-		a.settingError(w, err)
+		a.settingError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

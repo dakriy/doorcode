@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/dakriy/doorcode/internal/auth"
+	"github.com/dakriy/doorcode/internal/date"
 	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/firmware"
 	"github.com/dakriy/doorcode/internal/openapi"
-	"github.com/dakriy/doorcode/internal/schedule"
 	"github.com/dakriy/doorcode/internal/stats"
 	"github.com/dakriy/doorcode/internal/telemetry"
 )
@@ -168,12 +168,12 @@ func chooseRange(r *http.Request, now time.Time, zone *time.Location) (stats.Ran
 func (a *App) apiRange(w http.ResponseWriter, r *http.Request) (stats.Range, *time.Location, bool) {
 	current, err := a.settings.Current(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return stats.Range{}, nil, false
 	}
 	chosen, err := chooseRange(r, a.clock.Now(), current.Zone)
 	if err != nil {
-		a.refuse(w, err, nil)
+		a.refuse(w, r, err, nil)
 		return stats.Range{}, nil, false
 	}
 	return chosen, current.Zone, true
@@ -181,7 +181,7 @@ func (a *App) apiRange(w http.ResponseWriter, r *http.Request) (stats.Range, *ti
 
 func viewOfRange(r stats.Range, zone *time.Location) rangeView {
 	return rangeView{
-		Range: r.Preset, From: r.First.Format(schedule.DateLayout), To: r.Last.Format(schedule.DateLayout),
+		Range: r.Preset, From: r.First.Format(date.Layout), To: r.Last.Format(date.Layout),
 		Start: r.From.UTC(), End: r.To.UTC(), Timezone: zone.String(),
 	}
 }
@@ -193,7 +193,7 @@ func (a *App) getEntryStats(w http.ResponseWriter, r *http.Request, _ auth.User)
 	}
 	e, err := a.stats.Entries(r.Context(), chosen, zone)
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, viewOfEntries(chosen, zone, e))
@@ -205,10 +205,10 @@ func viewOfEntries(chosen stats.Range, zone *time.Location, e stats.Entries) ent
 		Days: []dayView{}, Weekdays: []weekdayView{}, Reasons: []reasonView{}, Doors: []doorEntriesView{},
 	}
 	for _, d := range e.Days {
-		view.Days = append(view.Days, dayView{Date: d.Date.Format(schedule.DateLayout), Allowed: d.Allowed, Denied: d.Denied})
+		view.Days = append(view.Days, dayView{Date: d.Date.Format(date.Layout), Allowed: d.Allowed, Denied: d.Denied})
 	}
 	for _, d := range e.Weekdays {
-		view.Weekdays = append(view.Weekdays, weekdayView{Weekday: schedule.DayNames[schedule.DayIndex(d.Day)], Hours: d.Hours[:], Total: d.Total})
+		view.Weekdays = append(view.Weekdays, weekdayView{Weekday: date.DayNames[date.DayIndex(d.Day)], Hours: d.Hours[:], Total: d.Total})
 	}
 	for _, reason := range e.Reasons {
 		view.Reasons = append(view.Reasons, reasonView(reason))
@@ -226,7 +226,7 @@ func (a *App) getDoorStats(w http.ResponseWriter, r *http.Request, _ auth.User) 
 	}
 	h, err := a.stats.Health(r.Context(), chosen, a.clock.Now(), zone)
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	view := doorStats{Range: viewOfRange(chosen, zone), Unit: h.Unit, Hours: h.Hours, Doors: []doorHealthView{}}
@@ -251,7 +251,7 @@ func viewOfDoorHealth(h stats.Health, d stats.DoorHealth) doorHealthView {
 func (a *App) getFirmwareStats(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	versions, err := a.stats.Versions(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	view := firmwareStats{Versions: []versionView{}}
@@ -264,7 +264,7 @@ func (a *App) getFirmwareStats(w http.ResponseWriter, r *http.Request, _ auth.Us
 func (a *App) getLiveCounts(w http.ResponseWriter, r *http.Request, caller auth.User) {
 	counts, err := a.liveCounts(r.Context(), caller)
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, counts)

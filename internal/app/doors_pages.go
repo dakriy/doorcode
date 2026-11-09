@@ -10,6 +10,7 @@ import (
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/controller"
 	"github.com/dakriy/doorcode/internal/door"
+	"github.com/dakriy/doorcode/internal/override"
 	"github.com/dakriy/doorcode/internal/picture"
 	"github.com/dakriy/doorcode/internal/telemetry"
 )
@@ -22,7 +23,6 @@ func (a *App) doorPageRoutes() []route {
 		pageRoute(http.MethodPost, "/admin/doors", doors, a.createDoorFromForm),
 		pageRoute(http.MethodGet, "/admin/doors/{id}", seesDoors, a.doorPage),
 		pageRoute(http.MethodPost, "/admin/doors/{id}", doors, a.doorSaver(readDoorDetails, "door-saved")),
-		pageRoute(http.MethodPost, "/admin/doors/{id}/open-mode", doors, a.doorSaver(readOpenMode, "open-mode-saved")),
 		pageRoute(http.MethodPost, "/admin/doors/{id}/zones", doors, a.doorSaver(readDoorZones, "door-zones-saved")),
 		pageRoute(http.MethodPost, "/admin/doors/{id}/delete", doors, a.deleteDoorFromForm),
 		pageRoute(http.MethodPost, "/admin/doors/{id}/restore", doors, a.restoreDoorFromForm),
@@ -111,12 +111,12 @@ func (a *App) doorsPage(w http.ResponseWriter, r *http.Request, viewer auth.User
 	}
 	found, err := a.doors.Find(r.Context(), q)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	c, err := a.catalog(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	link := func(page int) string { return doorsURL(q, page) }
@@ -175,12 +175,6 @@ func readDoorDetails(r *http.Request, f door.Fields) door.Fields {
 	_ = r.ParseForm()
 	f.Name, f.Location, f.Notes = r.PostFormValue("name"), r.PostFormValue("location"), r.PostFormValue("notes")
 	f.Public = r.PostForm.Has("public")
-	return f
-}
-
-// readOpenMode is f with the open-mode schedules the form posts.
-func readOpenMode(r *http.Request, f door.Fields) door.Fields {
-	f.OpenScheduleIDs = formIDs(r, "open_schedule_ids")
 	return f
 }
 
@@ -246,7 +240,6 @@ type doorContent struct {
 	Row  doorRow
 	// Form is the door's fields as entered, which may not be stored.
 	Form      doorForm
-	Schedules []choice
 	Zones     []choice
 	Pictures  []pictureTile
 	Entrants  []entrantRow
@@ -261,6 +254,9 @@ type doorContent struct {
 	Alert          string
 	MaxPictureMB   int
 	MaxPictureSide int
+	// PortalPictures is true when the portal shows door pictures, so the
+	// primary picture is what people see there.
+	PortalPictures bool
 	// Manage is true when the viewer may change the door, not only open
 	// it and manage its overrides.
 	Manage bool
@@ -311,48 +307,49 @@ func (a *App) pageDoor(w http.ResponseWriter, r *http.Request, viewer auth.User)
 // showDoor shows the page about d with its forms holding form, answering
 // with status.
 func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewer auth.User, d storedDoor, form doorForm, alert string) {
-	zone, ok := a.siteZone(w, r)
+	current, ok := a.siteSettings(w, r)
 	if !ok {
 		return
 	}
+	zone := current.Zone
 	n, err := a.names(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	entrants, err := a.rules.Entrants(r.Context(), d.StoredDoor)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
-	_, overrides, err := a.doors.Overrides(r.Context(), d.ID)
+	_, overrides, err := a.overrides.Of(r.Context(), d.ID)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	creds, err := a.controllers.Credentials(r.Context(), d.ID)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	config, defaults, err := a.effectiveConfig(r.Context(), d.StoredDoor)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	events, err := a.recent(r.Context(), viewer, connector.EventQuery{DoorID: d.ID}, zone)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	state, err := a.stateOf(r, viewer, d.StoredDoor, zone)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	card, err := a.firmwareCard(r.Context(), viewer, d.StoredDoor, zone)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content := doorContent{
@@ -360,10 +357,10 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 		Events: events, StrikeMS: config.StrikePulseMS, State: state, Firmware: card,
 		Door: d.StoredDoor, Row: n.rowOfDoor(d.StoredDoor), Form: form, Alert: alert,
 		Entrants: []entrantRow{}, Overrides: []overrideRow{},
-		Schedules: scheduleChoices(n.schedules, form.OpenScheduleIDs), Zones: zoneChoices(n.zones, form.ZoneIDs),
+		Zones:      zoneChoices(n.zones, form.ZoneIDs),
 		Controller: rowOfController(d.Controller), Credentials: credentialRows(creds, zone),
 		Config:       configRows(d.StoredDoor, defaults, form.Config),
-		MaxPictureMB: picture.Megabytes(), MaxPictureSide: picture.MaxSide,
+		MaxPictureMB: picture.Megabytes(), MaxPictureSide: picture.MaxSide, PortalPictures: current.PortalDoorPictures,
 	}
 	for i, p := range d.pictures {
 		content.Pictures = append(content.Pictures, pictureTile{pictureView: viewOfPicture(d.StoredDoor, p), Number: i + 1})
@@ -371,7 +368,7 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 	for _, reach := range entrants {
 		view := n.viewOfEntrant(reach)
 		content.Entrants = append(content.Entrants, entrantRow{
-			RuleID: view.RuleID, Group: view.Group, Schedule: view.Schedule, Through: throughText(view.Direct, view.Zones),
+			RuleID: view.RuleID, Group: view.Group, Schedule: view.Schedule, Through: throughText(view.Zones),
 		})
 	}
 	for _, o := range overrides {
@@ -466,9 +463,10 @@ type doorRefusal struct {
 // to the status and the message the page shows.
 var doorPageRefusals = []doorRefusal{
 	{door.ErrNoPicture, http.StatusNotFound, "That picture is not there any more. It may have been deleted already."},
-	{door.ErrNoOverride, http.StatusNotFound, "That override is not there any more. It may have been deleted already."},
-	{door.ErrNotActive, http.StatusConflict, "Only an override in force can be cancelled. Delete one that has not started."},
+	{override.ErrNoOverride, http.StatusNotFound, "That override is not there any more. It may have been deleted already."},
+	{override.ErrNotActive, http.StatusConflict, "Only an override in force can be cancelled. Delete one that has not started."},
 	{controller.ErrOffline, http.StatusConflict, "The controller is not connected, so it cannot be sent new credentials. Try again once it is online."},
+	{controller.ErrHandingOver, http.StatusConflict, "The controller has not yet connected with the credentials it was last sent, so it is sent no more. Its old ones keep working until it does."},
 }
 
 // doorChanged finishes a change to d made from its page: a refusal is

@@ -7,6 +7,7 @@ import (
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/check"
+	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/settings"
 )
 
@@ -59,9 +60,8 @@ var flashes = map[string]string{
 	"sign-in-image-saved":    "The sign-in page shows the new picture.",
 	"sign-in-image-removed":  "The sign-in page shows no picture.",
 	"controller-approved":    "The controller has been approved. Its credentials are on their way, and it connects as this door once it has them.",
-	"credentials-rotated":    "New credentials are on their way to the controller. The old ones work until it connects with the new ones or the grace period passes.",
+	"credentials-rotated":    "New credentials are on their way to the controller. The old ones work until it connects with the new ones.",
 	"credentials-revoked":    "The controller's credentials have been revoked and it has been disconnected. It connects again only by enrolling and being approved.",
-	"open-mode-saved":        "The open-mode schedules have been saved.",
 	"door-zones-saved":       "The door's zones have been saved.",
 	"door-deleted":           "The door has been deleted. Its history stays, and you can restore it.",
 	"door-restored":          "The door has been restored.",
@@ -107,7 +107,7 @@ func (a *App) signInPage(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	form := signInForm{Next: localPath(query.Get("next")), Bypass: query.Get("auto_sign_in") == "false"}
 	current, err := a.settings.Current(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	if current.OIDC.HidesPasswordForms() && !form.Bypass {
@@ -135,22 +135,25 @@ func (a *App) signIn(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	token, err := a.auth.SignIn(r.Context(), email, password)
 	form.Error = signInRefusal(err)
 	if form.Error != "" {
+		a.log.Info("refused a sign-in", connector.Field{Key: "email", Value: email},
+			connector.Field{Key: "error", Value: err.Error()}, connector.Field{Key: "client", Value: a.client(r)})
 		a.renderSignIn(w, r, http.StatusUnprocessableEntity, form)
 		return
 	}
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
-	setCookie(w, r, sessionCookie, token, int(auth.SessionLifetime().Seconds()))
-	setCookie(w, r, flashCookie, "signed-in", 0)
+	a.log.Info("signed in", connector.Field{Key: "email", Value: email}, connector.Field{Key: "client", Value: a.client(r)})
+	a.setCookie(w, r, sessionCookie, token, int(auth.SessionLifetime().Seconds()))
+	a.setCookie(w, r, flashCookie, "signed-in", 0)
 	redirect(w, form.Next)
 }
 
 func (a *App) renderSignIn(w http.ResponseWriter, r *http.Request, status int, form signInForm) {
 	current, err := a.settings.Current(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	a.showSignIn(w, r, status, current.OIDC, form)
@@ -164,7 +167,7 @@ func (a *App) showSignIn(w http.ResponseWriter, r *http.Request, status int, o s
 	form.Password = !o.HidesPasswordForms() || form.Bypass
 	image, err := a.signInImageURL(r)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	form.Image = image
@@ -194,37 +197,37 @@ func (a *App) signOut(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	if cookie, err := r.Cookie(sessionCookie); err == nil {
 		viaIdentity, err = a.auth.SignOut(r.Context(), cookie.Value)
 		if err != nil {
-			a.pageError(w, err)
+			a.pageError(w, r, err)
 			return
 		}
 	}
-	setCookie(w, r, sessionCookie, "", -1)
-	setCookie(w, r, flashCookie, "signed-out", 0)
+	a.setCookie(w, r, sessionCookie, "", -1)
+	a.setCookie(w, r, flashCookie, "signed-out", 0)
 	redirect(w, a.signedOut(r.Context(), viaIdentity))
 }
 
 // takeFlash returns the flash message r carries, if any, and clears it.
-func takeFlash(w http.ResponseWriter, r *http.Request) string {
+func (a *App) takeFlash(w http.ResponseWriter, r *http.Request) string {
 	cookie, err := r.Cookie(flashCookie)
 	if err != nil {
 		return ""
 	}
-	setCookie(w, r, flashCookie, "", -1)
+	a.setCookie(w, r, flashCookie, "", -1)
 	return flashes[cookie.Value]
 }
 
 // setCookie sets a cookie scripts cannot read and other sites do not get.
 // maxAge is in seconds: zero lasts until the browser closes, negative
 // deletes. The cookie is marked Secure when the browser reached the site
-// over HTTPS, directly or through a proxy that says so.
-func setCookie(w http.ResponseWriter, r *http.Request, name, value string, maxAge int) {
+// over HTTPS, directly or through a trusted proxy that says so.
+func (a *App) setCookie(w http.ResponseWriter, r *http.Request, name, value string, maxAge int) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     name,
 		Value:    value,
 		Path:     "/",
 		MaxAge:   maxAge,
 		HttpOnly: true,
-		Secure:   r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https",
+		Secure:   r.TLS != nil || a.proxies.HTTPS(a.trustedProxies(r), r.RemoteAddr, r.Header.Get("X-Forwarded-Proto")),
 		SameSite: http.SameSiteLaxMode,
 	})
 }

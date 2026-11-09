@@ -16,7 +16,8 @@ import (
 
 	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
-	"github.com/dakriy/doorcode/internal/schedule"
+	"github.com/dakriy/doorcode/internal/date"
+	"github.com/dakriy/doorcode/internal/proxy"
 )
 
 // ErrUnknown reports a key that names no setting.
@@ -61,7 +62,6 @@ const (
 	passwordMinLengthHint  = "must be a whole number of characters from 8 to 128"
 	keyEnrollmentUsername  = "enrollment_username"
 	keyEnrollmentPassword  = "enrollment_password"
-	keyGraceHours          = "door_credential_grace_hours"
 	keyTelemetryRetention  = "telemetry_retention_days"
 	keyRollupRetention     = "telemetry_rollup_retention_days"
 	keyUnresponsive        = "unresponsive_minutes"
@@ -95,12 +95,13 @@ const (
 	keyClaimDisplayName   = "oidc_claim_display_name"
 	keyClaimEntitlements  = "oidc_claim_entitlements"
 	keyDefaultGroups      = "oidc_default_groups"
+	keyPortalDoorPictures = "portal_door_pictures"
+	keyTrustedProxies     = "trusted_proxies"
 	slugsHint             = "must be group slugs separated by commas, such as staff,contractors"
 )
 
 // The settings that are a length of time, parsed.
 var (
-	graceHours         = durationSetting(1, 8760, "hours", hoursOf)
 	telemetryRetention = durationSetting(1, 365, "days", daysOf)
 	rollupRetention    = durationSetting(1, 3650, "days", daysOf)
 	unresponsiveAfter  = durationSetting(1, 10080, "minutes", minutesOf)
@@ -109,9 +110,8 @@ var (
 	newUserExpiry      = durationSetting(1, 36500, "days", daysOf)
 )
 
-// The lengths of time that are a number of minutes, hours, or days.
+// The lengths of time that are a number of minutes or days.
 func minutesOf(n int) time.Duration { return time.Duration(n) * time.Minute }
-func hoursOf(n int) time.Duration   { return time.Duration(n) * time.Hour }
 func daysOf(n int) time.Duration    { return time.Duration(n) * 24 * time.Hour }
 
 // durations is each setting that is a length of time: its key, how it is
@@ -121,7 +121,6 @@ var durations = []struct {
 	parse func(string) (time.Duration, error)
 	at    func(c *Current) *time.Duration
 }{
-	{keyGraceHours, graceHours, func(c *Current) *time.Duration { return &c.Grace }},
 	{keyTelemetryRetention, telemetryRetention, func(c *Current) *time.Duration { return &c.TelemetryRetention }},
 	{keyRollupRetention, rollupRetention, func(c *Current) *time.Duration { return &c.RollupRetention }},
 	{keyUnresponsive, unresponsiveAfter, func(c *Current) *time.Duration { return &c.UnresponsiveAfter }},
@@ -237,6 +236,10 @@ var sections = []section{
 		{key: keyAdminEmail, fallback: "admin@example.com", label: "First administrator's email",
 			help: "The account created on first start when there are no users."},
 	}},
+	{Section{Name: "Proxies", About: "The reverse proxies in front of the server. A listed proxy is believed when it says, in X-Forwarded-For and X-Forwarded-Proto, whom it passes a request on for and whether it was reached over HTTPS; those headers are ignored from anyone else."}, []definition{
+		{key: keyTrustedProxies, fallback: "", validate: accepting(proxy.Parse), label: "Trusted proxies",
+			help: "IP addresses, CIDR ranges, and host names separated by commas, such as 10.0.0.0/8,proxy.example.com. A host name is looked up by the periodic work, about once a minute, and trusts nobody until then."},
+	}},
 	{Section{Name: "Theme", About: "The accent color of buttons, links, and highlights. Lighter and darker tones are worked out from it for both the light and the dark theme."}, []definition{
 		{key: keyThemeAccent, fallback: defaultAccent, validate: accepting(color).askedWith(Input{Kind: KindColor}), label: "Accent color",
 			help: "A color as #rrggbb, such as #4f39f6."},
@@ -275,12 +278,14 @@ var sections = []section{
 		{key: keyDefaultGroups, fallback: "", validate: accepting(slugs), label: "Groups new users join",
 			help: "Group slugs separated by commas. New users join these, and the groups whose pre-assigned list holds their user id, only while the entitlements claim is empty."},
 	}},
-	{Section{Name: "Door enrollment", About: "The broker account every new controller enrolls with, and how long a door's old credentials keep working. A changed enrollment username or password takes effect when the server next starts."}, []definition{
+	{Section{Name: "User portal", About: "What people see of the doors when they sign in to the portal."}, []definition{
+		{key: keyPortalDoorPictures, fallback: "false", validate: accepting(boolean), label: "Door pictures in the portal",
+			help: "Shows each public door's primary picture in the portal; while it is off the portal shows none. The administration always shows them."},
+	}},
+	{Section{Name: "Door enrollment", About: "The broker account every new controller enrolls with. A door's old credentials keep working until its controller connects with the new ones, which stops the old ones working. A changed enrollment username or password takes effect when the server next starts."}, []definition{
 		{key: keyEnrollmentUsername, fallback: "doorcode-enroll", label: "Enrollment username"},
 		{key: keyEnrollmentPassword, fallback: "", secret: true, label: "Enrollment password",
 			help: "The password a new door controller signs in to the broker with, beside the enrollment username, until an administrator approves it and it gets credentials of its own. Enter both in the settings of each controller you install. When it is empty on first start, the server makes one up and writes it to its log."},
-		{key: keyGraceHours, fallback: "24", validate: accepting(graceHours), label: "Credential grace period",
-			help: "Hours a door's old credentials keep working after new ones are issued."},
 	}},
 	{Section{Name: "Telemetry", About: "How long door reports are kept and when a silent door counts as unresponsive."}, []definition{
 		{key: keyTelemetryRetention, fallback: "7", validate: accepting(telemetryRetention), label: "Reports kept",
@@ -338,9 +343,6 @@ type Current struct {
 	// Zone is the site timezone: weekly schedule windows and dates typed on
 	// pages are in it.
 	Zone *time.Location
-	// Grace is how long a door's old credentials keep working after the
-	// server issues new ones.
-	Grace time.Duration
 	// TelemetryRetention is how long each telemetry report is kept, and
 	// RollupRetention how long the hourly rollups of the reports are.
 	TelemetryRetention time.Duration
@@ -365,6 +367,12 @@ type Current struct {
 	OIDC OIDC
 	// Theme is the colors pages are drawn in.
 	Theme Theme
+	// PortalDoorPictures is true when the portal shows the primary
+	// pictures of the doors it lists.
+	PortalDoorPictures bool
+	// TrustedProxies is the proxies believed about whom they pass a
+	// request on for and how they were reached.
+	TrustedProxies proxy.List
 }
 
 // Theme is the colors pages are drawn in: Accent, as #rrggbb, and
@@ -509,11 +517,11 @@ func updateDays(value string) ([]time.Weekday, error) {
 	}
 	var days []time.Weekday
 	for _, name := range strings.Split(value, ",") {
-		i := slices.Index(schedule.DayNames, strings.TrimSpace(name))
+		i := slices.Index(date.DayNames, strings.TrimSpace(name))
 		if i < 0 {
 			return nil, errors.New(updateDaysHint)
 		}
-		days = append(days, schedule.Weekday(i))
+		days = append(days, date.Weekday(i))
 	}
 	return days, nil
 }
@@ -672,6 +680,12 @@ func (s Service) Current(ctx context.Context) (Current, error) {
 	if c.Theme.AccentDark, err = parsed(values, keyThemeAccentDark, optionalColor); err != nil {
 		return Current{}, err
 	}
+	if c.PortalDoorPictures, err = parsed(values, keyPortalDoorPictures, boolean); err != nil {
+		return Current{}, err
+	}
+	if c.TrustedProxies, err = parsed(values, keyTrustedProxies, proxy.Parse); err != nil {
+		return Current{}, err
+	}
 	return c.withSignIn(values)
 }
 
@@ -810,7 +824,8 @@ func (s Service) put(ctx context.Context, key, value string, clearing bool) (Set
 	if err := def.validate.refusal(s, value); err != nil {
 		return Setting{}, fmt.Errorf("%w for %s: %w", ErrInvalid, key, err)
 	}
-	row := connector.StoredSetting{Value: s.storable(def, value), UpdatedAt: s.Clock.Now()}
+	// Postgres keeps microseconds, so the value echoed is the value read back.
+	row := connector.StoredSetting{Value: s.storable(def, value), UpdatedAt: s.Clock.Now().Truncate(time.Microsecond)}
 	if err := s.Store.PutSetting(ctx, def.key, row.Value, row.UpdatedAt); err != nil {
 		return Setting{}, err
 	}

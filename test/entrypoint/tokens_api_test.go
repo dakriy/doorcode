@@ -241,7 +241,7 @@ func TestRevokingATokenTheCallerDoesNotHaveIsNotFound(t *testing.T) {
 
 func TestTokenRequestIsChecked(t *testing.T) {
 	t.Parallel()
-	long := `"` + repeat("x", 101) + `"`
+	long := `"` + testsupport.Repeat("x", 101) + `"`
 	cases := map[string]struct {
 		body string
 		want string
@@ -270,7 +270,7 @@ func TestTokenRequestIsChecked(t *testing.T) {
 func TestTokenRequestAcceptsTheEdgesOfItsRanges(t *testing.T) {
 	t.Parallel()
 	bodies := map[string]string{
-		"100 characters": `{"name":"` + repeat("é", 100) + `"}`,
+		"100 characters": `{"name":"` + testsupport.Repeat("é", 100) + `"}`,
 		"one day":        `{"name":"ci","expires_in_days":1}`,
 		"3650 days":      `{"name":"ci","expires_in_days":3650}`,
 	}
@@ -329,13 +329,4 @@ func TestTokenThatCannotBeCheckedAnswersWithARequestID(t *testing.T) {
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
-}
-
-// repeat is s n times.
-func repeat(s string, n int) string {
-	out := ""
-	for range n {
-		out += s
-	}
-	return out
 }

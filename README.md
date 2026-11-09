@@ -14,15 +14,17 @@ the engineering contract is [AGENTS.md](AGENTS.md).
 ## Features
 
 - **Access model.** Users belong to groups; groups carry roles and
-  pre-assigned user ids. Access rules name a group, a schedule, and doors or
-  zones: members may enter those doors with their code while the schedule is
-  active. Doors have open-mode schedules (any keypress unlocks) and per-door
-  open or locked overrides, also creatable from the keypad by door
-  commanders.
+  pre-assigned user ids. Doors are put in zones. Access rules name a group,
+  a schedule, and zones: members may enter every door in those zones with
+  their code while the schedule is active. Zones also carry open-mode
+  schedules: a door is in open mode (any keypress unlocks) while any zone it
+  is in has one active. Doors have per-door open or locked overrides, also
+  creatable from the keypad by door commanders.
 - **Schedules.** Weekly windows (crossing midnight if need be), an optional
-  date range, and excluded dates, entered through a form and shown on
-  calendars. Every door's timeline of open and locked time is pushed to it,
-  so a disconnected door keeps following it.
+  date range, and excluded date ranges (a holiday, a week's closure),
+  entered through a form and shown on calendars. Every door's timeline of
+  open and locked time is pushed to it, so a disconnected door keeps
+  following it.
 - **Codes.** Stored only as salted hashes, never on doors. Administrators set
   codes of 6 to 20 digits; people choose their own as their user id followed
   by 4 to 8 digits. A per-door rate limit protects against guessing.
@@ -67,9 +69,12 @@ docker run --rm -p 8080:8080 doorcode-demo
 ```
 
 or, with Go installed, `go run ./cmd/doorcode-demo`. Open
-<http://localhost:8080> and sign in with the email and password the demo
-prints at start (`admin@example.com` and `doorcode-demo`). It comes with
-users, groups, zones, schedules, access rules, overrides, doors with
+<http://localhost:8080> and sign in with one of the two accounts the demo
+prints at start: the administrator (`admin@example.com` and
+`doorcode-demo`), or a member of staff with a door code and no role
+(`user@example.com` and `doorcode-demo`), who sees the user portal: their
+access to the public doors, with pictures, and their own entries. It comes
+with users, groups, zones, schedules, access rules, overrides, doors with
 pictures, a few weeks of events and telemetry, firmware versions, and access
 requests. One simulated controller waits for approval under Enrollments; the
 others are online, report telemetry, open and close, answer open commands,
@@ -118,6 +123,13 @@ put TLS in front of the web server and the broker, change the passwords,
 and keep the volumes backed up. The `app` service answers its healthcheck on
 `/healthz`.
 
+Behind a reverse proxy that terminates TLS, list the proxy in the
+`trusted_proxies` setting (such as `DOORCODE_TRUSTED_PROXIES=10.0.0.0/8` or
+the proxy's host name). The server believes `X-Forwarded-For` (the client
+address it logs for sign-ins, refused sign-ins, and failed requests) and
+`X-Forwarded-Proto` (whether cookies are marked `Secure`) only from a
+connection whose address is on that list, and ignores both from anyone else.
+
 ## Environment variables
 
 ### Wiring
@@ -155,6 +167,7 @@ single sign-on and identity claims parts while `oidc_enabled` is off.
 | `site_name` | Shown in the header and every page title. | `doorcode` |
 | `site_timezone` | A tz database name; schedules, dates typed on pages, and every time shown are read in it. | `UTC` |
 | `admin_email` | The email of the administrator created on first start when there are no users. | `admin@example.com` |
+| `trusted_proxies` | IP addresses, CIDR ranges, and host names, separated by commas, of the reverse proxies whose `X-Forwarded-For` and `X-Forwarded-Proto` headers are believed. A host name is looked up by the periodic work, about once a minute, and trusts nobody until it has been. Empty believes no one. | empty |
 | `theme_accent` | The accent color, `#rrggbb`. | `#4f39f6` |
 | `theme_accent_dark` | The accent color in the dark theme; empty uses `theme_accent`. | empty |
 | `password_hash_memory_kib` | KiB of memory hashing one password takes, 8 to 1048576. | `19456` |
@@ -173,9 +186,9 @@ single sign-on and identity claims parts while `oidc_enabled` is off.
 | `oidc_claim_display_name` | The claim holding the display name. | `name` |
 | `oidc_claim_entitlements` | The claim listing the slugs of a person's groups. A sign-in that carries it makes them a member of exactly the existing groups it names (values naming no group are ignored; groups are never created); one without it leaves their groups unchanged. While set, new users join no default or pre-assigned groups. Empty reads none. | empty |
 | `oidc_default_groups` | Group slugs, separated by commas, that users created by signing in join, together with the groups whose pre-assigned list holds their user id; only while `oidc_claim_entitlements` is empty. | empty |
+| `portal_door_pictures` | `true` shows each public door's primary picture in the user portal and lets anyone signed in load that door's pictures; `false` shows none there and serves pictures only to holders of manage-doors, door-commander, or manage-firmware. The administration always shows them. | `false` |
 | `enrollment_username` | The broker username every new controller enrolls with. Takes effect on the next start. | `doorcode-enroll` |
 | `enrollment_password` | Its password. Generated, stored, and logged on first start when empty. Secret: stored encrypted. Takes effect on the next start. | empty |
-| `door_credential_grace_hours` | Hours a door's old credentials keep working after new ones are issued. | `24` |
 | `telemetry_retention_days` | Days each telemetry report is kept. | `7` |
 | `telemetry_rollup_retention_days` | Days the hourly summaries of the reports are kept. | `730` |
 | `unresponsive_minutes` | Minutes a connected door may stay silent before it counts as unresponsive. | `5` |
@@ -206,6 +219,7 @@ door, and doors receive a change at once.
 | `door_rate_limit_per_minute` | Code checks a minute the door's token bucket refills, 1 to 6000. | `30` |
 | `door_rate_limit_burst` | Code checks the bucket holds, 1 to 1000. | `10` |
 | `door_ntp_server` | The time server the door uses. | `pool.ntp.org` |
+| `door_broker_host` | The host name or IP address of the broker the door connects to, pushed with the rest of its configuration so doors can be moved to another broker; empty keeps the broker each door already uses. | empty |
 | `door_log_level` | `error`, `warn`, `info`, or `debug`. | `info` |
 
 ## Single sign-on
@@ -227,9 +241,12 @@ secret is set, client authentication.
 ## Door enrollment, from a controller's side
 
 Every message is a CBOR map with `v`, the protocol version (1). Topics start
-with `doorcode/`. The exact topics and fields are in
-[docs/spec.md, section 9](docs/spec.md#9-mqtt-protocol) and the MQTT
-protocol and door controller entries of [AGENTS.md](AGENTS.md).
+with `doorcode/`. [docs/controller.md](docs/controller.md) is the contract a
+firmware author builds against: every topic and message field with its CBOR
+type and unit, the configuration, the timeline, what to do while
+disconnected, credential rotation, and firmware updates. The demo's
+simulated controller, `internal/demo/doors.go`, is a reference
+implementation. In short:
 
 1. **Enroll.** Connect to the broker with the shared enrollment credentials
    (`enrollment_username`, `enrollment_password`) and the controller's
@@ -263,8 +280,9 @@ protocol and door controller entries of [AGENTS.md](AGENTS.md).
 7. **Obey commands.** A command carries an `id` and a `command`: `open` with
    `strike_ms`; `credentials` with a new `username` and `token` (connect
    with them, publish the online status, then close the old connection;
-   credentials rotate automatically, and the old ones stop working once the
-   door has reconnected with the new ones or the grace period has passed);
+   credentials rotate automatically, the old ones keep working until the
+   door connects with the new ones and stop working then, and a door that
+   has not yet connected with the newest it was sent is sent no more);
    `update` with `version`, `sha256`, and `url`. Answer on
    `doorcode/doors/<id>/ack` with the command's `id`, a `result` (`failed`
    when it could not be carried out), and a `detail`.

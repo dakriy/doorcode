@@ -162,7 +162,7 @@ func TestOverrideFieldsAreChecked(t *testing.T) {
 		"no end":              {`{"kind":"open","start":"2026-01-05T10:00:00Z"}`, "Enter when the override ends."},
 		"an end at the start": {`{"kind":"open","start":"2026-01-05T10:00:00Z","end":"2026-01-05T10:00:00Z"}`, "End the override after it starts."},
 		"an end that is now":  {`{"kind":"open","start":"2026-01-05T08:00:00Z","end":"2026-01-05T09:00:00Z"}`, "End the override in the future."},
-		"a long reason": {`{"kind":"open","start":"2026-01-05T10:00:00Z","end":"2026-01-05T11:00:00Z","reason":"` + repeat("x", 501) + `"}`,
+		"a long reason": {`{"kind":"open","start":"2026-01-05T10:00:00Z","end":"2026-01-05T11:00:00Z","reason":"` + testsupport.Repeat("x", 501) + `"}`,
 			"Use at most 500 characters."},
 	}
 	for name, c := range cases {
@@ -185,7 +185,7 @@ func TestAnOverrideMayEndJustAfterNowAndHoldFiveHundredCharacters(t *testing.T) 
 	t.Parallel()
 	b := zonedDoors(t, testsupport.NewFactory())
 
-	got := b.PostJSON("/api/v1/doors/1/overrides", `{"kind":"locked","start":"2026-01-05T08:59:59Z","end":"2026-01-05T09:00:01Z","reason":"`+repeat("x", 500)+`"}`)
+	got := b.PostJSON("/api/v1/doors/1/overrides", `{"kind":"locked","start":"2026-01-05T08:59:59Z","end":"2026-01-05T09:00:01Z","reason":"`+testsupport.Repeat("x", 500)+`"}`)
 
 	if diff := cmp.Diff([]any{201, true}, []any{got.Status, testsupport.JSONAt(got.Body, "/active")}); diff != "" {
 		t.Errorf("status, active (-want +got):\n%s", diff)

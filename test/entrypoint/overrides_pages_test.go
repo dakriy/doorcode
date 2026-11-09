@@ -14,9 +14,10 @@ func TestDoorPageListsWhoCanEnterAndTheOverrides(t *testing.T) {
 	b := ruleSite(t, f)
 	send(t, b, "PUT", "/api/v1/doors/1", `{"name":"Lobby","zone_ids":[1,2]}`, 200)
 	createRule(t, b, `{"group_id":2,"schedule_id":2,"zone_ids":[1]}`)
-	createRule(t, b, `{"group_id":3,"schedule_id":3,"door_ids":[1],"zone_ids":[2,1]}`)
-	createRule(t, b, `{"group_id":3,"schedule_id":1,"door_ids":[1]}`)
-	createRule(t, b, `{"group_id":2,"schedule_id":1,"door_ids":[2]}`)
+	createRule(t, b, `{"group_id":3,"schedule_id":3,"zone_ids":[2,1]}`)
+	createRule(t, b, `{"group_id":3,"schedule_id":1,"zone_ids":[2]}`)
+	createZone(t, b, `{"name":"Attic floor","door_ids":[3]}`)
+	createRule(t, b, `{"group_id":2,"schedule_id":1,"zone_ids":[3]}`)
 	createOverride(t, b, "1", lockedToday)
 	createOverride(t, b, "1", `{"kind":"open","start":"2026-01-05T08:00:00Z","end":"2026-01-06T08:00:00Z"}`)
 	b.Get("/")
@@ -30,8 +31,8 @@ func TestDoorPageListsWhoCanEnterAndTheOverrides(t *testing.T) {
 		},
 		"Who can enter": {entrantsHead,
 			{"Staff", "Weekdays", "Zone North", "Rule 1"},
-			{"Guests", "Nights", "This door; Zones Annex, North", "Rule 2"},
-			{"Guests", "Always", "This door", "Rule 3"},
+			{"Guests", "Nights", "Zones Annex, North", "Rule 2"},
+			{"Guests", "Always", "Zone Annex", "Rule 3"},
 		},
 		"Recent events": noDoorEvents,
 	}

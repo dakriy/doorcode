@@ -40,7 +40,7 @@ func (a *App) startAtProvider(w http.ResponseWriter, r *http.Request, next strin
 		a.providerFailed(w, r, err)
 		return
 	}
-	setCookie(w, r, providerCookie, begun.Cookie, providerCookieSeconds)
+	a.setCookie(w, r, providerCookie, begun.Cookie, providerCookieSeconds)
 	redirect(w, begun.URL)
 }
 
@@ -51,13 +51,15 @@ func (a *App) backFromProvider(w http.ResponseWriter, r *http.Request, _ auth.Us
 	if cookie, err := r.Cookie(providerCookie); err == nil {
 		pending = cookie.Value
 	}
-	setCookie(w, r, providerCookie, "", -1)
+	a.setCookie(w, r, providerCookie, "", -1)
 	done, err := a.identity.Finish(r.Context(), pending, r.URL.Query())
 	if err != nil {
 		a.providerFailed(w, r, err)
 		return
 	}
-	setCookie(w, r, sessionCookie, done.Token, int(auth.SessionLifetime().Seconds()))
+	a.log.Info("signed in at the identity provider",
+		connector.Field{Key: "email", Value: done.Email}, connector.Field{Key: "client", Value: a.client(r)})
+	a.setCookie(w, r, sessionCookie, done.Token, int(auth.SessionLifetime().Seconds()))
 	flash, next := "signed-in", done.Next
 	if done.Created {
 		flash = "welcome"
@@ -65,7 +67,7 @@ func (a *App) backFromProvider(w http.ResponseWriter, r *http.Request, _ auth.Us
 	if done.Created && next == "/" {
 		next = codePath
 	}
-	setCookie(w, r, flashCookie, flash, 0)
+	a.setCookie(w, r, flashCookie, flash, 0)
 	redirect(w, next)
 }
 
@@ -93,10 +95,11 @@ var providerRefusals = []struct {
 func (a *App) providerFailed(w http.ResponseWriter, r *http.Request, err error) {
 	status, message := providerRefusal(err)
 	if message == "" {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
-	a.log.Error("could not sign in at the identity provider", connector.Field{Key: "error", Value: err.Error()})
+	a.log.Error("could not sign in at the identity provider",
+		connector.Field{Key: "error", Value: err.Error()}, connector.Field{Key: "client", Value: a.client(r)})
 	a.renderSignIn(w, r, status, signInForm{Next: "/", Error: message})
 }
 

@@ -194,8 +194,8 @@ var firmwareStatuses = []refusalStatus{
 
 // firmwareError answers an API request with what err, about firmware,
 // means.
-func (a *App) firmwareError(w http.ResponseWriter, err error) {
-	a.refuse(w, err, firmwareStatuses)
+func (a *App) firmwareError(w http.ResponseWriter, r *http.Request, err error) {
+	a.refuse(w, r, err, firmwareStatuses)
 }
 
 // concerns reports whether df's door, unless it is deleted, runs version
@@ -255,7 +255,7 @@ func viewOfDoorFirmware(df firmware.DoorFirmware) doorFirmwareView {
 func (a *App) listFirmware(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	plan, err := a.firmware.Plan(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	views := []firmwareView{}
@@ -269,12 +269,12 @@ func (a *App) listFirmware(w http.ResponseWriter, r *http.Request, _ auth.User) 
 // stored, as status.
 func (a *App) writeFirmware(w http.ResponseWriter, r *http.Request, status int, f connector.StoredFirmware, err error) {
 	if err != nil {
-		a.firmwareError(w, err)
+		a.firmwareError(w, r, err)
 		return
 	}
 	plan, err := a.firmware.Plan(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	writeJSON(w, status, viewOfFirmware(f, plan))
@@ -346,7 +346,7 @@ func (a *App) getFirmware(w http.ResponseWriter, r *http.Request, _ auth.User) {
 
 func (a *App) deleteFirmware(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	if err := a.firmware.Delete(r.Context(), pathID(r, "id")); err != nil {
-		a.firmwareError(w, err)
+		a.firmwareError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -368,7 +368,7 @@ func (a *App) setDefaultFirmware(w http.ResponseWriter, r *http.Request, _ auth.
 		return
 	}
 	if err := a.firmware.SetDefault(r.Context(), id); err != nil {
-		a.firmwareError(w, err)
+		a.firmwareError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -377,7 +377,7 @@ func (a *App) setDefaultFirmware(w http.ResponseWriter, r *http.Request, _ auth.
 func (a *App) getRollout(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	plan, err := a.firmware.Plan(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	view := rolloutView{Pending: []doorFirmwareView{}, Updating: []doorFirmwareView{}, Done: []doorFirmwareView{}, Failed: []doorFirmwareView{}}
@@ -396,7 +396,7 @@ func (a *App) getRollout(w http.ResponseWriter, r *http.Request, _ auth.User) {
 func (a *App) rolloutSettings(w http.ResponseWriter, r *http.Request) {
 	all, err := a.settings.List(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	views := []settingView{}
@@ -431,7 +431,7 @@ func (a *App) updateRolloutSettings(w http.ResponseWriter, r *http.Request, _ au
 		return
 	}
 	if _, err := a.settings.UpdateAll(r.Context(), body, nil); err != nil {
-		a.settingError(w, err)
+		a.settingError(w, r, err)
 		return
 	}
 	a.rolloutSettings(w, r)
@@ -439,7 +439,7 @@ func (a *App) updateRolloutSettings(w http.ResponseWriter, r *http.Request, _ au
 
 func (a *App) getDoorFirmware(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	df, err := a.firmware.Door(r.Context(), pathID(r, "id"))
-	a.writeDoorFirmware(w, df, err)
+	a.writeDoorFirmware(w, r, df, err)
 }
 
 func (a *App) setDoorFirmware(w http.ResponseWriter, r *http.Request, _ auth.User) {
@@ -449,23 +449,23 @@ func (a *App) setDoorFirmware(w http.ResponseWriter, r *http.Request, _ auth.Use
 	}
 	d, err := a.firmware.SetOverride(r.Context(), pathID(r, "id"), id)
 	if err != nil {
-		a.firmwareError(w, err)
+		a.firmwareError(w, r, err)
 		return
 	}
 	df, err := a.firmware.Door(r.Context(), d.ID)
-	a.writeDoorFirmware(w, df, err)
+	a.writeDoorFirmware(w, r, df, err)
 }
 
 func (a *App) updateDoorNow(w http.ResponseWriter, r *http.Request, caller auth.User) {
 	df, err := a.firmware.UpdateNow(r.Context(), pathID(r, "id"), caller.ID)
-	a.writeDoorFirmware(w, df, err)
+	a.writeDoorFirmware(w, r, df, err)
 }
 
 // writeDoorFirmware answers with df, which err may say could not be read
 // or changed.
-func (a *App) writeDoorFirmware(w http.ResponseWriter, df firmware.DoorFirmware, err error) {
+func (a *App) writeDoorFirmware(w http.ResponseWriter, r *http.Request, df firmware.DoorFirmware, err error) {
 	if err != nil {
-		a.firmwareError(w, err)
+		a.firmwareError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, viewOfDoorFirmware(df))
@@ -474,7 +474,7 @@ func (a *App) writeDoorFirmware(w http.ResponseWriter, df firmware.DoorFirmware,
 func (a *App) downloadFirmware(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	image, err := a.firmware.Download(r.Context(), pathID(r, "id"), r.PathValue("version"), r.URL.Query().Get("token"))
 	if err != nil {
-		a.firmwareError(w, err)
+		a.firmwareError(w, r, err)
 		return
 	}
 	w.Header().Set("Content-Type", firmwareType)

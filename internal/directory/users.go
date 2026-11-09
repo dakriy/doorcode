@@ -67,14 +67,7 @@ func (s Service) Users(ctx context.Context, q Query) (UserPage, error) {
 
 // User returns the user whose id is id.
 func (s Service) User(ctx context.Context, id int64) (connector.StoredUser, error) {
-	u, found, err := s.Store.User(ctx, id)
-	if err != nil {
-		return connector.StoredUser{}, err
-	}
-	if !found {
-		return connector.StoredUser{}, ErrNoUser
-	}
-	return u, nil
+	return check.Lookup(ctx, id, s.Store.User, ErrNoUser)
 }
 
 // FindUser returns the user whose email or, failing that, user id is
@@ -102,7 +95,8 @@ func (s Service) Match(ctx context.Context, userID, email string) (connector.Sto
 }
 
 // CreateUser creates a user from p. A user whose user id is on a group's
-// pre-assigned list joins that group as they are created.
+// pre-assigned list joins that group as they are created, and the id leaves
+// the list.
 func (s Service) CreateUser(ctx context.Context, p Profile) (connector.StoredUser, error) {
 	return s.create(ctx, p, nil, true)
 }
@@ -115,24 +109,29 @@ func (s Service) CreateUngrouped(ctx context.Context, p Profile) (connector.Stor
 
 // create creates a user from p, who joins the groups whose ids are
 // groupIDs as they are created, and the pre-assigned ones when
-// preassigned.
+// preassigned, whose lists their user id then leaves.
 func (s Service) create(ctx context.Context, p Profile, groupIDs []int64, preassigned bool) (connector.StoredUser, error) {
 	p, err := s.checkProfile(ctx, 0, p)
 	if err != nil {
 		return connector.StoredUser{}, err
 	}
+	var listed []int64
 	if preassigned {
-		groups, err := s.preassigned(ctx, p.UserID)
+		listed, err = s.preassigned(ctx, p.UserID)
 		if err != nil {
 			return connector.StoredUser{}, err
 		}
-		groupIDs = append(groups, groupIDs...)
 	}
 	u := stored(p)
 	u.CreatedAt = s.Clock.Now()
-	id, err := s.Store.CreateUser(ctx, u, check.Distinct(groupIDs))
+	id, err := s.Store.CreateUser(ctx, u, check.Distinct(append(slices.Clone(listed), groupIDs...)))
 	if err != nil {
 		return connector.StoredUser{}, err
+	}
+	for _, group := range listed {
+		if err := s.Store.RemovePreassigned(ctx, group, p.UserID); err != nil {
+			return connector.StoredUser{}, err
+		}
 	}
 	return s.User(ctx, id)
 }

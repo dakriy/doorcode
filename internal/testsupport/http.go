@@ -13,6 +13,11 @@ import (
 	"time"
 )
 
+// ClientAddress is the address every request comes from, as
+// httptest.NewRequest gives it, unless a browser is given another with
+// SetRemote.
+const ClientAddress = "192.0.2.1"
+
 // Handler is the application's HTTP handler as tests hold it.
 type Handler = http.Handler
 
@@ -45,6 +50,9 @@ type Browser struct {
 	handler http.Handler
 	cookies map[string]string
 	headers map[string]string
+	// remote is the address, host and port, requests come from; empty
+	// is httptest's, ClientAddress.
+	remote string
 }
 
 // NewBrowser returns a browser with no cookies.
@@ -61,6 +69,12 @@ func (b *Browser) Another() *Browser {
 // SetHeader sends header name with value on every later request.
 func (b *Browser) SetHeader(name, value string) {
 	b.headers[name] = value
+}
+
+// SetRemote sends every later request from remote, a host and port such
+// as 10.0.0.5:4000, as a proxy in front of the server would.
+func (b *Browser) SetRemote(remote string) {
+	b.remote = remote
 }
 
 // SetCookie stores a cookie as if a response had set it.
@@ -162,6 +176,9 @@ func (b *Browser) do(method, target, contentType string, body io.Reader) Respons
 // cookies.
 func (b *Browser) request(ctx context.Context, method, target, contentType string, body io.Reader) *http.Request {
 	req := httptest.NewRequestWithContext(ctx, method, target, body)
+	if b.remote != "" {
+		req.RemoteAddr = b.remote
+	}
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}

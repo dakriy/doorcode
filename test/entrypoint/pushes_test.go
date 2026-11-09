@@ -67,7 +67,7 @@ func configWith(changed map[string]any) map[string]any {
 		"v": int64(1), "strike_pulse_ms": int64(3000), "keypad_idle_clear_ms": int64(10000), "min_code_length": int64(4),
 		"max_code_length": int64(32), "submit_key": "#", "reply_timeout_ms": int64(3000), "telemetry_interval_s": int64(60),
 		"held_open_s": int64(60), "timeline_refresh_hours": int64(6), "credential_rotation_days": int64(30), "rate_limit_per_minute": int64(30),
-		"rate_limit_burst": int64(10), "ntp_server": "pool.ntp.org", "log_level": "info",
+		"rate_limit_burst": int64(10), "ntp_server": "pool.ntp.org", "broker_host": "", "log_level": "info",
 	}
 	for key, value := range changed {
 		m[key] = value
@@ -107,7 +107,8 @@ func TestADoorThatComesOnlineIsSentItsConfigurationAndNext25HoursRetained(t *tes
 	f := testsupport.NewFactory()
 	a, b := brokerSite(t, f)
 	furnishDoorSite(t, b)
-	createDoor(t, b, `{"name":"Lobby","open_schedule_ids":[2]}`)
+	send(t, b, "PUT", "/api/v1/zones/1", `{"name":"North","open_schedule_ids":[2]}`, 200)
+	createDoor(t, b, `{"name":"Lobby","zone_ids":[1]}`)
 	createOverride(t, b, "1", lockedToday)
 
 	enroll(t, f, a, b, "A1", "1")
@@ -149,18 +150,23 @@ func TestAChangeSendsNewTimelinesToTheDoorsWhoseTimelinesDependOnIt(t *testing.T
 		"editing an override":                         {"PUT", "/api/v1/doors/2/overrides/1", lockedToday, 200, []string{"2"}},
 		"cancelling an override":                      {"POST", "/api/v1/doors/1/overrides/2/cancel", "", 200, []string{"1"}},
 		"deleting an override":                        {"DELETE", "/api/v1/doors/2/overrides/1", "", 204, []string{"2"}},
-		"changing a door's open-mode schedules":       {"PUT", "/api/v1/doors/1", `{"name":"Lobby","open_schedule_ids":[2],"zone_ids":[1]}`, 200, []string{"1"}},
+		"changing a door's zones":                     {"PUT", "/api/v1/doors/1", `{"name":"Lobby","zone_ids":[1,3]}`, 200, []string{"1"}},
+		"giving a zone open mode":                     {"PUT", "/api/v1/zones/2", `{"name":"Annex","door_ids":[2,4],"open_schedule_ids":[2]}`, 200, []string{"2", "4"}},
+		"taking a door out of an open-mode zone":      {"PUT", "/api/v1/zones/3", `{"name":"Nightly","door_ids":[5],"open_schedule_ids":[3]}`, 200, []string{"4"}},
+		"creating a zone with open mode":              {"POST", "/api/v1/zones", `{"name":"Porch","door_ids":[1,3],"open_schedule_ids":[1]}`, 201, []string{"3", "1"}},
+		"deleting an open-mode zone":                  {"DELETE", "/api/v1/zones/3", "", 204, []string{"4"}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			f := testsupport.NewFactory()
 			a, b := pushSite(t, f)
-			createDoor(t, b, `{"name":"Gate","open_schedule_ids":[3],"zone_ids":[2]}`)
-			createDoor(t, b, `{"name":"Shed","open_schedule_ids":[3]}`)
+			createZone(t, b, `{"name":"Nightly","open_schedule_ids":[3]}`)
+			createDoor(t, b, `{"name":"Gate","zone_ids":[2,3]}`)
+			createDoor(t, b, `{"name":"Shed","zone_ids":[3]}`)
 			enroll(t, f, a, b, "D4", "4")
 			enroll(t, f, a, b, "E5", "5")
 			send(t, b, "DELETE", "/api/v1/doors/5", "", 204)
-			createRule(t, b, `{"group_id":2,"schedule_id":3,"door_ids":[3]}`)
+			createRule(t, b, `{"group_id":2,"schedule_id":3,"zone_ids":[2]}`)
 			createOverride(t, b, "2", lockedToday)
 			createOverride(t, b, "1", `{"kind":"open","start":"2026-01-05T08:00:00Z","end":"2026-01-05T11:00:00Z"}`)
 			sent := len(f.BrokerStub.Published)
@@ -187,6 +193,21 @@ func TestChangingADoorsConfigurationSendsItItsConfiguration(t *testing.T) {
 		f.BrokerStub.RetainedDecoded(doorTopic("1", "config"))}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("configurations sent, Dock's, Lobby's (-want +got):\n%s", diff)
+	}
+}
+
+func TestADoorsConfigurationTellsItWhichBrokerToConnectTo(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	_, b := pushSite(t, f)
+	send(t, b, "PUT", "/api/v1/settings/door_broker_host", `{"value":"mqtt.example.com"}`, 200)
+
+	send(t, b, "PUT", "/api/v1/doors/2/config", `{"overrides":{"broker_host":"2001:db8::10"}}`, 200)
+
+	want := []any{configWith(map[string]any{"broker_host": "mqtt.example.com"}), configWith(map[string]any{"broker_host": "2001:db8::10"})}
+	got := []any{f.BrokerStub.RetainedDecoded(doorTopic("1", "config")), f.BrokerStub.RetainedDecoded(doorTopic("2", "config"))}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Lobby's, Dock's configuration (-want +got):\n%s", diff)
 	}
 }
 
@@ -346,6 +367,8 @@ func TestAChangeStandsAndIsLoggedWhenDoorsCannotBeSentIt(t *testing.T) {
 		"a door's configuration":  {failPublishing, "PUT", "/api/v1/doors/1/config", `{"overrides":{}}`, 200},
 		"a configuration default": {failPublishing, "PUT", "/api/v1/settings/door_log_level", `{"value":"debug"}`, 200},
 		"the site timezone":       {failPublishing, "PUT", "/api/v1/settings/site_timezone", `{"value":"Europe/Berlin"}`, 200},
+		"zones cannot be read": {func(f *testsupport.Factory, _ *testsupport.Browser) { f.StoreStub.FailZones() },
+			"PUT", "/api/v1/settings/site_timezone", `{"value":"Europe/Berlin"}`, 200},
 		"doors cannot be read": {func(f *testsupport.Factory, b *testsupport.Browser) {
 			createSchedule(t, b, `{"name":"Nights","windows":[{"days":["mon"],"start":"22:00","end":"06:00"}]}`)
 			f.StoreStub.FailDoors()

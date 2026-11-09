@@ -13,6 +13,8 @@ import (
 	"github.com/dakriy/doorcode/internal/controller"
 	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/openapi"
+	"github.com/dakriy/doorcode/internal/override"
+	"github.com/dakriy/doorcode/internal/timeline"
 )
 
 // doorsPerPage is how many doors a page lists unless the API caller asks
@@ -33,21 +35,20 @@ type doorView struct {
 	Location         string          `json:"location" doc:"Where the door is; may be empty."`
 	Notes            string          `json:"notes" doc:"What administrators should know about the door; may be empty."`
 	Public           bool            `json:"public" doc:"True when the user portal shows the door."`
-	OpenSchedules    []nameRef       `json:"open_schedules" doc:"The schedules during which the door is in open mode and unlocks on any keypress, by name."`
+	OpenSchedules    []nameRef       `json:"open_schedules" doc:"The schedules during which the door is in open mode and unlocks on any keypress, by name: those of the zones it is in."`
 	Zones            []nameRef       `json:"zones" doc:"The zones the door is in, by name."`
-	PrimaryPictureID *int64          `json:"primary_picture_id,omitempty" doc:"The picture lists and the user portal show; absent when the door has no pictures."`
+	PrimaryPictureID *int64          `json:"primary_picture_id,omitempty" doc:"The picture lists and the door page show, and the user portal while the setting portal_door_pictures is true; absent when the door has no pictures."`
 	DeletedAt        *time.Time      `json:"deleted_at,omitempty" doc:"When the door was deleted; absent unless it is deleted."`
 	CreatedAt        time.Time       `json:"created_at" doc:"When the door was created."`
 	Controller       *controllerView `json:"controller,omitempty" doc:"The controller enrolled as the door; absent until one is."`
 }
 
 type doorRequest struct {
-	Name            string  `json:"name" doc:"The door's name, up to 100 characters; unique, ignoring case."`
-	Location        string  `json:"location,omitempty" doc:"Where the door is, up to 200 characters."`
-	Notes           string  `json:"notes,omitempty" doc:"What administrators should know about the door, up to 2000 characters."`
-	Public          bool    `json:"public,omitempty" doc:"True to show the door in the user portal."`
-	OpenScheduleIDs []int64 `json:"open_schedule_ids,omitempty" doc:"The ids of the schedules during which the door is in open mode. Omit it for a door that is never in open mode."`
-	ZoneIDs         []int64 `json:"zone_ids,omitempty" doc:"The ids of the zones the door is in."`
+	Name     string  `json:"name" doc:"The door's name, up to 100 characters; unique, ignoring case."`
+	Location string  `json:"location,omitempty" doc:"Where the door is, up to 200 characters."`
+	Notes    string  `json:"notes,omitempty" doc:"What administrators should know about the door, up to 2000 characters."`
+	Public   bool    `json:"public,omitempty" doc:"True to show the door in the user portal."`
+	ZoneIDs  []int64 `json:"zone_ids,omitempty" doc:"The ids of the zones the door is in, which decide when it is in open mode and who may enter it."`
 }
 
 type doorList struct {
@@ -74,7 +75,7 @@ func (a *App) doorRoutes() []route {
 	doors := holding(auth.RoleManageDoors)
 	example := doorRequest{
 		Name: "North entrance", Location: "Building A, ground floor", Notes: "Strike replaced in 2026.",
-		Public: true, OpenScheduleIDs: []int64{1}, ZoneIDs: []int64{1},
+		Public: true, ZoneIDs: []int64{1},
 	}
 	return []route{
 		apiRoute(http.MethodGet, "/doors", doors, a.listDoors, apiDoc{
@@ -124,8 +125,10 @@ func (a *App) catalog(ctx context.Context) (catalog, error) {
 	return catalog{schedules: schedules, zones: zones}, err
 }
 
+// openSchedules names the schedules during which d is in open mode
+// through its zones.
 func (c catalog) openSchedules(d connector.StoredDoor) []nameRef {
-	return refs(c.schedules, d.OpenScheduleIDs, scheduleRef)
+	return refs(c.schedules, timeline.OpenScheduleIDs(d, c.zones), scheduleRef)
 }
 
 func (c catalog) zonesOf(d connector.StoredDoor) []nameRef {
@@ -157,30 +160,31 @@ var doorStatuses = []refusalStatus{
 	{door.ErrNoDoor, http.StatusNotFound},
 	{door.ErrNoZone, http.StatusNotFound},
 	{door.ErrNoPicture, http.StatusNotFound},
-	{door.ErrNoOverride, http.StatusNotFound},
-	{door.ErrNotActive, http.StatusConflict},
+	{override.ErrNoOverride, http.StatusNotFound},
+	{override.ErrNotActive, http.StatusConflict},
 	{controller.ErrNotPending, http.StatusNotFound},
 	{controller.ErrDeleted, http.StatusConflict},
 	{controller.ErrOffline, http.StatusConflict},
+	{controller.ErrHandingOver, http.StatusConflict},
 	{errTooBig, http.StatusRequestEntityTooLarge},
 }
 
 // doorError answers an API request with what err, about doors, zones, or
 // pictures, means.
-func (a *App) doorError(w http.ResponseWriter, err error) {
-	a.refuse(w, err, doorStatuses)
+func (a *App) doorError(w http.ResponseWriter, r *http.Request, err error) {
+	a.refuse(w, r, err, doorStatuses)
 }
 
 // writeDoor answers with d, which err may say could not be read or
 // stored, as status.
 func (a *App) writeDoor(w http.ResponseWriter, r *http.Request, status int, d connector.StoredDoor, err error) {
 	if err != nil {
-		a.doorError(w, err)
+		a.doorError(w, r, err)
 		return
 	}
 	c, err := a.catalog(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	writeJSON(w, status, c.viewOfDoor(d))
@@ -210,12 +214,12 @@ func (a *App) listDoors(w http.ResponseWriter, r *http.Request, _ auth.User) {
 		Search: r.URL.Query().Get("q"), Deleted: show == showDeleted, ZoneID: zone, Page: page, PerPage: perPage,
 	})
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	c, err := a.catalog(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	views := []doorView{}
@@ -256,18 +260,18 @@ func (a *App) updateDoor(w http.ResponseWriter, r *http.Request, _ auth.User) {
 
 // doorDone answers with 204 when err is nil and with what err means
 // otherwise.
-func (a *App) doorDone(w http.ResponseWriter, err error) {
+func (a *App) doorDone(w http.ResponseWriter, r *http.Request, err error) {
 	if err != nil {
-		a.doorError(w, err)
+		a.doorError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *App) deleteDoor(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	a.doorDone(w, a.controllers.Delete(r.Context(), pathID(r, "id")))
+	a.doorDone(w, r, a.controllers.Delete(r.Context(), pathID(r, "id")))
 }
 
 func (a *App) restoreDoor(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	a.doorDone(w, a.doors.Restore(r.Context(), pathID(r, "id")))
+	a.doorDone(w, r, a.doors.Restore(r.Context(), pathID(r, "id")))
 }

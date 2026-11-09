@@ -38,8 +38,8 @@ func writeError(w http.ResponseWriter, status int, message string) {
 
 // internalError logs err under a fresh request id and tells the client only
 // the id, so an operator can find the cause in the log.
-func (a *App) internalError(w http.ResponseWriter, err error) {
-	id := a.logFailure(err)
+func (a *App) internalError(w http.ResponseWriter, r *http.Request, err error) {
+	id := a.logFailure(r, err)
 	writeJSON(w, http.StatusInternalServerError, errorBody{Error: "internal error", RequestID: id})
 }
 
@@ -53,7 +53,7 @@ type refusalStatus struct {
 // refuse answers an API request with what err means: field problems are a
 // bad request, a refusal among known is answered with its status, and
 // anything else is a failure.
-func (a *App) refuse(w http.ResponseWriter, err error, known []refusalStatus) {
+func (a *App) refuse(w http.ResponseWriter, r *http.Request, err error, known []refusalStatus) {
 	var problems check.Problems
 	if errors.As(err, &problems) {
 		writeError(w, http.StatusBadRequest, problems.Error())
@@ -65,5 +65,5 @@ func (a *App) refuse(w http.ResponseWriter, err error, known []refusalStatus) {
 			return
 		}
 	}
-	a.internalError(w, err)
+	a.internalError(w, r, err)
 }

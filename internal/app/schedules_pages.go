@@ -11,6 +11,7 @@ import (
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/date"
 	"github.com/dakriy/doorcode/internal/schedule"
 )
 
@@ -28,7 +29,7 @@ func (a *App) schedulePageRoutes() []route {
 }
 
 // dayLabels names the weekdays on pages, in the order of
-// schedule.DayNames.
+// date.DayNames.
 var dayLabels = []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
 
 // dayChoice is one weekday checkbox of the schedule form.
@@ -39,7 +40,7 @@ type dayChoice struct {
 
 var dayChoices = func() []dayChoice {
 	choices := []dayChoice{}
-	for i, name := range schedule.DayNames {
+	for i, name := range date.DayNames {
 		choices = append(choices, dayChoice{Value: name, Label: dayLabels[i]})
 	}
 	return choices
@@ -65,7 +66,7 @@ func rowOfSchedule(sch connector.StoredSchedule) scheduleRow {
 func (a *App) schedulesPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	all, err := a.schedules.Schedules(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	rows := []scheduleRow{}
@@ -87,7 +88,7 @@ type scheduleForm struct {
 var newWindow = schedule.WindowFields{Days: []string{}, Start: "09:00", End: "17:00"}
 
 // formCount reads the form field name as a count of rows. It reads at
-// most one more than the larger limit, on windows or excluded dates, so a
+// most one more than the larger limit, on windows or excluded ranges, so a
 // form over it is told so without reading without end.
 func formCount(r *http.Request, name string) int {
 	n, _ := strconv.Atoi(r.PostFormValue(name))
@@ -98,7 +99,7 @@ func readScheduleForm(r *http.Request, action string) scheduleForm {
 	_ = r.ParseForm()
 	f := scheduleForm{Action: action, Fields: schedule.Fields{
 		Name: r.PostFormValue("name"), StartsOn: r.PostFormValue("starts_on"), EndsOn: r.PostFormValue("ends_on"),
-		Windows: []schedule.WindowFields{}, Excluded: []string{},
+		Windows: []schedule.WindowFields{}, Excluded: []schedule.ExclusionFields{},
 	}}
 	for i := range formCount(r, "windows") {
 		field := fmt.Sprintf("window-%d-", i)
@@ -107,7 +108,8 @@ func readScheduleForm(r *http.Request, action string) scheduleForm {
 		})
 	}
 	for i := range formCount(r, "dates") {
-		f.Excluded = append(f.Excluded, r.PostFormValue(fmt.Sprintf("excluded-%d", i)))
+		field := fmt.Sprintf("excluded-%d-", i)
+		f.Excluded = append(f.Excluded, schedule.ExclusionFields{First: r.PostFormValue(field + "first"), Last: r.PostFormValue(field + "last")})
 	}
 	return f
 }
@@ -121,7 +123,7 @@ func (f scheduleForm) edited(r *http.Request) (scheduleForm, bool) {
 	case r.PostForm.Has("remove_window"):
 		f.Windows = without(f.Windows, r.PostFormValue("remove_window"))
 	case r.PostForm.Has("add_date"):
-		f.Excluded = append(slices.Clone(f.Excluded), "")
+		f.Excluded = append(slices.Clone(f.Excluded), schedule.ExclusionFields{})
 	case r.PostForm.Has("remove_date"):
 		f.Excluded = without(f.Excluded, r.PostFormValue("remove_date"))
 	default:
@@ -148,7 +150,7 @@ func (f scheduleForm) rejected(err error) (scheduleForm, bool) {
 }
 
 func (a *App) newSchedulePage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	form := scheduleForm{Action: "/admin/schedules", Fields: schedule.Fields{Windows: []schedule.WindowFields{newWindow}, Excluded: []string{}}}
+	form := scheduleForm{Action: "/admin/schedules", Fields: schedule.Fields{Windows: []schedule.WindowFields{newWindow}, Excluded: []schedule.ExclusionFields{}}}
 	a.render(w, r, http.StatusOK, newScheduleTemplate, "New schedule", &viewer, form)
 }
 
@@ -249,8 +251,8 @@ func (a *App) scheduleChanged(w http.ResponseWriter, r *http.Request, viewer aut
 // do about it.
 func inUseText(inUse schedule.InUseError) string {
 	var parts []string
-	if inUse.Doors != nil {
-		parts = append(parts, "Doors are in open mode during this schedule: "+strings.Join(inUse.Doors, ", ")+". Take it off them before deleting it.")
+	if inUse.Zones != nil {
+		parts = append(parts, "Zones are in open mode during this schedule: "+strings.Join(inUse.Zones, ", ")+". Take it off them before deleting it.")
 	}
 	if inUse.Groups != nil {
 		parts = append(parts, "Access rules of these groups use this schedule: "+strings.Join(inUse.Groups, ", ")+". Change or delete those rules before deleting it.")
@@ -326,7 +328,7 @@ func daysText(days []time.Weekday) string {
 	if len(days) == len(dayLabels) {
 		return "Every day"
 	}
-	held := func(i int) bool { return slices.Contains(days, schedule.Weekday(i)) }
+	held := func(i int) bool { return slices.Contains(days, date.Weekday(i)) }
 	var parts []string
 	// start is where the run of held days that reaches i begins.
 	start := 0

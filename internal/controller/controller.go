@@ -30,6 +30,9 @@ var (
 	ErrNotPending = errors.New("no controller with this hardware id is waiting to be approved")
 	// ErrOffline reports a door whose controller is not connected.
 	ErrOffline = errors.New("the door's controller is not connected")
+	// ErrHandingOver reports a door whose controller has not yet connected
+	// with the newest credentials it was sent, so it is sent no more.
+	ErrHandingOver = errors.New("the door's controller has not yet connected with the credentials it was last sent")
 	// ErrDeleted reports a deleted door, which no controller can become.
 	ErrDeleted = errors.New("the door is deleted; restore it first")
 	// ErrUnknownDoor reports a message from a door that has no
@@ -352,8 +355,9 @@ func (s Service) Credentials(ctx context.Context, id int64) ([]connector.StoredC
 
 // Rotate issues the connected controller of the door whose id is id new
 // credentials over its connection. Its old ones keep working until it
-// connects with the new ones, or until the grace period after issuing them
-// has passed.
+// connects with the new ones, which stops them working, so a door has at
+// most two live credentials: while it has not yet connected with the new
+// ones, it is issued no more.
 func (s Service) Rotate(ctx context.Context, id int64) error {
 	d, err := s.Doors.Door(ctx, id)
 	if err != nil {
@@ -361,6 +365,14 @@ func (s Service) Rotate(ctx context.Context, id int64) error {
 	}
 	if !connected(d) {
 		return ErrOffline
+	}
+	creds, err := s.Store.DoorCredentials(ctx, id)
+	if err != nil {
+		return err
+	}
+	live := slices.DeleteFunc(creds, func(c connector.StoredCredential) bool { return c.RevokedAt != nil })
+	if len(live) > 1 {
+		return ErrHandingOver
 	}
 	username, token, err := s.issue(ctx, id)
 	if err != nil {
@@ -435,10 +447,9 @@ func (s Service) Delete(ctx context.Context, id int64) error {
 
 // Sweep does what time makes due: a door whose newest credentials were
 // issued its credential rotation interval ago or longer, by defaults and
-// its own overrides, gets new ones when its controller is connected, and
-// the older credentials of a door stop working once its newest were
-// issued grace ago.
-func (s Service) Sweep(ctx context.Context, grace time.Duration, defaults settings.DoorDefaults) error {
+// its own overrides, gets new ones when its controller is connected and
+// has connected with the newest it was sent.
+func (s Service) Sweep(ctx context.Context, defaults settings.DoorDefaults) error {
 	live, err := s.Store.LiveCredentials(ctx)
 	if err != nil {
 		return err
@@ -456,7 +467,7 @@ func (s Service) Sweep(ctx context.Context, grace time.Duration, defaults settin
 		byDoor[c.DoorID] = append(byDoor[c.DoorID], c)
 	}
 	for _, id := range doors {
-		if err := s.sweepDoor(ctx, byDoor[id], rotateAfter[id], grace); err != nil {
+		if err := s.sweepDoor(ctx, byDoor[id], rotateAfter[id]); err != nil {
 			return err
 		}
 	}
@@ -481,22 +492,17 @@ func (s Service) rotationIntervals(ctx context.Context, defaults settings.DoorDe
 	return intervals, nil
 }
 
-// sweepDoor does what time makes due about one door's live credentials,
-// oldest first.
-func (s Service) sweepDoor(ctx context.Context, live []connector.StoredCredential, rotateAfter, grace time.Duration) error {
-	now := s.Clock.Now()
+// sweepDoor rotates one door's credentials when they are due, given its
+// live credentials, oldest first. A door that cannot be sent new ones now
+// is sent them by a later sweep.
+func (s Service) sweepDoor(ctx context.Context, live []connector.StoredCredential, rotateAfter time.Duration) error {
 	newest := live[len(live)-1]
-	if len(live) > 1 {
-		if now.Before(newest.IssuedAt.Add(grace)) {
-			return nil
-		}
-		return s.revoke(ctx, live[:len(live)-1])
-	}
-	if now.Before(newest.IssuedAt.Add(rotateAfter)) {
+	if s.Clock.Now().Before(newest.IssuedAt.Add(rotateAfter)) {
 		return nil
 	}
-	if err := s.Rotate(ctx, newest.DoorID); !errors.Is(err, ErrOffline) {
-		return err
+	err := s.Rotate(ctx, newest.DoorID)
+	if errors.Is(err, ErrOffline) || errors.Is(err, ErrHandingOver) {
+		return nil
 	}
-	return nil
+	return err
 }

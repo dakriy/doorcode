@@ -107,7 +107,7 @@ func (a *App) listTokens(w http.ResponseWriter, r *http.Request, caller auth.Use
 func (a *App) writeTokens(w http.ResponseWriter, r *http.Request, ownerID int64) {
 	tokens, err := a.auth.Tokens(r.Context(), ownerID)
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	views := make([]tokenView, 0, len(tokens))
@@ -137,7 +137,7 @@ func (a *App) issueToken(w http.ResponseWriter, r *http.Request, ownerID int64) 
 	}
 	token, secret, err := a.auth.CreateToken(r.Context(), ownerID, name, body.ExpiresInDays)
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, createdToken{Token: viewOfToken(token), Secret: secret})
@@ -152,7 +152,7 @@ func (a *App) revokeToken(w http.ResponseWriter, r *http.Request, caller auth.Us
 func (a *App) withdrawToken(w http.ResponseWriter, r *http.Request, ownerID int64, param, missing string) {
 	revoked, err := a.revoke(r, ownerID, param)
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	if !revoked {
@@ -165,11 +165,7 @@ func (a *App) withdrawToken(w http.ResponseWriter, r *http.Request, ownerID int6
 // revoke revokes the token of the user whose id is ownerID that the path
 // parameter param names, and reports whether there was one.
 func (a *App) revoke(r *http.Request, ownerID int64, param string) (bool, error) {
-	id, err := strconv.ParseInt(r.PathValue(param), 10, 64)
-	if err != nil {
-		return false, nil
-	}
-	return a.auth.RevokeToken(r.Context(), ownerID, id)
+	return a.auth.RevokeToken(r.Context(), ownerID, pathID(r, param))
 }
 
 // tokensContent is the API tokens page's content.
@@ -234,7 +230,7 @@ func (a *App) createTokenFromForm(w http.ResponseWriter, r *http.Request, viewer
 	}
 	token, secret, err := a.auth.CreateToken(r.Context(), viewer.ID, form.Name, days)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	created := &createdSecret{Name: token.Name, Secret: secret}
@@ -261,20 +257,20 @@ func (a *App) revokeTokenFromForm(w http.ResponseWriter, r *http.Request, viewer
 func (a *App) revokeFromForm(w http.ResponseWriter, r *http.Request, ownerID int64, param, back string) {
 	revoked, err := a.revoke(r, ownerID, param)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	flash := "token-gone"
 	if revoked {
 		flash = "token-revoked"
 	}
-	done(w, r, back, flash)
+	a.done(w, r, back, flash)
 }
 
 func (a *App) renderTokens(w http.ResponseWriter, r *http.Request, status int, viewer auth.User, form tokenForm, created *createdSecret) {
 	tokens, err := a.auth.Tokens(r.Context(), viewer.ID)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content := tokensContent{Tokens: tokens, Form: form, Choices: expiryChoices, MaxNameLength: maxTokenNameLength, Created: created}

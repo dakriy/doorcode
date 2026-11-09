@@ -12,19 +12,19 @@ import (
 var schedulesNav = mainNav("Access: Schedules", "")
 
 // schedulesHead is the header row of the schedule list.
-var schedulesHead = []string{"Name", "Windows", "In effect", "Excluded dates", "Actions"}
+var schedulesHead = []string{"Name", "Windows", "In effect", "Exclusions", "Actions"}
 
 // alwaysRow is the Always schedule as the list shows it.
 var alwaysRow = []string{"Always Built in", "Every day, all day", "Every week", "0", "Calendar"}
 
-// nights is a schedule body for page tests: weeknights, with one excluded
-// date.
+// nights is a schedule body for page tests: weeknights, with three days
+// excluded.
 const nights = `{"name":"Nights","starts_on":"2026-01-01","windows":[{"days":["mon","tue","wed","thu","fri"],"start":"22:00","end":"06:00"}],` +
-	`"excluded_dates":["2026-12-25"]}`
+	`"exclusions":[{"first":"2026-12-24","last":"2026-12-26"}]}`
 
 // nightsForm is the nights schedule's form as its page shows it.
 var nightsForm = map[string]string{"name": "Nights", "starts_on": "2026-01-01", "ends_on": "", "windows": "1", "dates": "1",
-	"window-0-start": "22:00", "window-0-end": "06:00", "excluded-0": "2026-12-25"}
+	"window-0-start": "22:00", "window-0-end": "06:00", "excluded-0-first": "2026-12-24", "excluded-0-last": "2026-12-26"}
 
 // weeknights is the checked days of the nights schedule's window.
 var weeknights = []string{"window-0-days=mon", "window-0-days=tue", "window-0-days=wed", "window-0-days=thu", "window-0-days=fri"}
@@ -38,7 +38,7 @@ func TestSchedulesPageListsSchedulesWithWhenTheyApply(t *testing.T) {
 		`{"days":["sun"],"start":"00:00","end":"00:00"}]}`)
 	createSchedule(t, b, `{"name":"Odd days","starts_on":"2026-01-01","ends_on":"2026-03-31",`+
 		`"windows":[{"days":["mon","wed","fri","sun"],"start":"07:00","end":"07:00"},{"days":["tue","wed","thu"],"start":"12:00","end":"13:00"}],`+
-		`"excluded_dates":["2026-01-01","2026-02-01"]}`)
+		`"exclusions":[{"first":"2026-01-01"},{"first":"2026-02-01","last":"2026-02-03"}]}`)
 	b.Get("/")
 
 	got := b.Get("/admin/schedules")
@@ -82,7 +82,8 @@ func TestCreatingAScheduleFromTheFormOpensItsPage(t *testing.T) {
 
 	created := b.Post("/admin/schedules", "name", "Nights", "starts_on", "2026-01-01", "ends_on", "", "windows", "1", "dates", "2",
 		"window-0-days", "mon", "window-0-days", "tue", "window-0-days", "wed", "window-0-days", "thu", "window-0-days", "fri",
-		"window-0-start", "22:00", "window-0-end", "06:00", "excluded-0", "", "excluded-1", "2026-12-25")
+		"window-0-start", "22:00", "window-0-end", "06:00",
+		"excluded-0-first", "", "excluded-0-last", "", "excluded-1-first", "2026-12-24", "excluded-1-last", "2026-12-26")
 	got := pageOf(b.Get(created.Location))
 
 	if diff := cmp.Diff([]any{303, "/admin/schedules/2"}, []any{created.Status, created.Location}); diff != "" {
@@ -103,19 +104,29 @@ func TestScheduleFormSaysWhatIsWrongAndKeepsWhatWasEntered(t *testing.T) {
 	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 
-	got := b.Post("/admin/schedules", "name", "always", "starts_on", "2026-03-02", "ends_on", "2026-03-01", "windows", "2", "dates", "1",
+	got := b.Post("/admin/schedules", "name", "always", "starts_on", "2026-03-02", "ends_on", "2026-03-01", "windows", "2", "dates", "4",
 		"window-0-start", "09:00", "window-0-end", "17:00",
-		"window-1-days", "sat", "window-1-start", "late", "window-1-end", "", "excluded-0", "Christmas")
+		"window-1-days", "sat", "window-1-start", "late", "window-1-end", "",
+		"excluded-0-first", "Christmas", "excluded-0-last", "",
+		"excluded-1-first", "2026-12-26", "excluded-1-last", "2026-12-24",
+		"excluded-2-first", "", "excluded-2-last", "2026-12-25",
+		"excluded-3-first", "2026-12-31", "excluded-3-last", "Hogmanay")
 
 	page := pageOf(got)
 	want := []any{422,
 		map[string]string{
 			"name": "Another schedule has this name.", "ends_on": "End the range on or after the day it starts.",
 			"window-0-days": "Choose at least one day for window 1.", "window-1-start": "Enter the start of window 2 as HH:MM.",
-			"window-1-end": "Enter the end of window 2 as HH:MM.", "excluded-0": "Enter excluded dates as YYYY-MM-DD; “Christmas” is not one.",
+			"window-1-end":     "Enter the end of window 2 as HH:MM.",
+			"excluded-0-first": "Enter excluded dates as YYYY-MM-DD; “Christmas” is not one.",
+			"excluded-1-last":  "End excluded range 2 on or after its first day.",
+			"excluded-2-first": "Enter the first day of excluded range 3.",
+			"excluded-3-last":  "Enter excluded dates as YYYY-MM-DD; “Hogmanay” is not one.",
 		},
-		map[string]string{"name": "always", "starts_on": "2026-03-02", "ends_on": "2026-03-01", "windows": "2", "dates": "1",
-			"window-0-start": "09:00", "window-0-end": "17:00", "window-1-start": "late", "window-1-end": "", "excluded-0": "Christmas"},
+		map[string]string{"name": "always", "starts_on": "2026-03-02", "ends_on": "2026-03-01", "windows": "2", "dates": "4",
+			"window-0-start": "09:00", "window-0-end": "17:00", "window-1-start": "late", "window-1-end": "",
+			"excluded-0-first": "Christmas", "excluded-0-last": "", "excluded-1-first": "2026-12-26", "excluded-1-last": "2026-12-24",
+			"excluded-2-first": "", "excluded-2-last": "2026-12-25", "excluded-3-first": "2026-12-31", "excluded-3-last": "Hogmanay"},
 		[]string{"window-1-days=sat"},
 	}
 	if diff := cmp.Diff(want, []any{got.Status, page.FieldErrors, page.Values, page.Checked}); diff != "" {
@@ -138,18 +149,32 @@ func TestScheduleFormReadsAtMostOneRowPastEachLimit(t *testing.T) {
 	got := signedInAdmin(t, testsupport.NewFactory()).Post("/admin/schedules", "name", "Huge", "windows", "100000", "dates", "100000")
 
 	page := pageOf(got)
-	want := []any{422, "Use at most 20 windows.", "Exclude at most 366 dates.", "367", "367"}
+	want := []any{422, "Use at most 20 windows.", "Exclude at most 366 date ranges.", "367", "367"}
 	if diff := cmp.Diff(want, []any{got.Status, page.FieldErrors["windows"], page.FieldErrors["excluded"], page.Values["windows"], page.Values["dates"]}); diff != "" {
 		t.Errorf("status, windows and dates problems, rows shown (-want +got):\n%s", diff)
 	}
 }
 
-// oneWindow is the fields of a new schedule form with one window and one
-// excluded date, before a button changes it.
+// oneWindow is the fields of a new schedule form with two windows and two
+// excluded ranges, before a button changes it.
 var oneWindow = []string{"name", "Nights", "windows", "2", "dates", "2",
 	"window-0-days", "mon", "window-0-start", "22:00", "window-0-end", "06:00",
 	"window-1-days", "sat", "window-1-start", "10:00", "window-1-end", "12:00",
-	"excluded-0", "2026-12-24", "excluded-1", "2026-12-25"}
+	"excluded-0-first", "2026-12-24", "excluded-0-last", "", "excluded-1-first", "2026-12-25", "excluded-1-last", "2026-12-31"}
+
+// bothExcluded is the values of oneWindow's excluded ranges.
+var bothExcluded = map[string]string{"excluded-0-first": "2026-12-24", "excluded-0-last": "", "excluded-1-first": "2026-12-25", "excluded-1-last": "2026-12-31"}
+
+// with is values and more together, as a new map.
+func with(values, more map[string]string) map[string]string {
+	out := map[string]string{}
+	for _, m := range []map[string]string{values, more} {
+		for k, v := range m {
+			out[k] = v
+		}
+	}
+	return out
+}
 
 func TestScheduleFormButtonsAddAndRemoveRows(t *testing.T) {
 	t.Parallel()
@@ -160,33 +185,30 @@ func TestScheduleFormButtonsAddAndRemoveRows(t *testing.T) {
 	}{
 		"add a window": {
 			button: []string{"add_window", "1"},
-			values: map[string]string{"windows": "3", "dates": "2", "window-0-start": "22:00", "window-0-end": "06:00",
-				"window-1-start": "10:00", "window-1-end": "12:00", "window-2-start": "09:00", "window-2-end": "17:00",
-				"excluded-0": "2026-12-24", "excluded-1": "2026-12-25"},
+			values: with(bothExcluded, map[string]string{"windows": "3", "dates": "2", "window-0-start": "22:00", "window-0-end": "06:00",
+				"window-1-start": "10:00", "window-1-end": "12:00", "window-2-start": "09:00", "window-2-end": "17:00"}),
 			days: []string{"window-0-days=mon", "window-1-days=sat"},
 		},
 		"remove the first window": {
 			button: []string{"remove_window", "0"},
-			values: map[string]string{"windows": "1", "dates": "2", "window-0-start": "10:00", "window-0-end": "12:00",
-				"excluded-0": "2026-12-24", "excluded-1": "2026-12-25"},
-			days: []string{"window-0-days=sat"},
+			values: with(bothExcluded, map[string]string{"windows": "1", "dates": "2", "window-0-start": "10:00", "window-0-end": "12:00"}),
+			days:   []string{"window-0-days=sat"},
 		},
 		"remove the last window": {
 			button: []string{"remove_window", "1"},
-			values: map[string]string{"windows": "1", "dates": "2", "window-0-start": "22:00", "window-0-end": "06:00",
-				"excluded-0": "2026-12-24", "excluded-1": "2026-12-25"},
-			days: []string{"window-0-days=mon"},
+			values: with(bothExcluded, map[string]string{"windows": "1", "dates": "2", "window-0-start": "22:00", "window-0-end": "06:00"}),
+			days:   []string{"window-0-days=mon"},
 		},
 		"add a date": {
 			button: []string{"add_date", "1"},
-			values: map[string]string{"windows": "2", "dates": "3", "window-0-start": "22:00", "window-0-end": "06:00",
-				"window-1-start": "10:00", "window-1-end": "12:00", "excluded-0": "2026-12-24", "excluded-1": "2026-12-25", "excluded-2": ""},
+			values: with(bothExcluded, map[string]string{"windows": "2", "dates": "3", "window-0-start": "22:00", "window-0-end": "06:00",
+				"window-1-start": "10:00", "window-1-end": "12:00", "excluded-2-first": "", "excluded-2-last": ""}),
 			days: []string{"window-0-days=mon", "window-1-days=sat"},
 		},
 		"remove a date": {
 			button: []string{"remove_date", "0"},
 			values: map[string]string{"windows": "2", "dates": "1", "window-0-start": "22:00", "window-0-end": "06:00",
-				"window-1-start": "10:00", "window-1-end": "12:00", "excluded-0": "2026-12-25"},
+				"window-1-start": "10:00", "window-1-end": "12:00", "excluded-0-first": "2026-12-25", "excluded-0-last": "2026-12-31"},
 			days: []string{"window-0-days=mon", "window-1-days=sat"},
 		},
 	}
@@ -386,6 +408,24 @@ func TestScheduleCalendarListsTheWeeksOccurrencesInTheSiteTimezone(t *testing.T)
 	wantTargets := []string{"/admin/schedules/2/calendar?week=2026-02-23", "/admin/schedules/2/calendar", "/admin/schedules/2/calendar?week=2026-03-09"}
 	if diff := cmp.Diff(wantTargets, page.NavTargets[len(schedulesNav):]); diff != "" {
 		t.Errorf("week links (-want +got):\n%s", diff)
+	}
+}
+
+func TestScheduleCalendarLeavesOutEveryDayOfAnExcludedRange(t *testing.T) {
+	t.Parallel()
+	b := signedInAdmin(t, testsupport.NewFactory())
+	createSchedule(t, b, `{"name":"Office","windows":[{"days":["mon","tue","wed","thu","fri"],"start":"09:00","end":"17:00"}],`+
+		`"exclusions":[{"first":"2026-03-03","last":"2026-03-05"}]}`)
+
+	got := pageOf(b.Get("/admin/schedules/2/calendar?week=2026-03-02")).Tables["Occurrences"]
+
+	want := [][]string{
+		{"Starts", "Ends", "Length"},
+		{"Mon 2 Mar 09:00 UTC", "Mon 2 Mar 17:00 UTC", "8 h"},
+		{"Fri 6 Mar 09:00 UTC", "Fri 6 Mar 17:00 UTC", "8 h"},
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("occurrences (-want +got):\n%s", diff)
 	}
 }
 

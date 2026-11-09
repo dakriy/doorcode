@@ -6,8 +6,8 @@ import (
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
-	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/openapi"
+	"github.com/dakriy/doorcode/internal/override"
 )
 
 type overrideView struct {
@@ -81,24 +81,24 @@ func (a *App) viewOfOverride(o connector.StoredOverride) overrideView {
 	return overrideView{
 		ID: o.ID, DoorID: o.DoorID, Kind: o.Kind, Start: o.Start.UTC(), End: o.End.UTC(), Reason: o.Reason,
 		CreatedBy: nameRef{ID: o.CreatedBy, Name: o.CreatorName}, CreatedAt: o.CreatedAt.UTC(),
-		Active: door.Active(o, a.clock.Now()),
+		Active: override.Active(o, a.clock.Now()),
 	}
 }
 
 // writeOverride answers with o, which err may say could not be read or
 // stored, as status.
-func (a *App) writeOverride(w http.ResponseWriter, status int, o connector.StoredOverride, err error) {
+func (a *App) writeOverride(w http.ResponseWriter, r *http.Request, status int, o connector.StoredOverride, err error) {
 	if err != nil {
-		a.doorError(w, err)
+		a.doorError(w, r, err)
 		return
 	}
 	writeJSON(w, status, a.viewOfOverride(o))
 }
 
 func (a *App) listOverrides(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	_, overrides, err := a.doors.Overrides(r.Context(), pathID(r, "id"))
+	_, overrides, err := a.overrides.Of(r.Context(), pathID(r, "id"))
 	if err != nil {
-		a.doorError(w, err)
+		a.doorError(w, r, err)
 		return
 	}
 	views := []overrideView{}
@@ -109,39 +109,39 @@ func (a *App) listOverrides(w http.ResponseWriter, r *http.Request, _ auth.User)
 }
 
 // readOverride reads a JSON override request.
-func readOverride(w http.ResponseWriter, r *http.Request) (door.OverrideFields, bool) {
+func readOverride(w http.ResponseWriter, r *http.Request) (override.Fields, bool) {
 	var body overrideRequest
 	if err := decodeJSON(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, `body must be a JSON object with a string "kind" and RFC 3339 times "start" and "end"`)
-		return door.OverrideFields{}, false
+		return override.Fields{}, false
 	}
-	return door.OverrideFields(body), true
+	return override.Fields(body), true
 }
 
 func (a *App) createOverride(w http.ResponseWriter, r *http.Request, caller auth.User) {
 	if f, ok := readOverride(w, r); ok {
 		o, err := a.newOverride(r.Context(), pathID(r, "id"), caller.ID, f)
-		a.writeOverride(w, http.StatusCreated, o, err)
+		a.writeOverride(w, r, http.StatusCreated, o, err)
 	}
 }
 
 func (a *App) getOverride(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	o, err := a.doors.Override(r.Context(), pathID(r, "id"), pathID(r, "override"))
-	a.writeOverride(w, http.StatusOK, o, err)
+	o, err := a.overrides.Get(r.Context(), pathID(r, "id"), pathID(r, "override"))
+	a.writeOverride(w, r, http.StatusOK, o, err)
 }
 
 func (a *App) updateOverride(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	if f, ok := readOverride(w, r); ok {
 		o, err := a.changeOverride(r.Context(), pathID(r, "id"), pathID(r, "override"), f)
-		a.writeOverride(w, http.StatusOK, o, err)
+		a.writeOverride(w, r, http.StatusOK, o, err)
 	}
 }
 
 func (a *App) cancelOverride(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	o, err := a.endOverride(r.Context(), pathID(r, "id"), pathID(r, "override"))
-	a.writeOverride(w, http.StatusOK, o, err)
+	a.writeOverride(w, r, http.StatusOK, o, err)
 }
 
 func (a *App) deleteOverride(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	a.doorDone(w, a.removeOverride(r.Context(), pathID(r, "id"), pathID(r, "override")))
+	a.doorDone(w, r, a.removeOverride(r.Context(), pathID(r, "id"), pathID(r, "override")))
 }

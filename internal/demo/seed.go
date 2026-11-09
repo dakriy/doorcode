@@ -15,6 +15,13 @@ import (
 // AdminPassword is the password the demo gives the first administrator.
 const AdminPassword = "doorcode-demo"
 
+// MemberEmail and MemberPassword sign in as a member of staff who holds no
+// role, to see the site as most people do: through the portal.
+const (
+	MemberEmail    = "user@example.com"
+	MemberPassword = "doorcode-demo"
+)
+
 // enrollmentPassword is the password the simulated controllers enroll
 // with.
 const enrollmentPassword = "demo-enrollment"
@@ -69,7 +76,7 @@ type demoDoor struct {
 
 // The doors, numbered from 1 in this order.
 var doors = []demoDoor{
-	{map[string]any{"name": "Main entrance", "location": "Building A, ground floor", "public": true, "open_schedule_ids": []int64{lobbyHours},
+	{map[string]any{"name": "Main entrance", "location": "Building A, ground floor", "public": true,
 		"notes": "Open to visitors while reception is staffed."}, color.RGBA{R: 226, G: 220, B: 208, A: 255}, color.RGBA{R: 52, G: 92, B: 160, A: 255}},
 	{map[string]any{"name": "Staff entrance", "location": "Building A, rear courtyard", "public": true},
 		color.RGBA{R: 180, G: 90, B: 70, A: 255}, color.RGBA{R: 60, G: 120, B: 80, A: 255}},
@@ -96,12 +103,20 @@ const (
 var zones = []map[string]any{
 	{"name": "Building A", "description": "The outside doors of building A.", "door_ids": []int64{mainEntrance, staffEntrance}},
 	{"name": "Building B", "description": "The workshop and its dock.", "door_ids": []int64{workshop, loadingDock}},
+	{"name": "Reception", "description": "Open to visitors while reception is staffed.", "door_ids": []int64{mainEntrance},
+		"open_schedule_ids": []int64{lobbyHours}},
+	{"name": "Courtyard", "description": "The staff entrance on its own, for weekend access.", "door_ids": []int64{staffEntrance}},
+	{"name": "Secure rooms", "description": "Rooms only security enters at any time.", "door_ids": []int64{serverRoom}},
+	{"name": "Night rounds", "description": "The doors facilities checks overnight.", "door_ids": []int64{serverRoom, loadingDock}},
 }
 
 // The zone ids.
 const (
-	buildingA = 1
-	buildingB = 2
+	buildingA   = 1
+	buildingB   = 2
+	courtyard   = 4
+	secureRooms = 5
+	nightRounds = 6
 )
 
 // The groups, numbered from 2: the migration seeds Administrators as 1.
@@ -147,6 +162,15 @@ var people = []person{
 // firstPerson is the user id of the first of people.
 const firstPerson = 2
 
+// memberProfile is the member of staff who signs in with MemberEmail, the
+// user created after people.
+var memberProfile = map[string]any{
+	"email": MemberEmail, "user_id": "100243", "first_name": "Sam", "last_name": "Rivera",
+}
+
+// memberCode is the member's door code.
+const memberCode = "369791"
+
 // The user ids of people, in its order.
 const (
 	ann = firstPerson + iota
@@ -158,12 +182,14 @@ const (
 	grace
 	hugo
 	ivy
+	member
 )
 
 // hasExpired reports whether the person whose user id is user is marked
-// expired.
+// expired; the member, who comes after people, is not.
 func hasExpired(user int64) bool {
-	return people[user-firstPerson].expired
+	i := int(user - firstPerson)
+	return i < len(people) && people[i].expired
 }
 
 // expiredAt is when the account of every person marked expired ended: a
@@ -174,11 +200,11 @@ func expiredAt(now time.Time) time.Time {
 
 // The access rules, numbered from 1.
 var rules = []map[string]any{
-	{"group_id": staff, "schedule_id": businessHours, "zone_ids": []int64{buildingA}, "door_ids": []int64{}},
-	{"group_id": staff, "schedule_id": weekends, "door_ids": []int64{staffEntrance}, "zone_ids": []int64{}},
-	{"group_id": security, "schedule_id": always, "door_ids": []int64{serverRoom}, "zone_ids": []int64{buildingA, buildingB}},
-	{"group_id": contractors, "schedule_id": businessHours, "zone_ids": []int64{buildingB}, "door_ids": []int64{}},
-	{"group_id": facilities, "schedule_id": nightShift, "door_ids": []int64{serverRoom, loadingDock}, "zone_ids": []int64{}},
+	{"group_id": staff, "schedule_id": businessHours, "zone_ids": []int64{buildingA}},
+	{"group_id": staff, "schedule_id": weekends, "zone_ids": []int64{courtyard}},
+	{"group_id": security, "schedule_id": always, "zone_ids": []int64{buildingA, buildingB, secureRooms}},
+	{"group_id": contractors, "schedule_id": businessHours, "zone_ids": []int64{buildingB}},
+	{"group_id": facilities, "schedule_id": nightShift, "zone_ids": []int64{nightRounds}},
 }
 
 // The firmware versions, oldest first; the last is the default.
@@ -194,7 +220,8 @@ var waiting = SimulatedDoor{HardwareID: "a4cf12e0b1f6", Firmware: "1.4.1", Signa
 // Seed signs in as the first administrator with the password it logged,
 // gives them AdminPassword, and builds the demo site through the API:
 // settings, schedules, doors with pictures, zones, groups, users with
-// codes, access rules, overrides, firmware, and access requests. Then it
+// codes, the member who signs in with MemberPassword, access rules,
+// overrides, firmware, and access requests. Then it
 // writes weeks of history into store. It runs before Run, so the
 // controllers find the enrollment password set.
 func Seed(ctx context.Context, h http.Handler, store connector.Store, log *Log, now time.Time) (Site, error) {
@@ -211,7 +238,9 @@ func Seed(ctx context.Context, h http.Handler, store connector.Store, log *Log, 
 		return Site{}, err
 	}
 	site := Site{AdminEmail: email, Waiting: waiting, start: now.AddDate(0, 0, -historyDays)}
-	steps := []func(client, time.Time, *Site) error{seedSettings, seedSchedules, seedDoors, seedZones, seedGroups, seedPeople, seedRules, seedOverrides, seedFirmware, seedRequests}
+	steps := []func(client, time.Time, *Site) error{
+		seedSettings, seedSchedules, seedDoors, seedZones, seedGroups, seedPeople, seedMember, seedRules, seedOverrides, seedFirmware, seedRequests,
+	}
 	for _, step := range steps {
 		if err := step(admin, now, &site); err != nil {
 			return Site{}, fmt.Errorf("seed the demo: %w", err)
@@ -229,6 +258,7 @@ func seedSettings(admin client, _ time.Time, _ *Site) error {
 		{"public_url", "https://doorcode.example.com"},
 		{"enrollment_password", enrollmentPassword},
 		{"door_telemetry_interval_s", "15"},
+		{"portal_door_pictures", "true"},
 	}
 	for _, v := range values {
 		if err := admin.call(http.MethodPut, "/api/v1/settings/"+v[0], map[string]string{"value": v[1]}, nil); err != nil {
@@ -315,6 +345,29 @@ func seedPeople(admin client, now time.Time, site *Site) error {
 		}
 	}
 	return nil
+}
+
+// seedMember creates the member of staff, with a code, and has them choose
+// MemberPassword through a token the administrator makes them.
+func seedMember(admin client, now time.Time, site *Site) error {
+	body := map[string]any{"expires_at": now.AddDate(2, 0, 0).UTC().Format(time.RFC3339)}
+	for key, value := range memberProfile {
+		body[key] = value
+	}
+	if err := admin.call(http.MethodPost, "/api/v1/users", body, nil); err != nil {
+		return err
+	}
+	if err := setCode(admin, member, memberCode, site); err != nil {
+		return err
+	}
+	if err := admin.call(http.MethodPut, fmt.Sprintf("/api/v1/groups/%d/members/%d", staff, member), nil, nil); err != nil {
+		return err
+	}
+	var token struct{ Secret string }
+	if err := admin.call(http.MethodPost, fmt.Sprintf("/api/v1/users/%d/tokens", member), map[string]any{"name": "demo"}, &token); err != nil {
+		return err
+	}
+	return admin.as(token.Secret).call(http.MethodPut, "/api/v1/me/password", map[string]string{"new_password": MemberPassword}, nil)
 }
 
 func setCode(admin client, id int, code string, site *Site) error {

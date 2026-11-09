@@ -33,7 +33,6 @@ func stateCopy(st connector.StoredDoorState) connector.StoredDoorState {
 
 // doorOut is a copy of d with the zones it is in.
 func (s *Store) doorOut(d connector.StoredDoor) connector.StoredDoor {
-	d.OpenScheduleIDs = sortedIDs(d.OpenScheduleIDs)
 	d.ZoneIDs = s.zonesOf(d.ID)
 	d.PrimaryPictureID = clone(d.PrimaryPictureID)
 	d.DeletedAt = clone(d.DeletedAt)
@@ -61,9 +60,9 @@ func (s *Store) doorNameTaken(name string, id int64) bool {
 	return nameTaken(s.doors, func(d connector.StoredDoor) string { return d.Name }, name, id)
 }
 
-// checkDoorLinks refuses open schedules and zones the store does not hold.
+// checkDoorLinks refuses zones the store does not hold.
 func (s *Store) checkDoorLinks(d connector.StoredDoor) error {
-	if !allExist(s.schedules, d.OpenScheduleIDs) || !allExist(s.zones, d.ZoneIDs) {
+	if !allExist(s.zones, d.ZoneIDs) {
 		return errNoReference
 	}
 	return nil
@@ -113,7 +112,7 @@ func (s *Store) CreateDoor(_ context.Context, d connector.StoredDoor) (int64, er
 	}
 	stored := connector.StoredDoor{
 		ID: s.next("doors"), Name: d.Name, Location: d.Location, Notes: d.Notes, Public: d.Public,
-		OpenScheduleIDs: sortedIDs(d.OpenScheduleIDs), DeletedAt: clone(d.DeletedAt), CreatedAt: d.CreatedAt,
+		DeletedAt: clone(d.DeletedAt), CreatedAt: d.CreatedAt,
 		Config: map[string]string{},
 	}
 	s.doors[stored.ID] = stored
@@ -121,8 +120,7 @@ func (s *Store) CreateDoor(_ context.Context, d connector.StoredDoor) (int64, er
 	return stored.ID, nil
 }
 
-// UpdateDoor stores d's name, location, notes, public flag, open
-// schedules, and zones.
+// UpdateDoor stores d's name, location, notes, public flag, and zones.
 func (s *Store) UpdateDoor(_ context.Context, d connector.StoredDoor) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -140,7 +138,6 @@ func (s *Store) UpdateDoor(_ context.Context, d connector.StoredDoor) (bool, err
 	stored.Location = d.Location
 	stored.Notes = d.Notes
 	stored.Public = d.Public
-	stored.OpenScheduleIDs = sortedIDs(d.OpenScheduleIDs)
 	s.doors[d.ID] = stored
 	s.linkZones(d.ID, d.ZoneIDs)
 	return true, nil

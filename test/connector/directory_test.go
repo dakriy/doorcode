@@ -501,6 +501,27 @@ func TestStorePreassignsAUserIDOnceAndOnlyToAGroupThatExists(t *testing.T) {
 	}
 }
 
+func TestStoreRemovesAPreassignedUserIDFromAGroupThatHoldsIt(t *testing.T) {
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			ctx := context.Background()
+			store := withAdmin(t, impl)
+			id := mustCreateGroup(t, store, group("night", "Night"))
+
+			errs := []string{
+				testsupport.ErrorText(store.RemovePreassigned(ctx, id, "100")),
+				testsupport.ErrorText(store.RemovePreassigned(ctx, id, "300")),
+				testsupport.ErrorText(store.RemovePreassigned(ctx, 9, "200")),
+			}
+			night, _, _ := store.Group(ctx, id)
+
+			if diff := cmp.Diff([]any{[]string{"200"}, []string{"<nil>", "<nil>", "<nil>"}}, []any{night.PreassignedUserIDs, errs}); diff != "" {
+				t.Errorf("night's pre-assigned ids, errors (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestStoreDeletesAGroupWithItsMemberships(t *testing.T) {
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {

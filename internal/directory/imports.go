@@ -12,7 +12,7 @@ import (
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
-	"github.com/dakriy/doorcode/internal/schedule"
+	"github.com/dakriy/doorcode/internal/date"
 )
 
 // What an import does with a row: create a user who joins the groups
@@ -403,7 +403,7 @@ func (im *importer) expiry(value string) (*time.Time, string) {
 	if value == "" {
 		return nil, ""
 	}
-	day, err := time.ParseInLocation(schedule.DateLayout, value, im.zone)
+	day, err := time.ParseInLocation(date.Layout, value, im.zone)
 	if err != nil {
 		return nil, "Enter a date like 2030-06-30, or leave it empty for an account that never expires."
 	}

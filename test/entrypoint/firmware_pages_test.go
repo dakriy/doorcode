@@ -318,7 +318,7 @@ func TestADoorPageShowsItsFirmware(t *testing.T) {
 	want := []any{
 		"1.4.3", "1.6.0", "Updating", "Sent 1.6.0 on Mon 5 Jan 2026 09:00:00",
 		[]string{"Follow the default (1.5.0)", "1.6.0 (selected)", "1.5.0"},
-		[]string{"firmware_id", "open_schedule_ids", "zone_ids"},
+		[]string{"firmware_id", "zone_ids"},
 	}
 	got := []any{page.Details["Running"], page.Details["Target"], page.Details["Rollout"], page.Details["Latest update"], page.Options["firmware_id"], page.Comboboxes}
 	if diff := cmp.Diff(want, got); diff != "" {
@@ -335,8 +335,8 @@ func TestADoorPageSaysWhenAnOfflineDoorCanBeUpdated(t *testing.T) {
 
 	got := pageOf(b.Get("/admin/doors/1")).Notes
 
-	want := []string{"The door can be updated once its controller is connected.", "New credentials can be sent only while the controller is connected.", openNote,
-		"There are no zones yet. Create one on the zones page."}
+	want := []string{"The door can be updated once its controller is connected.", "New credentials can be sent only while the controller is connected.", picturesNote, openNote,
+		neverOpenNote, "There are no zones yet. Create one on the zones page."}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("notes (-want +got):\n%s", diff)
 	}

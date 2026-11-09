@@ -13,9 +13,9 @@ import (
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/controller"
+	"github.com/dakriy/doorcode/internal/date"
 	"github.com/dakriy/doorcode/internal/directory"
 	"github.com/dakriy/doorcode/internal/event"
-	"github.com/dakriy/doorcode/internal/schedule"
 )
 
 // recentEvents is how many events a door's or a user's page shows.
@@ -182,7 +182,7 @@ func dayAfter(value string, zone *time.Location) (*time.Time, error) {
 	if day == nil {
 		return nil, err
 	}
-	next := schedule.StartOf(schedule.DateOf(*day, zone).AddDate(0, 0, 1), zone)
+	next := date.StartOf(date.Of(*day, zone).AddDate(0, 0, 1), zone)
 	return &next, err
 }
 
@@ -201,17 +201,17 @@ func (a *App) eventsPage(w http.ResponseWriter, r *http.Request, viewer auth.Use
 	}
 	found, err := a.events.Find(r.Context(), event.Query{EventQuery: f.EventQuery, Page: f.Page, PerPage: eventsPerPage})
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	doors, err := a.doors.Doors(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	users, err := a.userOptions(r.Context(), f.UserID)
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content.Filters, content.Users, content.Rows = f, users, rowsOfEvents(found.Events, zone)

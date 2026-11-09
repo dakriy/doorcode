@@ -115,9 +115,6 @@
               "example": {
                 "group_id": 1,
                 "schedule_id": 1,
-                "door_ids": [
-                  1
-                ],
                 "zone_ids": [
                   1
                 ]
@@ -367,9 +364,6 @@
               "example": {
                 "group_id": 1,
                 "schedule_id": 1,
-                "door_ids": [
-                  1
-                ],
                 "zone_ids": [
                   1
                 ]
@@ -587,9 +581,6 @@
                 "location": "Building A, ground floor",
                 "notes": "Strike replaced in 2026.",
                 "public": true,
-                "open_schedule_ids": [
-                  1
-                ],
                 "zone_ids": [
                   1
                 ]
@@ -841,9 +832,6 @@
                 "location": "Building A, ground floor",
                 "notes": "Strike replaced in 2026.",
                 "public": true,
-                "open_schedule_ids": [
-                  1
-                ],
                 "zone_ids": [
                   1
                 ]
@@ -1285,7 +1273,7 @@
         ],
         "responses": {
           "204": {
-            "description": "The new credentials are on their way to the controller. The old ones work until it connects with the new ones or the grace period passes."
+            "description": "The new credentials are on their way to the controller. The old ones work until it connects with the new ones."
           },
           "401": {
             "description": "No valid API token was sent.",
@@ -1318,7 +1306,7 @@
             }
           },
           "409": {
-            "description": "The door's controller is not connected, so it cannot be sent new credentials.",
+            "description": "The door's controller is not connected, or has not yet connected with the credentials it was last sent, so it cannot be sent new ones.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1369,7 +1357,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Each access rule that reaches the door, directly or through its zones.",
+            "description": "Each access rule that reaches the door through its zones.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2666,7 +2654,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The image. Anyone signed in may read the pictures of a door the portal shows; other doors' need the manage-doors or door-commander or manage-firmware role.",
+            "description": "The image. While the setting portal_door_pictures is true, anyone signed in may read the pictures of a door the portal shows; otherwise, and for other doors, they need the manage-doors or door-commander or manage-firmware role.",
             "content": {
               "image/jpeg": {
                 "schema": {
@@ -2687,7 +2675,7 @@
             }
           },
           "403": {
-            "description": "The door is not one the portal shows, and the caller does not hold the manage-doors or door-commander or manage-firmware role.",
+            "description": "The caller does not hold the manage-doors or door-commander or manage-firmware role, and the door is not one the portal shows or the portal shows no door pictures.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2842,7 +2830,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The image reduced to at most 320 pixels on its longest side. Anyone signed in may read the pictures of a door the portal shows; other doors' need the manage-doors or door-commander or manage-firmware role.",
+            "description": "The image reduced to at most 320 pixels on its longest side. While the setting portal_door_pictures is true, anyone signed in may read the pictures of a door the portal shows; otherwise, and for other doors, they need the manage-doors or door-commander or manage-firmware role.",
             "content": {
               "image/jpeg": {
                 "schema": {
@@ -2863,7 +2851,7 @@
             }
           },
           "403": {
-            "description": "The door is not one the portal shows, and the caller does not hold the manage-doors or door-commander or manage-firmware role.",
+            "description": "The caller does not hold the manage-doors or door-commander or manage-firmware role, and the door is not one the portal shows or the portal shows no door pictures.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5840,7 +5828,15 @@
         "security": [],
         "responses": {
           "200": {
-            "description": "The OpenAPI document of this API."
+            "description": "The OpenAPI document of this API.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
           }
         }
       }
@@ -6409,8 +6405,14 @@
                     "end": "06:00"
                   }
                 ],
-                "excluded_dates": [
-                  "2026-12-25"
+                "exclusions": [
+                  {
+                    "first": "2026-12-24",
+                    "last": "2026-12-26"
+                  },
+                  {
+                    "first": "2026-12-31"
+                  }
                 ]
               }
             }
@@ -6499,7 +6501,7 @@
         ],
         "responses": {
           "204": {
-            "description": "The schedule is gone. Deleted doors stop being in open mode during it."
+            "description": "The schedule is gone."
           },
           "401": {
             "description": "No valid API token was sent.",
@@ -6532,7 +6534,7 @@
             }
           },
           "409": {
-            "description": "The schedule is the built-in Always schedule, which cannot be deleted, doors that are not deleted are in open mode during it, or access rules use it; the error names the doors and the groups whose rules they are.",
+            "description": "The schedule is the built-in Always schedule, which cannot be deleted, zones are in open mode during it, or access rules use it; the error names the zones and the groups whose rules they are.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6682,8 +6684,14 @@
                     "end": "06:00"
                   }
                 ],
-                "excluded_dates": [
-                  "2026-12-25"
+                "exclusions": [
+                  {
+                    "first": "2026-12-24",
+                    "last": "2026-12-26"
+                  },
+                  {
+                    "first": "2026-12-31"
+                  }
                 ]
               }
             }
@@ -9183,6 +9191,9 @@
                 "description": "Every outside door of building A.",
                 "door_ids": [
                   1
+                ],
+                "open_schedule_ids": [
+                  1
                 ]
               }
             }
@@ -9271,7 +9282,7 @@
         ],
         "responses": {
           "204": {
-            "description": "The zone is gone; its doors stay."
+            "description": "The zone is gone; its doors stay, and its access rules and open mode no longer reach them."
           },
           "401": {
             "description": "No valid API token was sent.",
@@ -9431,6 +9442,9 @@
                 "name": "Building A",
                 "description": "Every outside door of building A.",
                 "door_ids": [
+                  1
+                ],
+                "open_schedule_ids": [
                   1
                 ]
               }
@@ -9803,6 +9817,10 @@
       "DoorConfigView": {
         "type": "object",
         "properties": {
+          "broker_host": {
+            "type": "string",
+            "description": "The host name or IP address of the broker the door connects to; empty keeps the broker it has."
+          },
           "credential_rotation_days": {
             "type": "integer",
             "description": "How many days the door's broker credentials work before the server issues new ones."
@@ -9874,6 +9892,7 @@
           "rate_limit_per_minute",
           "rate_limit_burst",
           "ntp_server",
+          "broker_host",
           "log_level"
         ]
       },
@@ -10034,20 +10053,13 @@
             "type": "string",
             "description": "What administrators should know about the door, up to 2000 characters."
           },
-          "open_schedule_ids": {
-            "type": "array",
-            "description": "The ids of the schedules during which the door is in open mode. Omit it for a door that is never in open mode.",
-            "items": {
-              "type": "integer"
-            }
-          },
           "public": {
             "type": "boolean",
             "description": "True to show the door in the user portal."
           },
           "zone_ids": {
             "type": "array",
-            "description": "The ids of the zones the door is in.",
+            "description": "The ids of the zones the door is in, which decide when it is in open mode and who may enter it.",
             "items": {
               "type": "integer"
             }
@@ -10173,14 +10185,14 @@
           },
           "open_schedules": {
             "type": "array",
-            "description": "The schedules during which the door is in open mode and unlocks on any keypress, by name.",
+            "description": "The schedules during which the door is in open mode and unlocks on any keypress, by name: those of the zones it is in.",
             "items": {
               "$ref": "#/components/schemas/NameRef"
             }
           },
           "primary_picture_id": {
             "type": "integer",
-            "description": "The picture lists and the user portal show; absent when the door has no pictures."
+            "description": "The picture lists and the door page show, and the user portal while the setting portal_door_pictures is true; absent when the door has no pictures."
           },
           "public": {
             "type": "boolean",
@@ -10266,10 +10278,6 @@
       "EntrantView": {
         "type": "object",
         "properties": {
-          "direct": {
-            "type": "boolean",
-            "description": "True when the rule names the door itself."
-          },
           "group": {
             "$ref": "#/components/schemas/NameRef",
             "description": "The group whose members may enter."
@@ -10294,7 +10302,6 @@
           "rule_id",
           "group",
           "schedule",
-          "direct",
           "zones"
         ]
       },
@@ -10470,6 +10477,39 @@
           "reason"
         ]
       },
+      "ExclusionBody": {
+        "type": "object",
+        "properties": {
+          "first": {
+            "type": "string",
+            "description": "The first day, YYYY-MM-DD, on which no window opens."
+          },
+          "last": {
+            "type": "string",
+            "description": "The last day, YYYY-MM-DD, on which no window opens, on or after the first. Omit it to exclude the first day alone."
+          }
+        },
+        "required": [
+          "first"
+        ]
+      },
+      "ExclusionView": {
+        "type": "object",
+        "properties": {
+          "first": {
+            "type": "string",
+            "description": "The first day, YYYY-MM-DD, on which no window opens."
+          },
+          "last": {
+            "type": "string",
+            "description": "The last day, YYYY-MM-DD, on which no window opens; the same as the first for a single day."
+          }
+        },
+        "required": [
+          "first",
+          "last"
+        ]
+      },
       "FirmwareChoice": {
         "type": "object",
         "properties": {
@@ -10642,7 +10682,7 @@
           },
           "preassigned_user_ids": {
             "type": "array",
-            "description": "User ids whose users join the group when they are created.",
+            "description": "User ids whose users join the group when they are created; an id leaves the list as its user joins.",
             "items": {
               "type": "string"
             }
@@ -10685,7 +10725,7 @@
           },
           "preassigned_user_ids": {
             "type": "array",
-            "description": "User ids whose users join the group when they are created.",
+            "description": "User ids whose users join the group when they are created; an id leaves the list as its user joins.",
             "items": {
               "type": "string"
             }
@@ -11193,7 +11233,7 @@
           },
           "primary": {
             "type": "boolean",
-            "description": "True for the door's primary picture, which lists and the user portal show."
+            "description": "True for the door's primary picture, which lists and the door page show, and the user portal while the setting portal_door_pictures is true."
           },
           "thumbnail_url": {
             "type": "string",
@@ -11268,7 +11308,7 @@
           },
           "thumbnail_url": {
             "type": "string",
-            "description": "Where a thumbnail of the door's primary picture is served; absent without one."
+            "description": "Where a thumbnail of the door's primary picture is served; absent without one, and while the setting portal_door_pictures is false."
           },
           "works": {
             "type": "array",
@@ -11543,13 +11583,6 @@
       "RuleRequest": {
         "type": "object",
         "properties": {
-          "door_ids": {
-            "type": "array",
-            "description": "The ids of the doors it names.",
-            "items": {
-              "type": "integer"
-            }
-          },
           "group_id": {
             "type": "integer",
             "description": "The id of the group whose members the rule lets in."
@@ -11560,7 +11593,7 @@
           },
           "zone_ids": {
             "type": "array",
-            "description": "The ids of the zones it names. A rule names at least one door or zone.",
+            "description": "The ids of the zones it names, at least one; it reaches every door in them.",
             "items": {
               "type": "integer"
             }
@@ -11574,13 +11607,6 @@
       "RuleView": {
         "type": "object",
         "properties": {
-          "doors": {
-            "type": "array",
-            "description": "The doors it names, by name.",
-            "items": {
-              "$ref": "#/components/schemas/NameRef"
-            }
-          },
           "group": {
             "$ref": "#/components/schemas/NameRef",
             "description": "The group whose members the rule lets in."
@@ -11605,7 +11631,6 @@
           "id",
           "group",
           "schedule",
-          "doors",
           "zones"
         ]
       },
@@ -11646,11 +11671,11 @@
             "type": "string",
             "description": "The last day, YYYY-MM-DD, on which windows open. Omit it for a schedule that never ends."
           },
-          "excluded_dates": {
+          "exclusions": {
             "type": "array",
-            "description": "Up to 366 dates, YYYY-MM-DD, on which no window opens.",
+            "description": "Up to 366 ranges of days on which no window opens, such as holidays.",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/ExclusionBody"
             }
           },
           "name": {
@@ -11685,11 +11710,11 @@
             "type": "string",
             "description": "The last day, YYYY-MM-DD, on which windows open; absent when the schedule never ends."
           },
-          "excluded_dates": {
+          "exclusions": {
             "type": "array",
-            "description": "The dates, YYYY-MM-DD, on which no window opens, in order.",
+            "description": "The ranges of days on which no window opens, in order of their first days.",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/ExclusionView"
             }
           },
           "id": {
@@ -11716,7 +11741,7 @@
           "id",
           "name",
           "windows",
-          "excluded_dates",
+          "exclusions",
           "builtin"
         ]
       },
@@ -12344,6 +12369,13 @@
           "name": {
             "type": "string",
             "description": "The zone's name, up to 100 characters; unique, ignoring case."
+          },
+          "open_schedule_ids": {
+            "type": "array",
+            "description": "The ids of the schedules during which the zone's doors are in open mode. Omit it for a zone that puts no door in open mode.",
+            "items": {
+              "type": "integer"
+            }
           }
         },
         "required": [
@@ -12371,13 +12403,21 @@
           "name": {
             "type": "string",
             "description": "The zone's name."
+          },
+          "open_schedules": {
+            "type": "array",
+            "description": "The schedules during which the zone's doors are in open mode and unlock on any keypress, by name.",
+            "items": {
+              "$ref": "#/components/schemas/NameRef"
+            }
           }
         },
         "required": [
           "id",
           "name",
           "description",
-          "doors"
+          "doors",
+          "open_schedules"
         ]
       }
     },

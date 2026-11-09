@@ -11,6 +11,6 @@
   </div>
 </form>
 
-{{template "delete-section" (deletion "Delete zone" "The zone is removed for good. Its doors stay. This cannot be undone." (printf "/admin/zones/%d/delete" $z.ID) (printf "Delete the zone %s? Its doors stay. This cannot be undone." $z.Name) "" "max-w-3xl")}}
+{{template "delete-section" (deletion "Delete zone" "The zone is removed for good. Its doors stay, but the access rules and open mode it gave them stop. This cannot be undone." (printf "/admin/zones/%d/delete" $z.ID) (printf "Delete the zone %s? Its doors stay, but the access rules and open mode it gave them stop. This cannot be undone." $z.Name) "" "max-w-3xl")}}
 {{template "search-script" .}}
 {{end}}

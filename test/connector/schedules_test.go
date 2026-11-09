@@ -26,7 +26,10 @@ func nightShift() connector.StoredSchedule {
 			{Days: []time.Weekday{time.Monday, time.Friday}, Start: 22 * 60, End: 6 * 60},
 			{Days: []time.Weekday{time.Sunday}, Start: 7*60 + 5, End: 7*60 + 30},
 		},
-		Excluded: []time.Time{day(2026, 1, 1), day(2026, 12, 25)},
+		Excluded: []connector.StoredExclusion{
+			{First: day(2026, 1, 1), Last: day(2026, 1, 1)},
+			{First: day(2026, 12, 24), Last: day(2026, 12, 26)},
+		},
 	}
 }
 
@@ -35,7 +38,7 @@ func plainSchedule(name string) connector.StoredSchedule {
 	return connector.StoredSchedule{
 		Name:     name,
 		Windows:  []connector.StoredWindow{{Days: []time.Weekday{time.Saturday}, Start: 600, End: 960}},
-		Excluded: []time.Time{},
+		Excluded: []connector.StoredExclusion{},
 	}
 }
 
@@ -200,26 +203,49 @@ func TestStoreRefusesAScheduleNameTakenIgnoringCase(t *testing.T) {
 	}
 }
 
-func TestStoreRefusesAScheduleWithoutItsLists(t *testing.T) {
+func TestStoreRefusesAScheduleItsConstraintsWould(t *testing.T) {
 	cases := map[string]func(sch connector.StoredSchedule) connector.StoredSchedule{
-		"a window's days": func(sch connector.StoredSchedule) connector.StoredSchedule {
+		"without a window's days": func(sch connector.StoredSchedule) connector.StoredSchedule {
 			sch.Windows = []connector.StoredWindow{{Start: 1, End: 2}}
 			return sch
 		},
-		"excluded dates": func(sch connector.StoredSchedule) connector.StoredSchedule {
-			sch.Excluded = nil
+		"with an exclusion ending before it starts": func(sch connector.StoredSchedule) connector.StoredSchedule {
+			sch.Excluded = []connector.StoredExclusion{{First: day(2026, 12, 26), Last: day(2026, 12, 25)}}
 			return sch
 		},
 	}
 	for _, impl := range storeImpls {
 		for name, change := range cases {
 			t.Run(impl.name+"/"+name, func(t *testing.T) {
-				_, err := migrated(t, impl).CreateSchedule(context.Background(), change(plainSchedule("Lists")))
+				ctx := context.Background()
+				store := migrated(t, impl)
+				id := mustCreateSchedule(t, store, plainSchedule("Kept"))
+				changed := change(plainSchedule("Changed"))
+				changed.ID = id
 
-				if err == nil {
-					t.Error("CreateSchedule stored a schedule without " + name)
+				_, createErr := store.CreateSchedule(ctx, change(plainSchedule("Lists")))
+				_, updateErr := store.UpdateSchedule(ctx, changed)
+
+				if diff := cmp.Diff([]any{true, true, "Kept"}, []any{createErr != nil, updateErr != nil, mustSchedule(t, store, id).Name}); diff != "" {
+					t.Errorf("create refused, update refused, name kept (-want +got):\n%s", diff)
 				}
 			})
 		}
+	}
+}
+
+func TestStoreReadsAScheduleStoredWithoutExclusionsAsHavingNone(t *testing.T) {
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			store := migrated(t, impl)
+			sch := plainSchedule("None")
+			sch.Excluded = nil
+
+			got := mustSchedule(t, store, mustCreateSchedule(t, store, sch)).Excluded
+
+			if diff := cmp.Diff([]connector.StoredExclusion{}, got); diff != "" {
+				t.Errorf("exclusions (-want +got):\n%s", diff)
+			}
+		})
 	}
 }

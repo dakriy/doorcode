@@ -44,7 +44,7 @@ type habit struct {
 	rule     int64
 }
 
-var staffWithCodes = []int64{ann, ben, dev, hugo, ivy}
+var staffWithCodes = []int64{ann, ben, dev, hugo, ivy, member}
 
 // unknown is a habit's users when the codes belong to nobody.
 var unknown []int64

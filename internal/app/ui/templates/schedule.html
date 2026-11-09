@@ -7,7 +7,7 @@
       <h1 class="text-2xl font-semibold tracking-tight">{{$s.Name}}</h1>
       {{if $s.Builtin}}{{template "builtin-badge"}}{{end}}
     </div>
-    <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{{range $i, $w := $c.Row.Windows}}{{if $i}} · {{end}}{{$w}}{{end}} · {{$c.Row.Range}}{{with $c.Row.Excluded}} · {{.}} excluded {{if eq . 1}}date{{else}}dates{{end}}{{end}}</p>
+    <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{{range $i, $w := $c.Row.Windows}}{{if $i}} · {{end}}{{$w}}{{end}} · {{$c.Row.Range}}{{with $c.Row.Excluded}} · {{.}} {{if eq . 1}}exclusion{{else}}exclusions{{end}}{{end}}</p>
   </div>
   <a href="/admin/schedules/{{$s.ID}}/calendar" hx-boost="false" class="mt-4 sm:mt-0 {{template "secondary-class"}}">{{template "calendar-icon"}}View calendar</a>
 </div>

@@ -26,6 +26,7 @@ const horizonHours = 25
 // Store is the part of the store this package uses.
 type Store interface {
 	connector.DoorsStore
+	connector.ZonesStore
 	connector.SchedulesStore
 	connector.OverridesStore
 }
@@ -71,6 +72,7 @@ type target struct {
 	door      connector.StoredDoor
 	config    settings.DoorConfig
 	zone      *time.Location
+	zones     []connector.StoredZone
 	schedules []connector.StoredSchedule
 }
 
@@ -125,6 +127,10 @@ func (s Service) each(ctx context.Context, ids []int64, send sender) error {
 	if err != nil {
 		return err
 	}
+	zones, err := s.Store.Zones(ctx)
+	if err != nil {
+		return err
+	}
 	schedules, err := s.Store.Schedules(ctx)
 	if err != nil {
 		return err
@@ -144,7 +150,7 @@ func (s Service) each(ctx context.Context, ids []int64, send sender) error {
 		}
 		config, err := defaults.For(d.Config)
 		if err == nil {
-			err = send(s, ctx, target{door: d, config: config, zone: current.Zone, schedules: schedules})
+			err = send(s, ctx, target{door: d, config: config, zone: current.Zone, zones: zones, schedules: schedules})
 		}
 		errs = append(errs, err)
 	}
@@ -170,7 +176,7 @@ func sendTimeline(s Service, ctx context.Context, t target) error {
 		return err
 	}
 	m := protocol.Timeline{From: now.Unix(), To: to.Unix(), Spans: []protocol.Span{}}
-	for _, span := range timeline.Of(t.door, t.schedules, overrides, t.zone, now, to) {
+	for _, span := range timeline.Of(t.door, t.zones, t.schedules, overrides, t.zone, now, to) {
 		m.Spans = append(m.Spans, protocol.Span{Start: span.Start.Unix(), End: span.End.Unix(), State: span.State})
 	}
 	if err := s.publish(ctx, t.door.ID, protocol.LeafTimeline, &m); err != nil {

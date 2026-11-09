@@ -80,7 +80,7 @@ func (a *App) dashboardPage(w http.ResponseWriter, r *http.Request, viewer auth.
 		content.Ranges = append(content.Ranges, rangeLink{Label: p.Label, Href: dashboardPath + "?range=" + p.Name, Current: p.Name == chosen.Preset})
 	}
 	if err := a.fillDashboard(r, viewer, &content, chosen, zone); err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	a.render(w, r, http.StatusOK, dashboardTemplate, "Dashboard", &viewer, content)

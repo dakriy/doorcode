@@ -25,6 +25,7 @@ type doorConfigView struct {
 	RateLimitPerMinute     int    `json:"rate_limit_per_minute" doc:"How many codes a minute the server checks for the door."`
 	RateLimitBurst         int    `json:"rate_limit_burst" doc:"How many codes the server checks for the door in a burst."`
 	NTPServer              string `json:"ntp_server" doc:"The time server the door sets its clock from."`
+	BrokerHost             string `json:"broker_host" doc:"The host name or IP address of the broker the door connects to; empty keeps the broker it has."`
 	LogLevel               string `json:"log_level" doc:"How much the door logs: error, warn, info, or debug."`
 }
 
@@ -74,12 +75,12 @@ func (a *App) effectiveConfig(ctx context.Context, d connector.StoredDoor) (sett
 // could not be read or stored.
 func (a *App) writeDoorConfig(w http.ResponseWriter, r *http.Request, d connector.StoredDoor, err error) {
 	if err != nil {
-		a.doorError(w, err)
+		a.doorError(w, r, err)
 		return
 	}
 	config, _, err := a.effectiveConfig(r.Context(), d)
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, doorConfigBody{Effective: doorConfigView(config), Overrides: d.Config})

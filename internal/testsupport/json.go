@@ -67,41 +67,49 @@ type APIOperation struct {
 	Statuses []int
 }
 
+type openAPIParameter struct {
+	Name    string `json:"name"`
+	In      string `json:"in"`
+	Example any    `json:"example"`
+}
+
 type openAPIDocument struct {
 	Servers []struct {
 		URL string `json:"url"`
 	} `json:"servers"`
 	Paths map[string]map[string]struct {
-		OperationID string `json:"operationId"`
-		Parameters  []struct {
-			Name    string `json:"name"`
-			In      string `json:"in"`
-			Example any    `json:"example"`
-		} `json:"parameters"`
+		OperationID string             `json:"operationId"`
+		Parameters  []openAPIParameter `json:"parameters"`
 		RequestBody struct {
 			Content map[string]struct {
 				Example json.RawMessage `json:"example"`
 			} `json:"content"`
 		} `json:"requestBody"`
-		Responses map[string]any `json:"responses"`
+		Responses map[string]struct {
+			Content map[string]struct {
+				Schema any `json:"schema"`
+			} `json:"content"`
+		} `json:"responses"`
 	} `json:"paths"`
+}
+
+// readOpenAPI decodes an OpenAPI document.
+func readOpenAPI(document string) openAPIDocument {
+	var doc openAPIDocument
+	if err := json.Unmarshal([]byte(document), &doc); err != nil {
+		panic(err)
+	}
+	return doc
 }
 
 // OpenAPIOperations reads every operation of an OpenAPI document, in path
 // order and then method order.
 func OpenAPIOperations(document string) []APIOperation {
-	var doc openAPIDocument
-	if err := json.Unmarshal([]byte(document), &doc); err != nil {
-		panic(err)
-	}
+	doc := readOpenAPI(document)
 	var ops []APIOperation
 	for _, path := range slices.Sorted(maps.Keys(doc.Paths)) {
 		for _, method := range slices.Sorted(maps.Keys(doc.Paths[path])) {
 			op := doc.Paths[path][method]
-			target := path
-			for _, p := range op.Parameters {
-				target = strings.ReplaceAll(target, "{"+p.Name+"}", fmt.Sprint(p.Example))
-			}
 			var statuses []int
 			for _, code := range slices.Sorted(maps.Keys(op.Responses)) {
 				n, _ := strconv.Atoi(code)
@@ -109,7 +117,7 @@ func OpenAPIOperations(document string) []APIOperation {
 			}
 			ops = append(ops, APIOperation{
 				Method:   strings.ToUpper(method),
-				Target:   doc.Servers[0].URL + target,
+				Target:   doc.Servers[0].URL + exampleTarget(path, op.Parameters),
 				ID:       op.OperationID,
 				Body:     compact(op.RequestBody.Content["application/json"].Example),
 				Statuses: statuses,
@@ -117,6 +125,15 @@ func OpenAPIOperations(document string) []APIOperation {
 		}
 	}
 	return ops
+}
+
+// exampleTarget is path with every path parameter replaced by its example.
+func exampleTarget(path string, params []openAPIParameter) string {
+	target := path
+	for _, p := range params {
+		target = strings.ReplaceAll(target, "{"+p.Name+"}", fmt.Sprint(p.Example))
+	}
+	return target
 }
 
 // compact is raw JSON without insignificant whitespace, empty when raw is.

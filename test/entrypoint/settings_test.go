@@ -30,6 +30,10 @@ const hashMemoryJSON = `{"key":"password_hash_memory_kib","value":"8","source":"
 
 // themeSettingsJSON is how the settings API shows the theme colors when
 // nothing sets them.
+// proxySettingJSON is how the settings API shows the trusted proxies
+// setting when nothing sets it.
+var proxySettingJSON = defaultSetting("trusted_proxies", "")
+
 var themeSettingsJSON = defaultSetting("theme_accent", "#4f39f6") + `,` + defaultSetting("theme_accent_dark", "")
 
 // signInSettingsJSON is how the settings API shows the settings of
@@ -49,15 +53,14 @@ var signInSettingsJSON = defaultSetting("password_min_length", "12") + `,` +
 	defaultSetting("oidc_claim_last_name", "family_name") + `,` +
 	defaultSetting("oidc_claim_display_name", "name") + `,` +
 	defaultSetting("oidc_claim_entitlements", "") + `,` +
-	defaultSetting("oidc_default_groups", "")
+	defaultSetting("oidc_default_groups", "") + `,` +
+	defaultSetting("portal_door_pictures", "false")
 
 // brokerSettingsJSON is how the settings API shows the broker settings
 // and the door configuration defaults when nothing sets them.
 var brokerSettingsJSON = `{"key":"enrollment_username","value":"doorcode-enroll","source":"default","read_only":false,` +
 	`"env_var":"DOORCODE_ENROLLMENT_USERNAME"},` +
 	`{"key":"enrollment_password","value":"","source":"default","read_only":false,"env_var":"DOORCODE_ENROLLMENT_PASSWORD","secret":true},` +
-	`{"key":"door_credential_grace_hours","value":"24","source":"default","read_only":false,` +
-	`"env_var":"DOORCODE_DOOR_CREDENTIAL_GRACE_HOURS"},` +
 	defaultSetting("telemetry_retention_days", "7") + `,` +
 	defaultSetting("telemetry_rollup_retention_days", "730") + `,` +
 	defaultSetting("unresponsive_minutes", "5") + `,` +
@@ -80,6 +83,7 @@ var brokerSettingsJSON = `{"key":"enrollment_username","value":"doorcode-enroll"
 	defaultSetting("door_rate_limit_per_minute", "30") + `,` +
 	defaultSetting("door_rate_limit_burst", "10") + `,` +
 	defaultSetting("door_ntp_server", "pool.ntp.org") + `,` +
+	defaultSetting("door_broker_host", "") + `,` +
 	defaultSetting("door_log_level", "info")
 
 // defaultSetting is how the settings API shows the setting named key
@@ -107,7 +111,7 @@ func TestSettingsListShowsDefaultsAndTheEnvironmentWhenNothingIsStored(t *testin
 		`{"key":"site_name","value":"doorcode","source":"default","read_only":false,"env_var":"DOORCODE_SITE_NAME"},` +
 		`{"key":"site_timezone","value":"UTC","source":"default","read_only":false,"env_var":"DOORCODE_SITE_TIMEZONE"},` +
 		`{"key":"admin_email","value":"admin@example.com","source":"default","read_only":false,"env_var":"DOORCODE_ADMIN_EMAIL"},` +
-		themeSettingsJSON + `,` + hashMemoryJSON + `,` + signInSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
+		proxySettingJSON + `,` + themeSettingsJSON + `,` + hashMemoryJSON + `,` + signInSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -125,7 +129,7 @@ func TestSettingsListShowsStoredAndEnvironmentValuesWithTheirSources(t *testing.
 		`{"key":"site_name","value":"Main Building","source":"database","read_only":false,"env_var":"DOORCODE_SITE_NAME","updated_at":"2026-01-02T08:00:00Z"},` +
 		`{"key":"site_timezone","value":"Europe/Berlin","source":"environment","read_only":true,"env_var":"DOORCODE_SITE_TIMEZONE"},` +
 		`{"key":"admin_email","value":"admin@example.com","source":"default","read_only":false,"env_var":"DOORCODE_ADMIN_EMAIL"},` +
-		themeSettingsJSON + `,` + hashMemoryJSON + `,` + signInSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
+		proxySettingJSON + `,` + themeSettingsJSON + `,` + hashMemoryJSON + `,` + signInSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -172,6 +176,22 @@ func TestUpdatingASettingRespondsWithTheNewValueAndTheClockTime(t *testing.T) {
 		`"read_only":false,"env_var":"DOORCODE_SITE_NAME","updated_at":"2026-02-10T14:30:00Z"}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
+	}
+}
+
+func TestUpdatedSettingTimeIsKeptToTheMicrosecondAsTheStoreKeepsIt(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	f.ClockStub.Set("2026-02-10T14:30:00.123456789Z")
+	b := signedInAdmin(t, f)
+
+	echoed := b.PutJSON("/api/v1/settings/site_name", `{"value":"North Campus"}`)
+	read := b.Get("/api/v1/settings/site_name")
+
+	want := testsupport.Response{Status: 200, ContentType: jsonType, Body: `{"key":"site_name","value":"North Campus","source":"database",` +
+		`"read_only":false,"env_var":"DOORCODE_SITE_NAME","updated_at":"2026-02-10T14:30:00.123456Z"}` + "\n"}
+	if diff := cmp.Diff([]testsupport.Response{want, want}, []testsupport.Response{echoed, read}); diff != "" {
+		t.Errorf("echoed and read back (-want +got):\n%s", diff)
 	}
 }
 
@@ -330,7 +350,7 @@ func TestSettingsStoreFailureAnswersWithARequestIDThatTheLogCarries(t *testing.T
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
 			wantLog := testsupport.LogEntry{Level: "error", Message: "request failed",
-				Fields: map[string]string{"request_id": "4243444546474849", "error": "stub: unavailable"}}
+				Fields: map[string]string{"request_id": "4243444546474849", "error": "stub: unavailable", "client": testsupport.ClientAddress}}
 			if diff := cmp.Diff(wantLog, lastLog(f)); diff != "" {
 				t.Errorf("last log line (-want +got):\n%s", diff)
 			}

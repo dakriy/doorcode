@@ -8,8 +8,9 @@ import (
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/check"
+	"github.com/dakriy/doorcode/internal/date"
 	"github.com/dakriy/doorcode/internal/directory"
-	"github.com/dakriy/doorcode/internal/schedule"
+	"github.com/dakriy/doorcode/internal/settings"
 )
 
 // pageRefusals maps each refusal the directory reports for a change made
@@ -57,15 +58,15 @@ func (a *App) unloaded(w http.ResponseWriter, r *http.Request, viewer auth.User,
 		return true
 	}
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return true
 	}
 	return false
 }
 
 // done sends the browser to location with a flash message.
-func done(w http.ResponseWriter, r *http.Request, location, flash string) {
-	setCookie(w, r, flashCookie, flash, 0)
+func (a *App) done(w http.ResponseWriter, r *http.Request, location, flash string) {
+	a.setCookie(w, r, flashCookie, flash, 0)
 	redirect(w, location)
 }
 
@@ -74,10 +75,10 @@ func done(w http.ResponseWriter, r *http.Request, location, flash string) {
 // flash.
 func (a *App) changed(w http.ResponseWriter, r *http.Request, err error, location, flash string) {
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
-	done(w, r, location, flash)
+	a.done(w, r, location, flash)
 }
 
 // fieldErrors maps each field err finds a problem with to the problem, and
@@ -96,7 +97,7 @@ func formDate(value string, zone *time.Location) (*time.Time, error) {
 	if value == "" {
 		return nil, nil
 	}
-	day, err := time.ParseInLocation(schedule.DateLayout, value, zone)
+	day, err := time.ParseInLocation(date.Layout, value, zone)
 	return &day, err
 }
 
@@ -106,18 +107,24 @@ func inputDate(t *time.Time, zone *time.Location) string {
 	if t == nil {
 		return ""
 	}
-	return shownAt(zone, *t, schedule.DateLayout)
+	return shownAt(zone, *t, date.Layout)
 }
 
 // siteZone returns the site timezone, after showing that it could not be
 // read.
 func (a *App) siteZone(w http.ResponseWriter, r *http.Request) (*time.Location, bool) {
+	current, ok := a.siteSettings(w, r)
+	return current.Zone, ok
+}
+
+// siteSettings reads the settings the application acts on, after showing
+// the error page when they could not be read.
+func (a *App) siteSettings(w http.ResponseWriter, r *http.Request) (settings.Current, bool) {
 	current, err := a.settings.Current(r.Context())
 	if err != nil {
-		a.pageError(w, err)
-		return nil, false
+		a.pageError(w, r, err)
 	}
-	return current.Zone, true
+	return current, err == nil
 }
 
 func userPath(id int64) string {

@@ -126,14 +126,14 @@ func TestCreatingAGroupFromTheFormOpensItsPage(t *testing.T) {
 func TestGroupFormSaysWhatIsWrongAndKeepsWhatWasEntered(t *testing.T) {
 	t.Parallel()
 	got := signedInAdmin(t, readingUserIDs(testsupport.NewFactory())).Post("/admin/groups", "name", "", "slug", "administrators",
-		"description", repeat("x", 1001), "roles", "admin", "roles", "root", "preassigned_user_ids", "a b")
+		"description", testsupport.Repeat("x", 1001), "roles", "admin", "roles", "root", "preassigned_user_ids", "a b")
 
 	page := pageOf(got)
 	want := []any{422,
 		map[string]string{"slug": "Another group has this slug.", "name": "Enter a name.", "description": "Use at most 1000 characters.",
 			"roles":                "Choose roles from the list.",
 			"preassigned_user_ids": "Use up to 64 letters, digits, dots, dashes, or underscores. “a b” is not."},
-		map[string]string{"name": "", "slug": "administrators", "description": repeat("x", 1001), "preassigned_user_ids": "a b"},
+		map[string]string{"name": "", "slug": "administrators", "description": testsupport.Repeat("x", 1001), "preassigned_user_ids": "a b"},
 		[]string{"roles=admin"},
 	}
 	if diff := cmp.Diff(want, []any{got.Status, page.FieldErrors, page.Values, page.Checked}); diff != "" {
@@ -170,7 +170,8 @@ func TestGroupPageListsItsMembers(t *testing.T) {
 
 	want := testsupport.Page{
 		Title: "Night · doorcode", Heading: "Night", Nav: groupsNav,
-		Values:  nightForm,
+		Values: map[string]string{"name": "Night", "slug": "night", "description": "Late shifts.",
+			"preassigned_user_ids": "100877", "member": ""},
 		Checked: []string{"roles=view-logs", "roles=door-commander"},
 		Tables: map[string][][]string{
 			"Members": {

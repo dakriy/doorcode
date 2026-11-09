@@ -73,7 +73,7 @@ func (a *App) getTimeline(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	}
 	_, spans, err := a.doors.Timeline(r.Context(), pathID(r, "id"), days.zone, days.from(), days.to())
 	if err != nil {
-		a.doorError(w, err)
+		a.doorError(w, r, err)
 		return
 	}
 	views := []spanView{}
@@ -90,12 +90,12 @@ func (a *App) getUserAccess(w http.ResponseWriter, r *http.Request, _ auth.User)
 	}
 	u, err := a.directory.User(r.Context(), pathID(r, "id"))
 	if err != nil {
-		a.directoryError(w, err)
+		a.directoryError(w, r, err)
 		return
 	}
 	doors, err := a.rules.UserAccess(r.Context(), u.Groups, days.zone, days.from(), days.to())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	views := []doorAccessView{}

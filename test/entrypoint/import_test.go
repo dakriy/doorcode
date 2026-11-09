@@ -474,6 +474,7 @@ func TestARowWithoutEmailPreassignsTheUserIDSoThePersonJoinsOnFirstSignIn(t *tes
 	result := pageOf(admin.Post("/admin/users/import/apply", "csv", preview.Values["csv"]))
 	lab := testsupport.JSONAt(send(t, admin, "GET", "/api/v1/groups/5", "", 200).Body, "/preassigned_user_ids")
 	viaProvider(t, f, h, annClaims())
+	labAfter := testsupport.JSONAt(send(t, admin, "GET", "/api/v1/groups/5", "", 200).Body, "/preassigned_user_ids")
 
 	want := []any{
 		map[string]string{"New users": "0", "Updates": "0", "Join on first sign-in": "1", "Nothing to change": "0", "Errors, skipped": "0"},
@@ -482,10 +483,11 @@ func TestARowWithoutEmailPreassignsTheUserIDSoThePersonJoinsOnFirstSignIn(t *tes
 		[]string{"2", "100234", "", "Joins on first sign-in", "Added the user id to the pre-assigned lists of lab, staff"},
 		[]any{"100234"},
 		[]any{"lab", "staff", "visitors"},
+		[]any{},
 	}
-	got := []any{preview.Details, preview.Tables["Rows"][1], result.Details, result.Tables["Rows"][1], lab, groupSlugs(t, admin, "2")}
+	got := []any{preview.Details, preview.Tables["Rows"][1], result.Details, result.Tables["Rows"][1], lab, groupSlugs(t, admin, "2"), labAfter}
 	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("preview totals and row, result totals and row, Lab's pre-assigned ids, Ann's groups after signing in (-want +got):\n%s", diff)
+		t.Errorf("preview totals and row, result totals and row, Lab's pre-assigned ids, Ann's groups after signing in, Lab's ids then (-want +got):\n%s", diff)
 	}
 }
 
@@ -505,7 +507,7 @@ func TestPreassigningAgainChangesNothingAndAnAdministratorCreatingThePersonJoins
 		testsupport.JSON(`{"create":0,"update":0,"unchanged":0,"preassign":1,"skip":0}`),
 		testsupport.JSON(`{"line":2,"user_id":"100555","groups":["lab","guests"],"joins":[],"outcome":"unchanged","applied":false}`),
 		[]string{"2", "100555", "", "Nothing to change", "Already on the pre-assigned list of every group listed"},
-		[]any{"100555"},
+		[]any{},
 		[]any{"guests", "lab"},
 	}
 	got := []any{

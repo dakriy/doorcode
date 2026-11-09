@@ -130,7 +130,7 @@ func (a *App) listEvents(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	q.From, q.To = from, to
 	found, err := a.events.Find(r.Context(), event.Query{EventQuery: q, Page: page, PerPage: perPage})
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	writeEvents(w, found, page, perPage)
@@ -148,7 +148,7 @@ func writeEvents(w http.ResponseWriter, found event.Page, page, perPage int) {
 func (a *App) openDoorNow(w http.ResponseWriter, r *http.Request, caller auth.User) {
 	e, err := a.openDoor(r.Context(), pathID(r, "id"), caller)
 	if err != nil {
-		a.doorError(w, err)
+		a.doorError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, viewOfEvent(e))

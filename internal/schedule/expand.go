@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/date"
 )
 
 // Interval is the span of time from Start up to, but not including, End.
@@ -18,14 +19,14 @@ type Interval struct {
 // cut to the range. Windows are read in zone: a window opens on each of its
 // days at its start time on that day's local clock, and closes at its end
 // time on the same day or, when the end is not after the start, the next
-// one. A window does not open on an excluded date, nor on a date outside
-// the effective range; one that opens inside it may close after it.
+// one. A window does not open on a day of an excluded range, nor on a date
+// outside the effective range; one that opens inside it may close after it.
 func Expand(sch connector.StoredSchedule, zone *time.Location, from, to time.Time) []Interval {
 	var found []Interval
 	// A window opens at most a day before it closes, so the day before the
 	// range is the earliest whose windows can reach it.
-	last := DateOf(to, zone)
-	for day := DateOf(from, zone).AddDate(0, 0, -1); !day.After(last); day = day.AddDate(0, 0, 1) {
+	last := date.Of(to, zone)
+	for day := date.Of(from, zone).AddDate(0, 0, -1); !day.After(last); day = day.AddDate(0, 0, 1) {
 		if !opensOn(sch, day) {
 			continue
 		}
@@ -40,27 +41,14 @@ func Expand(sch connector.StoredSchedule, zone *time.Location, from, to time.Tim
 }
 
 // ExpandDays is Expand from the start of the date first to the end of the
-// date last in zone, with every time in zone. Dates are midnight UTC on the
-// day they name.
+// date last in zone, with every time in zone.
 func ExpandDays(sch connector.StoredSchedule, zone *time.Location, first, last time.Time) []Interval {
-	intervals := Expand(sch, zone, StartOf(first, zone), StartOf(last.AddDate(0, 0, 1), zone))
+	intervals := Expand(sch, zone, date.StartOf(first, zone), date.StartOf(last.AddDate(0, 0, 1), zone))
 	for i := range intervals {
 		intervals[i].Start = intervals[i].Start.In(zone)
 		intervals[i].End = intervals[i].End.In(zone)
 	}
 	return intervals
-}
-
-// StartOf is the start of the date day in zone. Dates are midnight UTC on
-// the day they name.
-func StartOf(day time.Time, zone *time.Location) time.Time {
-	return at(day, 0, zone)
-}
-
-// DateOf is the date t falls on in zone, as midnight UTC on that date.
-func DateOf(t time.Time, zone *time.Location) time.Time {
-	local := t.In(zone)
-	return time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.UTC)
 }
 
 // opensOn reports whether sch's windows may open on day.
@@ -71,7 +59,9 @@ func opensOn(sch connector.StoredSchedule, day time.Time) bool {
 	if sch.EndsOn != nil && day.After(*sch.EndsOn) {
 		return false
 	}
-	return !slices.ContainsFunc(sch.Excluded, day.Equal)
+	return !slices.ContainsFunc(sch.Excluded, func(r connector.StoredExclusion) bool {
+		return !day.Before(r.First) && !day.After(r.Last)
+	})
 }
 
 // occurrence is the interval w covers when it opens on day.

@@ -67,11 +67,11 @@ func TestGroupRequestIsChecked(t *testing.T) {
 		"capital letters":      {body: `{"slug":"Night","name":"A"}`, want: slugHint},
 		"double dash":          {body: `{"slug":"a--b","name":"A"}`, want: slugHint},
 		"trailing dash":        {body: `{"slug":"a-","name":"A"}`, want: slugHint},
-		"slug too long":        {body: `{"slug":"` + repeat("a", 65) + `","name":"A"}`, want: slugHint},
+		"slug too long":        {body: `{"slug":"` + testsupport.Repeat("a", 65) + `","name":"A"}`, want: slugHint},
 		"slug taken":           {body: `{"slug":"administrators","name":"A"}`, want: "Another group has this slug."},
 		"no name":              {body: `{"slug":"a","name":" "}`, want: "Enter a name."},
-		"name too long":        {body: `{"slug":"a","name":"` + repeat("x", 101) + `"}`, want: "Use at most 100 characters."},
-		"description too long": {body: `{"slug":"a","name":"A","description":"` + repeat("x", 1001) + `"}`, want: "Use at most 1000 characters."},
+		"name too long":        {body: `{"slug":"a","name":"` + testsupport.Repeat("x", 101) + `"}`, want: "Use at most 100 characters."},
+		"description too long": {body: `{"slug":"a","name":"A","description":"` + testsupport.Repeat("x", 1001) + `"}`, want: "Use at most 1000 characters."},
 		"unknown role":         {body: `{"slug":"a","name":"A","roles":["admin","root"]}`, want: "Choose roles from the list."},
 		"bad user id": {body: `{"slug":"a","name":"A","preassigned_user_ids":["1","a b"]}`,
 			want: "Use up to 64 letters, digits, dots, dashes, or underscores. “a b” is not."},
@@ -91,10 +91,10 @@ func TestGroupRequestIsChecked(t *testing.T) {
 func TestGroupRequestAcceptsTheEdgesOfItsRanges(t *testing.T) {
 	t.Parallel()
 	bodies := map[string]string{
-		"64 character slug":          `{"slug":"` + repeat("a", 64) + `","name":"A"}`,
+		"64 character slug":          `{"slug":"` + testsupport.Repeat("a", 64) + `","name":"A"}`,
 		"slug of words":              `{"slug":"a1-b2-c3","name":"A"}`,
-		"100 character name":         `{"slug":"a","name":"` + repeat("é", 100) + `"}`,
-		"1000 character description": `{"slug":"a","name":"A","description":"` + repeat("é", 1000) + `"}`,
+		"100 character name":         `{"slug":"a","name":"` + testsupport.Repeat("é", 100) + `"}`,
+		"1000 character description": `{"slug":"a","name":"A","description":"` + testsupport.Repeat("é", 1000) + `"}`,
 		"every role":                 `{"slug":"a","name":"A","roles":["admin","manage-users","manage-doors","manage-groups","manage-schedules","manage-firmware","view-logs","door-commander"]}`,
 		"a role named twice":         `{"slug":"a","name":"A","roles":["admin","admin"]}`,
 	}

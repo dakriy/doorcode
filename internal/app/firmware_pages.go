@@ -195,17 +195,17 @@ func windowOf(all []settings.Setting) windowForm {
 func (a *App) showFirmware(w http.ResponseWriter, r *http.Request, status int, viewer auth.User, upload firmware.Fields, errs map[string]string, entered *windowForm) {
 	all, err := a.settings.List(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	current, err := a.settings.Current(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	plan, err := a.firmware.Plan(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	window := windowOf(all)
@@ -319,7 +319,7 @@ func (a *App) showFirmwareVersion(w http.ResponseWriter, r *http.Request, status
 	}
 	plan, err := a.firmware.Plan(r.Context())
 	if err != nil {
-		a.pageError(w, err)
+		a.pageError(w, r, err)
 		return
 	}
 	content := firmwareVersionContent{

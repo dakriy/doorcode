@@ -21,7 +21,7 @@ type groupRequest struct {
 	Name               string   `json:"name" doc:"The group's name, up to 100 characters."`
 	Description        string   `json:"description,omitempty" doc:"What the group is for, up to 1000 characters."`
 	Roles              []string `json:"roles,omitempty" doc:"The roles the group carries: admin, manage-users, manage-doors, manage-groups, manage-schedules, manage-firmware, view-logs, door-commander. The caller must hold each."`
-	PreassignedUserIDs []string `json:"preassigned_user_ids,omitempty" doc:"User ids whose users join the group when they are created."`
+	PreassignedUserIDs []string `json:"preassigned_user_ids,omitempty" doc:"User ids whose users join the group when they are created; an id leaves the list as its user joins."`
 }
 
 var (
@@ -89,7 +89,7 @@ func (a *App) groupRoutes() []route {
 func (a *App) listGroups(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	groups, err := a.directory.Groups(r.Context())
 	if err != nil {
-		a.internalError(w, err)
+		a.internalError(w, r, err)
 		return
 	}
 	views := make([]groupView, 0, len(groups))
@@ -116,7 +116,7 @@ func (a *App) createGroup(w http.ResponseWriter, r *http.Request, caller auth.Us
 	}
 	g, err := a.directory.CreateGroup(r.Context(), caller, f)
 	if err != nil {
-		a.directoryError(w, err)
+		a.directoryError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, viewOfGroup(g))
@@ -125,7 +125,7 @@ func (a *App) createGroup(w http.ResponseWriter, r *http.Request, caller auth.Us
 func (a *App) getGroup(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	g, err := a.directory.Group(r.Context(), pathID(r, "id"))
 	if err != nil {
-		a.directoryError(w, err)
+		a.directoryError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, viewOfGroup(g))
@@ -138,29 +138,29 @@ func (a *App) updateGroup(w http.ResponseWriter, r *http.Request, caller auth.Us
 	}
 	g, err := a.directory.UpdateGroup(r.Context(), caller, pathID(r, "id"), f)
 	if err != nil {
-		a.directoryError(w, err)
+		a.directoryError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, viewOfGroup(g))
 }
 
 func (a *App) deleteGroup(w http.ResponseWriter, r *http.Request, caller auth.User) {
-	a.noContent(w, a.directory.DeleteGroup(r.Context(), caller, pathID(r, "id")))
+	a.noContent(w, r, a.directory.DeleteGroup(r.Context(), caller, pathID(r, "id")))
 }
 
 func (a *App) listMembers(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	_, members, err := a.directory.Members(r.Context(), pathID(r, "id"))
 	if err != nil {
-		a.directoryError(w, err)
+		a.directoryError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, memberList{Members: a.viewsOfUsers(members)})
 }
 
 func (a *App) addMember(w http.ResponseWriter, r *http.Request, caller auth.User) {
-	a.noContent(w, a.directory.AddMember(r.Context(), caller, pathID(r, "id"), pathID(r, "user")))
+	a.noContent(w, r, a.directory.AddMember(r.Context(), caller, pathID(r, "id"), pathID(r, "user")))
 }
 
 func (a *App) removeMember(w http.ResponseWriter, r *http.Request, caller auth.User) {
-	a.noContent(w, a.directory.RemoveMember(r.Context(), caller, pathID(r, "id"), pathID(r, "user")))
+	a.noContent(w, r, a.directory.RemoveMember(r.Context(), caller, pathID(r, "id"), pathID(r, "user")))
 }

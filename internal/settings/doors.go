@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net/netip"
 	"slices"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/dakriy/doorcode/internal/check"
 )
@@ -17,11 +17,12 @@ import (
 // default; the rest of the key is the field's name.
 const doorPrefix = "door_"
 
-// hostHint is what a time server must be; 253 characters is the longest
-// host name there is.
+// hostHint is what a time server must be, a host name as check.HostName
+// takes it. brokerHint is what a broker host must be: empty tells the door
+// to keep the broker it connects to.
 const (
-	maxHostLength = 253
-	hostHint      = "a host name of up to 253 letters, digits, dots, and hyphens"
+	hostHint   = "a host name of up to 253 letters, digits, dots, and hyphens"
+	brokerHint = "a host name of up to 253 letters, digits, dots, and hyphens, an IP address, or nothing to keep the door's broker"
 )
 
 // DoorConfig is the configuration a door runs with. Durations are whole
@@ -40,6 +41,7 @@ type DoorConfig struct {
 	RateLimitPerMinute     int
 	RateLimitBurst         int
 	NTPServer              string
+	BrokerHost             string
 	LogLevel               string
 }
 
@@ -100,6 +102,7 @@ var DoorFields = []DoorField{
 	wholeField("rate_limit_burst", "Code checks in a burst", "10", 1, 1000, "checks", func(c *DoorConfig) *int { return &c.RateLimitBurst }),
 	{
 		Name: "ntp_server", Label: "Time server", Hint: hostHint, fallback: "pool.ntp.org", set: setHost},
+	{Name: "broker_host", Label: "Broker host", Hint: brokerHint, fallback: "", set: setBrokerHost},
 	choiceField("log_level", "Log level", "info", []string{"error", "warn", "info", "debug"}, func(c *DoorConfig) *string { return &c.LogLevel }),
 }
 
@@ -130,31 +133,21 @@ func choiceField(name, label, fallback string, choices []string, at func(*DoorCo
 // setHost keeps value as the time server when it is a host name.
 func setHost(c *DoorConfig, value string) error {
 	c.NTPServer = value
-	if !isHostName(value) {
+	if !check.HostName(value) {
 		return errors.New("must be " + hostHint)
 	}
 	return nil
 }
 
-// isHostName reports whether value is what hostHint says a host name is.
-func isHostName(value string) bool {
-	if value == "" || utf8.RuneCountInString(value) > maxHostLength {
-		return false
+// setBrokerHost keeps value as the broker the door connects to when it is
+// empty, a host name, or an IP address.
+func setBrokerHost(c *DoorConfig, value string) error {
+	c.BrokerHost = value
+	_, notAddress := netip.ParseAddr(value)
+	if value != "" && !check.HostName(value) && notAddress != nil {
+		return errors.New("must be " + brokerHint)
 	}
-	for _, r := range value {
-		if !hostRune(r) {
-			return false
-		}
-	}
-	return true
-}
-
-// hostRune reports whether r may appear in a host name: a letter, a
-// digit, a dot, or a hyphen.
-func hostRune(r rune) bool {
-	letter := ('a' <= r && r <= 'z') || ('A' <= r && r <= 'Z')
-	digit := '0' <= r && r <= '9'
-	return letter || digit || r == '.' || r == '-'
+	return nil
 }
 
 // doorDefinitions is the setting of each door field's default.

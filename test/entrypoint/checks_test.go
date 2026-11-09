@@ -9,9 +9,10 @@ import (
 	"github.com/dakriy/doorcode/internal/testsupport"
 )
 
-// keypad is a broker site where the controller of Lobby (1) is connected
-// and listens for its replies, with the schedules Weekdays (2, active on
-// the stub clock's Monday morning) and Nights (3, not), the groups Staff
+// keypad is a broker site where the controller of Lobby (1, in the zone
+// North (1); Annex (2) holds no door) is connected and listens for its
+// replies, with the schedules Weekdays (2, active on the stub clock's
+// Monday morning) and Nights (3, not), the groups Staff
 // (2) and Commanders (3, carrying door-commander), and the users Ann (2,
 // code 111111) and Eve (4, code 333333, expired) in Staff and Cid (3,
 // code 222222) in Commanders.
@@ -32,6 +33,7 @@ func keypadSite(t *testing.T, f *testsupport.Factory) *keypad {
 		t.Fatal(err)
 	}
 	furnishDoorSite(t, b)
+	send(t, b, "PUT", "/api/v1/zones/1", `{"name":"North","door_ids":[1]}`, 200)
 	createGroup(t, b, `{"slug":"staff","name":"Staff"}`)
 	createGroup(t, b, `{"slug":"commanders","name":"Commanders","roles":["door-commander"]}`)
 	createUser(t, b, ann)
@@ -102,7 +104,7 @@ const (
 
 func TestEachStepOfTheDecisionChainDecidesInItsOrder(t *testing.T) {
 	t.Parallel()
-	staffRule := func(k *keypad) { createRule(k.t, k.b, `{"group_id":2,"schedule_id":2,"door_ids":[1]}`) }
+	staffRule := func(k *keypad) { createRule(k.t, k.b, `{"group_id":2,"schedule_id":2,"zone_ids":[1]}`) }
 	cases := map[string]struct {
 		arrange func(k *keypad)
 		digits  string
@@ -140,7 +142,7 @@ func TestEachStepOfTheDecisionChainDecidesInItsOrder(t *testing.T) {
 			createOverride(k.t, k.b, "1", lockedNow)
 		}, "999999", denied, checked("1", "denied", "locked", "")},
 		"a locked override wins over open mode": {func(k *keypad) {
-			send(k.t, k.b, "PUT", "/api/v1/doors/1", `{"name":"Lobby","open_schedule_ids":[2]}`, 200)
+			send(k.t, k.b, "PUT", "/api/v1/zones/1", `{"name":"North","door_ids":[1],"open_schedule_ids":[2]}`, 200)
 			createOverride(k.t, k.b, "1", lockedNow)
 		}, "999999", denied, checked("1", "denied", "locked", "")},
 		"an open override lets an unknown code in": {func(k *keypad) {
@@ -150,26 +152,33 @@ func TestEachStepOfTheDecisionChainDecidesInItsOrder(t *testing.T) {
 			createOverride(k.t, k.b, "1", `{"kind":"locked","start":"2026-01-05T10:00:00Z","end":"2026-01-05T11:00:00Z"}`)
 			staffRule(k)
 		}, "111111", allowed, checked("1", "allowed", "access rule", byAnn+`,"rule_id":1`)},
-		"an unknown code during open mode gets in": {func(k *keypad) {
-			send(k.t, k.b, "PUT", "/api/v1/doors/1", `{"name":"Lobby","open_schedule_ids":[3,2]}`, 200)
+		"an unknown code during open mode of the door's zone gets in": {func(k *keypad) {
+			send(k.t, k.b, "PUT", "/api/v1/zones/1", `{"name":"North","door_ids":[1],"open_schedule_ids":[3,2]}`, 200)
+		}, "999999", allowed, checked("1", "allowed", "open mode", "")},
+		"an unknown code during open mode of either of the door's zones gets in": {func(k *keypad) {
+			send(k.t, k.b, "PUT", "/api/v1/zones/1", `{"name":"North","door_ids":[1],"open_schedule_ids":[3]}`, 200)
+			send(k.t, k.b, "PUT", "/api/v1/zones/2", `{"name":"Annex","door_ids":[1],"open_schedule_ids":[2]}`, 200)
 		}, "999999", allowed, checked("1", "allowed", "open mode", "")},
 		"open mode outside its schedule lets no one in": {func(k *keypad) {
-			send(k.t, k.b, "PUT", "/api/v1/doors/1", `{"name":"Lobby","open_schedule_ids":[3]}`, 200)
+			send(k.t, k.b, "PUT", "/api/v1/zones/1", `{"name":"North","door_ids":[1],"open_schedule_ids":[3]}`, 200)
 		}, "999999", denied, checked("1", "denied", "no rule", "")},
-		"a rule naming the door lets a member of its group in": {func(k *keypad) {
-			createDoor(k.t, k.b, `{"name":"Dock"}`)
-			createRule(k.t, k.b, `{"group_id":3,"schedule_id":2,"door_ids":[1]}`)
-			createRule(k.t, k.b, `{"group_id":2,"schedule_id":3,"door_ids":[1]}`)
-			createRule(k.t, k.b, `{"group_id":2,"schedule_id":2,"door_ids":[2]}`)
-			createRule(k.t, k.b, `{"group_id":2,"schedule_id":1,"door_ids":[1]}`)
+		"open mode of a zone the door is not in lets no one in": {func(k *keypad) {
+			send(k.t, k.b, "PUT", "/api/v1/zones/2", `{"name":"Annex","open_schedule_ids":[2]}`, 200)
+		}, "999999", denied, checked("1", "denied", "no rule", "")},
+		"a rule reaching one of the door's zones lets a member of its group in": {func(k *keypad) {
+			createDoor(k.t, k.b, `{"name":"Dock","zone_ids":[2]}`)
+			createRule(k.t, k.b, `{"group_id":3,"schedule_id":2,"zone_ids":[1]}`)
+			createRule(k.t, k.b, `{"group_id":2,"schedule_id":3,"zone_ids":[1]}`)
+			createRule(k.t, k.b, `{"group_id":2,"schedule_id":2,"zone_ids":[2]}`)
+			createRule(k.t, k.b, `{"group_id":2,"schedule_id":1,"zone_ids":[1]}`)
 		}, "111111", allowed, checked("1", "allowed", "access rule", byAnn+`,"rule_id":4`)},
 		"a rule reaching the door through a zone lets a member in": {func(k *keypad) {
 			send(k.t, k.b, "PUT", "/api/v1/doors/1", `{"name":"Lobby","zone_ids":[2]}`, 200)
 			createRule(k.t, k.b, `{"group_id":2,"schedule_id":2,"zone_ids":[2]}`)
 		}, "111111", allowed, checked("1", "allowed", "access rule", byAnn+`,"rule_id":1`)},
 		"a known user outside any rule is denied with no rule": {func(k *keypad) {
-			createRule(k.t, k.b, `{"group_id":2,"schedule_id":3,"door_ids":[1]}`)
-			createRule(k.t, k.b, `{"group_id":3,"schedule_id":2,"door_ids":[1]}`)
+			createRule(k.t, k.b, `{"group_id":2,"schedule_id":3,"zone_ids":[1]}`)
+			createRule(k.t, k.b, `{"group_id":3,"schedule_id":2,"zone_ids":[1]}`)
 		}, "111111", denied, checked("1", "denied", "no rule", byAnn)},
 		"an unknown code is denied with no rule": {staffRule, "999999", denied, checked("1", "denied", "no rule", "")},
 	}
@@ -309,7 +318,7 @@ func TestACheckWhoseReplyCannotBeSentIsLoggedAsDeniedUnreachableWithTheRuleThatD
 	t.Parallel()
 	f := testsupport.NewFactory()
 	k := keypadSite(t, f)
-	createRule(t, k.b, `{"group_id":2,"schedule_id":2,"door_ids":[1]}`)
+	createRule(t, k.b, `{"group_id":2,"schedule_id":2,"zone_ids":[1]}`)
 	f.BrokerStub.FailPublishing()
 
 	k.press("111111")
@@ -338,6 +347,7 @@ func TestACheckThatCannotBeHandledIsLoggedAndIgnored(t *testing.T) {
 		"users that cannot be read":          {"doorcode/doors/1/check", check, func(f *testsupport.Factory) { f.StoreStub.FailUsers() }, "stub: unavailable"},
 		"overrides that cannot be read":      {"doorcode/doors/1/check", check, func(f *testsupport.Factory) { f.StoreStub.FailOverrides() }, "stub: unavailable"},
 		"schedules that cannot be read":      {"doorcode/doors/1/check", check, func(f *testsupport.Factory) { f.StoreStub.FailSchedules() }, "stub: unavailable"},
+		"zones that cannot be read":          {"doorcode/doors/1/check", check, func(f *testsupport.Factory) { f.StoreStub.FailZones() }, "stub: unavailable"},
 		"rules that cannot be read":          {"doorcode/doors/1/check", check, func(f *testsupport.Factory) { f.StoreStub.FailRules() }, "stub: unavailable"},
 		"an event that cannot be stored":     {"doorcode/doors/1/check", check, func(f *testsupport.Factory) { f.StoreStub.FailEventWrites() }, "stub: unavailable"},
 	}
@@ -359,5 +369,32 @@ func TestACheckThatCannotBeHandledIsLoggedAndIgnored(t *testing.T) {
 				t.Errorf("log (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestTheKeypadAndThePortalAgreeAtADoorInTwoZones(t *testing.T) {
+	t.Parallel()
+	k := keypadSite(t, testsupport.NewFactory())
+	createSchedule(t, k.b, `{"name":"Evenings","windows":[{"days":["mon"],"start":"18:00","end":"20:00"}]}`)
+	send(t, k.b, "PUT", "/api/v1/doors/1", `{"name":"Lobby","public":true,"zone_ids":[1,2]}`, 200)
+	send(t, k.b, "PUT", "/api/v1/zones/2", `{"name":"Annex","door_ids":[1],"open_schedule_ids":[4]}`, 200)
+	createRule(t, k.b, `{"group_id":2,"schedule_id":2,"zone_ids":[2]}`)
+	ann := signedInAs(t, k.b, "2", annEmail)
+
+	var got []any
+	for _, at := range []string{"2026-01-05T09:00:00Z", "2026-01-05T19:00:00Z", "2026-01-05T20:30:00Z"} {
+		k.at(at)
+		portal := pageOf(ann.Get("/me/access")).Tables["Your doors"][1][1]
+		k.press("111111")
+		got = append(got, []any{portal, k.reasons()[0]})
+	}
+
+	want := []any{
+		[]any{"Your code works now", "access rule"},
+		[]any{"Open now", "open mode"},
+		[]any{"Your code works at set times", "no rule"},
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("what the portal says and the keypad decides at 09:00, 19:00, 20:30 (-want +got):\n%s", diff)
 	}
 }

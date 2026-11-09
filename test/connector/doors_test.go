@@ -16,7 +16,7 @@ var doorCreated = time.Date(2026, 1, 5, 9, 0, 0, 0, time.UTC)
 
 // plainDoor is a door with a name and nothing else.
 func plainDoor(name string) connector.StoredDoor {
-	return connector.StoredDoor{Name: name, OpenScheduleIDs: []int64{}, ZoneIDs: []int64{}, CreatedAt: doorCreated}
+	return connector.StoredDoor{Name: name, ZoneIDs: []int64{}, CreatedAt: doorCreated}
 }
 
 func mustCreateDoor(t *testing.T, store connector.Store, d connector.StoredDoor) int64 {
@@ -56,15 +56,14 @@ func mustAddPicture(t *testing.T, store connector.Store, doorID int64, image, th
 	return id
 }
 
-func TestStoreCreatesADoorWithItsSchedulesAndZones(t *testing.T) {
+func TestStoreCreatesADoorWithItsZones(t *testing.T) {
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {
 			store := migrated(t, impl)
-			nights := mustCreateSchedule(t, store, plainSchedule("Nights"))
 			zone := mustCreateZone(t, store, connector.StoredZone{Name: "North", DoorIDs: []int64{}})
 			d := connector.StoredDoor{
 				Name: "Lobby", Location: "Building A", Notes: "Side.", Public: true,
-				OpenScheduleIDs: []int64{1, nights}, ZoneIDs: []int64{zone}, CreatedAt: doorCreated,
+				ZoneIDs: []int64{zone}, CreatedAt: doorCreated,
 			}
 
 			id := mustCreateDoor(t, store, d)
@@ -93,9 +92,9 @@ func TestStoreListsDoorsByNameIgnoringCase(t *testing.T) {
 
 			var got []any
 			for _, d := range all {
-				got = append(got, []any{d.ID, d.Name, d.OpenScheduleIDs, d.ZoneIDs})
+				got = append(got, []any{d.ID, d.Name, d.ZoneIDs})
 			}
-			want := []any{[]any{int64(2), "Dock", []int64{}, []int64{}}, []any{int64(1), "lobby", []int64{}, []int64{}}}
+			want := []any{[]any{int64(2), "Dock", []int64{}}, []any{int64(1), "lobby", []int64{}}}
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("doors (-want +got):\n%s", diff)
 			}
@@ -103,19 +102,18 @@ func TestStoreListsDoorsByNameIgnoringCase(t *testing.T) {
 	}
 }
 
-func TestStoreUpdatesADoorReplacingItsSchedulesAndZones(t *testing.T) {
+func TestStoreUpdatesADoorReplacingItsZones(t *testing.T) {
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {
 			store := migrated(t, impl)
-			nights := mustCreateSchedule(t, store, plainSchedule("Nights"))
 			north := mustCreateZone(t, store, connector.StoredZone{Name: "North", DoorIDs: []int64{}})
 			annex := mustCreateZone(t, store, connector.StoredZone{Name: "Annex", DoorIDs: []int64{}})
 			start := plainDoor("Lobby")
-			start.OpenScheduleIDs, start.ZoneIDs = []int64{1}, []int64{north}
+			start.ZoneIDs = []int64{north}
 			id := mustCreateDoor(t, store, start)
 			changed := connector.StoredDoor{
 				ID: id, Name: "Main lobby", Location: "B", Notes: "N", Public: true,
-				OpenScheduleIDs: []int64{nights}, ZoneIDs: []int64{annex}, CreatedAt: time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC),
+				ZoneIDs: []int64{annex}, CreatedAt: time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC),
 			}
 
 			updated, err := store.UpdateDoor(context.Background(), changed)
@@ -178,10 +176,6 @@ func TestStoreRefusesWhatADoorCannotHold(t *testing.T) {
 			d.Name = "LOBBY"
 			return d
 		},
-		"an unknown schedule": func(d connector.StoredDoor) connector.StoredDoor {
-			d.OpenScheduleIDs = []int64{9}
-			return d
-		},
 		"an unknown zone": func(d connector.StoredDoor) connector.StoredDoor {
 			d.ZoneIDs = []int64{9}
 			return d
@@ -203,22 +197,21 @@ func TestStoreRefusesWhatADoorCannotHold(t *testing.T) {
 	}
 }
 
-func TestStoreTakesADeletedScheduleOffItsDoors(t *testing.T) {
+func TestStoreTakesADeletedScheduleOffItsZones(t *testing.T) {
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {
 			ctx := context.Background()
 			store := migrated(t, impl)
 			nights := mustCreateSchedule(t, store, plainSchedule("Nights"))
-			d := plainDoor("Lobby")
-			d.OpenScheduleIDs = []int64{1, nights}
-			id := mustCreateDoor(t, store, d)
+			id := mustCreateZone(t, store, connector.StoredZone{Name: "North", DoorIDs: []int64{}, OpenScheduleIDs: []int64{nights, 1}})
 
 			if _, err := store.DeleteSchedule(ctx, nights); err != nil {
 				t.Fatal(err)
 			}
 
-			if diff := cmp.Diff([]int64{1}, mustDoor(t, store, id).OpenScheduleIDs); diff != "" {
-				t.Errorf("open schedules (-want +got):\n%s", diff)
+			z, _, err := store.Zone(ctx, id)
+			if diff := cmp.Diff([]any{[]int64{1}, nil}, []any{z.OpenScheduleIDs, err}); diff != "" {
+				t.Errorf("open schedules, error (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -320,14 +313,17 @@ func TestStoreRefusesAPictureWithoutItsDoorOrData(t *testing.T) {
 	}
 }
 
-func TestStoreKeepsZonesAndTheirDoors(t *testing.T) {
+func TestStoreKeepsZonesWithTheirDoorsAndOpenModeSchedules(t *testing.T) {
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {
 			ctx := context.Background()
 			store := migrated(t, impl)
+			nights := mustCreateSchedule(t, store, plainSchedule("Nights"))
 			lobby := mustCreateDoor(t, store, plainDoor("Lobby"))
 			dock := mustCreateDoor(t, store, plainDoor("Dock"))
-			west := mustCreateZone(t, store, connector.StoredZone{Name: "west", Description: "West wing.", DoorIDs: []int64{dock, lobby}})
+			west := mustCreateZone(t, store, connector.StoredZone{
+				Name: "west", Description: "West wing.", DoorIDs: []int64{dock, lobby}, OpenScheduleIDs: []int64{nights, 1},
+			})
 			east := mustCreateZone(t, store, connector.StoredZone{Name: "East", DoorIDs: []int64{lobby}})
 
 			zones, err := store.Zones(ctx)
@@ -336,10 +332,10 @@ func TestStoreKeepsZonesAndTheirDoors(t *testing.T) {
 
 			want := []any{
 				[]connector.StoredZone{
-					{ID: east, Name: "East", DoorIDs: []int64{lobby}},
-					{ID: west, Name: "west", Description: "West wing.", DoorIDs: []int64{lobby, dock}},
+					{ID: east, Name: "East", DoorIDs: []int64{lobby}, OpenScheduleIDs: []int64{}},
+					{ID: west, Name: "west", Description: "West wing.", DoorIDs: []int64{lobby, dock}, OpenScheduleIDs: []int64{1, nights}},
 				}, nil,
-				connector.StoredZone{ID: west, Name: "west", Description: "West wing.", DoorIDs: []int64{lobby, dock}}, true, nil,
+				connector.StoredZone{ID: west, Name: "west", Description: "West wing.", DoorIDs: []int64{lobby, dock}, OpenScheduleIDs: []int64{1, nights}}, true, nil,
 				[]int64{west, east},
 			}
 			if diff := cmp.Diff(want, []any{zones, err, zone, found, zoneErr, door}); diff != "" {
@@ -349,15 +345,16 @@ func TestStoreKeepsZonesAndTheirDoors(t *testing.T) {
 	}
 }
 
-func TestStoreUpdatesAZoneReplacingItsDoors(t *testing.T) {
+func TestStoreUpdatesAZoneReplacingItsDoorsAndOpenModeSchedules(t *testing.T) {
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {
 			ctx := context.Background()
 			store := migrated(t, impl)
+			nights := mustCreateSchedule(t, store, plainSchedule("Nights"))
 			lobby := mustCreateDoor(t, store, plainDoor("Lobby"))
 			dock := mustCreateDoor(t, store, plainDoor("Dock"))
-			id := mustCreateZone(t, store, connector.StoredZone{Name: "West", DoorIDs: []int64{lobby}})
-			changed := connector.StoredZone{ID: id, Name: "West wing", Description: "D", DoorIDs: []int64{dock}}
+			id := mustCreateZone(t, store, connector.StoredZone{Name: "West", DoorIDs: []int64{lobby}, OpenScheduleIDs: []int64{1}})
+			changed := connector.StoredZone{ID: id, Name: "West wing", Description: "D", DoorIDs: []int64{dock}, OpenScheduleIDs: []int64{nights}}
 
 			updated, err := store.UpdateZone(ctx, changed)
 			got, _, _ := store.Zone(ctx, id)
@@ -410,6 +407,7 @@ func TestStoreRefusesWhatAZoneCannotHold(t *testing.T) {
 	cases := map[string]connector.StoredZone{
 		"a taken name ignoring case": {Name: "WEST", DoorIDs: []int64{}},
 		"an unknown door":            {Name: "East", DoorIDs: []int64{9}},
+		"an unknown schedule":        {Name: "East", DoorIDs: []int64{}, OpenScheduleIDs: []int64{9}},
 	}
 	for _, impl := range storeImpls {
 		for name, z := range cases {

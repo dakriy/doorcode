@@ -24,6 +24,7 @@ import (
 	"github.com/dakriy/doorcode/internal/demo"
 	"github.com/dakriy/doorcode/internal/demo/memstore"
 	"github.com/dakriy/doorcode/internal/driver/cryptoentropy"
+	"github.com/dakriy/doorcode/internal/driver/dnsresolver"
 	"github.com/dakriy/doorcode/internal/driver/oidcprovider"
 	"github.com/dakriy/doorcode/internal/driver/osenv"
 	"github.com/dakriy/doorcode/internal/driver/slogjson"
@@ -41,6 +42,7 @@ type factory struct {
 func (factory) Clock() connector.Clock               { return systemclock.Clock{} }
 func (factory) Entropy() connector.Entropy           { return cryptoentropy.Source{} }
 func (f factory) Environment() connector.Environment { return f.env }
+func (factory) Resolver() connector.Resolver         { return dnsresolver.Resolver{} }
 func (factory) TimeZones() connector.TimeZones       { return tzdb.Zones{} }
 func (f factory) Log() connector.Log                 { return f.log }
 func (f factory) Store() connector.Store             { return f.store }
@@ -90,7 +92,8 @@ func serve(ctx context.Context, a *app.App, f factory, site demo.Site, listen st
 	}
 	srv := &http.Server{Addr: listen, Handler: a.Handler(), ReadHeaderTimeout: 10 * time.Second}
 	go func() { stopped <- srv.ListenAndServe() }()
-	fmt.Printf("doorcode demo on %s\nsign in as %s with the password %s\n", listen, site.AdminEmail, demo.AdminPassword)
+	fmt.Printf("doorcode demo on %s\nsign in as %s with the password %s to administer the site,\nor as %s with the password %s to see it as a member of staff\n",
+		listen, site.AdminEmail, demo.AdminPassword, demo.MemberEmail, demo.MemberPassword)
 	return <-stopped
 }
 

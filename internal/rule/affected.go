@@ -5,19 +5,20 @@ import (
 	"slices"
 
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/timeline"
 )
 
-// The kinds of thing whose changes Affected traces to doors: the only
-// things besides a door's own open-mode schedules that its timeline
-// depends on. Access rules, zones, and groups decide who may enter, never
-// when a door is open or locked.
+// The kinds of thing whose changes Affected traces to doors: besides the
+// door itself, the only things its timeline depends on. Access rules and
+// groups decide who may enter, never when a door is open or locked.
 const (
 	OfSchedule = "schedule"
 	OfOverride = "override"
+	OfZone     = "zone"
 )
 
-// Subject is one schedule or override: Kind is one of the kinds above and
-// ID its id.
+// Subject is one schedule, override, or zone: Kind is one of the kinds
+// above and ID its id.
 type Subject struct {
 	Kind string
 	ID   int64
@@ -25,10 +26,14 @@ type Subject struct {
 
 // Affected returns the ids, ascending, of the doors that are not deleted
 // whose timeline depends on subject as things stand: for a schedule, the
-// doors in open mode during it; for an override, its door. An id that
-// names nothing affects no door.
+// doors in a zone in open mode during it; for an override, its door; for
+// a zone, its doors. An id that names nothing affects no door.
 func (s Service) Affected(ctx context.Context, subject Subject) ([]int64, error) {
 	doors, err := s.Store.Doors(ctx)
+	if err != nil {
+		return nil, err
+	}
+	zones, err := s.Store.Zones(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +43,7 @@ func (s Service) Affected(ctx context.Context, subject Subject) ([]int64, error)
 	}
 	ids := []int64{}
 	for _, d := range doors {
-		if d.DeletedAt == nil && (d.ID == overridden || opensDuring(subject, d)) {
+		if d.DeletedAt == nil && (d.ID == overridden || dependsOn(subject, d, zones)) {
 			ids = append(ids, d.ID)
 		}
 	}
@@ -56,8 +61,15 @@ func (s Service) overriddenDoor(ctx context.Context, subject Subject) (int64, er
 	return o.DoorID, err
 }
 
-// opensDuring reports whether subject is a schedule d is in open mode
-// during.
-func opensDuring(subject Subject, d connector.StoredDoor) bool {
-	return subject.Kind == OfSchedule && slices.Contains(d.OpenScheduleIDs, subject.ID)
+// dependsOn reports whether d's open mode, which the zones among zones
+// that it is in decide, depends on subject: a schedule it is in open mode
+// during, or a zone it is in.
+func dependsOn(subject Subject, d connector.StoredDoor, zones []connector.StoredZone) bool {
+	switch subject.Kind {
+	case OfSchedule:
+		return slices.Contains(timeline.OpenScheduleIDs(d, zones), subject.ID)
+	case OfZone:
+		return slices.Contains(d.ZoneIDs, subject.ID)
+	}
+	return false
 }

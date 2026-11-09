@@ -74,7 +74,7 @@ func TestADoorOpenedWithNothingUnlockingItIsLoggedAsForcedOpen(t *testing.T) {
 
 func TestADoorOpenedWithinTheStrikeWindowOfAnUnlockIsNotForced(t *testing.T) {
 	t.Parallel()
-	staffRule := `{"group_id":2,"schedule_id":2,"door_ids":[1]}`
+	staffRule := `{"group_id":2,"schedule_id":2,"zone_ids":[1]}`
 	cases := map[string]struct {
 		unlock func(k *keypad)
 		opened string
@@ -103,7 +103,7 @@ func TestADoorOpenedWithinTheStrikeWindowOfAnUnlockIsNotForced(t *testing.T) {
 			createOverride(k.t, k.b, "1", lockedNow)
 		}, "2026-01-05T10:00:00Z", []any{"forced open"}},
 		"open mode": {func(k *keypad) {
-			send(k.t, k.b, "PUT", "/api/v1/doors/1", `{"name":"Lobby","open_schedule_ids":[2]}`, 200)
+			send(k.t, k.b, "PUT", "/api/v1/zones/1", `{"name":"North","door_ids":[1],"open_schedule_ids":[2]}`, 200)
 		}, "2026-01-05T10:00:00Z", []any{}},
 		"a longer strike pulse": {func(k *keypad) {
 			createRule(k.t, k.b, staffRule)
@@ -318,8 +318,8 @@ func TestWhatADoorSaysOfItselfThatCannotBeHandledIsLoggedAndIgnored(t *testing.T
 		}, "invalid value for door_strike_pulse_ms: must be a whole number of milliseconds from 100 to 60000"},
 		"an opening when events cannot be read": {event, opened, func(f *testsupport.Factory) { f.StoreStub.FailEvents() }, unavailable},
 		"an opening when a setting is invalid": {event, opened, func(f *testsupport.Factory) {
-			f.StoreStub.SeedSetting("door_credential_grace_hours", "0", testsupport.DefaultNow)
-		}, "invalid value for door_credential_grace_hours: must be a whole number of hours from 1 to 8760"},
+			f.StoreStub.SeedSetting("telemetry_retention_days", "0", testsupport.DefaultNow)
+		}, "invalid value for telemetry_retention_days: must be a whole number of days from 1 to 365"},
 		"an opening when schedules cannot be read": {event, opened, func(f *testsupport.Factory) { f.StoreStub.FailSchedules() }, unavailable},
 		"a forced opening that cannot be logged":   {event, opened, func(f *testsupport.Factory) { f.StoreStub.FailEventWrites() }, unavailable},
 		"a closing whose state cannot be stored": {

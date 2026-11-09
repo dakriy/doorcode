@@ -10,6 +10,7 @@ import (
 
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/driver/cryptoentropy"
+	"github.com/dakriy/doorcode/internal/driver/dnsresolver"
 	"github.com/dakriy/doorcode/internal/driver/osenv"
 	"github.com/dakriy/doorcode/internal/driver/slogjson"
 	"github.com/dakriy/doorcode/internal/driver/systemclock"
@@ -57,6 +58,20 @@ type zonesImpl struct {
 var zonesImpls = []zonesImpl{
 	{name: "stub", zones: func() connector.TimeZones { return testsupport.NewFactory().ZonesStub }},
 	{name: "tzdb", zones: func() connector.TimeZones { return tzdb.Zones{} }},
+}
+
+// resolverImpls are the resolvers, the stub told what the host's own
+// resolver says of localhost.
+var resolverImpls = []struct {
+	name     string
+	resolver func() connector.Resolver
+}{
+	{name: "stub", resolver: func() connector.Resolver {
+		r := &testsupport.Resolver{}
+		r.Resolve("localhost", "127.0.0.1", "::1")
+		return r
+	}},
+	{name: "dns", resolver: func() connector.Resolver { return dnsresolver.Resolver{} }},
 }
 
 // envImpl builds an environment where name is set to value, or is unset.

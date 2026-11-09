@@ -82,7 +82,7 @@
   <div class="sm:col-span-2">
     <label for="preassigned_user_ids" class="block text-sm font-medium">Pre-assigned user ids</label>
     <textarea id="preassigned_user_ids" name="preassigned_user_ids" rows="4" spellcheck="false"{{with index .Errors "preassigned_user_ids"}} aria-invalid="true" aria-describedby="preassigned_user_ids-error"{{end}} class="{{template "input-class"}} font-mono">{{.Preassigned}}</textarea>
-    {{template "field-note" (field "preassigned_user_ids" "" "" "" .Errors "One per line. A user with one of these user ids joins the group when they are created.")}}
+    {{template "field-note" (field "preassigned_user_ids" "" "" "" .Errors "One per line. A user with one of these user ids joins the group when they are created, and the id leaves this list.")}}
   </div>
   {{else}}
   <p role="note" class="sm:col-span-2 rounded-lg border border-dashed border-zinc-300 px-4 py-3 text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">{{with .PreassignedCount}}This group keeps {{.}} pre-assigned user {{if eq . 1}}id{{else}}ids{{end}}. {{end}}Pre-assigned user ids, which add people to the group when their account is created, are offered here once the user id claim is set in the settings.</p>
@@ -161,25 +161,28 @@
 
 <fieldset name="excluded" class="mt-8"{{with index .Errors "excluded"}} aria-invalid="true" aria-describedby="excluded-error"{{end}}>
   <legend class="text-sm font-medium">Excluded dates</legend>
-  <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">No window opens on these days, such as public holidays. A window that opens the day before still runs past midnight.</p>
+  <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">No window opens on these days, such as public holidays or a closure over the new year. Leave the last day empty to exclude one day. A window that opens the day before still runs past midnight.</p>
   {{with index .Errors "excluded"}}<p id="excluded-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{.}}</p>{{end}}
-  <ul class="mt-4 flex flex-wrap gap-3">
+  <ul class="mt-4 space-y-3">
     {{range $i, $d := .Excluded}}
-    {{$name := printf "excluded-%d" $i}}
+    {{$first := printf "excluded-%d-first" $i}}{{$last := printf "excluded-%d-last" $i}}
     <li>
-      <div class="flex items-center gap-1">
-        <input name="{{$name}}" type="date" value="{{$d}}" aria-label="Excluded date"{{with index $f.Errors $name}} aria-invalid="true" aria-describedby="{{$name}}-error"{{end}} class="{{template "input-base"}} w-44 tabular-nums">
-        <button type="submit" name="remove_date" value="{{$i}}" hx-post="{{$f.Action}}" hx-target="#schedule-form" hx-select="#schedule-form" hx-swap="outerHTML" aria-label="Remove this date" title="Remove this date" class="{{template "row-button-class"}}">
+      <div class="flex flex-wrap items-center gap-2">
+        <input name="{{$first}}" type="date" value="{{$d.First}}" aria-label="First excluded day"{{with index $f.Errors $first}} aria-invalid="true" aria-describedby="{{$first}}-error"{{end}} class="{{template "input-base"}} w-44 tabular-nums">
+        <span class="text-sm text-zinc-500 dark:text-zinc-400">to</span>
+        <input name="{{$last}}" type="date" value="{{$d.Last}}" aria-label="Last excluded day"{{with index $f.Errors $last}} aria-invalid="true" aria-describedby="{{$last}}-error"{{end}} class="{{template "input-base"}} w-44 tabular-nums">
+        <button type="submit" name="remove_date" value="{{$i}}" hx-post="{{$f.Action}}" hx-target="#schedule-form" hx-select="#schedule-form" hx-swap="outerHTML" aria-label="Remove these dates" title="Remove these dates" class="{{template "row-button-class"}}">
           <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
         </button>
       </div>
-      {{with index $f.Errors $name}}<p id="{{$name}}-error" class="mt-2 max-w-56 text-sm text-red-600 dark:text-red-400">{{.}}</p>{{end}}
+      {{with index $f.Errors $first}}<p id="{{$first}}-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{.}}</p>{{end}}
+      {{with index $f.Errors $last}}<p id="{{$last}}-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{.}}</p>{{end}}
     </li>
     {{else}}
     <li class="text-sm text-zinc-500 dark:text-zinc-400">No dates are excluded.</li>
     {{end}}
   </ul>
-  <button type="submit" name="add_date" value="1" hx-post="{{.Action}}" hx-target="#schedule-form" hx-select="#schedule-form" hx-swap="outerHTML" class="mt-3 {{template "secondary-class"}}">{{template "plus-icon"}}Add a date</button>
+  <button type="submit" name="add_date" value="1" hx-post="{{.Action}}" hx-target="#schedule-form" hx-select="#schedule-form" hx-swap="outerHTML" class="mt-3 {{template "secondary-class"}}">{{template "plus-icon"}}Add dates</button>
 </fieldset>
 {{end}}
 
@@ -222,14 +225,14 @@
      type. */}}
 {{define "choices"}}
 {{$name := .Name}}
-<fieldset name="{{.Name}}" data-combobox{{with .Error}} aria-invalid="true" aria-describedby="{{$name}}-error"{{end}}>
+<fieldset name="{{.Name}}" class="min-w-0" data-combobox{{with .Error}} aria-invalid="true" aria-describedby="{{$name}}-error"{{end}}>
   <legend class="sr-only">{{.Legend}}</legend>
   {{with .Error}}<p id="{{$name}}-error" class="mb-3 text-sm text-red-600 dark:text-red-400">{{.}}</p>{{end}}
   <ul class="space-y-2">
     {{range .Choices}}
     <li>
       <label class="flex cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5 ring-1 ring-zinc-200 ring-inset transition hover:bg-zinc-50 has-checked:bg-brand-50 has-checked:ring-brand-300 dark:ring-zinc-800 dark:hover:bg-zinc-800/40 dark:has-checked:bg-brand-950 dark:has-checked:ring-brand-700">
-        <input type="checkbox" name="{{$name}}" value="{{.ID}}"{{if .Checked}} checked{{end}} class="mt-0.5 size-4 rounded border-zinc-300 accent-brand-600">
+        <input type="checkbox" name="{{$name}}" value="{{.ID}}"{{if .Checked}} checked{{end}} class="mt-0.5 size-4 shrink-0 rounded border-zinc-300 accent-brand-600">
         <span class="min-w-0">
           <span class="block text-sm font-medium">{{.Name}}</span>
           {{with .Detail}}<span class="mt-0.5 block truncate text-xs text-zinc-500 dark:text-zinc-400">{{.}}</span>{{end}}
@@ -267,6 +270,11 @@
     <p class="text-sm font-medium">Doors</p>
     <p class="mt-1 mb-3 text-xs text-zinc-500 dark:text-zinc-400">A door may be in any number of zones.</p>
     {{template "choices" (choicelist "door_ids" "Doors" .Doors (index .Errors "door_ids") "There are no doors yet. Create them on the doors page.")}}
+  </div>
+  <div>
+    <p class="text-sm font-medium">Open mode</p>
+    <p class="mt-1 mb-3 text-xs text-zinc-500 dark:text-zinc-400">While one of these schedules is active every door in the zone unlocks on any keypress, without a code.</p>
+    {{template "choices" (choicelist "open_schedule_ids" "Open-mode schedules" .Schedules (index .Errors "open_schedule_ids") "There are no schedules yet. Create them on the schedules page.")}}
   </div>
 </div>
 {{end}}

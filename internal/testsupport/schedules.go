@@ -18,7 +18,7 @@ var AlwaysSchedule = connector.StoredSchedule{
 		Days:  []time.Weekday{time.Sunday, time.Monday, time.Tuesday, time.Wednesday, time.Thursday, time.Friday, time.Saturday},
 		Start: 0, End: 0,
 	}},
-	Excluded: []time.Time{},
+	Excluded: []connector.StoredExclusion{},
 	Builtin:  true,
 }
 
@@ -78,7 +78,7 @@ func (s *Store) UpdateSchedule(_ context.Context, sch connector.StoredSchedule) 
 	return true, nil
 }
 
-// DeleteSchedule removes the schedule with id, and takes it from the doors
+// DeleteSchedule removes the schedule with id, and takes it from the zones
 // in open mode during it. It refuses a schedule an access rule uses.
 func (s *Store) DeleteSchedule(_ context.Context, id int64) (bool, error) {
 	if err := s.writable(schedulesAggregate, scheduleWrites); err != nil {
@@ -92,8 +92,8 @@ func (s *Store) DeleteSchedule(_ context.Context, id int64) (bool, error) {
 		return false, nil
 	}
 	s.schedules = slices.Delete(slices.Clone(s.schedules), i, i+1)
-	for j := range s.doors {
-		s.doors[j].OpenScheduleIDs = slices.DeleteFunc(slices.Clone(s.doors[j].OpenScheduleIDs), func(held int64) bool { return held == id })
+	for j := range s.zones {
+		s.zones[j].OpenScheduleIDs = slices.DeleteFunc(slices.Clone(s.zones[j].OpenScheduleIDs), func(held int64) bool { return held == id })
 	}
 	return true, nil
 }
@@ -104,8 +104,10 @@ func (s *Store) storableSchedule(sch connector.StoredSchedule) error {
 	if err := s.writable(schedulesAggregate, scheduleWrites); err != nil {
 		return err
 	}
-	if sch.Excluded == nil {
-		return ErrNull
+	for _, r := range sch.Excluded {
+		if r.Last.Before(r.First) {
+			return ErrCheck
+		}
 	}
 	for _, w := range sch.Windows {
 		if w.Days == nil {
@@ -139,6 +141,6 @@ func cloneSchedule(sch connector.StoredSchedule) connector.StoredSchedule {
 		windows = nil
 	}
 	sch.Windows = windows
-	sch.Excluded = slices.Clone(sch.Excluded)
+	sch.Excluded = append([]connector.StoredExclusion{}, sch.Excluded...)
 	return sch
 }

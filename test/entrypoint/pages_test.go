@@ -34,6 +34,7 @@ type shownSetting struct {
 // hashing cost, in order.
 var defaultSettings = []shownSetting{
 	{"site_name", "doorcode", "default"}, {"site_timezone", "UTC", "default"}, {"admin_email", "admin@example.com", "default"},
+	{"trusted_proxies", "", "default"},
 	{"theme_accent", "#4f39f6", "default"}, {"theme_accent_dark", "", "default"},
 	{"password_hash_memory_kib", "8", "environment, read-only"}, {"password_min_length", "12", "default"},
 	{"new_user_expiry_days", "1826", "default"}, {"oidc_enabled", "false", "default"}, {"oidc_auto_sign_in", "false", "default"},
@@ -41,9 +42,8 @@ var defaultSettings = []shownSetting{
 	{"oidc_scopes", "openid email profile", "default"}, {"oidc_claim_user_id", "", "default"}, {"oidc_claim_email", "email", "default"},
 	{"oidc_claim_first_name", "given_name", "default"}, {"oidc_claim_last_name", "family_name", "default"},
 	{"oidc_claim_display_name", "name", "default"}, {"oidc_claim_entitlements", "", "default"},
-	{"oidc_default_groups", "", "default"},
+	{"oidc_default_groups", "", "default"}, {"portal_door_pictures", "false", "default"},
 	{"enrollment_username", "doorcode-enroll", "default"}, {"enrollment_password", "", "default"},
-	{"door_credential_grace_hours", "24", "default"},
 	{"telemetry_retention_days", "7", "default"}, {"telemetry_rollup_retention_days", "730", "default"},
 	{"unresponsive_minutes", "5", "default"},
 	{"public_url", "", "default"}, {"update_window_days", "daily", "default"}, {"update_window_start", "02:00", "default"},
@@ -53,15 +53,17 @@ var defaultSettings = []shownSetting{
 	{"door_reply_timeout_ms", "3000", "default"}, {"door_telemetry_interval_s", "60", "default"},
 	{"door_held_open_s", "60", "default"}, {"door_timeline_refresh_hours", "6", "default"}, {"door_credential_rotation_days", "30", "default"},
 	{"door_rate_limit_per_minute", "30", "default"}, {"door_rate_limit_burst", "10", "default"},
-	{"door_ntp_server", "pool.ntp.org", "default"}, {"door_log_level", "info", "default"},
+	{"door_ntp_server", "pool.ntp.org", "default"}, {"door_broker_host", "", "default"}, {"door_log_level", "info", "default"},
 }
 
 // settingRows is the section each setting is shown in, and its label and
 // help text.
 var settingRows = map[string]struct{ section, label, help string }{
-	"site_name":                       {"Site", "Site name", "Shown in the header and every page title."},
-	"site_timezone":                   {"Site", "Timezone", "A zone of the tz database, such as Europe/Berlin; type to find one. Schedules, dates typed on pages, and every time shown are read in it."},
-	"admin_email":                     {"Site", "First administrator's email", "The account created on first start when there are no users."},
+	"site_name":     {"Site", "Site name", "Shown in the header and every page title."},
+	"site_timezone": {"Site", "Timezone", "A zone of the tz database, such as Europe/Berlin; type to find one. Schedules, dates typed on pages, and every time shown are read in it."},
+	"admin_email":   {"Site", "First administrator's email", "The account created on first start when there are no users."},
+	"trusted_proxies": {"Proxies", "Trusted proxies", "IP addresses, CIDR ranges, and host names separated by commas, such as 10.0.0.0/8,proxy.example.com. " +
+		"A host name is looked up by the periodic work, about once a minute, and trusts nobody until then."},
 	"theme_accent":                    {"Theme", "Accent color", "A color as #rrggbb, such as #4f39f6."},
 	"theme_accent_dark":               {"Theme", "Accent color in the dark theme", "A color as #rrggbb, or empty to use the accent color."},
 	"password_hash_memory_kib":        {"Accounts and passwords", "Password hashing memory", "KiB of memory hashing one password takes, from 8 to 1048576. More is slower to guess."},
@@ -80,9 +82,9 @@ var settingRows = map[string]struct{ section, label, help string }{
 	"oidc_claim_display_name":         {"Identity claims", "Display name claim", ""},
 	"oidc_claim_entitlements":         {"Identity claims", "Entitlements claim", "The claim listing the slugs of someone's groups. A sign-in that carries it makes them a member of exactly the groups it names, ignoring slugs no group has; one without it leaves their groups alone. While it is set, new users join no default or pre-assigned groups."},
 	"oidc_default_groups":             {"Identity claims", "Groups new users join", "Group slugs separated by commas. New users join these, and the groups whose pre-assigned list holds their user id, only while the entitlements claim is empty."},
+	"portal_door_pictures":            {"User portal", "Door pictures in the portal", "Shows each public door's primary picture in the portal; while it is off the portal shows none. The administration always shows them."},
 	"enrollment_username":             {"Door enrollment", "Enrollment username", ""},
 	"enrollment_password":             {"Door enrollment", "Enrollment password", "The password a new door controller signs in to the broker with, beside the enrollment username, until an administrator approves it and it gets credentials of its own. Enter both in the settings of each controller you install. When it is empty on first start, the server makes one up and writes it to its log."},
-	"door_credential_grace_hours":     {"Door enrollment", "Credential grace period", "Hours a door's old credentials keep working after new ones are issued."},
 	"telemetry_retention_days":        {"Telemetry", "Reports kept", "Days each telemetry report is kept."},
 	"telemetry_rollup_retention_days": {"Telemetry", "Hourly summaries kept", "Days the hourly summaries of the reports are kept."},
 	"unresponsive_minutes":            {"Telemetry", "Unresponsive after", "Minutes a connected door may stay silent before it counts as unresponsive."},
@@ -105,6 +107,7 @@ var settingRows = map[string]struct{ section, label, help string }{
 	"door_rate_limit_per_minute":      {"Door defaults", "Code checks a minute", "A whole number of checks from 1 to 6000."},
 	"door_rate_limit_burst":           {"Door defaults", "Code checks in a burst", "A whole number of checks from 1 to 1000."},
 	"door_ntp_server":                 {"Door defaults", "Time server", "A host name of up to 253 letters, digits, dots, and hyphens."},
+	"door_broker_host":                {"Door defaults", "Broker host", "A host name of up to 253 letters, digits, dots, and hyphens, an IP address, or nothing to keep the door's broker."},
 	"door_log_level":                  {"Door defaults", "Log level", "One of error, warn, info, debug."},
 }
 
@@ -123,7 +126,7 @@ var settingChoices = map[string][]string{
 
 // yesNoSettings are the settings the settings page asks for with a
 // checkbox.
-var yesNoSettings = map[string]bool{"oidc_enabled": true, "oidc_auto_sign_in": true}
+var yesNoSettings = map[string]bool{"oidc_enabled": true, "oidc_auto_sign_in": true, "portal_door_pictures": true}
 
 // settingCell adds what page reads from the cell showing the setting s
 // whose input holds value, and is the cell's text: a read-only setting's
@@ -377,7 +380,7 @@ func TestPageStoreFailureShowsARequestIDThatTheLogCarries(t *testing.T) {
 				t.Errorf("status and type (-want +got):\n%s", diff)
 			}
 			wantLog := testsupport.LogEntry{Level: "error", Message: "request failed",
-				Fields: map[string]string{"request_id": c.id, "error": "stub: unavailable"}}
+				Fields: map[string]string{"request_id": c.id, "error": "stub: unavailable", "client": testsupport.ClientAddress}}
 			if diff := cmp.Diff(wantLog, lastLog(f)); diff != "" {
 				t.Errorf("last log line (-want +got):\n%s", diff)
 			}
