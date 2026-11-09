@@ -385,20 +385,10 @@
     </section>
 
     {{if $c.Manage}}
-    <section aria-labelledby="open-heading" class="p-6 {{template "card-class"}}">
-      <h2 id="open-heading" class="text-sm font-semibold">Open mode</h2>
-      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">While one of these schedules is active the door unlocks on any keypress, without a code.</p>
-      <form method="post" action="/admin/doors/{{$d.ID}}/open-mode" hx-disabled-elt="find button" class="mt-4">
-        {{template "choices" (choicelist "open_schedule_ids" "Open-mode schedules" $c.Schedules (index $c.Form.Errors "open_schedule_ids") "There are no schedules yet.")}}
-        <div class="mt-4 flex justify-end">
-          <button type="submit" class="{{template "primary-class"}}">Save open mode</button>
-        </div>
-      </form>
-    </section>
-
     <section aria-labelledby="zones-heading" class="p-6 {{template "card-class"}}">
       <h2 id="zones-heading" class="text-sm font-semibold">Zones</h2>
-      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Access rules that name a zone reach every door in it.</p>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Access rules name zones and reach every door in them, and while one of a zone's open-mode schedules is active its doors unlock on any keypress.</p>
+      <p role="note" class="mt-3 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">{{if $c.Row.OpenMode}}In open mode during {{template "names" $c.Row.OpenMode}}, through its zones.{{else}}Never in open mode: none of its zones has an open-mode schedule.{{end}} Open-mode schedules are set on each zone's page.</p>
       <form method="post" action="/admin/doors/{{$d.ID}}/zones" hx-disabled-elt="find button" class="mt-4">
         {{template "choices" (choicelist "zone_ids" "Zones" $c.Zones (index $c.Form.Errors "zone_ids") "There are no zones yet. Create one on the zones page.")}}
         <div class="mt-4 flex justify-end">

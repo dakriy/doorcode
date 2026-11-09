@@ -36,9 +36,9 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 	userBody := `{"email":"ann.smith@example.com","user_id":"100234","first_name":"Ann","last_name":"Smith",` +
 		`"expires_at":"2030-06-30T00:00:00Z"}`
 	doorBody := `{"name":"North entrance","location":"Building A, ground floor","notes":"Strike replaced in 2026.",` +
-		`"public":true,"open_schedule_ids":[1],"zone_ids":[1]}`
-	zoneBody := `{"name":"Building A","description":"Every outside door of building A.","door_ids":[1]}`
-	ruleBody := `{"group_id":1,"schedule_id":1,"door_ids":[1],"zone_ids":[1]}`
+		`"public":true,"zone_ids":[1]}`
+	zoneBody := `{"name":"Building A","description":"Every outside door of building A.","door_ids":[1],"open_schedule_ids":[1]}`
+	ruleBody := `{"group_id":1,"schedule_id":1,"zone_ids":[1]}`
 	requestBody := `{"title":"Lab access","body":"I start in the electronics lab on Monday and need to get in from 8:00."}`
 	overrideBody := `{"kind":"locked","start":"2026-12-24T18:00:00Z","end":"2026-12-27T06:00:00Z","reason":"Closed over the holiday."}`
 	want := []testsupport.APIOperation{

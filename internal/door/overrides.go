@@ -165,6 +165,10 @@ func (s Service) Timeline(ctx context.Context, doorID int64, zone *time.Location
 	if err != nil {
 		return d, nil, err
 	}
+	zones, err := s.Store.Zones(ctx)
+	if err != nil {
+		return d, nil, err
+	}
 	schedules, err := s.Store.Schedules(ctx)
 	if err != nil {
 		return d, nil, err
@@ -173,5 +177,5 @@ func (s Service) Timeline(ctx context.Context, doorID int64, zone *time.Location
 	if err != nil {
 		return d, nil, err
 	}
-	return d, timeline.Of(d, schedules, overrides, zone, from, to), nil
+	return d, timeline.Of(d, zones, schedules, overrides, zone, from, to), nil
 }

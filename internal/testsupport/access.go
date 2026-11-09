@@ -83,7 +83,6 @@ func (s *Store) storableRule(r connector.StoredRule) error {
 		return err
 	}
 	missing := s.groupByID(r.GroupID) == nil || s.scheduleByID(r.ScheduleID) == nil ||
-		slices.ContainsFunc(r.DoorIDs, func(id int64) bool { return s.doorByID(id) == nil }) ||
 		slices.ContainsFunc(r.ZoneIDs, func(id int64) bool { return s.zoneByID(id) == nil })
 	if missing {
 		return ErrNoSuchReference
@@ -118,11 +117,7 @@ func (s *Store) dropRuleZone(id int64) {
 }
 
 func cloneRule(r connector.StoredRule) connector.StoredRule {
-	r.DoorIDs = slices.Sorted(slices.Values(slices.Clone(r.DoorIDs)))
 	r.ZoneIDs = slices.Sorted(slices.Values(slices.Clone(r.ZoneIDs)))
-	if r.DoorIDs == nil {
-		r.DoorIDs = []int64{}
-	}
 	if r.ZoneIDs == nil {
 		r.ZoneIDs = []int64{}
 	}

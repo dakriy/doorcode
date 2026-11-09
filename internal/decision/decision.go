@@ -25,6 +25,7 @@ import (
 type Store interface {
 	connector.UsersStore
 	connector.SchedulesStore
+	connector.ZonesStore
 	connector.RulesStore
 	connector.OverridesStore
 }
@@ -140,13 +141,17 @@ func (s Service) byTime(ctx context.Context, v Verdict, d connector.StoredDoor, 
 	if inForce(overrides, timeline.Open, now) {
 		return v.allowed(event.OpenOverride), nil
 	}
+	zones, err := s.Store.Zones(ctx)
+	if err != nil {
+		return v, err
+	}
 	schedules, err := s.Store.Schedules(ctx)
 	if err != nil {
 		return v, err
 	}
 	active := func(id int64) bool { return activeAt(schedules, id, zone, now) }
-	// 6. One of the door's open-mode schedules, for any code.
-	if slices.ContainsFunc(d.OpenScheduleIDs, active) {
+	// 6. One of the open-mode schedules of the door's zones, for any code.
+	if slices.ContainsFunc(timeline.OpenScheduleIDs(d, zones), active) {
 		return v.allowed(event.OpenMode), nil
 	}
 	rules, err := s.Store.Rules(ctx)
@@ -176,7 +181,8 @@ func activeAt(schedules []connector.StoredSchedule, id int64, zone *time.Locatio
 	return i >= 0 && len(schedule.Expand(schedules[i], zone, now, now.Add(time.Nanosecond))) > 0
 }
 
-// letsIn reports whether r names one of u's groups and reaches d; it
+// letsIn reports whether r names one of u's groups and reaches d through
+// one of its zones; it
 // names none of a code nobody has.
 func letsIn(r connector.StoredRule, u *connector.StoredUser, d connector.StoredDoor) bool {
 	if u == nil {

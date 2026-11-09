@@ -85,14 +85,15 @@ func asUser(t *testing.T, b *testsupport.Browser, user string) *testsupport.Brow
 }
 
 // portalSite is staffAnn with Lobby (1) public, at Building A, and in open
-// mode during Nights (3), and a rule (1) letting Staff into Lobby on
-// Weekdays (2). It returns the administrator's browser and Ann's, signed
-// in.
+// mode during Nights (3) through its zone North (1), and a rule (1)
+// letting Staff into North on Weekdays (2). It returns the administrator's
+// browser and Ann's, signed in.
 func portalSite(t *testing.T, f *testsupport.Factory) (admin, ann *testsupport.Browser) {
 	t.Helper()
 	admin = staffAnn(t, f)
-	send(t, admin, "PUT", "/api/v1/doors/1", `{"name":"Lobby","location":"Building A","public":true,"zone_ids":[1],"open_schedule_ids":[3]}`, 200)
-	createRule(t, admin, `{"group_id":2,"schedule_id":2,"door_ids":[1]}`)
+	send(t, admin, "PUT", "/api/v1/doors/1", `{"name":"Lobby","location":"Building A","public":true,"zone_ids":[1]}`, 200)
+	send(t, admin, "PUT", "/api/v1/zones/1", `{"name":"North","door_ids":[1],"open_schedule_ids":[3]}`, 200)
+	createRule(t, admin, `{"group_id":2,"schedule_id":2,"zone_ids":[1]}`)
 	return admin, signedInAs(t, admin, "2", annEmail)
 }
 
@@ -814,7 +815,7 @@ func TestAnyoneSignedInSeesThePicturesOfDoorsThePortalShows(t *testing.T) {
 func TestHomeShowsTheUsersCodeDoorsRequestsAndEntries(t *testing.T) {
 	t.Parallel()
 	k := loggedSite(t, testsupport.NewFactory())
-	send(t, k.b, "PUT", "/api/v1/doors/1", `{"name":"Lobby","public":true}`, 200)
+	send(t, k.b, "PUT", "/api/v1/doors/1", `{"name":"Lobby","public":true,"zone_ids":[1]}`, 200)
 	ann := signedInAs(t, k.b, "2", annEmail)
 	send(t, ann, "POST", "/api/v1/me/requests", labAccess, 201)
 	send(t, ann, "POST", "/api/v1/me/requests", `{"title":"Store access"}`, 201)

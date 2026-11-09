@@ -15,9 +15,9 @@ var weekLinks = []string{"Previous week", "This week", "Next week"}
 func TestDoorCalendarShowsTheTimelineAndTheAccessWindowsThatReachIt(t *testing.T) {
 	t.Parallel()
 	b := ruleSite(t, testsupport.NewFactory())
-	send(t, b, "PUT", "/api/v1/doors/1", `{"name":"Lobby","open_schedule_ids":[3],"zone_ids":[1]}`, 200)
+	send(t, b, "PUT", "/api/v1/zones/1", `{"name":"North","door_ids":[1],"open_schedule_ids":[3]}`, 200)
 	createRule(t, b, `{"group_id":2,"schedule_id":2,"zone_ids":[1]}`)
-	createRule(t, b, `{"group_id":3,"schedule_id":2,"door_ids":[2]}`)
+	createRule(t, b, `{"group_id":3,"schedule_id":2,"zone_ids":[2]}`)
 	createOverride(t, b, "1", lockedToday)
 	b.Get("/")
 
@@ -85,8 +85,8 @@ func TestUserPageListsTheDoorsTheirGroupsLetThemEnter(t *testing.T) {
 	b := staffAnn(t, testsupport.NewFactory())
 	join(t, b, "3", "2")
 	createRule(t, b, `{"group_id":2,"schedule_id":2,"zone_ids":[1]}`)
-	createRule(t, b, `{"group_id":3,"schedule_id":1,"door_ids":[1,2]}`)
-	createRule(t, b, `{"group_id":1,"schedule_id":1,"door_ids":[3]}`)
+	createRule(t, b, `{"group_id":3,"schedule_id":1,"zone_ids":[1,2]}`)
+	createRule(t, b, `{"group_id":1,"schedule_id":1,"zone_ids":[2]}`)
 	b.Get("/")
 
 	got := pageOf(b.Get("/admin/users/2")).Tables["Door access"]
@@ -125,13 +125,13 @@ func TestAccessCalendarShowsWhenTheUsersCodeWorksAtTheDoor(t *testing.T) {
 func TestAccessCalendarOfADoorTheUserCannotEnterSaysSo(t *testing.T) {
 	t.Parallel()
 	b := staffAnn(t, testsupport.NewFactory())
-	send(t, b, "PUT", "/api/v1/doors/2", `{"name":"Dock","open_schedule_ids":[3]}`, 200)
-	createRule(t, b, `{"group_id":3,"schedule_id":1,"door_ids":[2]}`)
+	send(t, b, "PUT", "/api/v1/zones/2", `{"name":"Annex","door_ids":[2],"open_schedule_ids":[3]}`, 200)
+	createRule(t, b, `{"group_id":3,"schedule_id":1,"zone_ids":[2]}`)
 
 	page := pageOf(b.Get("/admin/users/2/doors/2/calendar"))
 
 	want := []any{
-		[]string{"No access rule naming one of Ann Smith’s groups reaches this door, so their code never opens it. The door’s own open mode is shown."},
+		[]string{"No access rule naming one of Ann Smith’s groups reaches this door, so their code never opens it. The open mode the door’s zones give it is shown."},
 		[][]string{{"Starts", "Ends", "Length"}, {"Their code does not open this door this week."}},
 		[][]string{{"State", "Starts", "Ends", "Length"}, {"Open mode", "Mon 5 Jan 22:00 UTC", "Tue 6 Jan 06:00 UTC", "8 h"}},
 	}

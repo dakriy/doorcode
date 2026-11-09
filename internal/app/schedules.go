@@ -59,7 +59,7 @@ var (
 	scheduleIDParam = openapi.Param{Name: "id", In: "path", Description: "The schedule's id. The Always schedule has id 1.", Example: int64(1)}
 	noSchedule      = openapi.Response{Status: http.StatusNotFound, Description: "No schedule has this id.", Body: errorBody{}}
 	builtinRefused  = openapi.Response{Status: http.StatusConflict, Description: "The schedule is the built-in Always schedule, which cannot be changed or deleted.", Body: errorBody{}}
-	deleteRefused   = openapi.Response{Status: http.StatusConflict, Description: "The schedule is the built-in Always schedule, which cannot be deleted, doors that are not deleted are in open mode during it, or access rules use it; the error names the doors and the groups whose rules they are.", Body: errorBody{}}
+	deleteRefused   = openapi.Response{Status: http.StatusConflict, Description: "The schedule is the built-in Always schedule, which cannot be deleted, zones are in open mode during it, or access rules use it; the error names the zones and the groups whose rules they are.", Body: errorBody{}}
 	badSchedule     = openapi.Response{Status: http.StatusBadRequest, Description: "The body is not a JSON schedule, or a field is wrong; the error says which.", Body: errorBody{}}
 )
 
@@ -91,7 +91,7 @@ func (a *App) scheduleRoutes() []route {
 		}),
 		apiRoute(http.MethodDelete, "/schedules/{id}", schedules, a.deleteSchedule, apiDoc{
 			id: "deleteSchedule", summary: "Delete a schedule", tag: "schedules", params: []openapi.Param{scheduleIDParam},
-			responses: []openapi.Response{{Status: http.StatusNoContent, Description: "The schedule is gone. Deleted doors stop being in open mode during it."}, noSchedule, deleteRefused},
+			responses: []openapi.Response{{Status: http.StatusNoContent, Description: "The schedule is gone."}, noSchedule, deleteRefused},
 		}),
 		apiRoute(http.MethodGet, "/schedules/{id}/occurrences", schedules, a.listOccurrences, apiDoc{
 			id: "listScheduleOccurrences", summary: "List when a schedule is active", tag: "schedules", params: dayParams(scheduleIDParam),

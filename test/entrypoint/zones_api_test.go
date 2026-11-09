@@ -22,10 +22,10 @@ func TestCreatingAZoneAnswersWithItTidied(t *testing.T) {
 	t.Parallel()
 	b := zonedDoors(t, testsupport.NewFactory())
 
-	got := b.PostJSON("/api/v1/zones", `{"name":" Ground floor ","description":" Lobby level. ","door_ids":[1,2,1]}`)
+	got := b.PostJSON("/api/v1/zones", `{"name":" Ground floor ","description":" Lobby level. ","door_ids":[1,2,1],"open_schedule_ids":[1,1]}`)
 
 	want := testsupport.Response{Status: 201, ContentType: jsonType, Body: `{"id":1,"name":"Ground floor","description":"Lobby level.",` +
-		`"doors":[{"id":2,"name":"Back door"},{"id":1,"name":"Front door"}]}` + "\n"}
+		`"doors":[{"id":2,"name":"Back door"},{"id":1,"name":"Front door"}],"open_schedules":[{"id":1,"name":"Always"}]}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -41,8 +41,8 @@ func TestZonesAreListedByNameAndNamedOnTheirDoors(t *testing.T) {
 	door := testsupport.JSONAt(b.Get("/api/v1/doors/1").Body, "/zones")
 
 	want := []any{
-		testsupport.JSON(`{"zones":[{"id":2,"name":"East","description":"","doors":[{"id":2,"name":"Back door"},{"id":1,"name":"Front door"}]},` +
-			`{"id":1,"name":"west","description":"","doors":[{"id":1,"name":"Front door"}]}]}`),
+		testsupport.JSON(`{"zones":[{"id":2,"name":"East","description":"","doors":[{"id":2,"name":"Back door"},{"id":1,"name":"Front door"}],"open_schedules":[]},` +
+			`{"id":1,"name":"west","description":"","doors":[{"id":1,"name":"Front door"}],"open_schedules":[]}]}`),
 		testsupport.JSON(`[{"id":2,"name":"East"},{"id":1,"name":"west"}]`),
 	}
 	if diff := cmp.Diff(want, []any{zones, door}); diff != "" {
@@ -50,15 +50,15 @@ func TestZonesAreListedByNameAndNamedOnTheirDoors(t *testing.T) {
 	}
 }
 
-func TestUpdatingAZoneReplacesItsDoors(t *testing.T) {
+func TestUpdatingAZoneReplacesItsDoorsAndOpenModeSchedules(t *testing.T) {
 	t.Parallel()
 	b := zonedDoors(t, testsupport.NewFactory())
-	createZone(t, b, `{"name":"East","description":"Old","door_ids":[1]}`)
+	createZone(t, b, `{"name":"East","description":"Old","door_ids":[1],"open_schedule_ids":[1]}`)
 
 	updated := b.PutJSON("/api/v1/zones/1", `{"name":"east","door_ids":[2]}`)
 	got := b.Get("/api/v1/zones/1")
 
-	want := `{"id":1,"name":"east","description":"","doors":[{"id":2,"name":"Back door"}]}` + "\n"
+	want := `{"id":1,"name":"east","description":"","doors":[{"id":2,"name":"Back door"}],"open_schedules":[]}` + "\n"
 	if diff := cmp.Diff([]any{200, want, want}, []any{updated.Status, updated.Body, got.Body}); diff != "" {
 		t.Errorf("status, update, read back (-want +got):\n%s", diff)
 	}
@@ -85,12 +85,13 @@ func TestZoneFieldsAreChecked(t *testing.T) {
 		body string
 		want string
 	}{
-		"not json":           {`{"door_ids":"all"}`, `body must be a JSON object with a string \"name\"`},
-		"no name":            {`{"name":""}`, "Enter a name."},
-		"a long name":        {`{"name":"` + repeat("x", 101) + `"}`, "Use at most 100 characters."},
-		"a taken name":       {`{"name":"EAST"}`, "Another zone has this name."},
-		"a long description": {`{"name":"A","description":"` + repeat("x", 501) + `"}`, "Use at most 500 characters."},
-		"an unknown door":    {`{"name":"A","door_ids":[1,3]}`, "No door has id 3."},
+		"not json":            {`{"door_ids":"all"}`, `body must be a JSON object with a string \"name\"`},
+		"no name":             {`{"name":""}`, "Enter a name."},
+		"a long name":         {`{"name":"` + repeat("x", 101) + `"}`, "Use at most 100 characters."},
+		"a taken name":        {`{"name":"EAST"}`, "Another zone has this name."},
+		"a long description":  {`{"name":"A","description":"` + repeat("x", 501) + `"}`, "Use at most 500 characters."},
+		"an unknown door":     {`{"name":"A","door_ids":[1,3]}`, "No door has id 3."},
+		"an unknown schedule": {`{"name":"A","open_schedule_ids":[1,2]}`, "No schedule has id 2."},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

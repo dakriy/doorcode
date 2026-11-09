@@ -334,7 +334,7 @@ func TestADoorPageSaysWhenAnOfflineDoorCanBeUpdated(t *testing.T) {
 	got := pageOf(b.Get("/admin/doors/1")).Notes
 
 	want := []string{"The door can be updated once its controller is connected.", "New credentials can be sent only while the controller is connected.", openNote,
-		"There are no zones yet. Create one on the zones page."}
+		neverOpenNote, "There are no zones yet. Create one on the zones page."}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("notes (-want +got):\n%s", diff)
 	}

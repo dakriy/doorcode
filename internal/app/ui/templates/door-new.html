@@ -1,7 +1,7 @@
 {{define "content"}}
 {{template "back" (link "/admin/doors" "All doors")}}
 <h1 class="mt-4 text-2xl font-semibold tracking-tight">New door</h1>
-<p class="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">Name the door and say where it is. Add pictures, zones, and open-mode schedules on its page once it exists; its controller enrolls when it is connected.</p>
+<p class="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">Name the door and say where it is. Add pictures and zones on its page once it exists; its controller enrolls when it is connected.</p>
 <form method="post" action="/admin/doors" novalidate hx-disabled-elt="find button" class="mt-8 max-w-3xl p-6 {{template "card-class"}}">
   {{template "door-fields" .Content}}
   <div class="mt-8 flex justify-end gap-3 border-t border-zinc-200 pt-6 dark:border-zinc-800">

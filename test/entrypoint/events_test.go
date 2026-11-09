@@ -17,7 +17,7 @@ import (
 func loggedSite(t *testing.T, f *testsupport.Factory) *keypad {
 	t.Helper()
 	k := keypadSite(t, f)
-	createRule(t, k.b, `{"group_id":2,"schedule_id":2,"door_ids":[1]}`)
+	createRule(t, k.b, `{"group_id":2,"schedule_id":2,"zone_ids":[1]}`)
 	createDoor(t, k.b, `{"name":"Dock"}`)
 	k.press("111111")
 	f.ClockStub.Set("2026-01-05T09:10:00Z")

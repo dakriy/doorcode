@@ -96,8 +96,9 @@ func (s *Store) DeletePicture(_ context.Context, doorID, id int64) (bool, error)
 	return true, nil
 }
 
-// zoneOut is a copy of z with its doors.
+// zoneOut is a copy of z with its doors and open-mode schedules.
 func (s *Store) zoneOut(z connector.StoredZone) connector.StoredZone {
+	z.OpenScheduleIDs = sortedIDs(z.OpenScheduleIDs)
 	doors := []int64{}
 	for link := range s.zoneDoors {
 		if link.a == z.ID {
@@ -158,15 +159,16 @@ func (s *Store) CreateZone(_ context.Context, z connector.StoredZone) (int64, er
 	if s.zoneNameTaken(z.Name, 0) {
 		return 0, errDuplicate
 	}
-	if !allExist(s.doors, z.DoorIDs) {
+	if !allExist(s.doors, z.DoorIDs) || !allExist(s.schedules, z.OpenScheduleIDs) {
 		return 0, errNoReference
 	}
 	id := s.next("zones")
-	s.zones[id] = connector.StoredZone{ID: id, Name: z.Name, Description: z.Description}
+	s.zones[id] = connector.StoredZone{ID: id, Name: z.Name, Description: z.Description, OpenScheduleIDs: sortedIDs(z.OpenScheduleIDs)}
 	return id, s.fillZone(id, z.DoorIDs)
 }
 
-// UpdateZone stores z over the zone whose id is z.ID, replacing its doors.
+// UpdateZone stores z over the zone whose id is z.ID, replacing its doors
+// and open-mode schedules.
 func (s *Store) UpdateZone(_ context.Context, z connector.StoredZone) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -176,10 +178,13 @@ func (s *Store) UpdateZone(_ context.Context, z connector.StoredZone) (bool, err
 	if s.zoneNameTaken(z.Name, z.ID) {
 		return false, errDuplicate
 	}
+	if !allExist(s.schedules, z.OpenScheduleIDs) {
+		return false, errNoReference
+	}
 	if err := s.fillZone(z.ID, z.DoorIDs); err != nil {
 		return false, err
 	}
-	s.zones[z.ID] = connector.StoredZone{ID: z.ID, Name: z.Name, Description: z.Description}
+	s.zones[z.ID] = connector.StoredZone{ID: z.ID, Name: z.Name, Description: z.Description, OpenScheduleIDs: sortedIDs(z.OpenScheduleIDs)}
 	return true, nil
 }
 
@@ -200,9 +205,8 @@ func (s *Store) DeleteZone(_ context.Context, id int64) (bool, error) {
 	return true, nil
 }
 
-// ruleCopy is a copy of r with its doors and zones ascending.
+// ruleCopy is a copy of r with its zones ascending.
 func ruleCopy(r connector.StoredRule) connector.StoredRule {
-	r.DoorIDs = sortedIDs(r.DoorIDs)
 	r.ZoneIDs = sortedIDs(r.ZoneIDs)
 	return r
 }
@@ -211,7 +215,7 @@ func ruleCopy(r connector.StoredRule) connector.StoredRule {
 func (s *Store) checkRule(r connector.StoredRule) error {
 	_, group := s.groups[r.GroupID]
 	_, schedule := s.schedules[r.ScheduleID]
-	if !group || !schedule || !allExist(s.doors, r.DoorIDs) || !allExist(s.zones, r.ZoneIDs) {
+	if !group || !schedule || !allExist(s.zones, r.ZoneIDs) {
 		return errNoReference
 	}
 	return nil

@@ -299,7 +299,7 @@ type SchedulesStore interface {
 	// its windows, and reports whether there is one.
 	UpdateSchedule(ctx context.Context, s StoredSchedule) (bool, error)
 	// DeleteSchedule removes the schedule whose id is id, and reports
-	// whether there was one. Doors stop being in open mode during it. It
+	// whether there was one. Zones stop being in open mode during it. It
 	// refuses a schedule an access rule uses.
 	DeleteSchedule(ctx context.Context, id int64) (bool, error)
 }
@@ -444,9 +444,8 @@ type StoredTrend struct {
 	Opens   int
 }
 
-// StoredDoor is a door as the store holds it. OpenScheduleIDs are the
-// schedules during which the door is in open mode and ZoneIDs the zones it
-// is in, each ascending. A nil PrimaryPictureID is a door without a primary
+// StoredDoor is a door as the store holds it. ZoneIDs are the zones it is
+// in, ascending. A nil PrimaryPictureID is a door without a primary
 // picture, which the store sets only through SetPrimaryPicture and clears
 // when that picture is deleted; it ignores the field when it stores a door.
 // A nil DeletedAt is a door that is not deleted. A nil Controller is a door
@@ -464,7 +463,6 @@ type StoredDoor struct {
 	Location         string
 	Notes            string
 	Public           bool
-	OpenScheduleIDs  []int64
 	ZoneIDs          []int64
 	PrimaryPictureID *int64
 	DeletedAt        *time.Time
@@ -484,9 +482,8 @@ type DoorsStore interface {
 	Door(ctx context.Context, id int64) (StoredDoor, bool, error)
 	// CreateDoor stores d, ignoring d.ID, and returns the id it was given.
 	CreateDoor(ctx context.Context, d StoredDoor) (int64, error)
-	// UpdateDoor stores d's name, location, notes, public flag, open
-	// schedules, and zones over the door whose id is d.ID, and reports
-	// whether there is one.
+	// UpdateDoor stores d's name, location, notes, public flag, and zones
+	// over the door whose id is d.ID, and reports whether there is one.
 	UpdateDoor(ctx context.Context, d StoredDoor) (bool, error)
 	// SetDoorDeleted stores at as the deletion time of the door whose id is
 	// id, nil restoring it, and reports whether there is one.
@@ -590,13 +587,15 @@ type PicturesStore interface {
 	DeletePicture(ctx context.Context, doorID, id int64) (bool, error)
 }
 
-// StoredZone is a zone as the store holds it. DoorIDs are the doors in it,
-// ascending.
+// StoredZone is a zone as the store holds it. DoorIDs are the doors in it
+// and OpenScheduleIDs the schedules during which its doors are in open
+// mode, each ascending.
 type StoredZone struct {
-	ID          int64
-	Name        string
-	Description string
-	DoorIDs     []int64
+	ID              int64
+	Name            string
+	Description     string
+	DoorIDs         []int64
+	OpenScheduleIDs []int64
 }
 
 // ZonesStore holds the zones aggregate. Zone names are unique ignoring
@@ -610,7 +609,7 @@ type ZonesStore interface {
 	// CreateZone stores z, ignoring z.ID, and returns the id it was given.
 	CreateZone(ctx context.Context, z StoredZone) (int64, error)
 	// UpdateZone stores z over the zone whose id is z.ID, replacing its
-	// doors, and reports whether there is one.
+	// doors and open-mode schedules, and reports whether there is one.
 	UpdateZone(ctx context.Context, z StoredZone) (bool, error)
 	// DeleteZone removes the zone whose id is id, taking it off the access
 	// rules that name it, and reports whether there was one.
@@ -618,14 +617,13 @@ type ZonesStore interface {
 }
 
 // StoredRule is an access rule as the store holds it: members of the group
-// whose id is GroupID may enter, with their code, the doors DoorIDs names
-// and the doors in the zones ZoneIDs names while the schedule whose id is
-// ScheduleID is active. DoorIDs and ZoneIDs are ascending.
+// whose id is GroupID may enter, with their code, the doors in the zones
+// ZoneIDs names while the schedule whose id is ScheduleID is active.
+// ZoneIDs are ascending.
 type StoredRule struct {
 	ID         int64
 	GroupID    int64
 	ScheduleID int64
-	DoorIDs    []int64
 	ZoneIDs    []int64
 }
 
@@ -640,7 +638,7 @@ type RulesStore interface {
 	// CreateRule stores r, ignoring r.ID, and returns the id it was given.
 	CreateRule(ctx context.Context, r StoredRule) (int64, error)
 	// UpdateRule stores r over the rule whose id is r.ID, replacing its
-	// doors and zones, and reports whether there is one.
+	// zones, and reports whether there is one.
 	UpdateRule(ctx context.Context, r StoredRule) (bool, error)
 	// DeleteRule removes the rule whose id is id, and reports whether there
 	// was one.

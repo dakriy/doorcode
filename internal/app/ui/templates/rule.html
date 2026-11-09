@@ -2,7 +2,7 @@
 {{$c := .Content}}{{$g := $c.Group}}
 {{template "back" (link (printf "/admin/groups/%d" $g.ID) $g.Name)}}
 <h1 class="mt-4 text-2xl font-semibold tracking-tight">{{if $c.Rule.ID}}Access rule {{$c.Rule.ID}}{{else}}New access rule{{end}}</h1>
-<p class="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">Members of {{$g.Name}} may enter the doors you choose, and every door in the zones you choose, with their code while the schedule is active.</p>
+<p class="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">Members of {{$g.Name}} may enter every door in the zones you choose with their code while the schedule is active.</p>
 <form method="post" action="{{$c.Action}}" novalidate hx-disabled-elt="find button" class="mt-8 max-w-3xl p-6 {{template "card-class"}}">
   {{$error := index $c.Errors "schedule_id"}}
   <div>
@@ -14,17 +14,10 @@
     {{if $error}}<p id="schedule_id-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$error}}</p>
     {{else}}<p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">Choose Always for access at any time.</p>{{end}}
   </div>
-  <div class="mt-8 grid gap-8 sm:grid-cols-2">
-    <div>
-      <p class="text-sm font-medium">Doors</p>
-      <p class="mt-1 mb-3 text-xs text-zinc-500 dark:text-zinc-400">Doors the rule names itself.</p>
-      {{template "choices" (choicelist "door_ids" "Doors" $c.Doors (index $c.Errors "door_ids") "There are no doors yet. Create them on the doors page.")}}
-    </div>
-    <div>
-      <p class="text-sm font-medium">Zones</p>
-      <p class="mt-1 mb-3 text-xs text-zinc-500 dark:text-zinc-400">The rule reaches every door in them, including doors added later.</p>
-      {{template "choices" (choicelist "zone_ids" "Zones" $c.Zones (index $c.Errors "zone_ids") "There are no zones yet. Create them on the zones page.")}}
-    </div>
+  <div class="mt-8">
+    <p class="text-sm font-medium">Zones</p>
+    <p class="mt-1 mb-3 text-xs text-zinc-500 dark:text-zinc-400">The rule reaches every door in them, including doors added later. To let the group in at one door, put that door in a zone of its own.</p>
+    {{template "choices" (choicelist "zone_ids" "Zones" $c.Zones (index $c.Errors "zone_ids") "There are no zones yet. Create them on the zones page.")}}
   </div>
   <div class="mt-8 flex justify-end gap-3 border-t border-zinc-200 pt-6 dark:border-zinc-800">
     <a href="/admin/groups/{{$g.ID}}" class="{{template "secondary-class"}}">Cancel</a>

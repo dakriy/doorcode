@@ -32,13 +32,12 @@ func rulePath(groupID, id int64) string {
 type ruleRow struct {
 	ID       int64
 	Schedule nameRef
-	Doors    []nameRef
 	Zones    []nameRef
 }
 
 func (n names) rowOfRule(r connector.StoredRule) ruleRow {
 	view := n.viewOfRule(r)
-	return ruleRow{ID: r.ID, Schedule: view.Schedule, Doors: view.Doors, Zones: view.Zones}
+	return ruleRow{ID: r.ID, Schedule: view.Schedule, Zones: view.Zones}
 }
 
 // option is one option of a select.
@@ -50,13 +49,12 @@ type option struct {
 
 // ruleContent is the access rule pages' content: the group, the rule,
 // zero on the page that creates one, and its form as entered, with every
-// schedule, door, and zone to choose from.
+// schedule and zone to choose from.
 type ruleContent struct {
 	Group     connector.StoredGroup
 	Rule      connector.StoredRule
 	Errors    map[string]string
 	Schedules []option
-	Doors     []choice
 	Zones     []choice
 	// Action is where the form is submitted.
 	Action string
@@ -94,7 +92,7 @@ func (a *App) pageRule(w http.ResponseWriter, r *http.Request, viewer auth.User)
 func readRuleForm(r *http.Request, groupID int64) rule.Fields {
 	_ = r.ParseForm()
 	schedule, _ := strconv.ParseInt(r.PostFormValue("schedule_id"), 10, 64)
-	return rule.Fields{GroupID: groupID, ScheduleID: schedule, DoorIDs: formIDs(r, "door_ids"), ZoneIDs: formIDs(r, "zone_ids")}
+	return rule.Fields{GroupID: groupID, ScheduleID: schedule, ZoneIDs: formIDs(r, "zone_ids")}
 }
 
 // showRule shows the page about stored, a rule of g, or the page that
@@ -105,7 +103,7 @@ func (a *App) showRule(w http.ResponseWriter, r *http.Request, status int, viewe
 		a.pageError(w, err)
 		return
 	}
-	content := ruleContent{Group: g, Rule: stored, Errors: errs, Doors: doorChoices(n.doors, f.DoorIDs), Action: groupPath(g.ID) + "/rules"}
+	content := ruleContent{Group: g, Rule: stored, Errors: errs, Action: groupPath(g.ID) + "/rules"}
 	for _, sch := range n.schedules {
 		content.Schedules = append(content.Schedules, option{ID: sch.ID, Name: sch.Name, Selected: sch.ID == f.ScheduleID})
 	}
@@ -165,35 +163,15 @@ func (a *App) deleteRuleFromForm(w http.ResponseWriter, r *http.Request, viewer 
 	}
 }
 
-// doorChoices offers every door that is not deleted, and every door held,
-// checking those held.
-func doorChoices(doors []connector.StoredDoor, held []int64) []choice {
-	out := []choice{}
-	for _, d := range doors {
-		checked := slices.Contains(held, d.ID)
-		if d.DeletedAt == nil || checked {
-			out = append(out, choice{ID: d.ID, Name: d.Name, Detail: doorDetail(d), Checked: checked})
-		}
-	}
-	return out
-}
-
-// throughText says how a rule reaches a door: by naming it, through the
-// zones named, or both.
-func throughText(direct bool, zones []nameRef) string {
-	var parts []string
-	if direct {
-		parts = append(parts, "This door")
-	}
+// throughText says through which of the zones named a rule reaches a
+// door.
+func throughText(zones []nameRef) string {
 	var zoneNames []string
 	for _, z := range zones {
 		zoneNames = append(zoneNames, z.Name)
 	}
 	if len(zoneNames) == 1 {
-		parts = append(parts, "Zone "+zoneNames[0])
+		return "Zone " + zoneNames[0]
 	}
-	if len(zoneNames) > 1 {
-		parts = append(parts, "Zones "+strings.Join(zoneNames, ", "))
-	}
-	return strings.Join(parts, "; ")
+	return "Zones " + strings.Join(zoneNames, ", ")
 }

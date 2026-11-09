@@ -61,7 +61,6 @@ var flashes = map[string]string{
 	"controller-approved":    "The controller has been approved. Its credentials are on their way, and it connects as this door once it has them.",
 	"credentials-rotated":    "New credentials are on their way to the controller. The old ones work until it connects with the new ones or the grace period passes.",
 	"credentials-revoked":    "The controller's credentials have been revoked and it has been disconnected. It connects again only by enrolling and being approved.",
-	"open-mode-saved":        "The open-mode schedules have been saved.",
 	"door-zones-saved":       "The door's zones have been saved.",
 	"door-deleted":           "The door has been deleted. Its history stays, and you can restore it.",
 	"door-restored":          "The door has been restored.",

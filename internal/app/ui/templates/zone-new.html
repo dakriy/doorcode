@@ -1,7 +1,7 @@
 {{define "content"}}
 {{template "back" (link "/admin/zones" "All zones")}}
 <h1 class="mt-4 text-2xl font-semibold tracking-tight">New zone</h1>
-<p class="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">Name the zone and choose its doors. A door may be in any number of zones.</p>
+<p class="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">Name the zone, choose its doors, and choose when they are in open mode. A door may be in any number of zones.</p>
 <form method="post" action="{{.Content.Action}}" novalidate hx-disabled-elt="find button" class="mt-8 max-w-3xl p-6 {{template "card-class"}}">
   {{template "zone-fields" .Content}}
   <div class="mt-8 flex justify-end gap-3 border-t border-zinc-200 pt-6 dark:border-zinc-800">

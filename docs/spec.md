@@ -16,19 +16,20 @@ This document is the product contract. AGENTS.md is the engineering contract.
 | User | A person with a door code. Identified by an external id (the "user id", e.g. an employee or student number) and an email. |
 | Group | A named set of people. A group carries roles and pre-assigned user ids, nothing about doors. |
 | Schedule | A reusable, named time pattern: weekly windows, an optional date range, excluded dates. Has no type of its own. |
-| Door | A physical controller, enrolled over MQTT and approved by an admin. A door lists the schedules during which it is in *open mode* (any keypress unlocks). |
-| Zone | A named set of doors, for access rules and the UI. |
-| Access rule | Group + schedule + doors or zones: members of the group may enter those doors with their code while the schedule is active. |
+| Door | A physical controller, enrolled over MQTT and approved by an admin. A door is in any number of zones, which decide who may enter it and when it is in open mode. |
+| Zone | A named set of doors and the schedules during which those doors are in *open mode* (any keypress unlocks). Access rules name zones. |
+| Access rule | Group + schedule + zones: members of the group may enter every door in those zones with their code while the schedule is active. |
 | Override | A per-door window that forces *open* or *locked*, created by an admin or from the keypad. |
 | Role | A privilege (admin, manage-users, ...) carried by a group. |
 | Event | Anything the door did or was told to do, with who and why. The activity log. |
 | Access request | Free-text request from a user to an admin. |
 | Firmware | An uploaded image with a version string, assignable to all doors by default or to one door as an override. |
 
-A user may enter a door when an access rule names one of their groups, names
-the door directly or through a zone, and its schedule is active. Group
-membership alone grants nothing. Open mode is a property of the door, not of
-any group.
+A user may enter a door when an access rule names one of their groups and a
+zone the door is in, and its schedule is active. Group membership alone
+grants nothing. A door is in open mode while any zone it is in has an active
+open-mode schedule; open mode belongs to zones, not to any group. To let a
+group in at a single door, put that door in a zone of its own.
 
 ## 2. Access decision
 
@@ -41,10 +42,10 @@ looks the code up by hash and evaluates, in order:
    valid, run it and allow; otherwise deny.
 4. User holds *door-commander*: allow, at any door, under any override.
 5. Active *locked* override: deny. Else active *open* override: allow.
-6. One of the door's open-mode schedules is active: allow (unknown codes
-   included).
-7. An access rule naming the door and one of the user's groups has an active
-   schedule: allow.
+6. An open-mode schedule of one of the door's zones is active: allow
+   (unknown codes included).
+7. An access rule naming one of the door's zones and one of the user's
+   groups has an active schedule: allow.
 8. Otherwise deny, reason `no rule`.
 
 Every evaluation is logged as an event with outcome, reason, user if known,
@@ -82,12 +83,16 @@ roles, and a list of pre-assigned user ids: a user whose user id is listed
 joins the group on first sign-in (unless entitlements decide groups, see
 section 10) or import. Groups contain people only.
 
-A zone has a name and a set of doors. A door may be in many zones.
+A zone has a name, a description, a set of doors, and a set of open-mode
+schedules. A door may be in many zones and is in open mode during the
+open-mode schedules of every one of them. Deleting a zone keeps its doors;
+its access rules and open mode stop reaching them.
 
-An access rule has a group, a schedule, and a set of doors and zones. A
-group's page lists its rules; a door's page derives who may enter and when
-from every rule that reaches it. Renaming or deleting a group never changes
-when a door is unlocked.
+An access rule has a group, a schedule, and one or more zones; it reaches
+every door in those zones, including doors added later. A group's page
+lists its rules; a door's page derives who may enter and when from every
+rule that reaches it through its zones. Renaming or deleting a group never
+changes when a door is unlocked.
 
 Roles: `admin` (everything), `manage-users`, `manage-doors`,
 `manage-groups`, `manage-schedules`, `manage-firmware`, `view-logs`,
@@ -99,12 +104,13 @@ Group lists show role badges. Users cannot remove their own admin role.
 A schedule has a name, an optional effective date range, one or more weekly
 windows (set of weekdays, start time, end time, in the site timezone), and a
 list of excluded dates. It is entered through a form, never as recurrence
-text. A window may cross midnight. The same schedule can drive a door's open
-mode and any number of access rules. A schedule named *Always* is seeded and
-every access rule requires a schedule.
+text. A window may cross midnight. The same schedule can drive the open mode
+of any number of zones and any number of access rules. A schedule named
+*Always* is seeded and every access rule requires a schedule. A schedule a
+zone's open mode or an access rule uses cannot be deleted.
 
-The server expands a door's open-mode schedules and its overrides into
-absolute intervals: the door's *timeline*. Locked overrides win over open
+The server expands the open-mode schedules of a door's zones and its
+overrides into absolute intervals: the door's *timeline*. Locked overrides win over open
 overrides, which win over schedules. Calendars in the UI render the same
 timeline, and a user's access calendar overlays the intervals of the access
 rules that reach them.
@@ -117,7 +123,7 @@ edit, cancel, and delete them. Keypad commands create and cancel them.
 ## 7. Doors
 
 Fields: name (unique), location, notes, public flag (visible in the user
-portal), pictures, open-mode schedules, zones, firmware override, hardware id, credentials,
+portal), pictures, zones, firmware override, hardware id, credentials,
 config overrides, current state (online, door open or closed, firmware
 version, last seen, last telemetry), soft-delete timestamp.
 
@@ -126,8 +132,7 @@ version, last seen, last telemetry), soft-delete timestamp.
 A controller boots with shared enrollment credentials, connects, and
 announces its hardware id, firmware version, and signal strength. It appears
 in the admin UI as pending for as long as it stays connected. On approval the
-admin sets name, location, pictures, zones, open-mode schedules, and optional
-firmware override;
+admin sets name, location, pictures, zones, and optional firmware override;
 the server creates per-door broker credentials and sends them to the door,
 which reconnects as itself.
 
@@ -155,8 +160,8 @@ mappings are firmware concerns and are not here.
 ### Timeline cache
 
 The server pushes the next 25 hours of the door's timeline on connect,
-whenever one of its schedules or overrides changes, and at least every 6
-hours. A disconnected door follows its cached timeline. Codes are never
+whenever its zones, the open-mode schedules of its zones, those schedules,
+or its overrides change, and at least every 6 hours. A disconnected door follows its cached timeline. Codes are never
 stored on the door; without a connection, code entry is denied and nothing is
 logged until the door reconnects.
 
@@ -267,8 +272,9 @@ its password to the log with instructions to change it.
 ## 11. Admin UI
 
 Pages: dashboard, doors (list, pending enrollments, detail with live state,
-timeline calendar, pictures, zones, open-mode schedules, who-can-enter, config,
-firmware, open button, events), zones, users (list, detail, groups, access
+timeline calendar, pictures, zones and the open mode they give it,
+who-can-enter, config, firmware, open button, events), zones (doors and
+open-mode schedules), users (list, detail, groups, access
 calendar per door, events), groups (list with role badges, detail with
 members, roles, access rules, pre-assigned user ids), access rules,
 schedules (list, form, calendar, where used), overrides,
@@ -288,8 +294,9 @@ sign-in page image are settings.
 ## 12. User portal
 
 Home, set door code, set password (hidden under auto sign-in), access
-calendar per public door showing when it is unlocked and when the user's
-code works, my recent entries, personal API tokens, access requests (create,
+calendar per public door showing when it is unlocked (its zones' open mode
+and its overrides) and when the user's code works (the access rules that
+reach it through its zones), my recent entries, personal API tokens, access requests (create,
 edit while unresolved, delete), sign out.
 
 ## 13. Dashboard and analytics

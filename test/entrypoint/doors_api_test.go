@@ -51,36 +51,42 @@ func TestCreatingADoorAnswersWithItTidied(t *testing.T) {
 	t.Parallel()
 	b := doorSite(t, testsupport.NewFactory())
 
+	send(t, b, "PUT", "/api/v1/zones/2", `{"name":"Annex","open_schedule_ids":[2]}`, 200)
+
 	got := b.PostJSON("/api/v1/doors", `{"name":" North entrance ","location":" Building A ","notes":" Strike replaced. ","public":true,`+
-		`"open_schedule_ids":[3,2,3],"zone_ids":[1,2,1]}`)
+		`"zone_ids":[1,2,1]}`)
 
 	want := testsupport.Response{Status: 201, ContentType: jsonType, Body: `{"id":1,"name":"North entrance","location":"Building A",` +
-		`"notes":"Strike replaced.","public":true,"open_schedules":[{"id":3,"name":"Nights"},{"id":2,"name":"Weekdays"}],` +
+		`"notes":"Strike replaced.","public":true,"open_schedules":[{"id":2,"name":"Weekdays"}],` +
 		`"zones":[{"id":2,"name":"Annex"},{"id":1,"name":"North"}],"created_at":"2026-01-05T09:00:00Z"}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
 }
 
-func TestDoorOpenModeSchedulesRoundTrip(t *testing.T) {
+func TestADoorIsInOpenModeDuringTheOpenModeSchedulesOfEachOfItsZones(t *testing.T) {
 	t.Parallel()
 	b := doorSite(t, testsupport.NewFactory())
-	createDoor(t, b, `{"name":"Lobby","open_schedule_ids":[2]}`)
+	createDoor(t, b, `{"name":"Lobby","zone_ids":[1]}`)
+	send(t, b, "PUT", "/api/v1/zones/1", `{"name":"North","door_ids":[1],"open_schedule_ids":[3,1]}`, 200)
+	send(t, b, "PUT", "/api/v1/zones/2", `{"name":"Annex","open_schedule_ids":[3,2]}`, 200)
 
-	updated := b.PutJSON("/api/v1/doors/1", `{"name":"Lobby","open_schedule_ids":[1,3]}`)
-	got := b.Get("/api/v1/doors/1")
+	before := testsupport.JSONAt(b.Get("/api/v1/doors/1").Body, "/open_schedules")
+	updated := b.PutJSON("/api/v1/doors/1", `{"name":"Lobby","zone_ids":[1,2]}`)
 
-	want := `[{"id":1,"name":"Always"},{"id":3,"name":"Nights"}]`
-	if diff := cmp.Diff([]any{200, testsupport.JSON(want), testsupport.JSON(want)},
-		[]any{updated.Status, testsupport.JSONAt(updated.Body, "/open_schedules"), testsupport.JSONAt(got.Body, "/open_schedules")}); diff != "" {
-		t.Errorf("status, update, read back (-want +got):\n%s", diff)
+	want := []any{
+		testsupport.JSON(`[{"id":1,"name":"Always"},{"id":3,"name":"Nights"}]`), 200,
+		testsupport.JSON(`[{"id":1,"name":"Always"},{"id":3,"name":"Nights"},{"id":2,"name":"Weekdays"}]`),
+	}
+	if diff := cmp.Diff(want, []any{before, updated.Status, testsupport.JSONAt(updated.Body, "/open_schedules")}); diff != "" {
+		t.Errorf("in one zone, status, in both (-want +got):\n%s", diff)
 	}
 }
 
 func TestUpdatingADoorReplacesEverythingItDescribes(t *testing.T) {
 	t.Parallel()
 	b := doorSite(t, testsupport.NewFactory())
-	createDoor(t, b, `{"name":"Lobby","location":"Main","notes":"Old","public":true,"open_schedule_ids":[2],"zone_ids":[1]}`)
+	createDoor(t, b, `{"name":"Lobby","location":"Main","notes":"Old","public":true,"zone_ids":[1]}`)
 
 	got := b.PutJSON("/api/v1/doors/1", `{"name":"lobby"}`)
 
@@ -97,14 +103,13 @@ func TestDoorFieldsAreChecked(t *testing.T) {
 		body string
 		want string
 	}{
-		"not json":            {`{"name":1}`, `body must be a JSON object with a string \"name\"`},
-		"no name":             {`{"name":" "}`, "Enter a name."},
-		"a long name":         {`{"name":"` + repeat("x", 101) + `"}`, "Use at most 100 characters."},
-		"a taken name":        {`{"name":"FRONT DOOR"}`, "Another door has this name."},
-		"a long location":     {`{"name":"A","location":"` + repeat("x", 201) + `"}`, "Use at most 200 characters."},
-		"long notes":          {`{"name":"A","notes":"` + repeat("x", 2001) + `"}`, "Use at most 2000 characters."},
-		"an unknown schedule": {`{"name":"A","open_schedule_ids":[2,4]}`, "No schedule has id 4."},
-		"an unknown zone":     {`{"name":"A","zone_ids":[0]}`, "No zone has id 0."},
+		"not json":        {`{"name":1}`, `body must be a JSON object with a string \"name\"`},
+		"no name":         {`{"name":" "}`, "Enter a name."},
+		"a long name":     {`{"name":"` + repeat("x", 101) + `"}`, "Use at most 100 characters."},
+		"a taken name":    {`{"name":"FRONT DOOR"}`, "Another door has this name."},
+		"a long location": {`{"name":"A","location":"` + repeat("x", 201) + `"}`, "Use at most 200 characters."},
+		"long notes":      {`{"name":"A","notes":"` + repeat("x", 2001) + `"}`, "Use at most 2000 characters."},
+		"an unknown zone": {`{"name":"A","zone_ids":[0]}`, "No zone has id 0."},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -302,6 +307,7 @@ func TestDoorsAnswerWithARequestIDWhenTheStoreFails(t *testing.T) {
 		"listing doors":                {(*testsupport.Store).FailDoors, "GET", "/api/v1/doors", ""},
 		"naming a listed door's zones": {(*testsupport.Store).FailZones, "GET", "/api/v1/doors", ""},
 		"naming a door's schedules":    {(*testsupport.Store).FailSchedules, "GET", "/api/v1/doors/1", ""},
+		"naming a door's zones":        {(*testsupport.Store).FailZones, "GET", "/api/v1/doors/1", ""},
 		"checking a new door's name":   {(*testsupport.Store).FailDoors, "POST", "/api/v1/doors", `{"name":"Lobby"}`},
 		"creating a door":              {(*testsupport.Store).FailDoorWrites, "POST", "/api/v1/doors", `{"name":"Lobby"}`},
 		"reading a door to update":     {(*testsupport.Store).FailDoors, "PUT", "/api/v1/doors/1", `{"name":"Lobby"}`},

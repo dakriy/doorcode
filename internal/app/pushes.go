@@ -83,8 +83,26 @@ func (a *App) changeSchedule(ctx context.Context, id int64, f schedule.Fields) (
 	}, func(s connector.StoredSchedule) int64 { return s.ID })
 }
 
+func zoneID(z connector.StoredZone) int64 { return z.ID }
+
+func (a *App) newZone(ctx context.Context, f door.ZoneFields) (connector.StoredZone, error) {
+	return affecting(ctx, a, rule.OfZone, 0, func() (connector.StoredZone, error) {
+		return a.doors.CreateZone(ctx, f)
+	}, zoneID)
+}
+
+func (a *App) changeZone(ctx context.Context, id int64, f door.ZoneFields) (connector.StoredZone, error) {
+	return affecting(ctx, a, rule.OfZone, id, func() (connector.StoredZone, error) {
+		return a.doors.UpdateZone(ctx, id, f)
+	}, zoneID)
+}
+
+func (a *App) removeZone(ctx context.Context, id int64) error {
+	return removing(ctx, a, rule.OfZone, id, func() error { return a.doors.DeleteZone(ctx, id) })
+}
+
 // changeDoor changes the door whose id is id and sends it its timeline,
-// which its open-mode schedules decide.
+// which the open-mode schedules of its zones decide.
 func (a *App) changeDoor(ctx context.Context, id int64, f door.Fields) (connector.StoredDoor, error) {
 	d, err := a.doors.Update(ctx, id, f)
 	if err == nil {

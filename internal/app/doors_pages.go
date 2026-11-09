@@ -22,7 +22,6 @@ func (a *App) doorPageRoutes() []route {
 		pageRoute(http.MethodPost, "/admin/doors", doors, a.createDoorFromForm),
 		pageRoute(http.MethodGet, "/admin/doors/{id}", seesDoors, a.doorPage),
 		pageRoute(http.MethodPost, "/admin/doors/{id}", doors, a.doorSaver(readDoorDetails, "door-saved")),
-		pageRoute(http.MethodPost, "/admin/doors/{id}/open-mode", doors, a.doorSaver(readOpenMode, "open-mode-saved")),
 		pageRoute(http.MethodPost, "/admin/doors/{id}/zones", doors, a.doorSaver(readDoorZones, "door-zones-saved")),
 		pageRoute(http.MethodPost, "/admin/doors/{id}/delete", doors, a.deleteDoorFromForm),
 		pageRoute(http.MethodPost, "/admin/doors/{id}/restore", doors, a.restoreDoorFromForm),
@@ -179,12 +178,6 @@ func readDoorDetails(r *http.Request, f door.Fields) door.Fields {
 	return f
 }
 
-// readOpenMode is f with the open-mode schedules the form posts.
-func readOpenMode(r *http.Request, f door.Fields) door.Fields {
-	f.OpenScheduleIDs = formIDs(r, "open_schedule_ids")
-	return f
-}
-
 // readDoorZones is f with the zones the form posts.
 func readDoorZones(r *http.Request, f door.Fields) door.Fields {
 	f.ZoneIDs = formIDs(r, "zone_ids")
@@ -237,7 +230,6 @@ type doorContent struct {
 	Row  doorRow
 	// Form is the door's fields as entered, which may not be stored.
 	Form      doorForm
-	Schedules []choice
 	Zones     []choice
 	Pictures  []pictureTile
 	Entrants  []entrantRow
@@ -351,7 +343,7 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 		Events: events, StrikeMS: config.StrikePulseMS, State: state, Firmware: card,
 		Door: d.StoredDoor, Row: n.rowOfDoor(d.StoredDoor), Form: form, Alert: alert,
 		Entrants: []entrantRow{}, Overrides: []overrideRow{},
-		Schedules: scheduleChoices(n.schedules, form.OpenScheduleIDs), Zones: zoneChoices(n.zones, form.ZoneIDs),
+		Zones:      zoneChoices(n.zones, form.ZoneIDs),
 		Controller: rowOfController(d.Controller), Credentials: credentialRows(creds, zone),
 		Config:       configRows(d.StoredDoor, defaults, form.Config),
 		MaxPictureMB: picture.Megabytes(), MaxPictureSide: picture.MaxSide,
@@ -362,7 +354,7 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 	for _, reach := range entrants {
 		view := n.viewOfEntrant(reach)
 		content.Entrants = append(content.Entrants, entrantRow{
-			RuleID: view.RuleID, Group: view.Group, Schedule: view.Schedule, Through: throughText(view.Direct, view.Zones),
+			RuleID: view.RuleID, Group: view.Group, Schedule: view.Schedule, Through: throughText(view.Zones),
 		})
 	}
 	for _, o := range overrides {

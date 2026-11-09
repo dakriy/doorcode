@@ -2,7 +2,7 @@
 <div class="sm:flex sm:items-end sm:justify-between">
   <div>
     <h1 class="text-2xl font-semibold tracking-tight">Zones</h1>
-    <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Named sets of doors, such as a building or a floor. An access rule that names a zone reaches every door in it.</p>
+    <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Named sets of doors, such as a building or a floor. An access rule that names a zone reaches every door in it, and while one of a zone's open-mode schedules is active its doors unlock on any keypress.</p>
   </div>
   <a href="/admin/zones/new" class="mt-4 sm:mt-0 {{template "primary-class"}}">{{template "plus-icon"}}New zone</a>
 </div>
@@ -14,6 +14,7 @@
           <th scope="col" class="px-4 py-3">Name</th>
           <th scope="col" class="px-4 py-3">Description</th>
           <th scope="col" class="px-4 py-3">Doors</th>
+          <th scope="col" class="px-4 py-3">Open mode</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -22,9 +23,10 @@
           <td class="px-4 py-3 whitespace-nowrap"><a href="/admin/zones/{{.ID}}" class="{{template "link-class"}}">{{.Name}}</a></td>
           <td class="px-4 py-3 text-zinc-600 dark:text-zinc-400">{{.Description}}</td>
           <td class="px-4 py-3 text-zinc-600 dark:text-zinc-400">{{if .Doors}}{{template "names" .Doors}}{{else}}<span class="text-zinc-400 dark:text-zinc-500">None</span>{{end}}</td>
+          <td class="px-4 py-3 text-zinc-600 dark:text-zinc-400">{{if .OpenSchedules}}{{template "names" .OpenSchedules}}{{else}}<span class="text-zinc-400 dark:text-zinc-500">Never</span>{{end}}</td>
         </tr>
         {{else}}
-        <tr><td colspan="3" class="px-4 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">There are no zones yet. Create one to group doors for access rules.</td></tr>
+        <tr><td colspan="4" class="px-4 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">There are no zones yet. Create one to group doors for access rules and open mode.</td></tr>
         {{end}}
       </tbody>
     </table>

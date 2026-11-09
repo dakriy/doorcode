@@ -66,7 +66,7 @@ func (s *Store) CreateDoor(_ context.Context, d connector.StoredDoor) (int64, er
 	d.ID = s.nextDoor
 	d.PrimaryPictureID, d.Controller, d.Config, d.FirmwareID = nil, nil, map[string]string{}, nil
 	s.placeDoor(d.ID, d.ZoneIDs)
-	d.OpenScheduleIDs, d.ZoneIDs = slices.Clone(d.OpenScheduleIDs), nil
+	d.ZoneIDs = nil
 	s.doors = append(s.doors, d)
 	return d.ID, nil
 }
@@ -82,7 +82,6 @@ func (s *Store) UpdateDoor(_ context.Context, d connector.StoredDoor) (bool, err
 		return false, nil
 	}
 	held.Name, held.Location, held.Notes, held.Public = d.Name, d.Location, d.Notes, d.Public
-	held.OpenScheduleIDs = slices.Clone(d.OpenScheduleIDs)
 	s.placeDoor(d.ID, d.ZoneIDs)
 	return true, nil
 }
@@ -207,11 +206,6 @@ func (s *Store) storableDoor(d connector.StoredDoor) error {
 	if err := s.writable(doorsAggregate, doorWrites); err != nil {
 		return err
 	}
-	for _, id := range d.OpenScheduleIDs {
-		if s.scheduleByID(id) == nil {
-			return ErrNoSuchReference
-		}
-	}
 	for _, id := range d.ZoneIDs {
 		if s.zoneByID(id) == nil {
 			return ErrNoSuchReference
@@ -237,7 +231,6 @@ func (s *Store) doorByID(id int64) *connector.StoredDoor {
 // cloneDoor is a copy of d sharing nothing with it, with the zones that
 // hold it.
 func (s *Store) cloneDoor(d connector.StoredDoor) connector.StoredDoor {
-	d.OpenScheduleIDs = append([]int64{}, slices.Sorted(slices.Values(d.OpenScheduleIDs))...)
 	d.Controller = clonedController(d.Controller)
 	d.Config = maps.Clone(d.Config)
 	d.FirmwareID = cloneID(d.FirmwareID)
@@ -399,7 +392,7 @@ func (s *Store) CreateZone(_ context.Context, z connector.StoredZone) (int64, er
 	s.nextZone++
 	z.ID = s.nextZone
 	s.fillZone(z.ID, z.DoorIDs)
-	z.DoorIDs = nil
+	z.DoorIDs, z.OpenScheduleIDs = nil, slices.Clone(z.OpenScheduleIDs)
 	s.zones = append(s.zones, z)
 	return z.ID, nil
 }
@@ -413,7 +406,7 @@ func (s *Store) UpdateZone(_ context.Context, z connector.StoredZone) (bool, err
 	if held == nil {
 		return false, nil
 	}
-	held.Name, held.Description = z.Name, z.Description
+	held.Name, held.Description, held.OpenScheduleIDs = z.Name, z.Description, slices.Clone(z.OpenScheduleIDs)
 	s.fillZone(z.ID, z.DoorIDs)
 	return true, nil
 }
@@ -440,10 +433,10 @@ func (s *Store) storableZone(z connector.StoredZone) error {
 	if err := s.writable(zonesAggregate, zoneWrites); err != nil {
 		return err
 	}
-	for _, id := range z.DoorIDs {
-		if s.doorByID(id) == nil {
-			return ErrNoSuchReference
-		}
+	missing := slices.ContainsFunc(z.DoorIDs, func(id int64) bool { return s.doorByID(id) == nil }) ||
+		slices.ContainsFunc(z.OpenScheduleIDs, func(id int64) bool { return s.scheduleByID(id) == nil })
+	if missing {
+		return ErrNoSuchReference
 	}
 	for _, held := range s.zones {
 		if held.ID != z.ID && strings.EqualFold(held.Name, z.Name) {
@@ -462,8 +455,9 @@ func (s *Store) zoneByID(id int64) *connector.StoredZone {
 	return nil
 }
 
-// cloneZone is z with the doors in it.
+// cloneZone is z with the doors in it, sharing nothing with it.
 func (s *Store) cloneZone(z connector.StoredZone) connector.StoredZone {
+	z.OpenScheduleIDs = append([]int64{}, slices.Sorted(slices.Values(z.OpenScheduleIDs))...)
 	z.DoorIDs = []int64{}
 	for _, p := range s.zoneDoors {
 		if p.zone == z.ID {

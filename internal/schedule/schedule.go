@@ -25,18 +25,18 @@ var (
 	ErrInUse = errors.New("the schedule is in use")
 )
 
-// InUseError reports the deletion of a schedule something uses. Doors names
-// the doors in open mode during it and Groups the groups whose access rules
-// use it, each by name.
+// InUseError reports the deletion of a schedule something uses. Zones names
+// the zones whose doors are in open mode during it and Groups the groups
+// whose access rules use it, each by name.
 type InUseError struct {
-	Doors  []string
+	Zones  []string
 	Groups []string
 }
 
 func (e InUseError) Error() string {
 	var parts []string
-	if e.Doors != nil {
-		parts = append(parts, "doors are in open mode during this schedule: "+strings.Join(e.Doors, ", "))
+	if e.Zones != nil {
+		parts = append(parts, "zones are in open mode during this schedule: "+strings.Join(e.Zones, ", "))
 	}
 	if e.Groups != nil {
 		parts = append(parts, "access rules of these groups use this schedule: "+strings.Join(e.Groups, ", "))
@@ -104,7 +104,7 @@ type WindowFields struct {
 // Store is the part of the store this package uses.
 type Store interface {
 	connector.SchedulesStore
-	connector.DoorsStore
+	connector.ZonesStore
 	connector.RulesStore
 	connector.GroupsStore
 }
@@ -174,9 +174,8 @@ func (s Service) Update(ctx context.Context, id int64, f Fields) (connector.Stor
 	return s.Schedule(ctx, id)
 }
 
-// Delete removes the schedule whose id is id, unless a door that is not
-// deleted is in open mode during it or an access rule uses it. Deleted
-// doors stop being in open mode during it.
+// Delete removes the schedule whose id is id, unless a zone is in open
+// mode during it or an access rule uses it.
 func (s Service) Delete(ctx context.Context, id int64) error {
 	sch, err := s.Schedule(ctx, id)
 	if err != nil {
@@ -189,18 +188,18 @@ func (s Service) Delete(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	if inUse.Doors != nil || inUse.Groups != nil {
+	if inUse.Zones != nil || inUse.Groups != nil {
 		return inUse
 	}
 	_, err = s.Store.DeleteSchedule(ctx, id)
 	return err
 }
 
-// users names what uses the schedule whose id is id: the doors that are
-// not deleted in open mode during it, and the groups, in name order, whose
-// access rules use it.
+// users names what uses the schedule whose id is id: the zones in open
+// mode during it and the groups whose access rules use it, each in name
+// order.
 func (s Service) users(ctx context.Context, id int64) (InUseError, error) {
-	doors, err := s.Store.Doors(ctx)
+	zones, err := s.Store.Zones(ctx)
 	if err != nil {
 		return InUseError{}, err
 	}
@@ -213,9 +212,9 @@ func (s Service) users(ctx context.Context, id int64) (InUseError, error) {
 		return InUseError{}, err
 	}
 	var inUse InUseError
-	for _, d := range doors {
-		if d.DeletedAt == nil && slices.Contains(d.OpenScheduleIDs, id) {
-			inUse.Doors = append(inUse.Doors, d.Name)
+	for _, z := range zones {
+		if slices.Contains(z.OpenScheduleIDs, id) {
+			inUse.Zones = append(inUse.Zones, z.Name)
 		}
 	}
 	for _, g := range groups {

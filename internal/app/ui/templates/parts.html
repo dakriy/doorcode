@@ -248,6 +248,11 @@
     <p class="mt-1 mb-3 text-xs text-zinc-500 dark:text-zinc-400">A door may be in any number of zones.</p>
     {{template "choices" (choicelist "door_ids" "Doors" .Doors (index .Errors "door_ids") "There are no doors yet. Create them on the doors page.")}}
   </div>
+  <div>
+    <p class="text-sm font-medium">Open mode</p>
+    <p class="mt-1 mb-3 text-xs text-zinc-500 dark:text-zinc-400">While one of these schedules is active every door in the zone unlocks on any keypress, without a code.</p>
+    {{template "choices" (choicelist "open_schedule_ids" "Open-mode schedules" .Schedules (index .Errors "open_schedule_ids") "There are no schedules yet. Create them on the schedules page.")}}
+  </div>
 </div>
 {{end}}
 

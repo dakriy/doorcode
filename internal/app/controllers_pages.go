@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"slices"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/dakriy/doorcode/internal/auth"
@@ -84,7 +83,6 @@ func (a *App) enrollmentsPage(w http.ResponseWriter, r *http.Request, viewer aut
 type approvalContent struct {
 	Enrollment enrollmentRow
 	Form       doorForm
-	Schedules  []choice
 	Zones      []choice
 	Doors      []choice
 	// DoorError is what is wrong with the door chosen.
@@ -110,7 +108,7 @@ func (a *App) showApproval(w http.ResponseWriter, r *http.Request, status int, v
 	}
 	content := approvalContent{
 		Enrollment: rowOfEnrollment(e, zone), Form: form, DoorError: doorError,
-		Schedules: scheduleChoices(n.schedules, form.OpenScheduleIDs), Zones: zoneChoices(n.zones, form.ZoneIDs),
+		Zones: zoneChoices(n.zones, form.ZoneIDs),
 	}
 	for _, d := range n.doors {
 		if d.DeletedAt == nil {
@@ -136,7 +134,7 @@ func (a *App) approvalPage(w http.ResponseWriter, r *http.Request, viewer auth.U
 // readNewDoor is the new door the approval form posts.
 func readNewDoor(r *http.Request) door.Fields {
 	f := readDoorDetails(r, door.Fields{})
-	return readDoorZones(r, readOpenMode(r, f))
+	return readDoorZones(r, f)
 }
 
 func (a *App) approveAsNewDoor(w http.ResponseWriter, r *http.Request, viewer auth.User) {
@@ -219,16 +217,6 @@ func credentialRows(creds []connector.StoredCredential, zone *time.Location) []c
 		})
 	}
 	return rows
-}
-
-// scheduleChoices are the schedules to choose a door's open mode from,
-// with those among checked checked.
-func scheduleChoices(schedules []connector.StoredSchedule, checked []int64) []choice {
-	out := []choice{}
-	for _, sch := range schedules {
-		out = append(out, choice{ID: sch.ID, Name: sch.Name, Detail: strings.Join(windowSummaries(sch.Windows), " · "), Checked: slices.Contains(checked, sch.ID)})
-	}
-	return out
 }
 
 // zoneChoices are the zones to put a door in, with those among checked

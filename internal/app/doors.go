@@ -13,6 +13,7 @@ import (
 	"github.com/dakriy/doorcode/internal/controller"
 	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/openapi"
+	"github.com/dakriy/doorcode/internal/timeline"
 )
 
 // doorsPerPage is how many doors a page lists unless the API caller asks
@@ -33,7 +34,7 @@ type doorView struct {
 	Location         string          `json:"location" doc:"Where the door is; may be empty."`
 	Notes            string          `json:"notes" doc:"What administrators should know about the door; may be empty."`
 	Public           bool            `json:"public" doc:"True when the user portal shows the door."`
-	OpenSchedules    []nameRef       `json:"open_schedules" doc:"The schedules during which the door is in open mode and unlocks on any keypress, by name."`
+	OpenSchedules    []nameRef       `json:"open_schedules" doc:"The schedules during which the door is in open mode and unlocks on any keypress, by name: those of the zones it is in."`
 	Zones            []nameRef       `json:"zones" doc:"The zones the door is in, by name."`
 	PrimaryPictureID *int64          `json:"primary_picture_id,omitempty" doc:"The picture lists and the user portal show; absent when the door has no pictures."`
 	DeletedAt        *time.Time      `json:"deleted_at,omitempty" doc:"When the door was deleted; absent unless it is deleted."`
@@ -42,12 +43,11 @@ type doorView struct {
 }
 
 type doorRequest struct {
-	Name            string  `json:"name" doc:"The door's name, up to 100 characters; unique, ignoring case."`
-	Location        string  `json:"location,omitempty" doc:"Where the door is, up to 200 characters."`
-	Notes           string  `json:"notes,omitempty" doc:"What administrators should know about the door, up to 2000 characters."`
-	Public          bool    `json:"public,omitempty" doc:"True to show the door in the user portal."`
-	OpenScheduleIDs []int64 `json:"open_schedule_ids,omitempty" doc:"The ids of the schedules during which the door is in open mode. Omit it for a door that is never in open mode."`
-	ZoneIDs         []int64 `json:"zone_ids,omitempty" doc:"The ids of the zones the door is in."`
+	Name     string  `json:"name" doc:"The door's name, up to 100 characters; unique, ignoring case."`
+	Location string  `json:"location,omitempty" doc:"Where the door is, up to 200 characters."`
+	Notes    string  `json:"notes,omitempty" doc:"What administrators should know about the door, up to 2000 characters."`
+	Public   bool    `json:"public,omitempty" doc:"True to show the door in the user portal."`
+	ZoneIDs  []int64 `json:"zone_ids,omitempty" doc:"The ids of the zones the door is in, which decide when it is in open mode and who may enter it."`
 }
 
 type doorList struct {
@@ -74,7 +74,7 @@ func (a *App) doorRoutes() []route {
 	doors := holding(auth.RoleManageDoors)
 	example := doorRequest{
 		Name: "North entrance", Location: "Building A, ground floor", Notes: "Strike replaced in 2026.",
-		Public: true, OpenScheduleIDs: []int64{1}, ZoneIDs: []int64{1},
+		Public: true, ZoneIDs: []int64{1},
 	}
 	return []route{
 		apiRoute(http.MethodGet, "/doors", doors, a.listDoors, apiDoc{
@@ -124,8 +124,10 @@ func (a *App) catalog(ctx context.Context) (catalog, error) {
 	return catalog{schedules: schedules, zones: zones}, err
 }
 
+// openSchedules names the schedules during which d is in open mode
+// through its zones.
 func (c catalog) openSchedules(d connector.StoredDoor) []nameRef {
-	return refs(c.schedules, d.OpenScheduleIDs, scheduleRef)
+	return refs(c.schedules, timeline.OpenScheduleIDs(d, c.zones), scheduleRef)
 }
 
 func (c catalog) zonesOf(d connector.StoredDoor) []nameRef {

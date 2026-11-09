@@ -21,7 +21,7 @@ func statsSite(t *testing.T, f *testsupport.Factory) *keypad {
 	f.EnvStub["DOORCODE_SITE_TIMEZONE"] = "Europe/Berlin"
 	f.ClockStub.Set("2026-01-04T22:00:00Z")
 	k := keypadSite(t, f)
-	createRule(t, k.b, `{"group_id":2,"schedule_id":2,"door_ids":[1]}`)
+	createRule(t, k.b, `{"group_id":2,"schedule_id":2,"zone_ids":[1]}`)
 	createDoor(t, k.b, `{"name":"Dock"}`)
 	for _, entry := range []struct{ at, digits string }{
 		{"2026-01-04T22:59:59Z", "111111"}, {"2026-01-04T23:00:00Z", "999999"},

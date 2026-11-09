@@ -1,6 +1,6 @@
 // Package timeline works out a door's timeline: when, over a range of time,
-// it is in open mode and when it is forced locked, from its open-mode
-// schedules and its overrides. Locked overrides win over open overrides,
+// it is in open mode and when it is forced locked, from the open-mode
+// schedules of its zones and its overrides. Locked overrides win over open overrides,
 // which win over schedules; between the spans a timeline lists, the door is
 // in its normal state, where a code opens it.
 package timeline
@@ -30,14 +30,29 @@ type Span struct {
 	State string
 }
 
-// Of is the timeline of d from from up to to: Merge of the intervals its
-// open-mode schedules, found among schedules, cover in zone, and of
-// overrides.
-func Of(d connector.StoredDoor, schedules []connector.StoredSchedule, overrides []connector.StoredOverride, zone *time.Location, from, to time.Time) []Span {
+// OpenScheduleIDs are the ids, ascending and each once, of the schedules
+// during which d is in open mode: those of every zone among zones that d
+// is in.
+func OpenScheduleIDs(d connector.StoredDoor, zones []connector.StoredZone) []int64 {
+	ids := []int64{}
+	for _, z := range zones {
+		if slices.Contains(d.ZoneIDs, z.ID) {
+			ids = append(ids, z.OpenScheduleIDs...)
+		}
+	}
+	slices.Sort(ids)
+	return slices.Compact(ids)
+}
+
+// Of is the timeline of d from from up to to: Merge of the intervals the
+// open-mode schedules of its zones, found among zones and schedules,
+// cover in loc, and of overrides.
+func Of(d connector.StoredDoor, zones []connector.StoredZone, schedules []connector.StoredSchedule, overrides []connector.StoredOverride, loc *time.Location, from, to time.Time) []Span {
+	openIDs := OpenScheduleIDs(d, zones)
 	var openMode []schedule.Interval
 	for _, sch := range schedules {
-		if slices.Contains(d.OpenScheduleIDs, sch.ID) {
-			openMode = append(openMode, schedule.Expand(sch, zone, from, to)...)
+		if slices.Contains(openIDs, sch.ID) {
+			openMode = append(openMode, schedule.Expand(sch, loc, from, to)...)
 		}
 	}
 	return Merge(openMode, overrides, from, to)

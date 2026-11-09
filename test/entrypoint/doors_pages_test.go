@@ -39,9 +39,15 @@ var (
 // openNote is what a door's page says while it cannot be opened.
 const openNote = "The door can be opened from here once its controller is connected."
 
-// doorNote is what a door's page says about what enrollment adds and why
-// it cannot be opened yet.
-var doorNote = []string{"No controller has enrolled as this door yet. Its hardware, credentials, configuration, and live state appear here once one does.", openNote}
+// neverOpenNote is what a door's page says of the open mode of a door
+// whose zones have no open-mode schedules.
+const neverOpenNote = "Never in open mode: none of its zones has an open-mode schedule. Open-mode schedules are set on each zone's page."
+
+// doorNote is what a door's page says about what enrollment adds, why it
+// cannot be opened yet, and that it is never in open mode.
+var doorNote = []string{
+	"No controller has enrolled as this door yet. Its hardware, credentials, configuration, and live state appear here once one does.", openNote, neverOpenNote,
+}
 
 // doorPage is the page at target, after the flash of signing in is
 // shown elsewhere.
@@ -54,8 +60,10 @@ func doorPage(t *testing.T, b *testsupport.Browser, target string) testsupport.P
 func TestDoorsPageListsDoorsWithTheirPrimaryPicture(t *testing.T) {
 	t.Parallel()
 	b := doorSite(t, testsupport.NewFactory())
-	createDoor(t, b, `{"name":"Lobby","location":"Building A","public":true,"open_schedule_ids":[2,3],"zone_ids":[1,2]}`)
+	createDoor(t, b, `{"name":"Lobby","location":"Building A","public":true,"zone_ids":[1,2]}`)
 	createDoor(t, b, `{"name":"Dock"}`)
+	send(t, b, "PUT", "/api/v1/zones/1", `{"name":"North","door_ids":[1],"open_schedule_ids":[3]}`, 200)
+	send(t, b, "PUT", "/api/v1/zones/2", `{"name":"Annex","door_ids":[1],"open_schedule_ids":[2,3]}`, 200)
 	uploadPicture(t, b, "1", testsupport.PNG(8, 8))
 
 	got := doorPage(t, b, "/admin/doors")
@@ -250,18 +258,21 @@ func TestDoorFormSaysWhatIsWrongAndKeepsWhatWasEntered(t *testing.T) {
 	}
 }
 
-func TestDoorPageShowsTheDoorItsChoicesAndItsPictures(t *testing.T) {
+func TestDoorPageShowsTheDoorItsChoicesAndItsOpenModeThroughItsZones(t *testing.T) {
 	t.Parallel()
 	b := doorSite(t, testsupport.NewFactory())
-	createDoor(t, b, `{"name":"Lobby","location":"Building A","notes":"Side.","open_schedule_ids":[3],"zone_ids":[2]}`)
-	send(t, b, "PUT", "/api/v1/zones/1", `{"name":"North","description":"North wing."}`, 200)
+	createDoor(t, b, `{"name":"Lobby","location":"Building A","notes":"Side.","zone_ids":[2]}`)
+	send(t, b, "PUT", "/api/v1/zones/1", `{"name":"North","description":"North wing.","open_schedule_ids":[2]}`, 200)
+	send(t, b, "PUT", "/api/v1/zones/2", `{"name":"Annex","door_ids":[1],"open_schedule_ids":[3,1]}`, 200)
 
 	got := doorPage(t, b, "/admin/doors/1")
 
 	want := testsupport.Page{
-		Title: "Lobby · doorcode", Heading: "Lobby", Nav: doorsNav, Notes: doorNote,
+		Title: "Lobby · doorcode", Heading: "Lobby", Nav: doorsNav,
+		Notes: []string{doorNote[0], openNote,
+			"In open mode during Always, Nights, through its zones. Open-mode schedules are set on each zone's page."},
 		Values:  map[string]string{"name": "Lobby", "location": "Building A", "notes": "Side.", "picture": ""},
-		Checked: []string{"open_schedule_ids=3", "zone_ids=2"},
+		Checked: []string{"zone_ids=2"},
 		Tables:  freshDoorTables,
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
@@ -278,12 +289,9 @@ func TestDoorPageLabelsEachChoice(t *testing.T) {
 	got := testsupport.ParsePage(b.Get("/admin/doors/1").Body).Choices
 
 	want := map[string]string{
-		"public=on":           "Show in the user portal People see the door, its picture, and when their code works there.",
-		"open_schedule_ids=1": "Always Every day, all day",
-		"open_schedule_ids=3": "Nights Mon 22:00–06:00 next day",
-		"open_schedule_ids=2": "Weekdays Mon–Fri 08:00–18:00",
-		"zone_ids=2":          "Annex",
-		"zone_ids=1":          "North North wing.",
+		"public=on":  "Show in the user portal People see the door, its picture, and when their code works there.",
+		"zone_ids=2": "Annex",
+		"zone_ids=1": "North North wing.",
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("choices (-want +got):\n%s", diff)
@@ -403,7 +411,7 @@ func TestChangingAPictureThatIsGoneFromTheDoorPageSaysSo(t *testing.T) {
 func TestSavingADoorsDetailsFromItsPageKeepsTheRest(t *testing.T) {
 	t.Parallel()
 	b := doorSite(t, testsupport.NewFactory())
-	createDoor(t, b, `{"name":"Lobby","public":true,"open_schedule_ids":[2],"zone_ids":[1]}`)
+	createDoor(t, b, `{"name":"Lobby","public":true,"zone_ids":[1]}`)
 	b.Get("/")
 
 	saved := b.Post("/admin/doors/1", "name", "Main lobby", "location", "Building B", "notes", "")
@@ -411,7 +419,7 @@ func TestSavingADoorsDetailsFromItsPageKeepsTheRest(t *testing.T) {
 
 	want := []any{"/admin/doors/1", []string{"The door's changes have been saved."}, "Main lobby",
 		map[string]string{"name": "Main lobby", "location": "Building B", "notes": "", "picture": ""},
-		[]string{"open_schedule_ids=2", "zone_ids=1"}}
+		[]string{"zone_ids=1"}}
 	if diff := cmp.Diff(want, []any{saved.Location, got.Messages, got.Heading, got.Values, got.Checked}); diff != "" {
 		t.Errorf("redirect, messages, heading, values, checked (-want +got):\n%s", diff)
 	}
@@ -434,34 +442,20 @@ func TestSavingADoorsDetailsFromItsPageSaysWhatIsWrong(t *testing.T) {
 	}
 }
 
-func TestSavingADoorsOpenModeAndZonesFromItsPage(t *testing.T) {
+func TestSavingADoorsZonesFromItsPage(t *testing.T) {
 	t.Parallel()
-	cases := map[string]struct {
-		target string
-		fields []string
-		flash  string
-		want   []string
-	}{
-		"open mode": {"/admin/doors/1/open-mode", []string{"open_schedule_ids", "3", "open_schedule_ids", "1"},
-			"The open-mode schedules have been saved.", []string{"open_schedule_ids=1", "open_schedule_ids=3", "zone_ids=1"}},
-		"no open mode": {"/admin/doors/1/open-mode", nil,
-			"The open-mode schedules have been saved.", []string{"zone_ids=1"}},
-		"zones": {"/admin/doors/1/zones", []string{"zone_ids", "2"},
-			"The door's zones have been saved.", []string{"open_schedule_ids=2", "zone_ids=2"}},
-	}
-	for name, c := range cases {
-		t.Run(name, func(t *testing.T) {
-			b := doorSite(t, testsupport.NewFactory())
-			createDoor(t, b, `{"name":"Lobby","open_schedule_ids":[2],"zone_ids":[1]}`)
-			b.Get("/")
+	b := doorSite(t, testsupport.NewFactory())
+	createDoor(t, b, `{"name":"Lobby","zone_ids":[1]}`)
+	send(t, b, "PUT", "/api/v1/zones/2", `{"name":"Annex","open_schedule_ids":[3]}`, 200)
+	b.Get("/")
 
-			saved := b.Post(c.target, c.fields...)
-			got := pageOf(b.Get(saved.Location))
+	saved := b.Post("/admin/doors/1/zones", "zone_ids", "2")
+	got := pageOf(b.Get(saved.Location))
 
-			if diff := cmp.Diff([]any{"/admin/doors/1", []string{c.flash}, c.want}, []any{saved.Location, got.Messages, got.Checked}); diff != "" {
-				t.Errorf("redirect, messages, checked (-want +got):\n%s", diff)
-			}
-		})
+	want := []any{"/admin/doors/1", []string{"The door's zones have been saved."}, []string{"zone_ids=2"},
+		"In open mode during Nights, through its zones. Open-mode schedules are set on each zone's page."}
+	if diff := cmp.Diff(want, []any{saved.Location, got.Messages, got.Checked, got.Notes[2]}); diff != "" {
+		t.Errorf("redirect, messages, checked, open mode (-want +got):\n%s", diff)
 	}
 }
 
@@ -472,8 +466,6 @@ func TestSavingUnknownChoicesFromADoorsPageSaysSo(t *testing.T) {
 		fields []string
 		want   map[string]string
 	}{
-		"a schedule": {"/admin/doors/1/open-mode", []string{"open_schedule_ids", "2", "open_schedule_ids", "x"},
-			map[string]string{"open_schedule_ids": "No schedule has id 0."}},
 		"a zone": {"/admin/doors/1/zones", []string{"zone_ids", "9"}, map[string]string{"zone_ids": "No zone has id 9."}},
 	}
 	for name, c := range cases {
@@ -503,7 +495,7 @@ func TestDeletingAndRestoringADoorFromItsPage(t *testing.T) {
 	afterwards := pageOf(b.Get(restored.Location))
 
 	want := []any{"/admin/doors/1", []string{"The door has been deleted. Its history stays, and you can restore it."},
-		"/admin/doors/1", []string{"The door has been restored."}, []string{doorNote[0], openNote, "There are no zones yet. Create one on the zones page."}}
+		"/admin/doors/1", []string{"The door has been restored."}, []string{doorNote[0], openNote, neverOpenNote, "There are no zones yet. Create one on the zones page."}}
 	if diff := cmp.Diff(want, []any{deleted.Location, whileDeleted.Messages, restored.Location, afterwards.Messages, afterwards.Notes}); diff != "" {
 		t.Errorf("delete, restore (-want +got):\n%s", diff)
 	}
@@ -596,19 +588,5 @@ func TestDoorPageStoreFailureShowsARequestID(t *testing.T) {
 				t.Errorf("status, heading (-want +got):\n%s", diff)
 			}
 		})
-	}
-}
-
-func TestDeletingAScheduleADoorUsesFromItsPageIsRefused(t *testing.T) {
-	t.Parallel()
-	b := doorSite(t, testsupport.NewFactory())
-	createDoor(t, b, `{"name":"Lobby","open_schedule_ids":[2]}`)
-	b.Get("/")
-
-	got := b.Post("/admin/schedules/2/delete")
-
-	want := []any{409, []string{"Doors are in open mode during this schedule: Lobby. Take it off them before deleting it."}}
-	if diff := cmp.Diff(want, []any{got.Status, pageOf(got).Messages}); diff != "" {
-		t.Errorf("status, messages (-want +got):\n%s", diff)
 	}
 }

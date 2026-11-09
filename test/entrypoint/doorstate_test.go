@@ -74,7 +74,7 @@ func TestADoorOpenedWithNothingUnlockingItIsLoggedAsForcedOpen(t *testing.T) {
 
 func TestADoorOpenedWithinTheStrikeWindowOfAnUnlockIsNotForced(t *testing.T) {
 	t.Parallel()
-	staffRule := `{"group_id":2,"schedule_id":2,"door_ids":[1]}`
+	staffRule := `{"group_id":2,"schedule_id":2,"zone_ids":[1]}`
 	cases := map[string]struct {
 		unlock func(k *keypad)
 		opened string
@@ -103,7 +103,7 @@ func TestADoorOpenedWithinTheStrikeWindowOfAnUnlockIsNotForced(t *testing.T) {
 			createOverride(k.t, k.b, "1", lockedNow)
 		}, "2026-01-05T10:00:00Z", []any{"forced open"}},
 		"open mode": {func(k *keypad) {
-			send(k.t, k.b, "PUT", "/api/v1/doors/1", `{"name":"Lobby","open_schedule_ids":[2]}`, 200)
+			send(k.t, k.b, "PUT", "/api/v1/zones/1", `{"name":"North","door_ids":[1],"open_schedule_ids":[2]}`, 200)
 		}, "2026-01-05T10:00:00Z", []any{}},
 		"a longer strike pulse": {func(k *keypad) {
 			createRule(k.t, k.b, staffRule)

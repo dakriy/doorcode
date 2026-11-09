@@ -69,7 +69,7 @@ type demoDoor struct {
 
 // The doors, numbered from 1 in this order.
 var doors = []demoDoor{
-	{map[string]any{"name": "Main entrance", "location": "Building A, ground floor", "public": true, "open_schedule_ids": []int64{lobbyHours},
+	{map[string]any{"name": "Main entrance", "location": "Building A, ground floor", "public": true,
 		"notes": "Open to visitors while reception is staffed."}, color.RGBA{R: 226, G: 220, B: 208, A: 255}, color.RGBA{R: 52, G: 92, B: 160, A: 255}},
 	{map[string]any{"name": "Staff entrance", "location": "Building A, rear courtyard", "public": true},
 		color.RGBA{R: 180, G: 90, B: 70, A: 255}, color.RGBA{R: 60, G: 120, B: 80, A: 255}},
@@ -96,12 +96,20 @@ const (
 var zones = []map[string]any{
 	{"name": "Building A", "description": "The outside doors of building A.", "door_ids": []int64{mainEntrance, staffEntrance}},
 	{"name": "Building B", "description": "The workshop and its dock.", "door_ids": []int64{workshop, loadingDock}},
+	{"name": "Reception", "description": "Open to visitors while reception is staffed.", "door_ids": []int64{mainEntrance},
+		"open_schedule_ids": []int64{lobbyHours}},
+	{"name": "Courtyard", "description": "The staff entrance on its own, for weekend access.", "door_ids": []int64{staffEntrance}},
+	{"name": "Secure rooms", "description": "Rooms only security enters at any time.", "door_ids": []int64{serverRoom}},
+	{"name": "Night rounds", "description": "The doors facilities checks overnight.", "door_ids": []int64{serverRoom, loadingDock}},
 }
 
 // The zone ids.
 const (
-	buildingA = 1
-	buildingB = 2
+	buildingA   = 1
+	buildingB   = 2
+	courtyard   = 4
+	secureRooms = 5
+	nightRounds = 6
 )
 
 // The groups, numbered from 2: the migration seeds Administrators as 1.
@@ -174,11 +182,11 @@ func expiredAt(now time.Time) time.Time {
 
 // The access rules, numbered from 1.
 var rules = []map[string]any{
-	{"group_id": staff, "schedule_id": businessHours, "zone_ids": []int64{buildingA}, "door_ids": []int64{}},
-	{"group_id": staff, "schedule_id": weekends, "door_ids": []int64{staffEntrance}, "zone_ids": []int64{}},
-	{"group_id": security, "schedule_id": always, "door_ids": []int64{serverRoom}, "zone_ids": []int64{buildingA, buildingB}},
-	{"group_id": contractors, "schedule_id": businessHours, "zone_ids": []int64{buildingB}, "door_ids": []int64{}},
-	{"group_id": facilities, "schedule_id": nightShift, "door_ids": []int64{serverRoom, loadingDock}, "zone_ids": []int64{}},
+	{"group_id": staff, "schedule_id": businessHours, "zone_ids": []int64{buildingA}},
+	{"group_id": staff, "schedule_id": weekends, "zone_ids": []int64{courtyard}},
+	{"group_id": security, "schedule_id": always, "zone_ids": []int64{buildingA, buildingB, secureRooms}},
+	{"group_id": contractors, "schedule_id": businessHours, "zone_ids": []int64{buildingB}},
+	{"group_id": facilities, "schedule_id": nightShift, "zone_ids": []int64{nightRounds}},
 }
 
 // The firmware versions, oldest first; the last is the default.

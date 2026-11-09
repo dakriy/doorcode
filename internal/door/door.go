@@ -6,7 +6,6 @@
 package door
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"slices"
@@ -69,18 +68,16 @@ type Fields struct {
 	Notes    string
 	// Public doors are shown in the user portal.
 	Public bool
-	// OpenScheduleIDs are the schedules during which the door is in open
-	// mode, unlocking on any keypress.
-	OpenScheduleIDs []int64
-	ZoneIDs         []int64
+	// ZoneIDs are the zones the door is in, which decide when it is in
+	// open mode and who may enter it.
+	ZoneIDs []int64
 }
 
 // FieldsOf is d as its fields are given, so one part can be changed and
 // the rest kept.
 func FieldsOf(d connector.StoredDoor) Fields {
 	return Fields{
-		Name: d.Name, Location: d.Location, Notes: d.Notes, Public: d.Public,
-		OpenScheduleIDs: d.OpenScheduleIDs, ZoneIDs: d.ZoneIDs,
+		Name: d.Name, Location: d.Location, Notes: d.Notes, Public: d.Public, ZoneIDs: d.ZoneIDs,
 	}
 }
 
@@ -210,20 +207,18 @@ func (s Service) Restore(ctx context.Context, id int64) error {
 // every door; id is the one f describes, zero for a new one, whose own
 // name is no conflict.
 func (s Service) checkDoor(ctx context.Context, all []connector.StoredDoor, id int64, f Fields) (connector.StoredDoor, error) {
-	schedules, schedulesErr := s.Store.Schedules(ctx)
-	zones, zonesErr := s.Store.Zones(ctx)
-	if err := cmp.Or(schedulesErr, zonesErr); err != nil {
+	zones, err := s.Store.Zones(ctx)
+	if err != nil {
 		return connector.StoredDoor{}, err
 	}
 	d := connector.StoredDoor{
 		Name: strings.TrimSpace(f.Name), Location: strings.TrimSpace(f.Location), Notes: strings.TrimSpace(f.Notes),
-		Public: f.Public, OpenScheduleIDs: check.Distinct(f.OpenScheduleIDs), ZoneIDs: check.Distinct(f.ZoneIDs),
+		Public: f.Public, ZoneIDs: check.Distinct(f.ZoneIDs),
 	}
 	var found check.List
 	found.Add("name", doorNameProblem(all, id, d.Name))
 	found.Add("location", check.TooLong(d.Location, maxLocationLength, check.LongText))
 	found.Add("notes", check.TooLong(d.Notes, maxNotesLength, check.LongText))
-	found.Add("open_schedule_ids", check.Unknown(d.OpenScheduleIDs, schedules, func(sch connector.StoredSchedule) int64 { return sch.ID }, "No schedule has id %d."))
 	found.Add("zone_ids", check.Unknown(d.ZoneIDs, zones, zoneID, "No zone has id %d."))
 	return d, found.Err()
 }

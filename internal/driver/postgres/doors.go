@@ -9,14 +9,13 @@ import (
 	"github.com/dakriy/doorcode/internal/connector"
 )
 
-// doorColumns lists the doors columns, the ids of each door's open
-// schedules and zones, its controller's columns, all null without one, and
+// doorColumns lists the doors columns, the ids of each door's zones, its
+// controller's columns, all null without one, and
 // its configuration overrides, in the order doorFields reads them, from
 // doorTables.
 const (
 	doorColumns = `doors.id, doors.name, doors.location, doors.notes, doors.public, doors.primary_picture_id, doors.deleted_at,
 	doors.created_at,
-	array(select schedule_id from door_open_schedules where door_id = doors.id order by schedule_id),
 	array(select zone_id from zone_doors where door_id = doors.id order by zone_id),
 	c.hardware_id, c.firmware_version, c.signal, c.online, c.last_seen_at, c.door_state, c.opened_at, c.held_open, c.unresponsive,
 	c.telemetry, doors.config, doors.firmware_id`
@@ -39,7 +38,7 @@ type scannedDoor struct {
 func doorFields(d *scannedDoor) []any {
 	c := &d.controller
 	return []any{&d.ID, &d.Name, &d.Location, &d.Notes, &d.Public, &d.PrimaryPictureID, &d.DeletedAt, &d.CreatedAt,
-		&d.OpenScheduleIDs, &d.ZoneIDs, &c.hardwareID, &c.firmwareVersion, &c.signal, &c.online, &c.lastSeenAt,
+		&d.ZoneIDs, &c.hardwareID, &c.firmwareVersion, &c.signal, &c.online, &c.lastSeenAt,
 		&c.doorState, &c.openedAt, &c.heldOpen, &c.unresponsive, &c.telemetry, &d.Config, &d.FirmwareID}
 }
 
@@ -190,8 +189,7 @@ func (s *Store) CreateDoor(ctx context.Context, d connector.StoredDoor) (int64, 
 	return d.ID, err
 }
 
-// UpdateDoor stores d over the door with d.ID and replaces its open
-// schedules and zones.
+// UpdateDoor stores d over the door with d.ID and replaces its zones.
 func (s *Store) UpdateDoor(ctx context.Context, d connector.StoredDoor) (bool, error) {
 	var updated bool
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
@@ -206,18 +204,9 @@ func (s *Store) UpdateDoor(ctx context.Context, d connector.StoredDoor) (bool, e
 	return updated, err
 }
 
-// linkDoor replaces the open schedules and zones of the door with d.ID
-// within tx.
+// linkDoor replaces the zones of the door with d.ID within tx.
 func linkDoor(ctx context.Context, tx pgx.Tx, d connector.StoredDoor) error {
-	_, err := tx.Exec(ctx, `delete from door_open_schedules where door_id = $1`, d.ID)
-	if err != nil {
-		return err
-	}
-	_, err = tx.Exec(ctx, `insert into door_open_schedules (door_id, schedule_id) select $1, unnest($2::bigint[])`, d.ID, d.OpenScheduleIDs)
-	if err != nil {
-		return err
-	}
-	_, err = tx.Exec(ctx, `delete from zone_doors where door_id = $1`, d.ID)
+	_, err := tx.Exec(ctx, `delete from zone_doors where door_id = $1`, d.ID)
 	if err != nil {
 		return err
 	}
@@ -282,13 +271,14 @@ func (s *Store) DeletePicture(ctx context.Context, doorID, id int64) (bool, erro
 	return tag.RowsAffected() == 1, err
 }
 
-// zoneColumns lists the zones columns, and the ids of each zone's doors,
-// in the order zoneFields reads them.
+// zoneColumns lists the zones columns, and the ids of each zone's doors
+// and open-mode schedules, in the order zoneFields reads them.
 const zoneColumns = `id, name, description,
-	array(select door_id from zone_doors where zone_id = zones.id order by door_id)`
+	array(select door_id from zone_doors where zone_id = zones.id order by door_id),
+	array(select schedule_id from zone_open_schedules where zone_id = zones.id order by schedule_id)`
 
 func zoneFields(z *connector.StoredZone) []any {
-	return []any{&z.ID, &z.Name, &z.Description, &z.DoorIDs}
+	return []any{&z.ID, &z.Name, &z.Description, &z.DoorIDs, &z.OpenScheduleIDs}
 }
 
 // Zones returns every zone in name order.
@@ -307,7 +297,8 @@ func (s *Store) Zone(ctx context.Context, id int64) (connector.StoredZone, bool,
 	return found(z, err)
 }
 
-// CreateZone inserts z with its doors and returns its id.
+// CreateZone inserts z with its doors and open-mode schedules and returns
+// its id.
 func (s *Store) CreateZone(ctx context.Context, z connector.StoredZone) (int64, error) {
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		err := tx.QueryRow(ctx, `insert into zones (name, description) values ($1, $2) returning id`, z.Name, z.Description).Scan(&z.ID)
@@ -319,7 +310,8 @@ func (s *Store) CreateZone(ctx context.Context, z connector.StoredZone) (int64, 
 	return z.ID, err
 }
 
-// UpdateZone stores z over the zone with z.ID and replaces its doors.
+// UpdateZone stores z over the zone with z.ID and replaces its doors and
+// open-mode schedules.
 func (s *Store) UpdateZone(ctx context.Context, z connector.StoredZone) (bool, error) {
 	var updated bool
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
@@ -333,12 +325,19 @@ func (s *Store) UpdateZone(ctx context.Context, z connector.StoredZone) (bool, e
 	return updated, err
 }
 
-// fillZone replaces the doors of the zone with z.ID within tx.
+// fillZone replaces the doors and open-mode schedules of the zone with
+// z.ID within tx.
 func fillZone(ctx context.Context, tx pgx.Tx, z connector.StoredZone) error {
 	if _, err := tx.Exec(ctx, `delete from zone_doors where zone_id = $1`, z.ID); err != nil {
 		return err
 	}
-	_, err := tx.Exec(ctx, `insert into zone_doors (zone_id, door_id) select $1, unnest($2::bigint[])`, z.ID, z.DoorIDs)
+	if _, err := tx.Exec(ctx, `insert into zone_doors (zone_id, door_id) select $1, unnest($2::bigint[])`, z.ID, z.DoorIDs); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `delete from zone_open_schedules where zone_id = $1`, z.ID); err != nil {
+		return err
+	}
+	_, err := tx.Exec(ctx, `insert into zone_open_schedules (zone_id, schedule_id) select $1, unnest($2::bigint[])`, z.ID, z.OpenScheduleIDs)
 	return err
 }
 

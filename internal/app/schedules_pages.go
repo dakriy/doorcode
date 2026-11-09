@@ -249,8 +249,8 @@ func (a *App) scheduleChanged(w http.ResponseWriter, r *http.Request, viewer aut
 // do about it.
 func inUseText(inUse schedule.InUseError) string {
 	var parts []string
-	if inUse.Doors != nil {
-		parts = append(parts, "Doors are in open mode during this schedule: "+strings.Join(inUse.Doors, ", ")+". Take it off them before deleting it.")
+	if inUse.Zones != nil {
+		parts = append(parts, "Zones are in open mode during this schedule: "+strings.Join(inUse.Zones, ", ")+". Take it off them before deleting it.")
 	}
 	if inUse.Groups != nil {
 		parts = append(parts, "Access rules of these groups use this schedule: "+strings.Join(inUse.Groups, ", ")+". Change or delete those rules before deleting it.")

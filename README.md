@@ -14,11 +14,12 @@ the engineering contract is [AGENTS.md](AGENTS.md).
 ## Features
 
 - **Access model.** Users belong to groups; groups carry roles and
-  pre-assigned user ids. Access rules name a group, a schedule, and doors or
-  zones: members may enter those doors with their code while the schedule is
-  active. Doors have open-mode schedules (any keypress unlocks) and per-door
-  open or locked overrides, also creatable from the keypad by door
-  commanders.
+  pre-assigned user ids. Doors are put in zones. Access rules name a group,
+  a schedule, and zones: members may enter every door in those zones with
+  their code while the schedule is active. Zones also carry open-mode
+  schedules: a door is in open mode (any keypress unlocks) while any zone it
+  is in has one active. Doors have per-door open or locked overrides, also
+  creatable from the keypad by door commanders.
 - **Schedules.** Weekly windows (crossing midnight if need be), an optional
   date range, and excluded dates, entered through a form and shown on
   calendars. Every door's timeline of open and locked time is pushed to it,

@@ -104,8 +104,7 @@ func TestApprovalPageOffersANewDoorOrAnExistingOne(t *testing.T) {
 
 	got := []any{page.Title, page.Heading, page.Choices, page.Options}
 	want := []any{"Approve A1 · doorcode", "Approve A1",
-		map[string]string{"open_schedule_ids=1": "Always Every day, all day", "open_schedule_ids=2": "Weekdays Mon 08:00–18:00", "zone_ids=1": "North",
-			"public=on": "Show in the user portal People see the door, its picture, and when their code works there."},
+		map[string]string{"zone_ids=1": "North", "public=on": "Show in the user portal People see the door, its picture, and when their code works there."},
 		map[string][]string{"door_id": {"Dock"}},
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
@@ -146,7 +145,7 @@ func TestApprovingAsANewDoorFromTheFormOpensTheDoor(t *testing.T) {
 	b, conn := waiting(t, f)
 	createZone(t, b, `{"name":"North"}`)
 
-	approved := b.Post("/admin/enrollments/A1/new-door", "name", "Lobby", "location", "Building A", "open_schedule_ids", "1", "zone_ids", "1")
+	approved := b.Post("/admin/enrollments/A1/new-door", "name", "Lobby", "location", "Building A", "zone_ids", "1")
 	got := pageOf(b.Get(approved.Location))
 
 	if diff := cmp.Diff([]any{303, "/admin/doors/1", firstUsername}, []any{approved.Status, approved.Location, credentialsOf(t, conn).username}); diff != "" {
@@ -154,8 +153,8 @@ func TestApprovingAsANewDoorFromTheFormOpensTheDoor(t *testing.T) {
 	}
 	want := []any{
 		[]string{"The controller has been approved. Its credentials are on their way, and it connects as this door once it has them."},
-		[]string{noTargetNote, "New credentials can be sent only while the controller is connected.", openNote},
-		[]string{"open_schedule_ids=1", "zone_ids=1"},
+		[]string{noTargetNote, "New credentials can be sent only while the controller is connected.", openNote, neverOpenNote},
+		[]string{"zone_ids=1"},
 		[][]string{credentialsHead, {firstUsername, "Mon 5 Jan 2026 09:00", "Issued, not yet used"}},
 	}
 	if diff := cmp.Diff(want, []any{got.Messages, got.Notes, got.Checked, got.Tables["Credentials"]}); diff != "" {

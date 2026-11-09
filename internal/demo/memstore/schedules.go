@@ -101,7 +101,7 @@ func (s *Store) UpdateSchedule(_ context.Context, sch connector.StoredSchedule) 
 	return true, nil
 }
 
-// DeleteSchedule removes the schedule, taking it off the doors in open
+// DeleteSchedule removes the schedule, taking it off the zones in open
 // mode during it; it refuses one an access rule uses.
 func (s *Store) DeleteSchedule(_ context.Context, id int64) (bool, error) {
 	s.mu.Lock()
@@ -115,9 +115,9 @@ func (s *Store) DeleteSchedule(_ context.Context, id int64) (bool, error) {
 		}
 	}
 	delete(s.schedules, id)
-	for doorID, d := range s.doors {
-		d.OpenScheduleIDs = slices.DeleteFunc(list(d.OpenScheduleIDs), func(x int64) bool { return x == id })
-		s.doors[doorID] = d
+	for zoneID, z := range s.zones {
+		z.OpenScheduleIDs = slices.DeleteFunc(list(z.OpenScheduleIDs), func(x int64) bool { return x == id })
+		s.zones[zoneID] = z
 	}
 	return true, nil
 }

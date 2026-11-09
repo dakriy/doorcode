@@ -21,7 +21,8 @@ const monday = "from=2026-01-05&to=2026-01-05"
 func TestALockedOverrideCutsAHoleInAnOpenModeWindow(t *testing.T) {
 	t.Parallel()
 	b := doorSite(t, testsupport.NewFactory())
-	createDoor(t, b, `{"name":"Lobby","open_schedule_ids":[2]}`)
+	send(t, b, "PUT", "/api/v1/zones/1", `{"name":"North","open_schedule_ids":[2]}`, 200)
+	createDoor(t, b, `{"name":"Lobby","zone_ids":[1]}`)
 	createOverride(t, b, "1", `{"kind":"locked","start":"2026-01-05T12:00:00Z","end":"2026-01-05T13:00:00Z"}`)
 
 	got := timeline(t, b, "1", monday)
@@ -38,8 +39,8 @@ func TestALockedOverrideCutsAHoleInAnOpenModeWindow(t *testing.T) {
 func TestAnOpenOverrideExtendsOpenModeOverACodeAccessPeriod(t *testing.T) {
 	t.Parallel()
 	b := ruleSite(t, testsupport.NewFactory())
-	send(t, b, "PUT", "/api/v1/doors/1", `{"name":"Lobby","open_schedule_ids":[2]}`, 200)
-	createRule(t, b, `{"group_id":2,"schedule_id":1,"door_ids":[1]}`)
+	send(t, b, "PUT", "/api/v1/zones/1", `{"name":"North","door_ids":[1],"open_schedule_ids":[2]}`, 200)
+	createRule(t, b, `{"group_id":2,"schedule_id":1,"zone_ids":[1]}`)
 	createOverride(t, b, "1", `{"kind":"open","start":"2026-01-05T17:00:00Z","end":"2026-01-05T20:00:00Z"}`)
 
 	got := timeline(t, b, "1", monday)
@@ -96,11 +97,14 @@ func TestTimelineMergesOverridesWithLockedWinning(t *testing.T) {
 	}
 }
 
-func TestTimelineJoinsTheOpenModeOfEverySchedule(t *testing.T) {
+func TestTimelineJoinsTheOpenModeOfEveryZoneTheDoorIsIn(t *testing.T) {
 	t.Parallel()
 	b := doorSite(t, testsupport.NewFactory())
-	createDoor(t, b, `{"name":"Lobby","open_schedule_ids":[2,3]}`)
-	createDoor(t, b, `{"name":"Dock","open_schedule_ids":[1,2]}`)
+	send(t, b, "PUT", "/api/v1/zones/1", `{"name":"North","open_schedule_ids":[3]}`, 200)
+	send(t, b, "PUT", "/api/v1/zones/2", `{"name":"Annex","open_schedule_ids":[2]}`, 200)
+	createZone(t, b, `{"name":"Lounge","open_schedule_ids":[1]}`)
+	createDoor(t, b, `{"name":"Lobby","zone_ids":[1,2]}`)
+	createDoor(t, b, `{"name":"Dock","zone_ids":[3,2]}`)
 
 	got := []any{timeline(t, b, "1", "from=2026-01-06&to=2026-01-06"), timeline(t, b, "2", "from=2026-01-06&to=2026-01-06")}
 
@@ -118,7 +122,8 @@ func TestTimelineIsInTheSiteTimezoneAndCoversThisWeekByDefault(t *testing.T) {
 	t.Parallel()
 	b := inZone(t, "America/New_York")
 	createSchedule(t, b, `{"name":"Nights","windows":[{"days":["sun"],"start":"22:00","end":"06:00"}]}`)
-	createDoor(t, b, `{"name":"Lobby","open_schedule_ids":[2]}`)
+	createZone(t, b, `{"name":"North","open_schedule_ids":[2]}`)
+	createDoor(t, b, `{"name":"Lobby","zone_ids":[1]}`)
 
 	got := testsupport.JSON(b.Get("/api/v1/doors/1/timeline").Body)
 
@@ -155,8 +160,8 @@ func TestARuleThroughAZoneLetsTheUsersCodeWorkWhenTheDoorIsNotLocked(t *testing.
 	t.Parallel()
 	b := staffAnn(t, testsupport.NewFactory())
 	createRule(t, b, `{"group_id":2,"schedule_id":2,"zone_ids":[1]}`)
-	createRule(t, b, `{"group_id":2,"schedule_id":3,"door_ids":[1,3]}`)
-	createRule(t, b, `{"group_id":3,"schedule_id":1,"door_ids":[2]}`)
+	createRule(t, b, `{"group_id":2,"schedule_id":3,"zone_ids":[1]}`)
+	createRule(t, b, `{"group_id":3,"schedule_id":1,"zone_ids":[2]}`)
 	createOverride(t, b, "1", `{"kind":"locked","start":"2026-01-05T12:00:00Z","end":"2026-01-05T13:00:00Z"}`)
 	createOverride(t, b, "1", `{"kind":"open","start":"2026-01-05T19:00:00Z","end":"2026-01-05T20:00:00Z"}`)
 	send(t, b, "DELETE", "/api/v1/doors/3", "", 204)
@@ -190,19 +195,21 @@ func TestTimelineAndAccessAnswerWithARequestIDWhenTheStoreFails(t *testing.T) {
 		target string
 	}{
 		"a timeline's door":      {(*testsupport.Store).FailDoors, "/api/v1/doors/1/timeline"},
+		"a timeline's zones":     {(*testsupport.Store).FailZones, "/api/v1/doors/1/timeline"},
 		"a timeline's schedules": {(*testsupport.Store).FailSchedules, "/api/v1/doors/1/timeline"},
 		"a timeline's overrides": {(*testsupport.Store).FailOverrides, "/api/v1/doors/1/timeline"},
 		"a timeline's time zone": {(*testsupport.Store).FailSettings, "/api/v1/doors/1/timeline"},
 		"access's user":          {(*testsupport.Store).FailUsers, "/api/v1/users/2/access"},
 		"access's rules":         {(*testsupport.Store).FailRules, "/api/v1/users/2/access"},
 		"access's schedules":     {(*testsupport.Store).FailSchedules, "/api/v1/users/2/access"},
+		"access's zones":         {(*testsupport.Store).FailZones, "/api/v1/users/2/access"},
 		"access's overrides":     {(*testsupport.Store).FailOverrides, "/api/v1/users/2/access"},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			f := testsupport.NewFactory()
 			b := staffAnn(t, f)
-			createRule(t, b, `{"group_id":2,"schedule_id":1,"door_ids":[1]}`)
+			createRule(t, b, `{"group_id":2,"schedule_id":1,"zone_ids":[1]}`)
 			createOverride(t, b, "1", lockedToday)
 			c.fail(f.StoreStub)
 

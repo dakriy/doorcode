@@ -14,8 +14,8 @@
 <section aria-labelledby="delete-heading" class="mt-8 max-w-3xl rounded-xl border border-red-200 p-6 dark:border-red-900/60">
   <h2 id="delete-heading" class="text-sm font-semibold text-red-700 dark:text-red-300">Delete zone</h2>
   <div class="mt-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-    <p class="text-sm text-zinc-600 dark:text-zinc-400">The zone is removed for good. Its doors stay. This cannot be undone.</p>
-    <form method="post" action="/admin/zones/{{$z.ID}}/delete" hx-confirm="Delete the zone {{$z.Name}}? Its doors stay. This cannot be undone.">
+    <p class="text-sm text-zinc-600 dark:text-zinc-400">The zone is removed for good. Its doors stay, but the access rules and open mode it gave them stop. This cannot be undone.</p>
+    <form method="post" action="/admin/zones/{{$z.ID}}/delete" hx-confirm="Delete the zone {{$z.Name}}? Its doors stay, but the access rules and open mode it gave them stop. This cannot be undone.">
       <button type="submit" class="{{template "danger-class"}} py-2">Delete zone</button>
     </form>
   </div>
