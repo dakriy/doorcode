@@ -94,7 +94,6 @@ const (
 	keyClaimLastName      = "oidc_claim_last_name"
 	keyClaimDisplayName   = "oidc_claim_display_name"
 	keyClaimEntitlements  = "oidc_claim_entitlements"
-	keyEntitlementGroups  = "oidc_entitlement_groups"
 	keyDefaultGroups      = "oidc_default_groups"
 	slugsHint             = "must be group slugs separated by commas, such as staff,contractors"
 )
@@ -196,18 +195,16 @@ var sections = []section{
 		{key: keyOIDCScopes, fallback: "openid email profile", validate: accepting(scopes), label: "Scopes",
 			help: "Scopes asked for, separated by spaces, openid among them."},
 	}},
-	{Section{Name: "Identity claims", About: "The claims of the provider's ID token or userinfo that say who someone is, and the groups its entitlements decide. An empty claim name is a claim the site does not read."}, []definition{
+	{Section{Name: "Identity claims", About: "The claims of the provider's ID token or userinfo that say who someone is and which groups they are in. An empty claim name is a claim the site does not read."}, []definition{
 		{key: keyClaimUserID, fallback: "", label: "User id claim", help: "The claim holding the user id people are matched by first."},
 		{key: keyClaimEmail, fallback: "email", validate: accepting(claimName), label: "Email claim", help: "Required."},
 		{key: keyClaimFirstName, fallback: "given_name", label: "First name claim"},
 		{key: keyClaimLastName, fallback: "family_name", label: "Last name claim"},
 		{key: keyClaimDisplayName, fallback: "name", label: "Display name claim"},
 		{key: keyClaimEntitlements, fallback: "", label: "Entitlements claim",
-			help: "The claim listing what someone is entitled to; values equal to a slug below decide membership of that group."},
-		{key: keyEntitlementGroups, fallback: "", validate: accepting(slugs), label: "Groups entitlements decide",
-			help: "Group slugs separated by commas. Signing in joins those the entitlements name and leaves the others."},
+			help: "The claim listing the slugs of someone's groups. A sign-in that carries it makes them a member of exactly the groups it names, ignoring slugs no group has; one without it leaves their groups alone. While it is set, new users join no default or pre-assigned groups."},
 		{key: keyDefaultGroups, fallback: "", validate: accepting(slugs), label: "Groups new users join",
-			help: "Group slugs separated by commas."},
+			help: "Group slugs separated by commas. New users join these, and the groups whose pre-assigned list holds their user id, only while the entitlements claim is empty."},
 	}},
 	{Section{Name: "Door enrollment", About: "The broker account every new controller enrolls with, and how long a door's old credentials keep working. A changed enrollment username or password takes effect when the server next starts."}, []definition{
 		{key: keyEnrollmentUsername, fallback: "doorcode-enroll", label: "Enrollment username"},
@@ -319,12 +316,8 @@ type OIDC struct {
 	Scopes     []string
 	// Claims names the claims the provider says who someone is in.
 	Claims Claims
-	// EntitlementGroups are the slugs of the groups the entitlements
-	// claim decides membership of: a sign-in whose entitlements hold a
-	// group's slug joins it, and one whose entitlements do not leaves it.
-	EntitlementGroups []string
 	// DefaultGroups are the slugs of the groups a user created by signing
-	// in joins.
+	// in joins while Claims.Entitlements is empty.
 	DefaultGroups []string
 }
 
@@ -610,14 +603,13 @@ func (c Current) withSignIn(values map[string]string) (Current, error) {
 		UserID: values[keyClaimUserID], FirstName: values[keyClaimFirstName], LastName: values[keyClaimLastName],
 		DisplayName: values[keyClaimDisplayName], Entitlements: values[keyClaimEntitlements],
 	}}
-	var errs [7]error
+	var errs [6]error
 	o.Enabled, errs[0] = parsed(values, keyOIDCEnabled, boolean)
 	o.AutoSignIn, errs[1] = parsed(values, keyOIDCAutoSignIn, boolean)
 	o.Issuer, errs[2] = parsed(values, keyOIDCIssuer, issuer)
 	o.Scopes, errs[3] = parsed(values, keyOIDCScopes, scopes)
 	o.Claims.Email, errs[4] = parsed(values, keyClaimEmail, claimName)
-	o.EntitlementGroups, errs[5] = parsed(values, keyEntitlementGroups, slugs)
-	o.DefaultGroups, errs[6] = parsed(values, keyDefaultGroups, slugs)
+	o.DefaultGroups, errs[5] = parsed(values, keyDefaultGroups, slugs)
 	c.OIDC = o
 	return c, errors.Join(errs[:]...)
 }

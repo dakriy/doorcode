@@ -103,25 +103,35 @@ func (s Service) Match(ctx context.Context, userID, email string) (connector.Sto
 
 // CreateUser creates a user from p. A user whose user id is on a group's
 // pre-assigned list joins that group as they are created; every way of
-// creating a user goes through here.
+// creating a user goes through here or CreateEntitled.
 func (s Service) CreateUser(ctx context.Context, p Profile) (connector.StoredUser, error) {
-	return s.create(ctx, p, nil)
+	return s.create(ctx, p, nil, true)
+}
+
+// CreateEntitled creates a user from p whose groups the identity
+// provider's entitlements decide, so no pre-assigned list applies to them.
+func (s Service) CreateEntitled(ctx context.Context, p Profile) (connector.StoredUser, error) {
+	return s.create(ctx, p, nil, false)
 }
 
 // create creates a user from p, who joins the groups whose ids are
-// groupIDs as well as the pre-assigned ones as they are created.
-func (s Service) create(ctx context.Context, p Profile, groupIDs []int64) (connector.StoredUser, error) {
+// groupIDs as they are created, and the pre-assigned ones when
+// preassigned.
+func (s Service) create(ctx context.Context, p Profile, groupIDs []int64, preassigned bool) (connector.StoredUser, error) {
 	p, err := s.checkProfile(ctx, 0, p)
 	if err != nil {
 		return connector.StoredUser{}, err
 	}
-	groups, err := s.preassigned(ctx, p.UserID)
-	if err != nil {
-		return connector.StoredUser{}, err
+	if preassigned {
+		groups, err := s.preassigned(ctx, p.UserID)
+		if err != nil {
+			return connector.StoredUser{}, err
+		}
+		groupIDs = append(groups, groupIDs...)
 	}
 	u := stored(p)
 	u.CreatedAt = s.Clock.Now()
-	id, err := s.Store.CreateUser(ctx, u, check.Distinct(append(groups, groupIDs...)))
+	id, err := s.Store.CreateUser(ctx, u, check.Distinct(groupIDs))
 	if err != nil {
 		return connector.StoredUser{}, err
 	}

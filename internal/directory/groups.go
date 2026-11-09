@@ -221,21 +221,40 @@ func badUserIDs(ids []string) string {
 	return ""
 }
 
-// Sync makes the user whose id is userID a member of the groups whose
-// slugs are in join and ends their membership of the groups whose slugs
-// are in leave, as a sign-in at the identity provider decides; leaving
-// wins over joining. Slugs that name no group are passed over, and
-// nobody's roles limit it.
-func (s Service) Sync(ctx context.Context, userID int64, join, leave []string) error {
+// Join makes the user whose id is userID a member of the groups whose
+// slugs are in slugs, as signing in for the first time decides. Slugs
+// that name no group are passed over, and nobody's roles limit it.
+func (s Service) Join(ctx context.Context, userID int64, slugs []string) error {
 	groups, err := s.Store.Groups(ctx)
 	if err != nil {
 		return err
 	}
 	for _, g := range groups {
-		if slices.Contains(leave, g.Slug) {
-			_, err = s.Store.RemoveMember(ctx, g.ID, userID)
-		} else if slices.Contains(join, g.Slug) {
-			err = s.Store.AddMember(ctx, g.ID, userID)
+		if slices.Contains(slugs, g.Slug) {
+			if err := s.Store.AddMember(ctx, g.ID, userID); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// Entitle makes u a member of exactly the groups whose slugs are in slugs,
+// as the identity provider's entitlements decide: it joins those u is not
+// in and leaves every other. Slugs that name no group are passed over, no
+// group is created, and nobody's roles limit it.
+func (s Service) Entitle(ctx context.Context, u connector.StoredUser, slugs []string) error {
+	groups, err := s.Store.Groups(ctx)
+	if err != nil {
+		return err
+	}
+	for _, g := range groups {
+		member := slices.ContainsFunc(u.Groups, func(m connector.UserGroup) bool { return m.ID == g.ID })
+		entitled := slices.Contains(slugs, g.Slug)
+		if entitled && !member {
+			err = s.Store.AddMember(ctx, g.ID, u.ID)
+		} else if !entitled && member {
+			_, err = s.Store.RemoveMember(ctx, g.ID, u.ID)
 		}
 		if err != nil {
 			return err

@@ -79,7 +79,8 @@ sign in. Deleting a user or a door is a soft delete; its events stay.
 
 A group has a slug (unique, URL-safe), a name, a description, members,
 roles, and a list of pre-assigned user ids: a user whose user id is listed
-joins the group on first sign-in or import. Groups contain people only.
+joins the group on first sign-in (unless entitlements decide groups, see
+section 10) or import. Groups contain people only.
 
 A zone has a name and a set of doors. A door may be in many zones.
 
@@ -239,9 +240,17 @@ Local sign-in with email and password is always available to accounts that
 have a password. OIDC sign-in can be enabled in settings with issuer, client
 id and secret, scopes, and the claim names that supply the user id, email,
 first name, last name, and entitlements. Users are matched by user id first,
-then email; a new user is created on first sign-in with the default expiry
-and default groups. Entitlement values equal to group slugs add the user to
-those groups and remove them from mapped groups whose value is absent.
+then email; a new user is created on first sign-in with the default expiry.
+
+When the entitlements claim name is set and a sign-in's ID token or userinfo
+carries that claim, the user's group memberships become exactly the existing
+groups whose slugs appear among its values: missing memberships are added and
+all others removed. Values naming no group are ignored, groups are never
+created, and nothing records where a membership came from. A sign-in that does
+not carry the claim leaves memberships unchanged. Because exact matching would
+undo them, the default groups for new users and the pre-assigned joins apply
+only while the entitlements claim name is empty; then sign-in leaves
+memberships alone apart from those joins on first sign-in.
 
 When *auto sign-in* is on, visiting the sign-in page redirects to the
 provider unless `auto_sign_in=false` is in the query string, and the

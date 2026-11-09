@@ -468,6 +468,7 @@ func TestARowWithoutEmailPreassignsTheUserIDSoThePersonJoinsOnFirstSignIn(t *tes
 	t.Parallel()
 	f := testsupport.NewFactory()
 	h, admin := providerSite(t, f)
+	delete(f.EnvStub, "DOORCODE_OIDC_CLAIM_ENTITLEMENTS")
 	file := "user_id,groups,email\n100234,lab;staff,\n"
 
 	preview := pageOf(admin.Upload("/admin/users/import", "file", "people.csv", []byte(file)))
@@ -481,7 +482,7 @@ func TestARowWithoutEmailPreassignsTheUserIDSoThePersonJoinsOnFirstSignIn(t *tes
 		map[string]string{"Users created": "0", "Users updated": "0", "Join on first sign-in": "1", "Nothing to change": "0", "Skipped": "0"},
 		[]string{"2", "100234", "", "Joins on first sign-in", "Added the user id to the pre-assigned lists of lab, staff"},
 		[]any{"100234"},
-		[]any{"contractors", "lab", "staff", "visitors"},
+		[]any{"lab", "staff", "visitors"},
 	}
 	got := []any{preview.Details, preview.Tables["Rows"][1], result.Details, result.Tables["Rows"][1], lab, groupSlugs(t, admin, "2")}
 	if diff := cmp.Diff(want, got); diff != "" {

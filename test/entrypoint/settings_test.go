@@ -49,7 +49,6 @@ var signInSettingsJSON = defaultSetting("password_min_length", "12") + `,` +
 	defaultSetting("oidc_claim_last_name", "family_name") + `,` +
 	defaultSetting("oidc_claim_display_name", "name") + `,` +
 	defaultSetting("oidc_claim_entitlements", "") + `,` +
-	defaultSetting("oidc_entitlement_groups", "") + `,` +
 	defaultSetting("oidc_default_groups", "")
 
 // brokerSettingsJSON is how the settings API shows the broker settings

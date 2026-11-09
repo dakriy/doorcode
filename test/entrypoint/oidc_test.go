@@ -24,8 +24,8 @@ const (
 // providerSite is a site whose environment turns signing in at the
 // identity provider https://id.example.com on, as the client doorcode of
 // https://doorcode.example.com, reading the user id from employee_id and
-// entitlements from groups, which decide the groups staff and contractors,
-// and giving new users the group visitors. It has the groups Staff (2,
+// entitlements from groups, and naming visitors as the group new users
+// join while no entitlements claim is read. It has the groups Staff (2,
 // staff), Contractors (3, contractors), Visitors (4, visitors), and Lab
 // (5, lab), and returns its handler and the administrator's browser.
 func providerSite(t *testing.T, f *testsupport.Factory) (testsupport.Handler, *testsupport.Browser) {
@@ -33,8 +33,8 @@ func providerSite(t *testing.T, f *testsupport.Factory) (testsupport.Handler, *t
 	for name, value := range map[string]string{
 		"DOORCODE_OIDC_ENABLED": "true", "DOORCODE_OIDC_ISSUER": "https://id.example.com", "DOORCODE_OIDC_CLIENT_ID": "doorcode",
 		"DOORCODE_PUBLIC_URL": "https://doorcode.example.com", "DOORCODE_OIDC_CLAIM_USER_ID": "employee_id",
-		"DOORCODE_OIDC_CLAIM_ENTITLEMENTS": "groups", "DOORCODE_OIDC_ENTITLEMENT_GROUPS": "staff, contractors",
-		"DOORCODE_OIDC_DEFAULT_GROUPS": "visitors",
+		"DOORCODE_OIDC_CLAIM_ENTITLEMENTS": "groups",
+		"DOORCODE_OIDC_DEFAULT_GROUPS":     "visitors",
 	} {
 		f.EnvStub[name] = value
 	}
@@ -98,7 +98,7 @@ func refusedPage(message string, password bool) testsupport.Page {
 	return page
 }
 
-func TestANewIdentitySignsInWithTheDefaultEntitlementAndPreassignedGroups(t *testing.T) {
+func TestANewIdentitySignsInAsAMemberOfTheGroupsItsEntitlementsName(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	h, admin := providerSite(t, f)
@@ -109,41 +109,70 @@ func TestANewIdentitySignsInWithTheDefaultEntitlementAndPreassignedGroups(t *tes
 	user := testsupport.JSON(send(t, admin, "GET", "/api/v1/users/2", "", 200).Body).(map[string]any)
 
 	want := []any{303, "/me/code", "Door code", []string{"Welcome! Choose your door code to finish setting up your account."},
-		"ann@example.com", "100234", "Ann", "Smith", "Ann Smith", "2031-01-05T09:00:00Z", []any{"contractors", "interns", "staff", "visitors"}}
+		"ann@example.com", "100234", "Ann", "Smith", "Ann Smith", "2031-01-05T09:00:00Z", []any{"contractors", "staff"}}
 	if diff := cmp.Diff(want, []any{got.Status, got.Location, landed.Heading, landed.Messages, user["email"], user["user_id"], user["first_name"],
 		user["last_name"], user["display_name"], user["expires_at"], groupSlugs(t, admin, "2")}); diff != "" {
 		t.Errorf("status, location, heading and messages where it lands, email, user id, names, expiry, groups (-want +got):\n%s", diff)
 	}
 }
 
-func TestASecondSignInLeavesADroppedEntitlementsGroupAndKeepsTheOthers(t *testing.T) {
+func TestWithoutAnEntitlementsClaimNameANewIdentityJoinsTheDefaultAndPreassignedGroups(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	h, admin := providerSite(t, f)
+	delete(f.EnvStub, "DOORCODE_OIDC_CLAIM_ENTITLEMENTS")
+	createGroup(t, admin, `{"slug":"interns","name":"Interns","preassigned_user_ids":["100234"]}`)
+
+	viaProvider(t, f, h, annClaims())
+
+	if diff := cmp.Diff([]any{"interns", "visitors"}, groupSlugs(t, admin, "2")); diff != "" {
+		t.Errorf("groups (-want +got):\n%s", diff)
+	}
+}
+
+func TestASignInMakesTheUserAMemberOfExactlyTheExistingGroupsItsEntitlementsName(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	h, admin := providerSite(t, f)
 	viaProvider(t, f, h, annClaims())
 	join(t, admin, "5", "2")
 
-	_, got := viaProvider(t, f, h, annClaims("groups", "staff"))
+	_, got := viaProvider(t, f, h, annClaims("groups", []any{"staff", "visitors", "no-such-group"}))
+	groups := testsupport.JSONAt(send(t, admin, "GET", "/api/v1/groups", "", 200).Body, "/groups").([]any)
 
-	if diff := cmp.Diff([]any{303, []any{"lab", "staff", "visitors"}}, []any{got.Status, groupSlugs(t, admin, "2")}); diff != "" {
+	if diff := cmp.Diff([]any{303, []any{"staff", "visitors"}, 5}, []any{got.Status, groupSlugs(t, admin, "2"), len(groups)}); diff != "" {
+		t.Errorf("status, groups, how many groups there are (-want +got):\n%s", diff)
+	}
+}
+
+func TestASignInWithoutTheEntitlementsClaimLeavesTheUsersGroupsAlone(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	h, admin := providerSite(t, f)
+	viaProvider(t, f, h, annClaims())
+	join(t, admin, "5", "2")
+
+	_, got := viaProvider(t, f, h, annClaims("groups", nil))
+
+	if diff := cmp.Diff([]any{303, []any{"contractors", "lab", "staff"}}, []any{got.Status, groupSlugs(t, admin, "2")}); diff != "" {
 		t.Errorf("status, groups (-want +got):\n%s", diff)
 	}
 }
 
-func TestADefaultGroupTheEntitlementsDecideIsJoinedOnlyWhenEntitled(t *testing.T) {
+func TestANewIdentityWithoutTheEntitlementsClaimJoinsNoDefaultOrPreassignedGroup(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	h, admin := providerSite(t, f)
-	f.EnvStub["DOORCODE_OIDC_DEFAULT_GROUPS"] = "visitors,contractors"
+	createGroup(t, admin, `{"slug":"interns","name":"Interns","preassigned_user_ids":["100234"]}`)
 
-	viaProvider(t, f, h, annClaims("groups", []any{"staff"}))
+	_, got := viaProvider(t, f, h, annClaims("groups", nil))
 
-	if diff := cmp.Diff([]any{"staff", "visitors"}, groupSlugs(t, admin, "2")); diff != "" {
-		t.Errorf("groups (-want +got):\n%s", diff)
+	if diff := cmp.Diff([]any{303, []any(nil)}, []any{got.Status, groupSlugs(t, admin, "2")}); diff != "" {
+		t.Errorf("status, groups (-want +got):\n%s", diff)
 	}
 }
 
-func TestWithoutAnEntitlementsClaimEntitlementGroupsAreLeftAlone(t *testing.T) {
+func TestWithoutAnEntitlementsClaimNameSigningInLeavesTheUsersGroupsAlone(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	h, admin := providerSite(t, f)
@@ -213,12 +242,12 @@ func TestClaimsTheIDTokenLacksComeFromTheUserinfoEndpoint(t *testing.T) {
 	b := testsupport.NewBrowser(h)
 	started := b.Get("/sign-in/oidc")
 	back := f.IdentityStub.AuthorizeWithUserInfo(started.Location, annClaims("family_name", nil, "groups", nil),
-		map[string]any{"sub": "ann-sub", "family_name": "Jones", "given_name": "Not used", "groups": []any{"staff"}})
+		map[string]any{"sub": "ann-sub", "family_name": "Jones", "given_name": "Not used", "groups": "staff"})
 
 	got := b.Get(back)
 	user := testsupport.JSON(send(t, admin, "GET", "/api/v1/users/2", "", 200).Body).(map[string]any)
 
-	want := []any{303, "Ann", "Jones", []any{"staff", "visitors"}}
+	want := []any{303, "Ann", "Jones", []any{"staff"}}
 	if diff := cmp.Diff(want, []any{got.Status, user["first_name"], user["last_name"], groupSlugs(t, admin, "2")}); diff != "" {
 		t.Errorf("status, names, groups (-want +got):\n%s", diff)
 	}
@@ -543,6 +572,31 @@ func TestASignInThatCannotBeHandledShowsTheErrorPage(t *testing.T) {
 	}
 }
 
+func TestANewIdentityWhoseDefaultGroupsCannotBeJoinedSeesTheErrorPage(t *testing.T) {
+	t.Parallel()
+	cases := map[string]func(f *testsupport.Factory){
+		"when groups cannot be read":    func(f *testsupport.Factory) { f.StoreStub.FailGroups() },
+		"when groups cannot be changed": func(f *testsupport.Factory) { f.StoreStub.FailGroupWrites() },
+	}
+	for name, fail := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			f := testsupport.NewFactory()
+			h, _ := providerSite(t, f)
+			delete(f.EnvStub, "DOORCODE_OIDC_CLAIM_ENTITLEMENTS")
+			b := testsupport.NewBrowser(h)
+			back := f.IdentityStub.Authorize(b.Get("/sign-in/oidc").Location, annClaims("employee_id", nil))
+			fail(f)
+
+			got := b.Get(back)
+
+			if diff := cmp.Diff([]any{500, "stub: unavailable"}, []any{got.Status, lastLog(f).Fields["error"]}); diff != "" {
+				t.Errorf("status, log (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestPagesShowTheErrorPageWhenSettingsCannotBeRead(t *testing.T) {
 	t.Parallel()
 	requests := map[string]func(b *testsupport.Browser) testsupport.Response{
@@ -701,14 +755,14 @@ func TestSignInSettingsAcceptOnlyWhatTheyCanUse(t *testing.T) {
 	cases := map[string]struct {
 		key, value, refusal string
 	}{
-		"enabled":            {"oidc_enabled", "yes", "must be true or false"},
-		"auto sign-in":       {"oidc_auto_sign_in", "1", "must be true or false"},
-		"an http issuer":     {"oidc_issuer", "http://id.example.com", "must be empty or the https:// address the provider names as its issuer, such as https://id.example.com"},
-		"scopes":             {"oidc_scopes", "email profile", "must be scopes separated by spaces, openid among them"},
-		"the email claim":    {"oidc_claim_email", " ", "must name a claim"},
-		"entitlement groups": {"oidc_entitlement_groups", "staff,,Not A Slug", "must be group slugs separated by commas, such as staff,contractors"},
-		"default groups":     {"oidc_default_groups", "-", "must be group slugs separated by commas, such as staff,contractors"},
-		"new user expiry":    {"new_user_expiry_days", "0", "must be a whole number of days from 1 to 36500"},
+		"enabled":                      {"oidc_enabled", "yes", "must be true or false"},
+		"auto sign-in":                 {"oidc_auto_sign_in", "1", "must be true or false"},
+		"an http issuer":               {"oidc_issuer", "http://id.example.com", "must be empty or the https:// address the provider names as its issuer, such as https://id.example.com"},
+		"scopes":                       {"oidc_scopes", "email profile", "must be scopes separated by spaces, openid among them"},
+		"the email claim":              {"oidc_claim_email", " ", "must name a claim"},
+		"default groups":               {"oidc_default_groups", "-", "must be group slugs separated by commas, such as staff,contractors"},
+		"a blank among default groups": {"oidc_default_groups", "staff,,Not A Slug", "must be group slugs separated by commas, such as staff,contractors"},
+		"new user expiry":              {"new_user_expiry_days", "0", "must be a whole number of days from 1 to 36500"},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -727,7 +781,7 @@ func TestSignInSettingsTakeWhatTheyCanUse(t *testing.T) {
 	t.Parallel()
 	cases := map[string]string{
 		"oidc_enabled=true": "", "oidc_auto_sign_in=false": "", "oidc_issuer=https://id.example.com/realms/staff": "",
-		"oidc_scopes=openid email": "", "oidc_default_groups=": "", "oidc_entitlement_groups=staff, ,lab-1": "",
+		"oidc_scopes=openid email": "", "oidc_default_groups=": "", "oidc_default_groups=staff, ,lab-1": "",
 	}
 	for setting := range cases {
 		t.Run(setting, func(t *testing.T) {
@@ -795,9 +849,12 @@ func TestAnEntitlementsClaimThatIsNeitherTextNorAListHoldsNone(t *testing.T) {
 	f := testsupport.NewFactory()
 	h, admin := providerSite(t, f)
 
+	viaProvider(t, f, h, annClaims())
+	join(t, admin, "5", "2")
+
 	viaProvider(t, f, h, annClaims("groups", float64(5)))
 
-	if diff := cmp.Diff([]any{"visitors"}, groupSlugs(t, admin, "2")); diff != "" {
+	if diff := cmp.Diff([]any(nil), groupSlugs(t, admin, "2")); diff != "" {
 		t.Errorf("groups (-want +got):\n%s", diff)
 	}
 }

@@ -42,7 +42,7 @@ the engineering contract is [AGENTS.md](AGENTS.md).
   the busiest and quietest doors, door uptime, signal and latency trends,
   firmware versions, and live counts.
 - **People.** Local passwords and OpenID Connect single sign-on (matching by
-  user id then email, entitlements deciding group membership), a user portal
+  user id then email, an entitlements claim setting group membership exactly), a user portal
   (door code, password, access calendars, recent entries, access requests,
   API tokens), bulk import of users from CSV with a preview, and access
   requests answered by administrators.
@@ -168,9 +168,8 @@ page applies, and without that the default.
 | `oidc_claim_first_name` | The claim holding the first name. | `given_name` |
 | `oidc_claim_last_name` | The claim holding the last name. | `family_name` |
 | `oidc_claim_display_name` | The claim holding the display name. | `name` |
-| `oidc_claim_entitlements` | The claim listing entitlements; values equal to a slug in `oidc_entitlement_groups` decide membership of that group. Empty reads none. | empty |
-| `oidc_entitlement_groups` | Group slugs, separated by commas, whose membership entitlements decide: signing in joins those named and leaves the others. | empty |
-| `oidc_default_groups` | Group slugs, separated by commas, that users created by signing in join. | empty |
+| `oidc_claim_entitlements` | The claim listing the slugs of a person's groups. A sign-in that carries it makes them a member of exactly the existing groups it names (values naming no group are ignored; groups are never created); one without it leaves their groups unchanged. While set, new users join no default or pre-assigned groups. Empty reads none. | empty |
+| `oidc_default_groups` | Group slugs, separated by commas, that users created by signing in join, together with the groups whose pre-assigned list holds their user id; only while `oidc_claim_entitlements` is empty. | empty |
 | `enrollment_username` | The broker username every new controller enrolls with. Takes effect on the next start. | `doorcode-enroll` |
 | `enrollment_password` | Its password. Generated, stored, and logged on first start when empty. Secret: stored encrypted. Takes effect on the next start. | empty |
 | `door_credential_grace_hours` | Hours a door's old credentials keep working after new ones are issued. | `24` |

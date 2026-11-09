@@ -430,7 +430,7 @@ func (s Service) applyRow(ctx context.Context, row ImportRow) (ImportRow, error)
 	switch row.Outcome {
 	case ImportCreate:
 		var u connector.StoredUser
-		u, err = s.create(ctx, row.profile, row.joinIDs)
+		u, err = s.create(ctx, row.profile, row.joinIDs, true)
 		row.User = u.ID
 	case ImportUpdate:
 		err = s.update(ctx, row)

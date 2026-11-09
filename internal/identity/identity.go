@@ -1,8 +1,8 @@
 // Package identity signs people in through an OpenID Connect provider: it
 // sends the browser to the provider with state, a nonce, and a PKCE
 // challenge, checks what comes back, finds or creates the user the
-// provider names, and keeps the groups the provider's entitlements decide
-// in step.
+// provider names, and keeps their groups those the provider's
+// entitlements name.
 package identity
 
 import (
@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"maps"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -256,16 +255,41 @@ func (s Service) account(ctx context.Context, current settings.Current, claims m
 	profile := profileOf(u, claims, names, email)
 	if found {
 		u, err = s.Directory.UpdateUser(ctx, u.ID, profile)
+	} else if names.Entitlements == "" {
+		u, err = s.Directory.CreateUser(ctx, s.expiring(current, profile))
 	} else {
-		expires := s.Clock.Now().Add(current.NewUserExpiry)
-		profile.ExpiresAt = &expires
-		u, err = s.Directory.CreateUser(ctx, profile)
+		u, err = s.Directory.CreateEntitled(ctx, s.expiring(current, profile))
 	}
 	if err != nil {
 		return connector.StoredUser{}, false, err
 	}
-	join, leave := memberships(current.OIDC, claims, !found)
-	return u, !found, s.Directory.Sync(ctx, u.ID, join, leave)
+	return u, !found, s.groups(ctx, current.OIDC, claims, u, !found)
+}
+
+// expiring is profile expiring as a new user's account does.
+func (s Service) expiring(current settings.Current, profile directory.Profile) directory.Profile {
+	expires := s.Clock.Now().Add(current.NewUserExpiry)
+	profile.ExpiresAt = &expires
+	return profile
+}
+
+// groups brings the groups of u, signing in with claims, into step. With
+// an entitlements claim to read, u is a member of exactly the groups its
+// entitlements name, and of the groups they had when the sign-in does not
+// carry it. Without one, a new user joins the default groups and an
+// existing user keeps theirs.
+func (s Service) groups(ctx context.Context, o settings.OIDC, claims map[string]any, u connector.StoredUser, created bool) error {
+	if o.Claims.Entitlements == "" {
+		if !created {
+			return nil
+		}
+		return s.Directory.Join(ctx, u.ID, o.DefaultGroups)
+	}
+	claim, carried := claims[o.Claims.Entitlements]
+	if !carried {
+		return nil
+	}
+	return s.Directory.Entitle(ctx, u, entitlements(claim))
 }
 
 // profileOf is u's profile as claims, read by names, tell it: each field
@@ -312,28 +336,6 @@ func text(claims map[string]any, name string) (string, bool) {
 		return strconv.FormatFloat(value, 'f', -1, 64), true
 	}
 	return "", false
-}
-
-// memberships is the slugs of the groups a sign-in with claims joins and
-// leaves: a new user's default groups, and each entitlement group the
-// entitlements claim holds; and each entitlement group it does not hold.
-// Without an entitlements claim to read, entitlements decide nothing.
-func memberships(o settings.OIDC, claims map[string]any, created bool) (join, leave []string) {
-	if created {
-		join = slices.Clone(o.DefaultGroups)
-	}
-	if o.Claims.Entitlements == "" {
-		return join, nil
-	}
-	held := entitlements(claims[o.Claims.Entitlements])
-	for _, slug := range o.EntitlementGroups {
-		if slices.Contains(held, slug) {
-			join = append(join, slug)
-		} else {
-			leave = append(leave, slug)
-		}
-	}
-	return join, leave
 }
 
 // entitlements is the values of an entitlements claim: a list of strings
