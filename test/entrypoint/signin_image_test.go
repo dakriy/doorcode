@@ -18,12 +18,12 @@ func TestTheSignInPageShowsThePictureUploadedOnTheSettingsPage(t *testing.T) {
 	h, b := adminSession(t, f)
 
 	uploaded := b.Upload("/admin/settings/sign-in-image", "picture", "lobby.png", testsupport.PNG(3000, 1000))
-	settings := testsupport.ParsePage(b.Get("/admin/settings").Body)
+	settings := testsupport.ParsePage(b.Get(uploaded.Location).Body)
 	signIn := testsupport.ParsePage(testsupport.Get(h, "/sign-in").Body)
 	anyone := testsupport.NewBrowser(h)
 
 	want := []any{
-		303, "/admin/settings", []string{"The sign-in page shows the new picture."},
+		303, "/admin/settings?tab=look", []string{"The sign-in page shows the new picture."},
 		[]testsupport.Image{{Src: signInImageSrc, Alt: "The sign-in page picture"}},
 		[]testsupport.Image{{Src: signInImageSrc, Alt: ""}},
 		"jpeg 1600x533", "public, max-age=31536000, immutable",
@@ -59,7 +59,7 @@ func TestUploadingTheSignInPictureWithPUTReplacesIt(t *testing.T) {
 	b.UploadWith("PUT", "/api/v1/sign-in-image", "picture", "b.png", testsupport.PNG(20, 30))
 
 	got := []any{replaced.Status, testsupport.ImageInfo(b.Get("/api/v1/sign-in-image").Body),
-		testsupport.ParsePage(b.Get("/admin/settings").Body).Images}
+		testsupport.ParsePage(b.Get("/admin/settings?tab=look").Body).Images}
 	want := []any{400, "jpeg 20x30", []testsupport.Image{{Src: "/api/v1/sign-in-image?v=1767607200", Alt: "The sign-in page picture"}}}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("an empty body, the image, settings images (-want +got):\n%s", diff)
@@ -74,22 +74,22 @@ func TestRemovingTheSignInPictureTakesItOffTheSignInPage(t *testing.T) {
 	b.Get("/admin/settings")
 
 	removed := b.Post("/admin/settings/sign-in-image/delete")
-	settings := testsupport.ParsePage(b.Get("/admin/settings").Body)
+	settings := testsupport.ParsePage(b.Get(removed.Location).Body)
 	again := b.Post("/admin/settings/sign-in-image/delete")
 
 	want := []any{
-		303, []string{"The sign-in page shows no picture."}, []testsupport.Image(nil),
+		303, "/admin/settings?tab=look", []string{"The sign-in page shows no picture."}, []testsupport.Image(nil),
 		[]testsupport.Image(nil), 404, 404,
 		[]string{"The sign-in page shows no picture any more. It may have been removed already."},
 		testsupport.JSON(`{"error":"the sign-in page has no picture"}`),
 	}
 	got := []any{
-		removed.Status, settings.Messages, settings.Images, testsupport.ParsePage(testsupport.Get(h, "/sign-in").Body).Images,
+		removed.Status, removed.Location, settings.Messages, settings.Images, testsupport.ParsePage(testsupport.Get(h, "/sign-in").Body).Images,
 		b.Get("/api/v1/sign-in-image").Status, again.Status, testsupport.ParsePage(again.Body).Messages,
 		testsupport.JSON(b.Get("/api/v1/sign-in-image").Body),
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("removed, flash, settings images, sign-in images, image, again, its alert, image body (-want +got):\n%s", diff)
+		t.Errorf("removed, where it goes, flash, settings images, sign-in images, image, again, its alert, image body (-want +got):\n%s", diff)
 	}
 }
 
@@ -136,7 +136,7 @@ func TestARefusedSignInPictureSaysWhatIsWrong(t *testing.T) {
 
 func TestTheSignInPageFailsWhenItsPictureCannotBeRead(t *testing.T) {
 	t.Parallel()
-	pages := map[string]string{"sign-in": "/sign-in", "settings": "/admin/settings"}
+	pages := map[string]string{"sign-in": "/sign-in", "settings": "/admin/settings?tab=look"}
 	for name, target := range pages {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()

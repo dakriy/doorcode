@@ -786,11 +786,11 @@ func TestTheSettingsPageOffersSecretsAsBlankPasswordFields(t *testing.T) {
 	b.Get("/")
 	send(t, b, "PUT", "/api/v1/settings/oidc_client_secret", `{"value":"s3cret"}`, 200)
 
-	got := pageOf(b.Post("/admin/settings", "oidc_client_secret", "an0ther", "site_name", "doorcode"))
+	got := b.Post("/admin/settings", "oidc_client_secret", "an0ther", "password_min_length", "12")
 	stored, _ := testsupport.OpenSecret("oidc_client_secret", f.StoreStub.StoredSetting("oidc_client_secret"))
-	page := pageOf(b.Get("/admin/settings"))
+	page := pageOf(b.Get(got.Location))
 
-	want := settingsPage(defaultSettings, map[string]shownSetting{"oidc_client_secret": {"oidc_client_secret", "********", "database"}}, nil, nil)
+	want := settingsPage("Sign-in", defaultSettings, map[string]shownSetting{"oidc_client_secret": {"oidc_client_secret", "********", "database"}}, nil, nil)
 	want.Messages = []string{"The settings have been saved. Doors receive changed configuration defaults right away."}
 	if diff := cmp.Diff([]any{"an0ther", want}, []any{stored, page}); diff != "" {
 		t.Errorf("stored, page (-want +got):\n%s\n%v", diff, got)
@@ -939,8 +939,8 @@ func TestClearingTheClientSecretSignsInWithoutOne(t *testing.T) {
 func TestTickingClearOnTheSettingsPageEmptiesASecret(t *testing.T) {
 	t.Parallel()
 	cases := map[string][]string{
-		"left blank":       {"clear", "enrollment_password", "enrollment_password", "", "site_name", "doorcode"},
-		"with a new value": {"clear", "enrollment_password", "enrollment_password", "n3w", "site_name", "doorcode"},
+		"left blank":       {"clear", "enrollment_password", "enrollment_password", "", "enrollment_username", "doorcode-enroll"},
+		"with a new value": {"clear", "enrollment_password", "enrollment_password", "n3w", "enrollment_username", "doorcode-enroll"},
 	}
 	for name, form := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -951,9 +951,9 @@ func TestTickingClearOnTheSettingsPageEmptiesASecret(t *testing.T) {
 			send(t, b, "PUT", "/api/v1/settings/enrollment_password", `{"value":"s3cret"}`, 200)
 
 			saved := b.Post("/admin/settings", form...)
-			page := pageOf(b.Get("/admin/settings"))
+			page := pageOf(b.Get(saved.Location))
 
-			wantPage := settingsPage(defaultSettings, map[string]shownSetting{"enrollment_password": {"enrollment_password", "", "database"}}, nil, nil)
+			wantPage := settingsPage("Doors", defaultSettings, map[string]shownSetting{"enrollment_password": {"enrollment_password", "", "database"}}, nil, nil)
 			wantPage.Messages = []string{"The settings have been saved. Doors receive changed configuration defaults right away."}
 			if diff := cmp.Diff([]any{303, "", wantPage}, []any{saved.Status, f.StoreStub.StoredSetting("enrollment_password"), page}); diff != "" {
 				t.Errorf("status, stored, page (-want +got):\n%s", diff)

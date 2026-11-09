@@ -251,20 +251,52 @@ func settingWarning(page *testsupport.Page, held map[string]string, key string) 
 	return warning
 }
 
-// settingsPage is the settings page showing shown, where changed replaces
-// the value and source of the settings it names, entered the value an
-// input holds, and refused what is wrong with a value; a read-only
-// setting shows its value in place of an input, and a secret that has a
-// value offers to clear it. The sections of single sign-on are open while
-// it is enabled, and the broker's certificate warns while it is missing
-// though controllers connect over TLS.
-func settingsPage(shown []shownSetting, changed map[string]shownSetting, entered, refused map[string]string) testsupport.Page {
+// settingsTabs is each tab of the settings page, in order.
+var settingsTabs = []string{"Site setup", "Sign-in", "Look and feel", "Doors"}
+
+// settingsTabOf is the tab of the settings page that shows each section.
+var settingsTabOf = map[string]string{
+	"Site": "Site setup", "Proxies": "Site setup",
+	"Accounts and passwords": "Sign-in", "Single sign-on": "Sign-in", "Identity claims": "Sign-in",
+	"Theme": "Look and feel", "User portal": "Look and feel",
+	"Door enrollment": "Doors", "Telemetry": "Doors", "Firmware updates": "Doors", "Door defaults": "Doors",
+}
+
+// settingsTab is the tab of the settings page before its settings: the
+// note, the main navigation and then the tabs, current marked, the
+// searchable timezone on Site setup, and the upload of the sign-in page's
+// picture on Look and feel.
+func settingsTab(current string) testsupport.Page {
 	page := testsupport.Page{
-		Title: "Settings · doorcode", Heading: "Settings", Notes: []string{settingsNote}, Values: map[string]string{"picture": ""},
-		Nav:        mainNav("Site: Settings", ""),
-		Tables:     map[string][][]string{},
-		Comboboxes: []string{"site_timezone"},
+		Title: "Settings · doorcode", Heading: "Settings", Notes: []string{settingsNote}, Values: map[string]string{},
+		Nav:    mainNav("Site: Settings", ""),
+		Tables: map[string][][]string{},
 	}
+	for _, tab := range settingsTabs {
+		if tab == current {
+			tab += " (current)"
+		}
+		page.Nav = append(page.Nav, tab)
+	}
+	switch current {
+	case "Site setup":
+		page.Comboboxes = []string{"site_timezone"}
+	case "Look and feel":
+		page.Values["picture"] = ""
+	}
+	return page
+}
+
+// settingsPage is the tab of the settings page showing the settings of
+// shown on it, where changed replaces the value and source of the
+// settings it names, entered the value an input holds, and refused what
+// is wrong with a value; a read-only setting shows its value in place of
+// an input, and a secret that has a value offers to clear it. The
+// sections of single sign-on are open while it is enabled, and the
+// broker's certificate warns while it is missing though controllers
+// connect over TLS.
+func settingsPage(tab string, shown []shownSetting, changed map[string]shownSetting, entered, refused map[string]string) testsupport.Page {
+	page := settingsTab(tab)
 	held := map[string]string{}
 	for _, s := range shown {
 		if c, ok := changed[s.key]; ok {
@@ -276,6 +308,9 @@ func settingsPage(shown []shownSetting, changed map[string]shownSetting, entered
 			value = entered[s.key]
 		}
 		held[s.key] = value
+		if settingsTabOf[row.section] != tab {
+			continue
+		}
 		cell := words(words(settingCell(&page, s, value), refused[s.key]), settingWarning(&page, held, s.key))
 		if s.key == "oidc_enabled" {
 			page.Disclosures = map[string]bool{"Single sign-on": value == "true", "Identity claims": value == "true"}
@@ -294,19 +329,45 @@ func settingsPage(shown []shownSetting, changed map[string]shownSetting, entered
 	}
 	return page
 }
-func TestAdministratorReachesTheSettingsPage(t *testing.T) {
+
+func TestEachTabOfTheSettingsPageShowsOnlyItsSections(t *testing.T) {
 	t.Parallel()
-	f := testsupport.NewFactory()
-	f.StoreStub.SeedSetting("site_name", "North Campus", "2026-01-02T08:00:00Z")
-	b := signedInAdmin(t, f)
-	b.Get("/")
+	cases := map[string]struct{ path, tab string }{
+		"no tab":         {"/admin/settings", "Site setup"},
+		"an unknown tab": {"/admin/settings?tab=billing", "Site setup"},
+		"site":           {"/admin/settings?tab=site", "Site setup"},
+		"sign-in":        {"/admin/settings?tab=sign-in", "Sign-in"},
+		"look":           {"/admin/settings?tab=look", "Look and feel"},
+		"doors":          {"/admin/settings?tab=doors", "Doors"},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			f := testsupport.NewFactory()
+			f.StoreStub.SeedSetting("site_name", "North Campus", "2026-01-02T08:00:00Z")
+			b := signedInAdmin(t, f)
+			b.Get("/")
 
-	got := b.Get("/admin/settings")
+			got := b.Get(c.path)
 
-	want := settingsPage(defaultSettings, map[string]shownSetting{"site_name": {"site_name", "North Campus", "database"}}, nil, nil)
-	want.Title = "Settings · North Campus"
-	if diff := cmp.Diff([]any{200, want}, []any{got.Status, pageOf(got)}); diff != "" {
-		t.Errorf("status, page (-want +got):\n%s", diff)
+			want := settingsPage(c.tab, defaultSettings, map[string]shownSetting{"site_name": {"site_name", "North Campus", "database"}}, nil, nil)
+			want.Title = "Settings · North Campus"
+			if diff := cmp.Diff([]any{200, want}, []any{got.Status, pageOf(got)}); diff != "" {
+				t.Errorf("status, page (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestTheSettingsPageTabsAreLinksToTheirAddresses(t *testing.T) {
+	t.Parallel()
+	b := signedInAdmin(t, testsupport.NewFactory())
+
+	nav := testsupport.ParsePage(b.Get("/admin/settings?tab=doors").Body).NavTargets
+
+	want := []string{"/admin/settings?tab=site", "/admin/settings?tab=sign-in", "/admin/settings?tab=look", "/admin/settings?tab=doors"}
+	if diff := cmp.Diff(want, nav[len(nav)-len(want):]); diff != "" {
+		t.Errorf("tab addresses (-want +got):\n%s", diff)
 	}
 }
 

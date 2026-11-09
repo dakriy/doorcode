@@ -378,12 +378,19 @@ firmware (versions, default, update window, rollout progress,
 provisioning file), events
 (filters by door, user, outcome, reason, type, date), access requests
 (reply, resolve), bulk import (CSV of user id and group slugs, preview
-before apply), settings (sign-in, identity claims, defaults, door config
-defaults, theme, login image, timezone, with env-provided values shown
-read-only; each asked for with an input of its kind: a color picker, a
-checkbox for yes or no, a number, a select of the choices, and a searchable
-select of every zone for the timezone; the single sign-on and identity claims
-parts fold away while single sign-on is off).
+before apply), settings (in four tabs across the top, each showing only its
+parts: Site setup (site, proxies), Sign-in (accounts and passwords, single
+sign-on, identity claims), Look and feel (theme, user portal, sign-in page
+picture), and Doors (door enrollment, telemetry, firmware updates, door
+config defaults); the tab is in the address (`/admin/settings?tab=` `site`,
+`sign-in`, `look`, or `doors`; none or an unknown one shows Site setup), so
+tabs are plain links that work without script and can be shared, the current
+one marked; saving goes back to the tab saved, a refused value shows on the
+tab that holds it, and at phone width the tabs scroll in one row; env-provided
+values are shown read-only; each asked for with an input of its kind: a color
+picker, a checkbox for yes or no, a number, a select of the choices, and a
+searchable select of every zone for the timezone; the single sign-on and
+identity claims parts fold away while single sign-on is off).
 
 Lists are searchable, filterable, server-paginated, and update live over
 Server-Sent Events where state changes without a page action (door status,

@@ -216,18 +216,17 @@ func TestTheFirmwarePageAndADoorsPageOfferItsProvisioningFile(t *testing.T) {
 
 func TestTheSettingsPageWarnsOnlyWhileNoProvisioningFileCanBeMade(t *testing.T) {
 	t.Parallel()
-	hashNote := "Set by DOORCODE_PASSWORD_HASH_MEMORY_KIB in the environment; change it there."
 	host := `"mqtt.example.com"`
 	cases := map[string]struct {
 		settings map[string]string
 		notes    []string
 	}{
-		"without a host, over TLS without a certificate": {map[string]string{}, []string{settingsNote, hashNote, hostNote, brokerNote}},
-		"with a host, over TLS without a certificate":    {map[string]string{"door_broker_host": host}, []string{settingsNote, hashNote, brokerNote}},
+		"without a host, over TLS without a certificate": {map[string]string{}, []string{settingsNote, hostNote, brokerNote}},
+		"with a host, over TLS without a certificate":    {map[string]string{"door_broker_host": host}, []string{settingsNote, brokerNote}},
 		"with a host, over TLS with a certificate": {
-			map[string]string{"door_broker_host": host, "door_broker_ca_pem": testsupport.Quoted(testsupport.Certificate)}, []string{settingsNote, hashNote},
+			map[string]string{"door_broker_host": host, "door_broker_ca_pem": testsupport.Quoted(testsupport.Certificate)}, []string{settingsNote},
 		},
-		"with a host, without TLS": {map[string]string{"door_broker_host": host, "door_broker_tls": `"false"`}, []string{settingsNote, hashNote}},
+		"with a host, without TLS": {map[string]string{"door_broker_host": host, "door_broker_tls": `"false"`}, []string{settingsNote}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -237,7 +236,7 @@ func TestTheSettingsPageWarnsOnlyWhileNoProvisioningFileCanBeMade(t *testing.T) 
 				send(t, b, "PUT", "/api/v1/settings/"+key, `{"value":`+value+`}`, 200)
 			}
 
-			got := pageOf(b.Get("/admin/settings")).Notes
+			got := pageOf(b.Get("/admin/settings?tab=doors")).Notes
 
 			if diff := cmp.Diff(c.notes, got); diff != "" {
 				t.Errorf("notes (-want +got):\n%s", diff)

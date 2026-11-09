@@ -421,13 +421,12 @@ func TestSavingSettingsFromTheSettingsPageStoresOnlyWhatChanged(t *testing.T) {
 	b.Get("/")
 	sent := len(f.BrokerStub.Published)
 
-	got := b.Post("/admin/settings", "site_name", "North Campus", "admin_email", "admin@example.com", "door_log_level", "debug", "unknown", "x")
+	got := b.Post("/admin/settings", "enrollment_username", "doorcode-enroll", "door_log_level", "debug", "door_ntp_server", "pool.ntp.org", "unknown", "x")
 	page := pageOf(b.Get(got.Location))
 
-	want := []any{303, "/admin/settings",
+	want := []any{303, "/admin/settings?tab=doors",
 		[]string{"The settings have been saved. Doors receive changed configuration defaults right away."},
-		settingsPage(defaultSettings, map[string]shownSetting{
-			"site_name":           {"site_name", "North Campus", "database"},
+		settingsPage("Doors", defaultSettings, map[string]shownSetting{
 			"door_log_level":      {"door_log_level", "debug", "database"},
 			"enrollment_password": {"enrollment_password", "********", "environment, read-only"},
 		}, nil, nil).Tables, topicsOf("config", "3", "2", "1")}
@@ -436,24 +435,40 @@ func TestSavingSettingsFromTheSettingsPageStoresOnlyWhatChanged(t *testing.T) {
 	}
 }
 
-func TestARefusedSettingsFormSaysWhatIsWrongAndStoresNothing(t *testing.T) {
+func TestARefusedSettingsFormShowsWhatIsWrongOnItsTabAndStoresNothing(t *testing.T) {
 	t.Parallel()
-	f := testsupport.NewFactory()
-	b := signedInAdmin(t, f)
-	b.Get("/")
+	cases := map[string]struct {
+		tab              string
+		form             []string
+		entered, refused map[string]string
+	}{
+		"on Site setup": {
+			tab: "Site setup", form: []string{"site_name", "North Campus", "site_timezone", "Mars/Base"},
+			entered: map[string]string{"site_name": "North Campus", "site_timezone": "Mars/Base"},
+			refused: map[string]string{"site_timezone": "Must be a time zone name from the tz database, such as UTC or Europe/Berlin."},
+		},
+		"on Doors": {
+			tab: "Doors", form: []string{"door_log_level", "debug", "door_rate_limit_burst", "0"},
+			entered: map[string]string{"door_log_level": "debug", "door_rate_limit_burst": "0"},
+			refused: map[string]string{"door_rate_limit_burst": "Must be a whole number of checks from 1 to 1000."},
+		},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			f := testsupport.NewFactory()
+			b := signedInAdmin(t, f)
+			b.Get("/")
 
-	got := b.Post("/admin/settings", "site_name", "North Campus", "site_timezone", "Mars/Base", "door_rate_limit_burst", "0",
-		"password_hash_memory_kib", "16")
+			got := b.Post("/admin/settings", c.form...)
 
-	page := pageOf(got)
-	want := settingsPage(defaultSettings, nil, map[string]string{"site_name": "North Campus", "site_timezone": "Mars/Base", "door_rate_limit_burst": "0"},
-		map[string]string{
-			"site_timezone":         "Must be a time zone name from the tz database, such as UTC or Europe/Berlin.",
-			"door_rate_limit_burst": "Must be a whole number of checks from 1 to 1000.",
+			page := pageOf(got)
+			want := settingsPage(c.tab, defaultSettings, nil, c.entered, c.refused)
+			stored := testsupport.JSONAt(b.Get("/api/v1/settings/"+c.form[0]).Body, "/source")
+			if diff := cmp.Diff([]any{422, want, "default"}, []any{got.Status, page, stored}); diff != "" {
+				t.Errorf("status, page, source of the valid value (-want +got):\n%s", diff)
+			}
 		})
-	stored := testsupport.JSONAt(b.Get("/api/v1/settings/site_name").Body, "/source")
-	if diff := cmp.Diff([]any{422, want, "default"}, []any{got.Status, page, stored}); diff != "" {
-		t.Errorf("status, page, site name source (-want +got):\n%s", diff)
 	}
 }
 

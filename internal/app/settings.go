@@ -3,6 +3,7 @@ package app
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"slices"
 	"strconv"
@@ -186,14 +187,30 @@ func (a *App) settingError(w http.ResponseWriter, r *http.Request, err error) {
 // section, with the value entered for it when a form was refused, and
 // what is wrong with each refused value; where the sign-in page's picture
 // is served, empty when it shows none; and an alert to show above
-// everything else.
+// everything else. It shows the sections of one tab, and the sign-in
+// page's picture with them when Pictures says so.
 type settingsContent struct {
+	Tabs           []settingsTab
 	Sections       []settingSection
+	Pictures       bool
 	Errors         map[string]string
 	SignInImage    string
 	Alert          string
 	MaxPictureMB   int
 	MaxPictureSide int
+}
+
+// settingsTab is a link to a tab of the settings page, Current when the
+// page shows that tab.
+type settingsTab struct {
+	Name    string
+	Href    string
+	Current bool
+}
+
+// settingsTabPath is the address of the settings page showing tab.
+func settingsTabPath(tab settings.Tab) string {
+	return "/admin/settings?tab=" + tab.Slug
 }
 
 // settingSection is one part of the settings page and its settings, On
@@ -215,30 +232,39 @@ type settingRow struct {
 	Warning string
 }
 
-// showSettings shows the settings page with status, its inputs holding
-// entered, or each setting's value where entered has none.
-func (a *App) showSettings(w http.ResponseWriter, r *http.Request, status int, viewer auth.User, entered map[string]string, errs map[string]string, alert string) {
+// showSettings shows tab of the settings page with status, its inputs
+// holding entered, or each setting's value where entered has none.
+func (a *App) showSettings(w http.ResponseWriter, r *http.Request, status int, viewer auth.User, tab settings.Tab, entered map[string]string, errs map[string]string, alert string) {
 	all, err := a.settings.List(r.Context())
 	if err != nil {
 		a.pageError(w, r, err)
 		return
 	}
-	image, err := a.signInImageURL(r)
+	pictures, image := tab == settings.TabLook, ""
+	if pictures {
+		image, err = a.signInImageURL(r)
+	}
 	if err != nil {
 		a.pageError(w, r, err)
 		return
 	}
+	tabs := make([]settingsTab, 0, len(settings.Tabs))
+	for _, t := range settings.Tabs {
+		tabs = append(tabs, settingsTab{Name: t.Name, Href: settingsTabPath(t), Current: t == tab})
+	}
 	content := settingsContent{
-		Sections: a.sectionsOf(all, entered), Errors: errs, SignInImage: image, Alert: alert,
+		Tabs: tabs, Sections: a.sectionsOf(all, tab, entered), Pictures: pictures,
+		Errors: errs, SignInImage: image, Alert: alert,
 		MaxPictureMB: picture.Megabytes(), MaxPictureSide: picture.MaxSide,
 	}
 	a.render(w, r, status, settingsTemplate, "Settings", &viewer, content)
 }
 
-// sectionsOf is all, settings listed section by section, as the settings
-// page's sections, each input holding entered or the setting's value where
-// entered has none, and each section on as what its toggle holds says.
-func (a *App) sectionsOf(all []settings.Setting, entered map[string]string) []settingSection {
+// sectionsOf is the settings of all, listed section by section, that tab
+// shows, as the settings page's sections, each input holding entered or
+// the setting's value where entered has none, and each section on as what
+// its toggle holds says.
+func (a *App) sectionsOf(all []settings.Setting, tab settings.Tab, entered map[string]string) []settingSection {
 	held := map[string]string{}
 	for _, s := range all {
 		value, given := entered[s.Key]
@@ -249,6 +275,9 @@ func (a *App) sectionsOf(all []settings.Setting, entered map[string]string) []se
 	}
 	var sections []settingSection
 	for _, s := range all {
+		if s.Section.Tab != tab {
+			continue
+		}
 		last := len(sections) - 1
 		if last < 0 || sections[last].Name != s.Section.Name {
 			on := s.Section.Toggle == "" || held[s.Section.Toggle] == settings.Yes
@@ -287,12 +316,13 @@ func choiceOptions(choices []string, value string) []selectOption {
 }
 
 func (a *App) settingsPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	a.showSettings(w, r, http.StatusOK, viewer, nil, nil, "")
+	a.showSettings(w, r, http.StatusOK, viewer, settings.TabFor(r.URL.Query().Get("tab")), nil, nil, "")
 }
 
 // saveSettingsFromForm stores every setting the form changed, and clears
 // every secret it ticks, or none when one is refused, and sends the doors
-// what that changes for them.
+// what that changes for them. It goes back to the tab that shows what the
+// form sent, or shows the tab with the first value refused.
 func (a *App) saveSettingsFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	_ = r.ParseForm()
 	entered := map[string]string{}
@@ -301,13 +331,15 @@ func (a *App) saveSettingsFromForm(w http.ResponseWriter, r *http.Request, viewe
 	}
 	changed, err := a.settings.UpdateAll(r.Context(), entered, r.PostForm["clear"])
 	if errs, rejected := fieldErrors(err); rejected {
-		a.showSettings(w, r, http.StatusUnprocessableEntity, viewer, entered, errs, "")
+		tab := settings.TabHolding(slices.Collect(maps.Keys(errs)))
+		a.showSettings(w, r, http.StatusUnprocessableEntity, viewer, tab, entered, errs, "")
 		return
 	}
 	if err == nil {
 		a.settingsChanged(r.Context(), changed)
 	}
-	a.changed(w, r, err, "/admin/settings", "settings-saved")
+	sent := append(slices.Collect(maps.Keys(entered)), r.PostForm["clear"]...)
+	a.changed(w, r, err, settingsTabPath(settings.TabHolding(sent)), "settings-saved")
 }
 
 // signInImageURL is where the sign-in page's picture is served, with when
@@ -366,17 +398,17 @@ func (a *App) settingDone(w http.ResponseWriter, r *http.Request, err error) {
 func (a *App) uploadSignInImageFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	err := a.setSignInImage(w, r)
 	if status, refused := uploadRefusal(err); refused {
-		a.showSettings(w, r, status, viewer, nil, map[string]string{picture.Field: err.Error()}, "")
+		a.showSettings(w, r, status, viewer, settings.TabLook, nil, map[string]string{picture.Field: err.Error()}, "")
 		return
 	}
-	a.changed(w, r, err, "/admin/settings", "sign-in-image-saved")
+	a.changed(w, r, err, settingsTabPath(settings.TabLook), "sign-in-image-saved")
 }
 
 func (a *App) deleteSignInImageFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	err := a.settings.RemoveSignInImage(r.Context())
 	if errors.Is(err, settings.ErrNoSignInImage) {
-		a.showSettings(w, r, http.StatusNotFound, viewer, nil, nil, "The sign-in page shows no picture any more. It may have been removed already.")
+		a.showSettings(w, r, http.StatusNotFound, viewer, settings.TabLook, nil, nil, "The sign-in page shows no picture any more. It may have been removed already.")
 		return
 	}
-	a.changed(w, r, err, "/admin/settings", "sign-in-image-removed")
+	a.changed(w, r, err, settingsTabPath(settings.TabLook), "sign-in-image-removed")
 }

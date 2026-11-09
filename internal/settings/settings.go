@@ -149,12 +149,52 @@ type definition struct {
 }
 
 // Section is a part of the settings page: its name and what it is about,
-// and the key of the yes or no setting that turns its settings on, empty
-// when they are always in use.
+// the key of the yes or no setting that turns its settings on, empty
+// when they are always in use, and the tab of the page that shows it.
 type Section struct {
 	Name   string
 	About  string
 	Toggle string
+	Tab    Tab
+}
+
+// Tab is a tab of the settings page: what its address names it by and
+// what it is called.
+type Tab struct {
+	Slug string
+	Name string
+}
+
+// The tabs of the settings page.
+var (
+	TabSite   = Tab{Slug: "site", Name: "Site setup"}
+	TabSignIn = Tab{Slug: "sign-in", Name: "Sign-in"}
+	TabLook   = Tab{Slug: "look", Name: "Look and feel"}
+	TabDoors  = Tab{Slug: "doors", Name: "Doors"}
+)
+
+// Tabs is every tab of the settings page, in display order.
+var Tabs = []Tab{TabSite, TabSignIn, TabLook, TabDoors}
+
+// TabFor is the tab whose slug is slug, or the first tab when none is.
+func TabFor(slug string) Tab {
+	for _, t := range Tabs {
+		if t.Slug == slug {
+			return t
+		}
+	}
+	return Tabs[0]
+}
+
+// TabHolding is the tab that shows the first setting, in display order,
+// that keys name, or the first tab when they name none.
+func TabHolding(keys []string) Tab {
+	for _, def := range definitions {
+		if slices.Contains(keys, def.key) {
+			return def.section.Tab
+		}
+	}
+	return Tabs[0]
 }
 
 // rule is the values a setting takes, which check rejects the others of
@@ -233,7 +273,7 @@ type section struct {
 // sections is every part of the settings page, in display order: the
 // site's own settings, then the door configuration defaults.
 var sections = []section{
-	{Section{Name: "Site", About: "What the site is called, the timezone every time it shows is read in, and the address browsers reach it at."}, []definition{
+	{Section{Name: "Site", About: "What the site is called, the timezone every time it shows is read in, and the address browsers reach it at.", Tab: TabSite}, []definition{
 		{key: keySiteName, fallback: "doorcode", label: "Site name", help: "Shown in the header and every page title."},
 		{key: keySiteTimezone, fallback: "UTC", validate: rule{check: func(s Service, value string) error {
 			_, err := s.siteZone(value)
@@ -244,17 +284,17 @@ var sections = []section{
 		{key: keyPublicURL, fallback: "", validate: accepting(publicURL), label: "Public address",
 			help: "The https:// address browsers reach the server at, and single sign-on returns to; http:// only for development."},
 	}},
-	{Section{Name: "Proxies", About: "The reverse proxies in front of the server. A listed proxy is believed when it says, in X-Forwarded-For and X-Forwarded-Proto, whom it passes a request on for and whether it was reached over HTTPS; those headers are ignored from anyone else."}, []definition{
+	{Section{Name: "Proxies", About: "The reverse proxies in front of the server. A listed proxy is believed when it says, in X-Forwarded-For and X-Forwarded-Proto, whom it passes a request on for and whether it was reached over HTTPS; those headers are ignored from anyone else.", Tab: TabSite}, []definition{
 		{key: keyTrustedProxies, fallback: "", validate: accepting(proxy.Parse), label: "Trusted proxies",
 			help: "IP addresses, CIDR ranges, and host names separated by commas, such as 10.0.0.0/8,proxy.example.com. A host name is looked up by the periodic work, about once a minute, and trusts nobody until then."},
 	}},
-	{Section{Name: "Theme", About: "The accent color of buttons, links, and highlights. Lighter and darker tones are worked out from it for both the light and the dark theme."}, []definition{
+	{Section{Name: "Theme", About: "The accent color of buttons, links, and highlights. Lighter and darker tones are worked out from it for both the light and the dark theme.", Tab: TabLook}, []definition{
 		{key: keyThemeAccent, fallback: defaultAccent, validate: accepting(color).askedWith(Input{Kind: KindColor}), label: "Accent color",
 			help: "A color as #rrggbb, such as #4f39f6."},
 		{key: keyThemeAccentDark, fallback: "", validate: accepting(optionalColor).askedWith(Input{Kind: KindColor, Empty: "Use the accent color"}),
 			label: "Accent color in the dark theme", help: "A color as #rrggbb, or empty to use the accent color."},
 	}},
-	{Section{Name: "Accounts and passwords", About: "How passwords are hashed and chosen, and how long accounts made at sign-in last."}, []definition{
+	{Section{Name: "Accounts and passwords", About: "How passwords are hashed and chosen, and how long accounts made at sign-in last.", Tab: TabSignIn}, []definition{
 		{key: keyPasswordHashMemory, fallback: "19456", validate: accepting(passwordHashMemory), label: "Password hashing memory",
 			help: "KiB of memory hashing one password takes, from 8 to 1048576. More is slower to guess."},
 		{key: keyPasswordMinLength, fallback: "12", validate: accepting(passwordMinLength), label: "Shortest password",
@@ -262,7 +302,7 @@ var sections = []section{
 		{key: keyNewUserExpiry, fallback: "1826", validate: accepting(newUserExpiry), label: "New account lifetime",
 			help: "Days until the account of a user created by signing in at the provider expires."},
 	}},
-	{Section{Name: "Single sign-on", About: "Signing in through an OpenID Connect provider. Register public_url followed by /sign-in/oidc/callback as the redirect address, and public_url followed by /sign-in as the address to return to after signing out.", Toggle: keyOIDCEnabled}, []definition{
+	{Section{Name: "Single sign-on", About: "Signing in through an OpenID Connect provider. Register public_url followed by /sign-in/oidc/callback as the redirect address, and public_url followed by /sign-in as the address to return to after signing out.", Toggle: keyOIDCEnabled, Tab: TabSignIn}, []definition{
 		{key: keyOIDCEnabled, fallback: "false", validate: accepting(boolean), label: "Single sign-on enabled",
 			help: "Offers signing in at the provider set up here, beside signing in with a password."},
 		{key: keyOIDCAutoSignIn, fallback: "false", validate: accepting(boolean), label: "Automatic sign-in",
@@ -275,7 +315,7 @@ var sections = []section{
 		{key: keyOIDCScopes, fallback: "openid email profile", validate: accepting(scopes), label: "Scopes",
 			help: "Scopes asked for, separated by spaces, openid among them."},
 	}},
-	{Section{Name: "Identity claims", About: "The claims of the provider's ID token or userinfo that say who someone is and which groups they are in. An empty claim name is a claim the site does not read.", Toggle: keyOIDCEnabled}, []definition{
+	{Section{Name: "Identity claims", About: "The claims of the provider's ID token or userinfo that say who someone is and which groups they are in. An empty claim name is a claim the site does not read.", Toggle: keyOIDCEnabled, Tab: TabSignIn}, []definition{
 		{key: keyClaimUserID, fallback: "", label: "User id claim", help: "The claim holding the user id people are matched by first."},
 		{key: keyClaimEmail, fallback: "email", validate: accepting(claimName), label: "Email claim", help: "Required."},
 		{key: keyClaimFirstName, fallback: "given_name", label: "First name claim"},
@@ -286,16 +326,16 @@ var sections = []section{
 		{key: keyDefaultGroups, fallback: "", validate: accepting(slugs), label: "Groups new users join",
 			help: "Group slugs separated by commas. New users join these, and the groups whose pre-assigned list holds their user id, only while the entitlements claim is empty."},
 	}},
-	{Section{Name: "User portal", About: "What people see of the doors when they sign in to the portal."}, []definition{
+	{Section{Name: "User portal", About: "What people see of the doors when they sign in to the portal.", Tab: TabLook}, []definition{
 		{key: keyPortalDoorPictures, fallback: "false", validate: accepting(boolean), label: "Door pictures in the portal",
 			help: "Shows each public door's primary picture in the portal; while it is off the portal shows none. The administration always shows them."},
 	}},
-	{Section{Name: "Door enrollment", About: "The broker account every new controller enrolls with. A door's old credentials keep working until its controller connects with the new ones, which stops the old ones working. A changed enrollment username or password takes effect when the server next starts."}, []definition{
+	{Section{Name: "Door enrollment", About: "The broker account every new controller enrolls with. A door's old credentials keep working until its controller connects with the new ones, which stops the old ones working. A changed enrollment username or password takes effect when the server next starts.", Tab: TabDoors}, []definition{
 		{key: keyEnrollmentUsername, fallback: "doorcode-enroll", label: "Enrollment username"},
 		{key: keyEnrollmentPassword, fallback: "", secret: true, label: "Enrollment password",
 			help: "The password a new door controller signs in to the broker with, beside the enrollment username, until an administrator approves it and it gets credentials of its own. Enter both in the settings of each controller you install. When it is empty on first start, the server makes one up and writes it to its log."},
 	}},
-	{Section{Name: "Telemetry", About: "How long door reports are kept and when a silent door counts as unresponsive."}, []definition{
+	{Section{Name: "Telemetry", About: "How long door reports are kept and when a silent door counts as unresponsive.", Tab: TabDoors}, []definition{
 		{key: keyTelemetryRetention, fallback: "7", validate: accepting(telemetryRetention), label: "Reports kept",
 			help: "Days each telemetry report is kept."},
 		{key: keyRollupRetention, fallback: "730", validate: accepting(rollupRetention), label: "Hourly summaries kept",
@@ -303,7 +343,7 @@ var sections = []section{
 		{key: keyUnresponsive, fallback: "5", validate: accepting(unresponsiveAfter), label: "Unresponsive after",
 			help: "Minutes a connected door may stay silent before it counts as unresponsive."},
 	}},
-	{Section{Name: "Firmware updates", About: "Where doors download firmware from, and when and how fast updates roll out."}, []definition{
+	{Section{Name: "Firmware updates", About: "Where doors download firmware from, and when and how fast updates roll out.", Tab: TabDoors}, []definition{
 		{key: keyDeviceURL, fallback: "", validate: accepting(deviceURL), label: "Device address",
 			help: "The https:// address of the server's device-facing entrypoint, which presents a certificate from the managed CA controllers trust, the same CA as the broker's; doors download firmware from it. http:// only for development, since doors verify the server's certificate only over https. No update is sent to doors while it is empty."},
 		{key: KeyUpdateDays, fallback: EveryDay, validate: accepting(updateDays), label: "Update days",
@@ -314,7 +354,7 @@ var sections = []section{
 		{key: KeyUpdateTimeout, fallback: "30", validate: accepting(updateTimeout), label: "Update timeout",
 			help: "Minutes a door may take to come back on its new version before the update fails."},
 	}},
-	{Section{Name: "Door defaults", About: "The configuration every door runs with unless its own page overrides a field. Doors receive a changed default as soon as it is saved."}, doorDefinitions()},
+	{Section{Name: "Door defaults", About: "The configuration every door runs with unless its own page overrides a field. Doors receive a changed default as soon as it is saved.", Tab: TabDoors}, doorDefinitions()},
 }
 
 // UpdateKeys are the keys of the settings that say how firmware updates

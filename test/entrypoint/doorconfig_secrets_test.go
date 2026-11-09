@@ -199,14 +199,13 @@ func revertWarning(minutes, seconds string) string {
 
 func TestTheSettingsPageWarnsWhenNewFirmwareMayRevertAfterTheUpdateTimeout(t *testing.T) {
 	t.Parallel()
-	hashNote := "Set by DOORCODE_PASSWORD_HASH_MEMORY_KIB in the environment; change it there."
 	cases := map[string]struct {
 		timeout string
 		notes   []string
 	}{
-		"as long as the update timeout":   {"30", []string{settingsNote, hashNote, hostNote, brokerNote}},
-		"longer than the update timeout":  {"29", []string{settingsNote, hashNote, hostNote, brokerNote, revertWarning("29", "1740")}},
-		"shorter than the update timeout": {"31", []string{settingsNote, hashNote, hostNote, brokerNote}},
+		"as long as the update timeout":   {"30", []string{settingsNote, hostNote, brokerNote}},
+		"longer than the update timeout":  {"29", []string{settingsNote, hostNote, brokerNote, revertWarning("29", "1740")}},
+		"shorter than the update timeout": {"31", []string{settingsNote, hostNote, brokerNote}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -215,7 +214,7 @@ func TestTheSettingsPageWarnsWhenNewFirmwareMayRevertAfterTheUpdateTimeout(t *te
 			send(t, b, "PUT", "/api/v1/settings/door_update_connect_timeout_s", `{"value":"1800"}`, 200)
 			send(t, b, "PUT", "/api/v1/settings/update_timeout_minutes", `{"value":"`+c.timeout+`"}`, 200)
 
-			got := pageOf(b.Get("/admin/settings")).Notes
+			got := pageOf(b.Get("/admin/settings?tab=doors")).Notes
 
 			if diff := cmp.Diff(c.notes, got); diff != "" {
 				t.Errorf("notes (-want +got):\n%s", diff)
@@ -281,7 +280,7 @@ func TestARefusedUpdateTimeoutShowsItsErrorBesideTheSettingsNotes(t *testing.T) 
 
 	page := pageOf(got)
 	want := []any{422, map[string]string{"update_timeout_minutes": "Must be a whole number of minutes from 1 to 1440."},
-		[]string{settingsNote, "Set by DOORCODE_PASSWORD_HASH_MEMORY_KIB in the environment; change it there.", hostNote, brokerNote}}
+		[]string{settingsNote, hostNote, brokerNote}}
 	if diff := cmp.Diff(want, []any{got.Status, page.FieldErrors, page.Notes}); diff != "" {
 		t.Errorf("status, field errors, notes (-want +got):\n%s", diff)
 	}
