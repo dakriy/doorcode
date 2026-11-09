@@ -38,6 +38,11 @@
      placed absolutely; held by its cell it stays inside a table that
      scrolls within its card rather than widening the page on a phone. */
   :where(th, td) { position: relative; }
+  /* A grid item's minimum width is its content's by default, so a wide
+     table or a long line in a one-column grid on a phone widens the
+     column, and the page with it, instead of scrolling inside its card.
+     Grid items may shrink to their track; min-w-* still overrides. */
+  :where(.grid) > :where(*) { min-width: 0; }
 }
 
 /* Calendars: FullCalendar's colors follow the shell's palette and theme,
