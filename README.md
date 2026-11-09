@@ -80,6 +80,11 @@ requests. One simulated controller waits for approval under Enrollments; the
 others are online, report telemetry, open and close, answer open commands,
 and check codes now and then, so the live pages move. The demo listens on
 `-listen`, which defaults to `DOORCODE_LISTEN_ADDR` and else `:8080`.
+Settings work as in the server: a `DOORCODE_` variable such as
+`DOORCODE_SITE_NAME` provides its setting, and the demo then keeps that
+value instead of seeding its own, logging each setting it leaves alone. With
+`DOORCODE_ENROLLMENT_PASSWORD` set, the simulated controllers enroll with
+it.
 
 ## Deploy with docker compose
 

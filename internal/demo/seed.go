@@ -36,6 +36,9 @@ type Site struct {
 	Waiting SimulatedDoor
 	// Codes are the codes of the users who have one.
 	Codes []string
+	// EnrollmentPassword is the password controllers enroll with: the
+	// demo's own, or the environment's when it provides the setting.
+	EnrollmentPassword string
 	// start is when the history begins.
 	start time.Time
 }
@@ -221,10 +224,11 @@ var waiting = SimulatedDoor{HardwareID: "a4cf12e0b1f6", Firmware: "1.4.1", Signa
 // gives them AdminPassword, and builds the demo site through the API:
 // settings, schedules, doors with pictures, zones, groups, users with
 // codes, the member who signs in with MemberPassword, access rules,
-// overrides, firmware, and access requests. Then it
+// overrides, firmware, and access requests. It leaves every setting the
+// environment env provides as it is and logs that it did. Then it
 // writes weeks of history into store. It runs before Run, so the
 // controllers find the enrollment password set.
-func Seed(ctx context.Context, h http.Handler, store connector.Store, log *Log, now time.Time) (Site, error) {
+func Seed(ctx context.Context, h http.Handler, store connector.Store, env connector.Environment, log *Log, now time.Time) (Site, error) {
 	password, email, found := log.Password("email")
 	if !found {
 		return Site{}, errors.New("the application logged no first administrator; start the demo with an empty store")
@@ -238,8 +242,11 @@ func Seed(ctx context.Context, h http.Handler, store connector.Store, log *Log, 
 		return Site{}, err
 	}
 	site := Site{AdminEmail: email, Waiting: waiting, start: now.AddDate(0, 0, -historyDays)}
+	if err := seedSettings(admin, env, log, &site); err != nil {
+		return Site{}, fmt.Errorf("seed the demo: %w", err)
+	}
 	steps := []func(client, time.Time, *Site) error{
-		seedSettings, seedSchedules, seedDoors, seedZones, seedGroups, seedPeople, seedMember, seedRules, seedOverrides, seedFirmware, seedRequests,
+		seedSchedules, seedDoors, seedZones, seedGroups, seedPeople, seedMember, seedRules, seedOverrides, seedFirmware, seedRequests,
 	}
 	for _, step := range steps {
 		if err := step(admin, now, &site); err != nil {
@@ -252,7 +259,10 @@ func Seed(ctx context.Context, h http.Handler, store connector.Store, log *Log, 
 	return site, nil
 }
 
-func seedSettings(admin client, _ time.Time, _ *Site) error {
+// seedSettings stores the demo's settings, skipping and logging each one
+// the environment provides. The controllers enroll with the environment's
+// enrollment password when it provides one.
+func seedSettings(admin client, env connector.Environment, log connector.Log, site *Site) error {
 	values := [][2]string{
 		{"site_name", "doorcode demo"},
 		{"public_url", "https://doorcode.example.com"},
@@ -260,7 +270,23 @@ func seedSettings(admin client, _ time.Time, _ *Site) error {
 		{"door_telemetry_interval_s", "15"},
 		{"portal_door_pictures", "true"},
 	}
+	site.EnrollmentPassword = enrollmentPassword
 	for _, v := range values {
+		var current struct {
+			ReadOnly bool   `json:"read_only"`
+			EnvVar   string `json:"env_var"`
+		}
+		if err := admin.call(http.MethodGet, "/api/v1/settings/"+v[0], nil, &current); err != nil {
+			return err
+		}
+		if current.ReadOnly {
+			log.Info("the demo leaves a setting the environment provides as it is",
+				connector.Field{Key: "setting", Value: v[0]}, connector.Field{Key: "env_var", Value: current.EnvVar})
+			if v[0] == "enrollment_password" {
+				site.EnrollmentPassword, _ = env.Lookup(current.EnvVar)
+			}
+			continue
+		}
 		if err := admin.call(http.MethodPut, "/api/v1/settings/"+v[0], map[string]string{"value": v[1]}, nil); err != nil {
 			return err
 		}

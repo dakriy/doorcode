@@ -75,7 +75,7 @@ func run(ctx context.Context, listen string) error {
 	if err != nil {
 		return err
 	}
-	site, err := demo.Seed(ctx, a.Handler(), f.store, f.log, time.Now())
+	site, err := demo.Seed(ctx, a.Handler(), f.store, f.env, f.log, time.Now())
 	if err != nil {
 		return err
 	}

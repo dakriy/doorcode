@@ -28,7 +28,7 @@ var errDropped = errors.New("the broker ended the connection")
 // the enrollment credentials exist. The controllers play until ctx ends.
 func Start(ctx context.Context, h http.Handler, broker *Broker, site Site, log connector.Log) error {
 	for _, d := range append([]SimulatedDoor{site.Waiting}, site.Doors...) {
-		c := &controller{broker: broker, log: log, door: d, codes: site.Codes, started: time.Now()}
+		c := &controller{broker: broker, log: log, door: d, codes: site.Codes, enrollment: site.EnrollmentPassword, started: time.Now()}
 		go c.run(ctx)
 	}
 	admin, err := signIn(ctx, h, site.AdminEmail, AdminPassword)
@@ -76,12 +76,14 @@ func pause(ctx context.Context, d time.Duration) bool {
 // server says so, answers commands, and enrolls again when its
 // credentials stop working.
 type controller struct {
-	broker  *Broker
-	log     connector.Log
-	door    SimulatedDoor
-	codes   []string
-	creds   protocol.Credentials
-	started time.Time
+	broker *Broker
+	log    connector.Log
+	door   SimulatedDoor
+	codes  []string
+	// enrollment is the enrollment password.
+	enrollment string
+	creds      protocol.Credentials
+	started    time.Time
 	// connects is how often it connected as its door since it started.
 	connects int
 }
@@ -135,7 +137,7 @@ func (c *controller) connect(ctx context.Context) error {
 func (c *controller) enroll(ctx context.Context) error {
 	hwid := c.door.HardwareID
 	will := connector.Message{Topic: protocol.EnrollTopic(hwid), Payload: protocol.Encode(&protocol.Enrollment{Online: false}), Retained: true}
-	conn, err := c.broker.Connect(hwid, enrollmentUsername, enrollmentPassword, will)
+	conn, err := c.broker.Connect(hwid, enrollmentUsername, c.enrollment, will)
 	if err != nil {
 		return err
 	}
