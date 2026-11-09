@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/protocol"
 	"github.com/dakriy/doorcode/internal/settings"
 	"github.com/dakriy/doorcode/internal/timeline"
@@ -153,8 +154,7 @@ func (s Service) each(ctx context.Context, ids []int64, send sender) error {
 // chosen reports whether each sends to d: a door a controller is
 // enrolled as that is not deleted, among ids unless ids is nil.
 func chosen(d connector.StoredDoor, ids []int64) bool {
-	enrolled := d.DeletedAt == nil && d.Controller != nil
-	return enrolled && (ids == nil || slices.Contains(ids, d.ID))
+	return door.Enrolled(d) && (ids == nil || slices.Contains(ids, d.ID))
 }
 
 func sendConfig(s Service, ctx context.Context, t target) error {

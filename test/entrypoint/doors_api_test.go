@@ -113,7 +113,7 @@ func TestDoorFieldsAreChecked(t *testing.T) {
 
 			got := b.PostJSON("/api/v1/doors", c.body)
 
-			want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"` + c.want + `"}` + "\n"}
+			want := apiError(400, c.want)
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -160,7 +160,7 @@ func TestChangingADoorThatIsNotThereIsRefused(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			got := request(signedInAdmin(t, testsupport.NewFactory()))
 
-			want := testsupport.Response{Status: 404, ContentType: jsonType, Body: `{"error":"no door has this id"}` + "\n"}
+			want := apiError(404, "no door has this id")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -175,7 +175,7 @@ func TestUpdatingADoorWithABadBodyIsRefused(t *testing.T) {
 
 	got := b.PutJSON("/api/v1/doors/1", `[]`)
 
-	want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"body must be a JSON object with a string \"name\""}` + "\n"}
+	want := apiError(400, `body must be a JSON object with a string \"name\"`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -274,8 +274,7 @@ func TestDoorListQueryIsChecked(t *testing.T) {
 		t.Run(query, func(t *testing.T) {
 			got := signedInAdmin(t, testsupport.NewFactory()).Get("/api/v1/doors?" + query)
 
-			want := testsupport.Response{Status: 400, ContentType: jsonType,
-				Body: `{"error":"page must be a whole number from 1, per_page one from 1 to 200, zone a zone's id, and show current or deleted"}` + "\n"}
+			want := apiError(400, "page must be a whole number from 1, per_page one from 1 to 200, zone a zone's id, and show current or deleted")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -320,7 +319,7 @@ func TestDoorsAnswerWithARequestIDWhenTheStoreFails(t *testing.T) {
 
 			got := b.Send(c.method, c.target, c.body)
 
-			want := testsupport.Response{Status: 500, ContentType: jsonType, Body: `{"error":"internal error","request_id":"4243444546474849"}` + "\n"}
+			want := internalError("4243444546474849")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}

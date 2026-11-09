@@ -70,7 +70,7 @@ func TestListingAccessRulesRefusesAGroupThatIsNotAnID(t *testing.T) {
 		t.Run(query, func(t *testing.T) {
 			got := signedInAdmin(t, testsupport.NewFactory()).Get("/api/v1/access-rules" + query)
 
-			want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"group must be a group's id"}` + "\n"}
+			want := apiError(400, "group must be a group's id")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -115,7 +115,7 @@ func TestAccessRuleFieldsAreChecked(t *testing.T) {
 			created := b.PostJSON("/api/v1/access-rules", c.body)
 			updated := b.PutJSON("/api/v1/access-rules/1", c.body)
 
-			want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"` + c.want + `"}` + "\n"}
+			want := apiError(400, c.want)
 			if diff := cmp.Diff([]testsupport.Response{want, want}, []testsupport.Response{created, updated}); diff != "" {
 				t.Errorf("create, update (-want +got):\n%s", diff)
 			}
@@ -146,7 +146,7 @@ func TestAnAccessRuleThatIsNotThereIsNotFound(t *testing.T) {
 		b.Delete("/api/v1/access-rules/9"),
 	}
 
-	missing := testsupport.Response{Status: 404, ContentType: jsonType, Body: `{"error":"no access rule has this id"}` + "\n"}
+	missing := apiError(404, "no access rule has this id")
 	if diff := cmp.Diff([]testsupport.Response{missing, missing, missing}, got); diff != "" {
 		t.Errorf("read, update, delete (-want +got):\n%s", diff)
 	}
@@ -183,9 +183,8 @@ func TestDeletingAScheduleAnAccessRuleUsesIsRefused(t *testing.T) {
 	freed := b.Delete("/api/v1/schedules/3")
 
 	want := []testsupport.Response{
-		{Status: 409, ContentType: jsonType, Body: `{"error":"doors are in open mode during this schedule: Gate; ` +
-			`access rules of these groups use this schedule: Guests, Staff"}` + "\n"},
-		{Status: 409, ContentType: jsonType, Body: `{"error":"access rules of these groups use this schedule: Staff"}` + "\n"},
+		apiError(409, "doors are in open mode during this schedule: Gate; access rules of these groups use this schedule: Guests, Staff"),
+		apiError(409, "access rules of these groups use this schedule: Staff"),
 		{Status: 204},
 	}
 	if diff := cmp.Diff(want, []testsupport.Response{refused, unused, freed}); diff != "" {
@@ -220,7 +219,7 @@ func TestEntrantsOfADoorThatIsNotThereAreNotFound(t *testing.T) {
 	t.Parallel()
 	got := signedInAdmin(t, testsupport.NewFactory()).Get("/api/v1/doors/9/entrants")
 
-	want := testsupport.Response{Status: 404, ContentType: jsonType, Body: `{"error":"no door has this id"}` + "\n"}
+	want := apiError(404, "no door has this id")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -232,7 +231,7 @@ func TestAccessRulesAPIAsksForTheRole(t *testing.T) {
 
 	got := b.Get("/api/v1/access-rules")
 
-	want := testsupport.Response{Status: 403, ContentType: jsonType, Body: `{"error":"the manage-groups role is required"}` + "\n"}
+	want := apiError(403, "the manage-groups role is required")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}

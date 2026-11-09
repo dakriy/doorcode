@@ -74,5 +74,5 @@ func (s Service) AuthenticateToken(ctx context.Context, secret string) (User, bo
 }
 
 func tokenOf(t connector.StoredToken, now time.Time) Token {
-	return Token{ID: t.ID, Name: t.Name, CreatedAt: t.CreatedAt, ExpiresAt: t.ExpiresAt, Expired: reached(t.ExpiresAt, now)}
+	return Token{ID: t.ID, Name: t.Name, CreatedAt: t.CreatedAt, ExpiresAt: t.ExpiresAt, Expired: Reached(t.ExpiresAt, now)}
 }

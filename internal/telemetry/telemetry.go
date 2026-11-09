@@ -258,7 +258,7 @@ func (s Service) watch(ctx context.Context, unresponsiveAfter time.Duration, def
 	}
 	now := s.Clock.Now()
 	for _, d := range doors {
-		if d.Controller == nil || d.DeletedAt != nil {
+		if !door.Enrolled(d) {
 			continue
 		}
 		config, err := defaults.For(d.Config)

@@ -189,7 +189,7 @@ func TestChoosingADoorCodeThroughTheAPIIsChecked(t *testing.T) {
 
 			got := asUser(t, admin, "2").PutJSON("/api/v1/me/code", c.body)
 
-			want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"` + c.want + `"}` + "\n"}
+			want := apiError(400, c.want)
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -365,7 +365,7 @@ func TestChoosingAPasswordThroughTheAPIIsChecked(t *testing.T) {
 
 			got := ann.PutJSON("/api/v1/me/password", c.body)
 
-			want := testsupport.Response{Status: c.status, ContentType: jsonType, Body: `{"error":"` + c.want + `"}` + "\n"}
+			want := apiError(c.status, c.want)
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -698,7 +698,7 @@ func TestARequestIsChecked(t *testing.T) {
 			created := ann.PostJSON("/api/v1/me/requests", c.body)
 			changed := ann.PutJSON("/api/v1/me/requests/1", c.body)
 
-			want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"` + c.want + `"}` + "\n"}
+			want := apiError(400, c.want)
 			if diff := cmp.Diff([]any{want, want}, []any{created, changed}); diff != "" {
 				t.Errorf("creating, changing (-want +got):\n%s", diff)
 			}

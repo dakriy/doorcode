@@ -152,8 +152,7 @@ func TestOfflineDoorIsNotRotated(t *testing.T) {
 
 	b := signIn(t, f, a.Handler())
 	got := []any{statuses(t, b, "1"), b.PostJSON("/api/v1/doors/1/credentials/rotate", "")}
-	want := []any{[]string{"in-use"}, testsupport.Response{Status: 409, ContentType: jsonType,
-		Body: `{"error":"the door's controller is not connected"}` + "\n"}}
+	want := []any{[]string{"in-use"}, apiError(409, "the door's controller is not connected")}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("statuses, rotation (-want +got):\n%s", diff)
 	}

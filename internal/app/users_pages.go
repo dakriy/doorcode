@@ -57,7 +57,7 @@ func (a *App) rowOf(u connector.StoredUser) userRow {
 	if u.UserID != nil {
 		row.UserID = *u.UserID
 	}
-	if reached(u.ExpiresAt, a.clock.Now()) {
+	if auth.Reached(u.ExpiresAt, a.clock.Now()) {
 		row.Status = "Expired"
 	}
 	if u.DeletedAt != nil {

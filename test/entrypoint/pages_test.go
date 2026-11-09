@@ -304,7 +304,7 @@ func TestPageStoreFailureShowsARequestIDThatTheLogCarries(t *testing.T) {
 			}
 			wantLog := testsupport.LogEntry{Level: "error", Message: "request failed",
 				Fields: map[string]string{"request_id": c.id, "error": "stub: unavailable"}}
-			if diff := cmp.Diff(wantLog, f.LogStub.Entries[len(f.LogStub.Entries)-1]); diff != "" {
+			if diff := cmp.Diff(wantLog, lastLog(f)); diff != "" {
 				t.Errorf("last log line (-want +got):\n%s", diff)
 			}
 		})

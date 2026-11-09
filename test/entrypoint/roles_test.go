@@ -44,7 +44,7 @@ func TestLeavingTheGroupTakesItsRole(t *testing.T) {
 	send(t, admin, "DELETE", "/api/v1/groups/2/members/2", "", 204)
 	got := annClient.Get("/api/v1/users/1")
 
-	want := testsupport.Response{Status: 403, ContentType: jsonType, Body: `{"error":"the manage-users role is required"}` + "\n"}
+	want := apiError(403, "the manage-users role is required")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -116,7 +116,7 @@ func TestTakingYourOwnAdminRoleIsRefused(t *testing.T) {
 
 			got := b.Send(c.method, c.target, c.body)
 
-			want := testsupport.Response{Status: 409, ContentType: jsonType, Body: `{"error":"you cannot remove your own admin role"}` + "\n"}
+			want := apiError(409, "you cannot remove your own admin role")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -212,7 +212,7 @@ func TestGroupManagerRefusalSaysWhy(t *testing.T) {
 
 	got := b.Send("DELETE", "/api/v1/groups/1", "")
 
-	want := testsupport.Response{Status: 403, ContentType: jsonType, Body: `{"error":"you can only change groups whose roles you hold"}` + "\n"}
+	want := apiError(403, "you can only change groups whose roles you hold")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -224,7 +224,7 @@ func TestCreatingATokenForAnotherUserNeedsTheAdminRole(t *testing.T) {
 
 	got := b.PostJSON("/api/v1/users/1/tokens", `{"name":"x"}`)
 
-	want := testsupport.Response{Status: 403, ContentType: jsonType, Body: `{"error":"the admin role is required"}` + "\n"}
+	want := apiError(403, "the admin role is required")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}

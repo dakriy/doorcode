@@ -98,11 +98,6 @@ func refusedPage(message string, password bool) testsupport.Page {
 	return page
 }
 
-// lastLog is the newest line f's log holds.
-func lastLog(f *testsupport.Factory) testsupport.LogEntry {
-	return f.LogStub.Entries[len(f.LogStub.Entries)-1]
-}
-
 func TestANewIdentitySignsInWithTheDefaultEntitlementAndPreassignedGroups(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
@@ -720,7 +715,7 @@ func TestSignInSettingsAcceptOnlyWhatTheyCanUse(t *testing.T) {
 			t.Parallel()
 			got := signedInAdmin(t, testsupport.NewFactory()).PutJSON("/api/v1/settings/"+c.key, `{"value":"`+c.value+`"}`)
 
-			want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"invalid value for ` + c.key + `: ` + c.refusal + `"}` + "\n"}
+			want := apiError(400, "invalid value for "+c.key+": "+c.refusal)
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}

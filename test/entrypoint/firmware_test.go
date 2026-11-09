@@ -266,7 +266,7 @@ func TestTheDownloadRouteRefusesATokenThatDoesNotFit(t *testing.T) {
 
 			got := testsupport.NewBrowser(fl.a.Handler()).Get(target)
 
-			want := testsupport.Response{Status: 403, ContentType: jsonType, Body: `{"error":"this token does not let the door download this version"}` + "\n"}
+			want := apiError(403, "this token does not let the door download this version")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}

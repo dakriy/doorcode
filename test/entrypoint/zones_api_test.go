@@ -99,7 +99,7 @@ func TestZoneFieldsAreChecked(t *testing.T) {
 
 			got := b.PostJSON("/api/v1/zones", c.body)
 
-			want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"` + c.want + `"}` + "\n"}
+			want := apiError(400, c.want)
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -130,7 +130,7 @@ func TestChangingAZoneThatIsNotThereIsRefused(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			got := request(signedInAdmin(t, testsupport.NewFactory()))
 
-			want := testsupport.Response{Status: 404, ContentType: jsonType, Body: `{"error":"no zone has this id"}` + "\n"}
+			want := apiError(404, "no zone has this id")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -155,7 +155,7 @@ func TestUpdatingAZoneChecksItsFields(t *testing.T) {
 
 			got := b.PutJSON("/api/v1/zones/1", c.body)
 
-			want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"` + c.want + `"}` + "\n"}
+			want := apiError(400, c.want)
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -189,7 +189,7 @@ func TestZonesAnswerWithARequestIDWhenTheStoreFails(t *testing.T) {
 
 			got := b.Send(c.method, c.target, c.body)
 
-			want := testsupport.Response{Status: 500, ContentType: jsonType, Body: `{"error":"internal error","request_id":"4243444546474849"}` + "\n"}
+			want := internalError("4243444546474849")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}

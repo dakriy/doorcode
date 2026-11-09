@@ -98,8 +98,7 @@ func TestOnlyAnOverrideInForceCanBeCancelled(t *testing.T) {
 
 			got := b.Post("/api/v1/doors/1/overrides/1/cancel")
 
-			want := testsupport.Response{Status: 409, ContentType: jsonType,
-				Body: `{"error":"only an override that has started and not ended can be cancelled; delete one that has not started"}` + "\n"}
+			want := apiError(409, "only an override that has started and not ended can be cancelled; delete one that has not started")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -133,7 +132,7 @@ func TestAnOverrideIsFoundOnlyOnItsOwnDoor(t *testing.T) {
 		b.Get("/api/v1/doors/1/overrides/9"),
 	}
 
-	missing := testsupport.Response{Status: 404, ContentType: jsonType, Body: `{"error":"the door has no override with this id"}` + "\n"}
+	missing := apiError(404, "the door has no override with this id")
 	if diff := cmp.Diff([]testsupport.Response{missing, missing, missing, missing, missing}, got); diff != "" {
 		t.Errorf("read, update, cancel, delete, another id (-want +got):\n%s", diff)
 	}
@@ -145,7 +144,7 @@ func TestOverridesOfADoorThatIsNotThereAreNotFound(t *testing.T) {
 
 	got := []testsupport.Response{b.Get("/api/v1/doors/9/overrides"), b.PostJSON("/api/v1/doors/9/overrides", lockedToday)}
 
-	missing := testsupport.Response{Status: 404, ContentType: jsonType, Body: `{"error":"no door has this id"}` + "\n"}
+	missing := apiError(404, "no door has this id")
 	if diff := cmp.Diff([]testsupport.Response{missing, missing}, got); diff != "" {
 		t.Errorf("list, create (-want +got):\n%s", diff)
 	}
@@ -174,7 +173,7 @@ func TestOverrideFieldsAreChecked(t *testing.T) {
 			created := b.PostJSON("/api/v1/doors/1/overrides", c.body)
 			updated := b.PutJSON("/api/v1/doors/1/overrides/1", c.body)
 
-			want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"` + c.want + `"}` + "\n"}
+			want := apiError(400, c.want)
 			if diff := cmp.Diff([]testsupport.Response{want, want}, []testsupport.Response{created, updated}); diff != "" {
 				t.Errorf("create, update (-want +got):\n%s", diff)
 			}

@@ -101,7 +101,7 @@ func TestTokenOfAUserWithoutTheRoleIsRefused(t *testing.T) {
 
 	got := tokenClient(h, secret).Get("/api/v1/settings")
 
-	want := testsupport.Response{Status: 403, ContentType: jsonType, Body: `{"error":"the admin role is required"}` + "\n"}
+	want := apiError(403, "the admin role is required")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -137,7 +137,7 @@ func TestTokenIsRefused(t *testing.T) {
 
 			got := tokenClient(h, secret).Get("/api/v1/tokens")
 
-			want := testsupport.Response{Status: 401, ContentType: jsonType, Body: `{"error":"a valid API token is required"}` + "\n"}
+			want := apiError(401, "a valid API token is required")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -231,7 +231,7 @@ func TestRevokingATokenTheCallerDoesNotHaveIsNotFound(t *testing.T) {
 
 			got := b.Delete("/api/v1/tokens/" + id)
 
-			want := testsupport.Response{Status: 404, ContentType: jsonType, Body: `{"error":"you have no token with this id"}` + "\n"}
+			want := apiError(404, "you have no token with this id")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -259,7 +259,7 @@ func TestTokenRequestIsChecked(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			got := signedInAdmin(t, testsupport.NewFactory()).PostJSON("/api/v1/tokens", c.body)
 
-			want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"` + c.want + `"}` + "\n"}
+			want := apiError(400, c.want)
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -309,7 +309,7 @@ func TestTokenStoreFailureAnswersWithARequestID(t *testing.T) {
 
 			got := c.request(b)
 
-			want := testsupport.Response{Status: 500, ContentType: jsonType, Body: `{"error":"internal error","request_id":"` + c.id + `"}` + "\n"}
+			want := internalError(c.id)
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -325,7 +325,7 @@ func TestTokenThatCannotBeCheckedAnswersWithARequestID(t *testing.T) {
 
 	got := tokenClient(h, secret).Get("/api/v1/settings")
 
-	want := testsupport.Response{Status: 500, ContentType: jsonType, Body: `{"error":"internal error","request_id":"6263646566676869"}` + "\n"}
+	want := internalError("6263646566676869")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}

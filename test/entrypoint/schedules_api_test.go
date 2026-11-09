@@ -135,7 +135,7 @@ func TestScheduleFieldsAreChecked(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			got := signedInAdmin(t, testsupport.NewFactory()).PostJSON("/api/v1/schedules", c.body)
 
-			want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"` + c.want + `"}` + "\n"}
+			want := apiError(400, c.want)
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -172,7 +172,7 @@ func TestUpdatingAScheduleChecksItsFields(t *testing.T) {
 
 			got := b.PutJSON("/api/v1/schedules/2", c.body)
 
-			want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"` + c.want + `"}` + "\n"}
+			want := apiError(400, c.want)
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -225,7 +225,7 @@ func TestScheduleThatDoesNotExistIsNotFound(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			got := request(signedInAdmin(t, testsupport.NewFactory()))
 
-			want := testsupport.Response{Status: 404, ContentType: jsonType, Body: `{"error":"no schedule has this id"}` + "\n"}
+			want := apiError(404, "no schedule has this id")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -390,8 +390,7 @@ func TestOccurrencesOutsideTheirRangeSayWhatIsAccepted(t *testing.T) {
 	t.Parallel()
 	got := signedInAdmin(t, testsupport.NewFactory()).Get("/api/v1/schedules/1/occurrences?from=2026-03-02&to=2026-03-01")
 
-	want := testsupport.Response{Status: 400, ContentType: jsonType,
-		Body: `{"error":"from and to must be dates as YYYY-MM-DD, with to on or after from and at most 365 days after it"}` + "\n"}
+	want := apiError(400, "from and to must be dates as YYYY-MM-DD, with to on or after from and at most 365 days after it")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -427,7 +426,7 @@ func TestSchedulesAPIStoreFailureAnswersWithARequestID(t *testing.T) {
 
 			got := b.Send(c.method, c.target, c.body)
 
-			want := testsupport.Response{Status: 500, ContentType: jsonType, Body: `{"error":"internal error","request_id":"4243444546474849"}` + "\n"}
+			want := internalError("4243444546474849")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -441,7 +440,7 @@ func TestSchedulesAPIRefusesAUserWithoutTheRole(t *testing.T) {
 
 	got := b.Get("/api/v1/schedules")
 
-	want := testsupport.Response{Status: 403, ContentType: jsonType, Body: `{"error":"the manage-schedules role is required"}` + "\n"}
+	want := apiError(403, "the manage-schedules role is required")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -455,8 +454,7 @@ func TestDeletingAScheduleADoorIsInOpenModeDuringIsRefused(t *testing.T) {
 
 	got := b.Delete("/api/v1/schedules/2")
 
-	want := testsupport.Response{Status: 409, ContentType: jsonType,
-		Body: `{"error":"doors are in open mode during this schedule: Atrium, Lobby"}` + "\n"}
+	want := apiError(409, "doors are in open mode during this schedule: Atrium, Lobby")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -484,7 +482,7 @@ func TestDeletingAScheduleAnswersWithARequestIDWhenDoorsCannotBeRead(t *testing.
 
 	got := b.Delete("/api/v1/schedules/2")
 
-	want := testsupport.Response{Status: 500, ContentType: jsonType, Body: `{"error":"internal error","request_id":"4243444546474849"}` + "\n"}
+	want := internalError("4243444546474849")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}

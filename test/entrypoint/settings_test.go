@@ -10,6 +10,19 @@ import (
 
 const jsonType = "application/json"
 
+// apiError is the API's answer refusing a request with status and message,
+// written as it appears in the JSON body.
+func apiError(status int, message string) testsupport.Response {
+	return testsupport.Response{Status: status, ContentType: jsonType, Body: `{"error":"` + message + `"}` + "\n"}
+}
+
+// internalError is the API's answer to a request it could not handle,
+// naming the request id its log line carries.
+func internalError(requestID string) testsupport.Response {
+	body := `{"error":"internal error","request_id":"` + requestID + `"}` + "\n"
+	return testsupport.Response{Status: 500, ContentType: jsonType, Body: body}
+}
+
 // hashMemoryJSON is how the settings API shows the password hashing cost the
 // stub environment sets.
 const hashMemoryJSON = `{"key":"password_hash_memory_kib","value":"8","source":"environment","read_only":true,` +
@@ -184,8 +197,7 @@ func TestUpdatingAnEnvironmentProvidedSettingIsRejected(t *testing.T) {
 
 	got := signedInAdmin(t, f).PutJSON("/api/v1/settings/site_name", `{"value":"Other"}`)
 
-	want := testsupport.Response{Status: 409, ContentType: jsonType, Body: `{"error":"setting is read-only: ` +
-		`site_name is set by environment variable DOORCODE_SITE_NAME"}` + "\n"}
+	want := apiError(409, "setting is read-only: site_name is set by environment variable DOORCODE_SITE_NAME")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -242,8 +254,7 @@ func TestRejectedPasswordHashingCostSaysWhatItAccepts(t *testing.T) {
 
 	got := b.PutJSON("/api/v1/settings/password_hash_memory_kib", `{"value":"7"}`)
 
-	want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"invalid value for password_hash_memory_kib: ` +
-		`must be a whole number of KiB from 8 to 1048576"}` + "\n"}
+	want := apiError(400, "invalid value for password_hash_memory_kib: must be a whole number of KiB from 8 to 1048576")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -263,7 +274,7 @@ func TestUnknownSettingIsNotFound(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			got := request(signedInAdmin(t, testsupport.NewFactory()))
 
-			want := testsupport.Response{Status: 404, ContentType: jsonType, Body: `{"error":"unknown setting \"door_color\""}` + "\n"}
+			want := apiError(404, `unknown setting \"door_color\"`)
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -284,7 +295,7 @@ func TestUpdateWithoutAStringValueIsABadRequest(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			got := signedInAdmin(t, testsupport.NewFactory()).PutJSON("/api/v1/settings/site_name", body)
 
-			want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"body must be a JSON object with either a string \"value\" or \"clear\": true"}` + "\n"}
+			want := apiError(400, `body must be a JSON object with either a string \"value\" or \"clear\": true`)
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -315,13 +326,13 @@ func TestSettingsStoreFailureAnswersWithARequestIDThatTheLogCarries(t *testing.T
 
 			got := request(b)
 
-			want := testsupport.Response{Status: 500, ContentType: jsonType, Body: `{"error":"internal error","request_id":"4243444546474849"}` + "\n"}
+			want := internalError("4243444546474849")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
 			wantLog := testsupport.LogEntry{Level: "error", Message: "request failed",
 				Fields: map[string]string{"request_id": "4243444546474849", "error": "stub: unavailable"}}
-			if diff := cmp.Diff(wantLog, f.LogStub.Entries[len(f.LogStub.Entries)-1]); diff != "" {
+			if diff := cmp.Diff(wantLog, lastLog(f)); diff != "" {
 				t.Errorf("last log line (-want +got):\n%s", diff)
 			}
 		})
@@ -334,7 +345,7 @@ func TestSettingsAPIAsksForAToken(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			got := request(startBrowser(t, testsupport.NewFactory()))
 
-			want := testsupport.Response{Status: 401, ContentType: jsonType, Body: `{"error":"a valid API token is required"}` + "\n"}
+			want := apiError(401, "a valid API token is required")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -352,7 +363,7 @@ func TestSettingsAPIRefusesAUserWithoutTheAdminRole(t *testing.T) {
 
 			got := request(b)
 
-			want := testsupport.Response{Status: 403, ContentType: jsonType, Body: `{"error":"the admin role is required"}` + "\n"}
+			want := apiError(403, "the admin role is required")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -368,7 +379,7 @@ func TestSettingsAPIAnswersWithARequestIDWhenSessionsCannotBeRead(t *testing.T) 
 
 	got := b.Get("/api/v1/settings")
 
-	want := testsupport.Response{Status: 500, ContentType: jsonType, Body: `{"error":"internal error","request_id":"4243444546474849"}` + "\n"}
+	want := internalError("4243444546474849")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -398,8 +409,7 @@ func TestRejectedSiteTimezoneSaysWhatItAccepts(t *testing.T) {
 	t.Parallel()
 	got := signedInAdmin(t, testsupport.NewFactory()).PutJSON("/api/v1/settings/site_timezone", `{"value":"Mars/Olympus"}`)
 
-	want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"invalid value for site_timezone: ` +
-		`must be a time zone name from the tz database, such as UTC or Europe/Berlin"}` + "\n"}
+	want := apiError(400, "invalid value for site_timezone: must be a time zone name from the tz database, such as UTC or Europe/Berlin")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}

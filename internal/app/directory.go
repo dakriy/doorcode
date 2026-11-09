@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/directory"
 )
@@ -32,11 +33,6 @@ func (a *App) directoryError(w http.ResponseWriter, err error) {
 func pathID(r *http.Request, name string) int64 {
 	id, _ := strconv.ParseInt(r.PathValue(name), 10, 64)
 	return id
-}
-
-// reached reports whether now is at or past at; a nil at is never reached.
-func reached(at *time.Time, now time.Time) bool {
-	return at != nil && now.Compare(*at) >= 0
 }
 
 // utc is t in UTC, nil when t is.
@@ -77,7 +73,7 @@ func (a *App) viewOfUser(u connector.StoredUser) userView {
 	return userView{
 		ID: u.ID, Email: u.Email, UserID: u.UserID, FirstName: u.FirstName, LastName: u.LastName,
 		DisplayName: u.DisplayName, HasCode: u.CodeHash != nil,
-		ExpiresAt: utc(u.ExpiresAt), Expired: reached(u.ExpiresAt, a.clock.Now()),
+		ExpiresAt: utc(u.ExpiresAt), Expired: auth.Reached(u.ExpiresAt, a.clock.Now()),
 		DeletedAt: utc(u.DeletedAt), CreatedAt: u.CreatedAt.UTC(), Groups: groups,
 	}
 }

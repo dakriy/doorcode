@@ -183,7 +183,7 @@ func TestPicturesOfAnotherDoorAreNotFound(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			got := request()
 
-			want := testsupport.Response{Status: 404, ContentType: jsonType, Body: `{"error":"the door has no picture with this id"}` + "\n"}
+			want := apiError(404, "the door has no picture with this id")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -207,7 +207,7 @@ func TestPicturesOfADoorThatIsNotThereAreNotFound(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			got := request(signedInAdmin(t, testsupport.NewFactory()))
 
-			want := testsupport.Response{Status: 404, ContentType: jsonType, Body: `{"error":"no door has this id"}` + "\n"}
+			want := apiError(404, "no door has this id")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -283,7 +283,7 @@ func TestUploadsThatAreNotPicturesAreRefused(t *testing.T) {
 
 			got := c.upload(b)
 
-			want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"` + c.want + `"}` + "\n"}
+			want := apiError(400, c.want)
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -316,7 +316,7 @@ func TestPicturesAnswerWithARequestIDWhenTheStoreFails(t *testing.T) {
 
 			got := b.Send(c.method, c.target, "")
 
-			want := testsupport.Response{Status: 500, ContentType: jsonType, Body: `{"error":"internal error","request_id":"4243444546474849"}` + "\n"}
+			want := internalError("4243444546474849")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -339,7 +339,7 @@ func TestUploadAnswersWithARequestIDWhenThePictureCannotBeStored(t *testing.T) {
 
 			got := b.Upload("/api/v1/doors/1/pictures", "picture", "door.png", testsupport.PNG(4, 4))
 
-			want := testsupport.Response{Status: 500, ContentType: jsonType, Body: `{"error":"internal error","request_id":"4243444546474849"}` + "\n"}
+			want := internalError("4243444546474849")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}

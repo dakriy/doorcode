@@ -14,6 +14,11 @@ func logsSince(f *testsupport.Factory, n int) []testsupport.LogEntry {
 	return f.LogStub.Entries[n:]
 }
 
+// lastLog is the newest line f's log holds.
+func lastLog(f *testsupport.Factory) testsupport.LogEntry {
+	return f.LogStub.Entries[len(f.LogStub.Entries)-1]
+}
+
 func TestRunFailsToStart(t *testing.T) {
 	t.Parallel()
 	cases := map[string]struct {

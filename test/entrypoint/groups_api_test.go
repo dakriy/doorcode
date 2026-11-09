@@ -80,7 +80,7 @@ func TestGroupRequestIsChecked(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			got := signedInAdmin(t, testsupport.NewFactory()).PostJSON("/api/v1/groups", c.body)
 
-			want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"` + c.want + `"}` + "\n"}
+			want := apiError(400, c.want)
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -139,7 +139,7 @@ func TestUpdatingAGroupChecksIt(t *testing.T) {
 
 			got := b.PutJSON("/api/v1/groups/2", c.body)
 
-			want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"` + c.want + `"}` + "\n"}
+			want := apiError(400, c.want)
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -181,7 +181,7 @@ func TestGroupThatDoesNotExistIsNotFound(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			got := signedInAdmin(t, testsupport.NewFactory()).Send(c.method, c.target, c.body)
 
-			want := testsupport.Response{Status: 404, ContentType: jsonType, Body: `{"error":"no group has this id"}` + "\n"}
+			want := apiError(404, "no group has this id")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -220,7 +220,7 @@ func TestRemovingSomeoneWhoIsNotAMemberIsNotFound(t *testing.T) {
 
 	got := b.Delete("/api/v1/groups/1/members/2")
 
-	want := testsupport.Response{Status: 404, ContentType: jsonType, Body: `{"error":"the user is not a member of this group"}` + "\n"}
+	want := apiError(404, "the user is not a member of this group")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -252,7 +252,7 @@ func TestGroupStoreFailureAnswersWithARequestID(t *testing.T) {
 
 			got := b.Send(c.method, c.target, c.body)
 
-			want := testsupport.Response{Status: 500, ContentType: jsonType, Body: `{"error":"internal error","request_id":"4243444546474849"}` + "\n"}
+			want := internalError("4243444546474849")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}

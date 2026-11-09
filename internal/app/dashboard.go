@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/dakriy/doorcode/internal/auth"
+	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/firmware"
 	"github.com/dakriy/doorcode/internal/openapi"
 	"github.com/dakriy/doorcode/internal/schedule"
@@ -300,7 +301,7 @@ func (a *App) doorAlarms(ctx context.Context) (*int, *int, error) {
 	doors, err := a.doors.Doors(ctx)
 	open, unresponsive := 0, 0
 	for _, d := range doors {
-		if d.DeletedAt != nil || d.Controller == nil {
+		if !door.Enrolled(d) {
 			continue
 		}
 		badges := telemetry.Badges(*d.Controller)

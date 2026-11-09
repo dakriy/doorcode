@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/event"
 	"github.com/dakriy/doorcode/internal/protocol"
 	"github.com/dakriy/doorcode/internal/schedule"
@@ -119,15 +120,14 @@ func (p Plan) Default() *connector.StoredFirmware {
 
 // status is df's status in the rollout.
 func status(df DoorFirmware) string {
-	c := df.Door.Controller
-	if c == nil || df.Target == nil || df.Door.DeletedAt != nil {
+	if !door.Enrolled(df.Door) || df.Target == nil {
 		return ""
 	}
 	u := df.Update
 	if u != nil && u.State == Updating {
 		return Updating
 	}
-	if c.FirmwareVersion == df.Target.Version {
+	if df.Door.Controller.FirmwareVersion == df.Target.Version {
 		return Done
 	}
 	if u != nil && u.State == Failed && u.Version == df.Target.Version {

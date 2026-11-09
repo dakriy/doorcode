@@ -161,7 +161,7 @@ func (s Service) SignIn(ctx context.Context, email, password string) (string, er
 	if !passwordMatches(*u.PasswordHash, password) {
 		return "", ErrBadCredentials
 	}
-	if reached(u.ExpiresAt, s.Clock.Now()) {
+	if Reached(u.ExpiresAt, s.Clock.Now()) {
 		return "", ErrExpired
 	}
 	return s.StartSession(ctx, u.ID, false)
@@ -212,7 +212,7 @@ func (s Service) Authenticate(ctx context.Context, token string) (User, bool, er
 // ends never ends.
 func (s Service) admit(u connector.StoredUser, found bool, ends *time.Time) (User, bool, error) {
 	now := s.Clock.Now()
-	credentialEnded := !found || reached(ends, now)
+	credentialEnded := !found || Reached(ends, now)
 	if credentialEnded || AccountEnded(u, now) {
 		return User{}, false, nil
 	}
@@ -245,11 +245,13 @@ func (s Service) PurgeSessions(ctx context.Context) error {
 // AccountEnded reports whether u's account is deleted or has expired by
 // now. Such a user is refused everywhere.
 func AccountEnded(u connector.StoredUser, now time.Time) bool {
-	return u.DeletedAt != nil || reached(u.ExpiresAt, now)
+	return u.DeletedAt != nil || Reached(u.ExpiresAt, now)
 }
 
-// reached reports whether now is at or past at; a nil at is never reached.
-func reached(at *time.Time, now time.Time) bool {
+// Reached reports whether now is at or past at, the time an account, a
+// session, or a token ends; a nil at is never reached. It is the one rule
+// for when an expiry takes effect.
+func Reached(at *time.Time, now time.Time) bool {
 	return at != nil && now.Compare(*at) >= 0
 }
 

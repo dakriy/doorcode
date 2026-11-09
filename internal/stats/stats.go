@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/event"
 	"github.com/dakriy/doorcode/internal/schedule"
 )
@@ -259,7 +260,7 @@ func (s Service) Health(ctx context.Context, r Range, now time.Time, zone *time.
 		return Health{}, err
 	}
 	for _, d := range doors {
-		if d.DeletedAt == nil && d.Controller != nil {
+		if door.Enrolled(d) {
 			h.Doors = append(h.Doors, healthOf(d, trends))
 		}
 	}

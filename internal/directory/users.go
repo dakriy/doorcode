@@ -187,7 +187,7 @@ func (s Service) ChangeUser(ctx context.Context, viewer auth.User, id int64, p P
 // endsOwnAccount reports whether viewer giving the user whose id is id the
 // expiry expires, at now, makes their own account expire now or earlier.
 func endsOwnAccount(viewer auth.User, id int64, expires *time.Time, now time.Time) bool {
-	return id == viewer.ID && expires != nil && !expires.After(now)
+	return id == viewer.ID && auth.Reached(expires, now)
 }
 
 // DeleteUser soft-deletes the user whose id is id, which viewer may not be.

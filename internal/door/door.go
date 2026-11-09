@@ -48,6 +48,13 @@ func InPortal(d connector.StoredDoor) bool {
 	return d.Public && d.DeletedAt == nil
 }
 
+// Enrolled reports whether a controller is enrolled as d and d is not
+// deleted: the doors that are sent pushes and updates, watched, and
+// counted in the dashboard's door health.
+func Enrolled(d connector.StoredDoor) bool {
+	return d.DeletedAt == nil && d.Controller != nil
+}
+
 // Service reads and changes doors, zones, and pictures.
 type Service struct {
 	Store Store

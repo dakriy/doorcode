@@ -67,7 +67,7 @@ func TestUserRequestIsChecked(t *testing.T) {
 
 			got := b.PostJSON("/api/v1/users", c.body)
 
-			want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"` + c.want + `"}` + "\n"}
+			want := apiError(400, c.want)
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -159,8 +159,7 @@ func TestUserListQueryIsChecked(t *testing.T) {
 		t.Run(query, func(t *testing.T) {
 			got := signedInAdmin(t, testsupport.NewFactory()).Get("/api/v1/users" + query)
 
-			want := testsupport.Response{Status: 400, ContentType: jsonType,
-				Body: `{"error":"page must be a whole number from 1, per_page one from 1 to 200, and show current or deleted"}` + "\n"}
+			want := apiError(400, "page must be a whole number from 1, per_page one from 1 to 200, and show current or deleted")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -210,7 +209,7 @@ func TestUserThatDoesNotExistIsNotFound(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			got := signedInAdmin(t, testsupport.NewFactory()).Send(c.method, c.target, c.body)
 
-			want := testsupport.Response{Status: 404, ContentType: jsonType, Body: `{"error":"no user has this id"}` + "\n"}
+			want := apiError(404, "no user has this id")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -253,7 +252,7 @@ func TestUpdatingAUserChecksTheProfile(t *testing.T) {
 
 			got := b.PutJSON("/api/v1/users/2", c.body)
 
-			want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"` + c.want + `"}` + "\n"}
+			want := apiError(400, c.want)
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -316,7 +315,7 @@ func TestDeletingYourOwnAccountIsRefused(t *testing.T) {
 	t.Parallel()
 	got := signedInAdmin(t, testsupport.NewFactory()).Delete("/api/v1/users/1")
 
-	want := testsupport.Response{Status: 409, ContentType: jsonType, Body: `{"error":"you cannot delete your own account"}` + "\n"}
+	want := apiError(409, "you cannot delete your own account")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -361,7 +360,7 @@ func TestDoorCodeIsChecked(t *testing.T) {
 
 			got := b.PutJSON("/api/v1/users/2/code", c.body)
 
-			want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"` + c.want + `"}` + "\n"}
+			want := apiError(400, c.want)
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -421,7 +420,7 @@ func TestDoorCodeHashingThatCannotBeReadAnswersWithARequestID(t *testing.T) {
 
 	got := b.PutJSON("/api/v1/users/1/code", `{"code":"654321"}`)
 
-	want := testsupport.Response{Status: 500, ContentType: jsonType, Body: `{"error":"internal error","request_id":"5253545556575859"}` + "\n"}
+	want := internalError("5253545556575859")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -460,7 +459,7 @@ func TestTokenRequestForAnotherUserIsChecked(t *testing.T) {
 
 	got := b.PostJSON("/api/v1/users/2/tokens", `{"name":""}`)
 
-	want := testsupport.Response{Status: 400, ContentType: jsonType, Body: `{"error":"Enter a name for the token."}` + "\n"}
+	want := apiError(400, "Enter a name for the token.")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -503,7 +502,7 @@ func TestUserStoreFailureAnswersWithARequestID(t *testing.T) {
 			if id == "" {
 				id = "4243444546474849"
 			}
-			want := testsupport.Response{Status: 500, ContentType: jsonType, Body: `{"error":"internal error","request_id":"` + id + `"}` + "\n"}
+			want := internalError(id)
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}

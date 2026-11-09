@@ -348,20 +348,13 @@ func TestApprovalNeedsAWaitingControllerAndOneDoor(t *testing.T) {
 		body   string
 		want   testsupport.Response
 	}{
-		"a controller that is not waiting": {"/api/v1/enrollments/B2/approve", `{"door_id":1}`, testsupport.Response{Status: 404, ContentType: jsonType,
-			Body: `{"error":"no controller with this hardware id is waiting to be approved"}` + "\n"}},
-		"a missing door": {"/api/v1/enrollments/A1/approve", `{"door_id":9}`, testsupport.Response{Status: 404, ContentType: jsonType,
-			Body: `{"error":"no door has this id"}` + "\n"}},
-		"a deleted door": {"/api/v1/enrollments/A1/approve", `{"door_id":1}`, testsupport.Response{Status: 409, ContentType: jsonType,
-			Body: `{"error":"the door is deleted; restore it first"}` + "\n"}},
-		"both kinds of door": {"/api/v1/enrollments/A1/approve", `{"door_id":1,"door":{"name":"Lobby"}}`, testsupport.Response{Status: 400,
-			ContentType: jsonType, Body: `{"error":"body must be a JSON object with either a door_id or a door to create"}` + "\n"}},
-		"no door": {"/api/v1/enrollments/A1/approve", `{}`, testsupport.Response{Status: 400,
-			ContentType: jsonType, Body: `{"error":"body must be a JSON object with either a door_id or a door to create"}` + "\n"}},
-		"not JSON": {"/api/v1/enrollments/A1/approve", `door`, testsupport.Response{Status: 400,
-			ContentType: jsonType, Body: `{"error":"body must be a JSON object with either a door_id or a door to create"}` + "\n"}},
-		"a new door with a wrong field": {"/api/v1/enrollments/A1/approve", `{"door":{"name":""}}`, testsupport.Response{Status: 400,
-			ContentType: jsonType, Body: `{"error":"Enter a name."}` + "\n"}},
+		"a controller that is not waiting": {"/api/v1/enrollments/B2/approve", `{"door_id":1}`, apiError(404, "no controller with this hardware id is waiting to be approved")},
+		"a missing door":                   {"/api/v1/enrollments/A1/approve", `{"door_id":9}`, apiError(404, "no door has this id")},
+		"a deleted door":                   {"/api/v1/enrollments/A1/approve", `{"door_id":1}`, apiError(409, "the door is deleted; restore it first")},
+		"both kinds of door":               {"/api/v1/enrollments/A1/approve", `{"door_id":1,"door":{"name":"Lobby"}}`, apiError(400, "body must be a JSON object with either a door_id or a door to create")},
+		"no door":                          {"/api/v1/enrollments/A1/approve", `{}`, apiError(400, "body must be a JSON object with either a door_id or a door to create")},
+		"not JSON":                         {"/api/v1/enrollments/A1/approve", `door`, apiError(400, "body must be a JSON object with either a door_id or a door to create")},
+		"a new door with a wrong field":    {"/api/v1/enrollments/A1/approve", `{"door":{"name":""}}`, apiError(400, "Enter a name.")},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
