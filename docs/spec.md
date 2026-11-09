@@ -154,11 +154,7 @@ announces its hardware id, firmware version, and signal strength. It appears
 in the admin UI as pending for as long as it stays connected. On approval the
 admin sets name, location, pictures, zones, and optional firmware override;
 the server creates per-door broker credentials and sends them to the door,
-which reconnects as itself. An admin may instead reject a pending
-controller, which takes it off the list and clears its retained
-announcement; the controller is not told (the protocol has no such
-message), keeps waiting, and is pending again when it next announces
-itself, so rejecting clears the list rather than banning the hardware.
+which reconnects as itself.
 
 Credentials rotate automatically at a configurable interval and on demand
 from the door page. A door has at most two live credentials: the server

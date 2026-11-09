@@ -296,23 +296,6 @@ func (s Service) Approve(ctx context.Context, e Enrollment, doorID int64) error 
 	return nil
 }
 
-// Reject takes the controller waiting with hardware id hwid off the
-// pending list and clears its retained announcement. The protocol has no
-// message telling a controller it was rejected, so one still connected
-// keeps waiting and is pending again once it announces itself again.
-func (s Service) Reject(ctx context.Context, hwid string) error {
-	e, err := s.Pending.Get(hwid)
-	if err != nil {
-		return err
-	}
-	if err := s.Broker.Publish(ctx, connector.Message{Topic: protocol.EnrollTopic(hwid), Retained: true}); err != nil {
-		return err
-	}
-	s.Pending.set(e, false)
-	s.Changed()
-	return nil
-}
-
 // vacate makes the door whose id is doorID ready to become the controller
 // with hardware id hwid: the door must exist and not be deleted, its
 // credentials stop working, and a door the controller was loses it.

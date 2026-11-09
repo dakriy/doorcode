@@ -2,7 +2,7 @@
 {{template "back" (link "/admin/doors" "All doors")}}
 <div class="mt-4">
   <h1 class="text-2xl font-semibold tracking-tight">Pending enrollments</h1>
-  <p class="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">Controllers connected with the enrollment credentials, waiting to become doors. A controller is listed only while it stays connected. Approve one to send it the credentials it connects with as its door, or reject one to clear it from the list; a rejected controller is not told, so one still connected appears again when it next announces itself.</p>
+  <p class="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">Controllers connected with the enrollment credentials, waiting to become doors. A controller is listed only while it stays connected. Approve one to send it the credentials it connects with as its door.</p>
 </div>
 
 <div id="enrollments-live" hx-get="{{.URI}}" hx-trigger="live-doors from:body" hx-select="#enrollments-live" hx-swap="outerHTML" class="mt-8 overflow-hidden {{template "card-class"}}">
@@ -24,14 +24,7 @@
           <td class="px-4 py-3 text-zinc-600 dark:text-zinc-400">{{.Firmware}}</td>
           <td class="px-4 py-3 whitespace-nowrap tabular-nums text-zinc-600 dark:text-zinc-400">{{.Signal}}</td>
           <td class="px-4 py-3 whitespace-nowrap tabular-nums text-zinc-600 dark:text-zinc-400">{{.Since}}</td>
-          <td class="px-4 py-3 text-right whitespace-nowrap">
-            <div class="flex items-center justify-end gap-2">
-              <a href="{{.Path}}" class="{{template "primary-class"}} py-1.5">Approve</a>
-              <form method="post" action="{{.Path}}/reject" hx-disabled-elt="find button" hx-confirm="{{template "reject-question" .HardwareID}}">
-                <button type="submit" class="{{template "danger-class"}} py-1.5">Reject</button>
-              </form>
-            </div>
-          </td>
+          <td class="px-4 py-3 text-right whitespace-nowrap"><a href="{{.Path}}" class="{{template "primary-class"}} py-1.5">Approve</a></td>
         </tr>
         {{else}}
         <tr><td colspan="5" class="px-4 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">No controller is waiting. One appears here while it is connected with the enrollment credentials.</td></tr>

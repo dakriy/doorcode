@@ -84,7 +84,6 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 		{Method: "GET", Target: "/api/v1/doors/1/timeline", ID: "getDoorTimeline", Statuses: []int{200, 400, 401, 403, 404, 500}},
 		{Method: "POST", Target: "/api/v1/doors/1/update", ID: "updateDoorNow", Statuses: []int{200, 401, 403, 404, 409, 500}},
 		{Method: "GET", Target: "/api/v1/enrollments", ID: "listEnrollments", Statuses: []int{200, 401, 403, 500}},
-		{Method: "DELETE", Target: "/api/v1/enrollments/a4cf12f00e3b", ID: "rejectEnrollment", Statuses: []int{204, 401, 403, 404, 500}},
 		{Method: "POST", Target: "/api/v1/enrollments/a4cf12f00e3b/approve", ID: "approveEnrollment", Body: `{"door_id":1}`,
 			Statuses: []int{200, 400, 401, 403, 404, 409, 500}},
 		{Method: "GET", Target: "/api/v1/events", ID: "listEvents", Statuses: []int{200, 400, 401, 403, 500}},

@@ -42,7 +42,7 @@ func TestEnrollmentsPageListsTheWaitingControllers(t *testing.T) {
 		Title: "Pending enrollments · doorcode", Heading: "Pending enrollments", Nav: adminNav,
 		Tables: map[string][][]string{"Pending enrollments": {
 			enrollmentsHead,
-			{"A1", "1.4.2", "-61 dBm", "Mon 5 Jan 2026 09:00", "Approve Reject"},
+			{"A1", "1.4.2", "-61 dBm", "Mon 5 Jan 2026 09:00", "Approve"},
 		}},
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
@@ -73,7 +73,7 @@ func TestEnrollmentsPageShowsWhatAControllerDoesNotReport(t *testing.T) {
 
 	got := pageOf(b.Get("/admin/enrollments")).Tables["Pending enrollments"][1]
 
-	if diff := cmp.Diff([]string{"B2", "Not reported", "Not reported", "Mon 5 Jan 2026 09:00", "Approve Reject"}, got); diff != "" {
+	if diff := cmp.Diff([]string{"B2", "Not reported", "Not reported", "Mon 5 Jan 2026 09:00", "Approve"}, got); diff != "" {
 		t.Errorf("row (-want +got):\n%s", diff)
 	}
 }
@@ -234,54 +234,6 @@ func TestApprovalFormOfAControllerThatStoppedWaitingIsNotFound(t *testing.T) {
 				t.Errorf("status, heading (-want +got):\n%s", diff)
 			}
 		})
-	}
-}
-
-// rejectQuestion is what rejecting the waiting controller A1 asks first.
-const rejectQuestion = "Reject: Reject A1? It is taken off the list but not told, so if it is still connected it appears again when it next announces itself."
-
-func TestEnrollmentsAndApprovalPagesAskBeforeRejecting(t *testing.T) {
-	t.Parallel()
-	f := testsupport.NewFactory()
-	b, _ := waiting(t, f)
-
-	list := testsupport.Confirmations(b.Get("/admin/enrollments").Body)
-	approval := testsupport.Confirmations(b.Get("/admin/enrollments/A1").Body)
-
-	got := []string{list["/admin/enrollments/A1/reject"], approval["/admin/enrollments/A1/reject"]}
-	if diff := cmp.Diff([]string{rejectQuestion, rejectQuestion}, got); diff != "" {
-		t.Errorf("enrollments page, approval page (-want +got):\n%s", diff)
-	}
-}
-
-func TestRejectingFromThePageTakesTheControllerOffTheList(t *testing.T) {
-	t.Parallel()
-	f := testsupport.NewFactory()
-	b, _ := waiting(t, f)
-
-	rejected := b.Post("/admin/enrollments/A1/reject")
-	page := pageOf(b.Get(rejected.Location))
-
-	_, retained := f.BrokerStub.Retained("doorcode/enroll/A1")
-	want := []any{303, "/admin/enrollments", false,
-		[]string{"The controller has been rejected and taken off the list. It is not told, so one still connected appears again when it next announces itself."},
-		[][]string{enrollmentsHead, {"No controller is waiting. One appears here while it is connected with the enrollment credentials."}},
-	}
-	got := []any{rejected.Status, rejected.Location, retained, page.Messages, page.Tables["Pending enrollments"]}
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("status, where it goes, announcement retained, messages, enrollments (-want +got):\n%s", diff)
-	}
-}
-
-func TestRejectingFromThePageAControllerThatStoppedWaitingIsNotFound(t *testing.T) {
-	t.Parallel()
-	f := testsupport.NewFactory()
-	b, _ := waiting(t, f)
-
-	got := b.Post("/admin/enrollments/B2/reject")
-
-	if diff := cmp.Diff([]any{404, "Not found"}, []any{got.Status, pageOf(got).Heading}); diff != "" {
-		t.Errorf("status, heading (-want +got):\n%s", diff)
 	}
 }
 
