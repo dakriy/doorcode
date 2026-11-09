@@ -174,7 +174,6 @@ page applies, and without that the default.
 | `oidc_default_groups` | Group slugs, separated by commas, that users created by signing in join, together with the groups whose pre-assigned list holds their user id; only while `oidc_claim_entitlements` is empty. | empty |
 | `enrollment_username` | The broker username every new controller enrolls with. Takes effect on the next start. | `doorcode-enroll` |
 | `enrollment_password` | Its password. Generated, stored, and logged on first start when empty. Secret: stored encrypted. Takes effect on the next start. | empty |
-| `door_credential_grace_hours` | Hours a door's old credentials keep working after new ones are issued. | `24` |
 | `telemetry_retention_days` | Days each telemetry report is kept. | `7` |
 | `telemetry_rollup_retention_days` | Days the hourly summaries of the reports are kept. | `730` |
 | `unresponsive_minutes` | Minutes a connected door may stay silent before it counts as unresponsive. | `5` |
@@ -262,8 +261,9 @@ protocol and door controller entries of [AGENTS.md](AGENTS.md).
 7. **Obey commands.** A command carries an `id` and a `command`: `open` with
    `strike_ms`; `credentials` with a new `username` and `token` (connect
    with them, publish the online status, then close the old connection;
-   credentials rotate automatically, and the old ones stop working once the
-   door has reconnected with the new ones or the grace period has passed);
+   credentials rotate automatically, the old ones keep working until the
+   door connects with the new ones and stop working then, and a door that
+   has not yet connected with the newest it was sent is sent no more);
    `update` with `version`, `sha256`, and `url`. Answer on
    `doorcode/doors/<id>/ack` with the command's `id`, a `result` (`failed`
    when it could not be carried out), and a `detail`.

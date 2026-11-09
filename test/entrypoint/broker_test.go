@@ -140,14 +140,14 @@ func TestRunLogsWhenADoorThatConnectsCannotBeSentItsTimeline(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	a, _, _, _ := enrolledDoor(t, f)
-	f.StoreStub.SeedSetting("door_credential_grace_hours", "0", testsupport.DefaultNow)
+	f.StoreStub.SeedSetting("telemetry_retention_days", "0", testsupport.DefaultNow)
 	logged := len(f.LogStub.Entries)
 	f.BrokerStub.Inject("doorcode/doors/1/online", onlineAs(firstUsername, true))
 
 	run(t, a)
 
 	want := []testsupport.LogEntry{{Level: "error", Message: "ignored a broker message", Fields: map[string]string{
-		"topic": "doorcode/doors/1/online", "error": "invalid value for door_credential_grace_hours: must be a whole number of hours from 1 to 8760",
+		"topic": "doorcode/doors/1/online", "error": "invalid value for telemetry_retention_days: must be a whole number of days from 1 to 365",
 	}}}
 	if diff := cmp.Diff(want, logsSince(f, logged)); diff != "" {
 		t.Errorf("log (-want +got):\n%s", diff)
@@ -167,9 +167,9 @@ func TestRunLogsWhenThePeriodicWorkFails(t *testing.T) {
 		},
 		"when a setting is invalid": {
 			arrange: func(_ *testing.T, f *testsupport.Factory, _ *testsupport.Browser) {
-				f.StoreStub.SeedSetting("door_credential_grace_hours", "0", testsupport.DefaultNow)
+				f.StoreStub.SeedSetting("telemetry_retention_days", "0", testsupport.DefaultNow)
 			},
-			at: "2026-01-05T09:01:00Z", want: "invalid value for door_credential_grace_hours: must be a whole number of hours from 1 to 8760",
+			at: "2026-01-05T09:01:00Z", want: "invalid value for telemetry_retention_days: must be a whole number of days from 1 to 365",
 		},
 		"when the rotation interval is invalid": {
 			arrange: func(_ *testing.T, f *testsupport.Factory, _ *testsupport.Browser) {
@@ -210,13 +210,6 @@ func TestRunLogsWhenThePeriodicWorkFails(t *testing.T) {
 		"when new credentials cannot be created": {
 			arrange: func(_ *testing.T, f *testsupport.Factory, _ *testsupport.Browser) { f.BrokerStub.FailCreating() },
 			at:      "2026-02-04T09:00:00Z", want: "stub: unavailable",
-		},
-		"when old credentials cannot be revoked": {
-			arrange: func(t *testing.T, f *testsupport.Factory, b *testsupport.Browser) {
-				send(t, b, "POST", "/api/v1/doors/1/credentials/rotate", "", 204)
-				f.BrokerStub.FailDeleting()
-			},
-			at: "2026-01-06T09:00:00Z", want: "stub: unavailable",
 		},
 	}
 	for name, c := range cases {
@@ -308,10 +301,6 @@ func TestRotationSettingsAcceptWholeNumbersWithinTheirRange(t *testing.T) {
 		"door_credential_rotation_days=1":    200,
 		"door_credential_rotation_days=3650": 200,
 		"door_credential_rotation_days=3651": 400,
-		"door_credential_grace_hours=0":      400,
-		"door_credential_grace_hours=1":      200,
-		"door_credential_grace_hours=8760":   200,
-		"door_credential_grace_hours=8761":   400,
 	}
 	for setting, want := range cases {
 		t.Run(setting, func(t *testing.T) {

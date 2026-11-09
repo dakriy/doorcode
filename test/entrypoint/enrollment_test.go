@@ -511,6 +511,7 @@ func TestCredentialChangesFail(t *testing.T) {
 		"to list when doors cannot be read":         {func(f *testsupport.Factory) { f.StoreStub.FailDoors() }, "GET", "credentials"},
 		"to list when credentials cannot be read":   {func(f *testsupport.Factory) { f.StoreStub.FailCredentials() }, "GET", "credentials"},
 		"to rotate when doors cannot be read":       {func(f *testsupport.Factory) { f.StoreStub.FailDoors() }, "POST", "credentials/rotate"},
+		"to rotate when credentials cannot be read": {func(f *testsupport.Factory) { f.StoreStub.FailCredentials() }, "POST", "credentials/rotate"},
 		"to rotate when the broker refuses":         {func(f *testsupport.Factory) { f.BrokerStub.FailCreating() }, "POST", "credentials/rotate"},
 		"to rotate when the command cannot be sent": {func(f *testsupport.Factory) { f.BrokerStub.FailPublishing() }, "POST", "credentials/rotate"},
 		"to revoke when doors cannot be read":       {func(f *testsupport.Factory) { f.StoreStub.FailDoors() }, "POST", "credentials/revoke"},

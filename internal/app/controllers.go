@@ -80,9 +80,9 @@ func (a *App) controllerRoutes() []route {
 		apiRoute(http.MethodPost, "/doors/{id}/credentials/rotate", doors, a.rotateCredentials, apiDoc{
 			id: "rotateDoorCredentials", summary: "Issue a door's controller new broker credentials", tag: "enrollment", params: doorParams,
 			responses: []openapi.Response{
-				{Status: http.StatusNoContent, Description: "The new credentials are on their way to the controller. The old ones work until it connects with the new ones or the grace period passes."},
+				{Status: http.StatusNoContent, Description: "The new credentials are on their way to the controller. The old ones work until it connects with the new ones."},
 				noDoor,
-				{Status: http.StatusConflict, Description: "The door's controller is not connected, so it cannot be sent new credentials.", Body: errorBody{}},
+				{Status: http.StatusConflict, Description: "The door's controller is not connected, or has not yet connected with the credentials it was last sent, so it cannot be sent new ones.", Body: errorBody{}},
 			},
 		}),
 		apiRoute(http.MethodPost, "/doors/{id}/credentials/revoke", doors, a.revokeCredentials, apiDoc{

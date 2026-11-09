@@ -56,8 +56,6 @@ var signInSettingsJSON = defaultSetting("password_min_length", "12") + `,` +
 var brokerSettingsJSON = `{"key":"enrollment_username","value":"doorcode-enroll","source":"default","read_only":false,` +
 	`"env_var":"DOORCODE_ENROLLMENT_USERNAME"},` +
 	`{"key":"enrollment_password","value":"","source":"default","read_only":false,"env_var":"DOORCODE_ENROLLMENT_PASSWORD","secret":true},` +
-	`{"key":"door_credential_grace_hours","value":"24","source":"default","read_only":false,` +
-	`"env_var":"DOORCODE_DOOR_CREDENTIAL_GRACE_HOURS"},` +
 	defaultSetting("telemetry_retention_days", "7") + `,` +
 	defaultSetting("telemetry_rollup_retention_days", "730") + `,` +
 	defaultSetting("unresponsive_minutes", "5") + `,` +

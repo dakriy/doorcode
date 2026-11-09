@@ -61,7 +61,6 @@ const (
 	passwordMinLengthHint  = "must be a whole number of characters from 8 to 128"
 	keyEnrollmentUsername  = "enrollment_username"
 	keyEnrollmentPassword  = "enrollment_password"
-	keyGraceHours          = "door_credential_grace_hours"
 	keyTelemetryRetention  = "telemetry_retention_days"
 	keyRollupRetention     = "telemetry_rollup_retention_days"
 	keyUnresponsive        = "unresponsive_minutes"
@@ -100,7 +99,6 @@ const (
 
 // The settings that are a length of time, parsed.
 var (
-	graceHours         = durationSetting(1, 8760, "hours", hoursOf)
 	telemetryRetention = durationSetting(1, 365, "days", daysOf)
 	rollupRetention    = durationSetting(1, 3650, "days", daysOf)
 	unresponsiveAfter  = durationSetting(1, 10080, "minutes", minutesOf)
@@ -109,9 +107,8 @@ var (
 	newUserExpiry      = durationSetting(1, 36500, "days", daysOf)
 )
 
-// The lengths of time that are a number of minutes, hours, or days.
+// The lengths of time that are a number of minutes or days.
 func minutesOf(n int) time.Duration { return time.Duration(n) * time.Minute }
-func hoursOf(n int) time.Duration   { return time.Duration(n) * time.Hour }
 func daysOf(n int) time.Duration    { return time.Duration(n) * 24 * time.Hour }
 
 // durations is each setting that is a length of time: its key, how it is
@@ -121,7 +118,6 @@ var durations = []struct {
 	parse func(string) (time.Duration, error)
 	at    func(c *Current) *time.Duration
 }{
-	{keyGraceHours, graceHours, func(c *Current) *time.Duration { return &c.Grace }},
 	{keyTelemetryRetention, telemetryRetention, func(c *Current) *time.Duration { return &c.TelemetryRetention }},
 	{keyRollupRetention, rollupRetention, func(c *Current) *time.Duration { return &c.RollupRetention }},
 	{keyUnresponsive, unresponsiveAfter, func(c *Current) *time.Duration { return &c.UnresponsiveAfter }},
@@ -206,12 +202,10 @@ var sections = []section{
 		{key: keyDefaultGroups, fallback: "", validate: accepting(slugs), label: "Groups new users join",
 			help: "Group slugs separated by commas. New users join these, and the groups whose pre-assigned list holds their user id, only while the entitlements claim is empty."},
 	}},
-	{Section{Name: "Door enrollment", About: "The broker account every new controller enrolls with, and how long a door's old credentials keep working. A changed enrollment username or password takes effect when the server next starts."}, []definition{
+	{Section{Name: "Door enrollment", About: "The broker account every new controller enrolls with. A door's old credentials keep working until its controller connects with the new ones, which stops the old ones working. A changed enrollment username or password takes effect when the server next starts."}, []definition{
 		{key: keyEnrollmentUsername, fallback: "doorcode-enroll", label: "Enrollment username"},
 		{key: keyEnrollmentPassword, fallback: "", secret: true, label: "Enrollment password",
 			help: "Generated and logged on first start when empty."},
-		{key: keyGraceHours, fallback: "24", validate: accepting(graceHours), label: "Credential grace period",
-			help: "Hours a door's old credentials keep working after new ones are issued."},
 	}},
 	{Section{Name: "Telemetry", About: "How long door reports are kept and when a silent door counts as unresponsive."}, []definition{
 		{key: keyTelemetryRetention, fallback: "7", validate: accepting(telemetryRetention), label: "Reports kept",
@@ -269,9 +263,6 @@ type Current struct {
 	// Zone is the site timezone: weekly schedule windows and dates typed on
 	// pages are in it.
 	Zone *time.Location
-	// Grace is how long a door's old credentials keep working after the
-	// server issues new ones.
-	Grace time.Duration
 	// TelemetryRetention is how long each telemetry report is kept, and
 	// RollupRetention how long the hourly rollups of the reports are.
 	TelemetryRetention time.Duration

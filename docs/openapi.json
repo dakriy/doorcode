@@ -1273,7 +1273,7 @@
         ],
         "responses": {
           "204": {
-            "description": "The new credentials are on their way to the controller. The old ones work until it connects with the new ones or the grace period passes."
+            "description": "The new credentials are on their way to the controller. The old ones work until it connects with the new ones."
           },
           "401": {
             "description": "No valid API token was sent.",
@@ -1306,7 +1306,7 @@
             }
           },
           "409": {
-            "description": "The door's controller is not connected, so it cannot be sent new credentials.",
+            "description": "The door's controller is not connected, or has not yet connected with the credentials it was last sent, so it cannot be sent new ones.",
             "content": {
               "application/json": {
                 "schema": {

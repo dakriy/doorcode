@@ -74,28 +74,64 @@ func TestRotatedCredentialsBothWorkUntilTheDoorConnectsWithTheNewOnes(t *testing
 	}
 }
 
-func TestOldCredentialsStopWorkingOnceTheGracePeriodPasses(t *testing.T) {
+func TestOldCredentialsKeepWorkingHoweverLongTheDoorTakesToConnectWithTheNewOnes(t *testing.T) {
 	t.Parallel()
-	cases := map[string]struct {
-		at   string
-		want []string
-	}{
-		"within the grace period": {"2026-01-06T08:59:59Z", []string{"in-use", "issued"}},
-		"once it has passed":      {"2026-01-06T09:00:00Z", []string{"revoked", "issued"}},
+	f := testsupport.NewFactory()
+	a, b, conn, old := enrolledDoor(t, f)
+	send(t, b, "POST", "/api/v1/doors/1/credentials/rotate", "", 204)
+	rotated := credentialsOf(t, conn)
+	rotated.door = "1"
+	f.ClockStub.Set("2026-12-31T09:00:00Z")
+	run(t, a)
+	b = signIn(t, f, a.Handler())
+	before := []any{connects(f, old), statuses(t, b, "1")}
+
+	connectAs(t, f, rotated)
+	run(t, a)
+
+	got := []any{before, connects(f, old), statuses(t, b, "1")}
+	want := []any{[]any{[]bool{true}, []string{"in-use", "issued"}}, []bool{false}, []string{"revoked", "in-use"}}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("before connecting with the new ones, after: old works, statuses (-want +got):\n%s", diff)
 	}
-	for name, c := range cases {
-		t.Run(name, func(t *testing.T) {
-			f := testsupport.NewFactory()
-			a, b, _, _ := enrolledDoor(t, f)
-			send(t, b, "POST", "/api/v1/doors/1/credentials/rotate", "", 204)
-			f.ClockStub.Set(c.at)
+}
 
-			run(t, a)
+func TestRotatingAgainIsRefusedUntilTheDoorConnectsWithTheNewCredentials(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	_, b, _, _ := enrolledDoor(t, f)
+	send(t, b, "POST", "/api/v1/doors/1/credentials/rotate", "", 204)
 
-			if diff := cmp.Diff(c.want, statuses(t, signIn(t, f, a.Handler()), "1")); diff != "" {
-				t.Errorf("statuses (-want +got):\n%s", diff)
-			}
-		})
+	got := b.PostJSON("/api/v1/doors/1/credentials/rotate", "")
+
+	want := []any{apiError(409, "the door's controller has not yet connected with the credentials it was last sent"), []string{"in-use", "issued"}}
+	if diff := cmp.Diff(want, []any{got, statuses(t, b, "1")}); diff != "" {
+		t.Errorf("second rotation, statuses (-want +got):\n%s", diff)
+	}
+}
+
+func TestDueRotationWaitsUntilTheDoorConnectsWithTheNewCredentials(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	a, b, conn, _ := enrolledDoor(t, f)
+	send(t, b, "POST", "/api/v1/doors/1/credentials/rotate", "", 204)
+	rotated := credentialsOf(t, conn)
+	rotated.door = "1"
+	f.ClockStub.Set("2026-02-04T09:00:00Z")
+	logged := len(f.LogStub.Entries)
+	run(t, a)
+	logs := logsSince(f, logged)
+	b = signIn(t, f, a.Handler())
+	waiting := statuses(t, b, "1")
+
+	connectAs(t, f, rotated)
+	run(t, a)
+	f.ClockStub.Set("2026-02-04T09:01:00Z")
+	run(t, a)
+
+	want := []any{[]testsupport.LogEntry{}, []string{"in-use", "issued"}, []string{"revoked", "in-use", "issued"}}
+	if diff := cmp.Diff(want, []any{logs, waiting, statuses(t, b, "1")}); diff != "" {
+		t.Errorf("log and statuses while waiting, statuses once connected (-want +got):\n%s", diff)
 	}
 }
 
@@ -123,19 +159,16 @@ func TestCredentialsRotateOnTheirOwnOnceTheIntervalPasses(t *testing.T) {
 	}
 }
 
-func TestRotationIntervalAndGraceComeFromTheSettings(t *testing.T) {
+func TestRotationIntervalComesFromTheSettings(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	f.EnvStub["DOORCODE_DOOR_CREDENTIAL_ROTATION_DAYS"] = "1"
-	f.EnvStub["DOORCODE_DOOR_CREDENTIAL_GRACE_HOURS"] = "2"
 	a, _, _, _ := enrolledDoor(t, f)
 	f.ClockStub.Set("2026-01-06T09:00:00Z")
-	run(t, a)
-	f.ClockStub.Set("2026-01-06T11:00:00Z")
 
 	run(t, a)
 
-	if diff := cmp.Diff([]string{"revoked", "issued"}, statuses(t, signIn(t, f, a.Handler()), "1")); diff != "" {
+	if diff := cmp.Diff([]string{"in-use", "issued"}, statuses(t, signIn(t, f, a.Handler()), "1")); diff != "" {
 		t.Errorf("statuses (-want +got):\n%s", diff)
 	}
 }

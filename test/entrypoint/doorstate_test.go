@@ -318,8 +318,8 @@ func TestWhatADoorSaysOfItselfThatCannotBeHandledIsLoggedAndIgnored(t *testing.T
 		}, "invalid value for door_strike_pulse_ms: must be a whole number of milliseconds from 100 to 60000"},
 		"an opening when events cannot be read": {event, opened, func(f *testsupport.Factory) { f.StoreStub.FailEvents() }, unavailable},
 		"an opening when a setting is invalid": {event, opened, func(f *testsupport.Factory) {
-			f.StoreStub.SeedSetting("door_credential_grace_hours", "0", testsupport.DefaultNow)
-		}, "invalid value for door_credential_grace_hours: must be a whole number of hours from 1 to 8760"},
+			f.StoreStub.SeedSetting("telemetry_retention_days", "0", testsupport.DefaultNow)
+		}, "invalid value for telemetry_retention_days: must be a whole number of days from 1 to 365"},
 		"an opening when schedules cannot be read": {event, opened, func(f *testsupport.Factory) { f.StoreStub.FailSchedules() }, unavailable},
 		"a forced opening that cannot be logged":   {event, opened, func(f *testsupport.Factory) { f.StoreStub.FailEventWrites() }, unavailable},
 		"a closing whose state cannot be stored": {

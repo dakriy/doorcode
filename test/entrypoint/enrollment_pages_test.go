@@ -342,7 +342,7 @@ func TestRotatingFromTheDoorPage(t *testing.T) {
 	rotated := b.Post("/admin/doors/1/credentials/rotate")
 	got := pageOf(b.Get(rotated.Location))
 
-	want := []any{303, []string{"New credentials are on their way to the controller. The old ones work until it connects with the new ones or the grace period passes."},
+	want := []any{303, []string{"New credentials are on their way to the controller. The old ones work until it connects with the new ones."},
 		[][]string{credentialsHead, {secondUsername, "Mon 5 Jan 2026 09:00", "Issued, not yet used"}, {firstUsername, "Mon 5 Jan 2026 09:00", "In use"}}}
 	if diff := cmp.Diff(want, []any{rotated.Status, got.Messages, got.Tables["Credentials"]}); diff != "" {
 		t.Errorf("status, messages, credentials (-want +got):\n%s", diff)
@@ -363,6 +363,24 @@ func TestRotatingFromTheDoorPageNeedsTheControllerConnected(t *testing.T) {
 	want := []any{409, []string{"The controller is not connected, so it cannot be sent new credentials. Try again once it is online."}}
 	if diff := cmp.Diff(want, []any{got.Status, page.Messages}); diff != "" {
 		t.Errorf("status, messages (-want +got):\n%s", diff)
+	}
+}
+
+func TestRotatingFromTheDoorPageAgainWaitsForTheControllerToConnectWithTheNewCredentials(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	_, b, _, _ := enrolledDoor(t, f)
+	b.Get("/")
+	b.Post("/admin/doors/1/credentials/rotate")
+	b.Get("/admin/doors/1")
+
+	got := b.Post("/admin/doors/1/credentials/rotate")
+
+	page := pageOf(got)
+	want := []any{409, []string{"The controller has not yet connected with the credentials it was last sent, so it is sent no more. Its old ones keep working until it does."},
+		[][]string{credentialsHead, {secondUsername, "Mon 5 Jan 2026 09:00", "Issued, not yet used"}, {firstUsername, "Mon 5 Jan 2026 09:00", "In use"}}}
+	if diff := cmp.Diff(want, []any{got.Status, page.Messages, page.Tables["Credentials"]}); diff != "" {
+		t.Errorf("status, messages, credentials (-want +got):\n%s", diff)
 	}
 }
 

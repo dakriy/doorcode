@@ -140,10 +140,12 @@ the server creates per-door broker credentials and sends them to the door,
 which reconnects as itself.
 
 Credentials rotate automatically at a configurable interval and on demand
-from the door page. A door has up to two live credentials: the server issues
-the new one over the existing connection, keeps the old one valid until the
-door has reconnected with the new one or a grace period has passed, then
-revokes the old. Revocation from the door page disconnects the door.
+from the door page. A door has at most two live credentials: the server
+issues the new one over the existing connection and keeps the old one valid
+until the door connects with the new one, which revokes the old. While a
+door has not yet connected with its newest credential, rotation issues
+nothing more: the periodic rotation waits, and rotating from the door page
+or the API is refused. Revocation from the door page disconnects the door.
 
 ### Pictures
 

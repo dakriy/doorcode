@@ -122,7 +122,7 @@ func (a *App) sweepIfDue(ctx context.Context) {
 	}
 }
 
-// sweep does the periodic work: it rotates and revokes door credentials,
+// sweep does the periodic work: it rotates door credentials,
 // sends doors their timelines again when they are due, removes the
 // sessions that have expired, watches the doors' state and keeps their
 // telemetry history, and rolls firmware updates out. A part that fails
@@ -137,7 +137,7 @@ func (a *App) sweep(ctx context.Context) error {
 		return err
 	}
 	return errors.Join(
-		a.controllers.Sweep(ctx, current.Grace, defaults),
+		a.controllers.Sweep(ctx, defaults),
 		a.pushes.Refresh(ctx),
 		a.auth.PurgeSessions(ctx),
 		a.telemetry.Sweep(ctx, current, defaults),

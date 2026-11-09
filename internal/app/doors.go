@@ -164,6 +164,7 @@ var doorStatuses = []refusalStatus{
 	{controller.ErrNotPending, http.StatusNotFound},
 	{controller.ErrDeleted, http.StatusConflict},
 	{controller.ErrOffline, http.StatusConflict},
+	{controller.ErrHandingOver, http.StatusConflict},
 	{errTooBig, http.StatusRequestEntityTooLarge},
 }
 

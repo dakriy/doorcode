@@ -452,6 +452,7 @@ var doorPageRefusals = []doorRefusal{
 	{door.ErrNoOverride, http.StatusNotFound, "That override is not there any more. It may have been deleted already."},
 	{door.ErrNotActive, http.StatusConflict, "Only an override in force can be cancelled. Delete one that has not started."},
 	{controller.ErrOffline, http.StatusConflict, "The controller is not connected, so it cannot be sent new credentials. Try again once it is online."},
+	{controller.ErrHandingOver, http.StatusConflict, "The controller has not yet connected with the credentials it was last sent, so it is sent no more. Its old ones keep working until it does."},
 }
 
 // doorChanged finishes a change to d made from its page: a refusal is
