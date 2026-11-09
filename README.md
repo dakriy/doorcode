@@ -37,9 +37,9 @@ the engineering contract is [AGENTS.md](AGENTS.md).
 - **Firmware.** Uploads through the UI or the API, a default version and
   per-door overrides, rollout inside an update window a few doors at a time,
   and update-now from a door's page.
-- **Events.** Every code check, keypad command, UI opening, alarm, and update
-  is logged with who and why, and searchable by door, user, type, outcome,
-  reason, and date.
+- **Events.** Every code check, keypad command, UI opening and reboot,
+  alarm, and update is logged with who and why, and searchable by door,
+  user, type, outcome, reason, and date.
 - **Dashboard.** Entries per day, a weekday by hour heatmap, denial reasons,
   the busiest and quietest doors, door uptime, signal and latency trends,
   firmware versions, and live counts.
@@ -78,8 +78,9 @@ with users, groups, zones, schedules, access rules, overrides, doors with
 pictures, a few weeks of events and telemetry, firmware versions, and access
 requests. One simulated controller waits for approval under Enrollments; the
 others are online, report telemetry, open and close, answer open commands,
-and check codes now and then, so the live pages move. The demo listens on
-`-listen`, which defaults to `DOORCODE_LISTEN_ADDR` and else `:8080`.
+reboot and connect again when told to, and check codes now and then, so the
+live pages move. The demo listens on `-listen`, which defaults to
+`DOORCODE_LISTEN_ADDR` and else `:8080`.
 
 ## Deploy with docker compose
 
@@ -283,7 +284,8 @@ implementation. In short:
    credentials rotate automatically, the old ones keep working until the
    door connects with the new ones and stop working then, and a door that
    has not yet connected with the newest it was sent is sent no more);
-   `update` with `version`, `sha256`, and `url`. Answer on
+   `update` with `version`, `sha256`, and `url`; `reboot` with nothing
+   more (ack it, restart, and connect again). Answer on
    `doorcode/doors/<id>/ack` with the command's `id`, a `result` (`failed`
    when it could not be carried out), and a `detail`.
 

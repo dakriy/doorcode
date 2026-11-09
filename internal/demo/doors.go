@@ -276,8 +276,8 @@ func (c *controller) receive(d *door, m connector.Message) bool {
 }
 
 // command carries out a command, reporting whether the controller must
-// connect again: with new credentials at once, or after installing
-// firmware.
+// connect again: with new credentials or after a reboot at once, or after
+// installing firmware.
 func (c *controller) command(d *door, payload []byte) bool {
 	var cmd protocol.Command
 	if protocol.Decode(payload, &cmd) != nil {
@@ -294,12 +294,17 @@ func (c *controller) command(d *door, payload []byte) bool {
 	case protocol.CommandUpdate:
 		d.installed = cmd.Version
 		d.installing = time.NewTimer(between(5*time.Second, 15*time.Second))
+	case protocol.CommandReboot:
+		c.ack(d, cmd.ID)
+		d.installed = c.door.Firmware
+		return c.restart(d) == nil
 	}
 	return false
 }
 
-// restart is the controller rebooting into the firmware it installed: it
-// drops off the broker and connects again reporting the new version.
+// restart is the controller rebooting into the firmware it installed, or
+// the one it runs when told to reboot: it drops off the broker and
+// connects again reporting that version.
 func (c *controller) restart(d *door) error {
 	d.conn.Drop()
 	c.door.Firmware = d.installed

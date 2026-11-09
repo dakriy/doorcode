@@ -163,3 +163,23 @@ func (a *App) openDoor(ctx context.Context, doorID int64, by auth.User) (connect
 	e.ID = id
 	return e, cmp.Or(sendErr, err)
 }
+
+// rebootDoor tells the controller of the door whose id is doorID to
+// restart, as by, and logs it as an event, which it returns. A door whose
+// controller is not connected is refused with controller.ErrOffline; one
+// that cannot be sent the command is not logged, and the error returned.
+func (a *App) rebootDoor(ctx context.Context, doorID int64, by auth.User) (connector.StoredEvent, error) {
+	d, err := a.doors.Door(ctx, doorID)
+	if err != nil {
+		return connector.StoredEvent{}, err
+	}
+	if err := a.controllers.Reboot(ctx, d); err != nil {
+		return connector.StoredEvent{}, err
+	}
+	e := connector.StoredEvent{
+		At: a.clock.Now(), DoorID: d.ID, DoorName: d.Name, Type: event.Command, Outcome: event.Info, Reason: event.RebootSent,
+		UserID: &by.ID, UserName: by.DisplayName, Detail: "Told to restart and connect again.",
+	}
+	e.ID, err = a.events.Record(ctx, e)
+	return e, err
+}

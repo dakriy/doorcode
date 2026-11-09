@@ -169,6 +169,8 @@ const (
 	CommandOpen = "open"
 	// CommandUpdate installs other firmware.
 	CommandUpdate = "update"
+	// CommandReboot restarts a door's controller.
+	CommandReboot = "reboot"
 )
 
 // Command is what the server tells a door to do on its command topic. ID
@@ -180,6 +182,8 @@ const (
 // version to install, the SHA-256 of its image in hex, and the HTTPS URL
 // to download the image from; the door installs it, restarts, and
 // connects again reporting the version, or acknowledges that it failed.
+// A reboot command carries nothing more; the door acknowledges it,
+// restarts, and connects again.
 type Command struct {
 	Header
 	ID       string `cbor:"id"`

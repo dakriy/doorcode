@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"slices"
@@ -66,10 +67,18 @@ func (a *App) eventRoutes() []route {
 				{Status: http.StatusBadRequest, Description: "A query parameter is not one this operation takes; the error says which.", Body: errorBody{}},
 			},
 		}),
-		apiRoute(http.MethodPost, "/doors/{id}/open", opensDoors, a.openDoorNow, apiDoc{
+		apiRoute(http.MethodPost, "/doors/{id}/open", opensDoors, a.doorCommand(a.openDoor), apiDoc{
 			id: "openDoor", summary: "Release a door's strike", tag: "doors", params: []openapi.Param{doorIDParam},
 			responses: []openapi.Response{
 				{Status: http.StatusOK, Description: "The door was told to release its strike for its strike pulse; the event logging it, naming the caller.", Body: eventView{}},
+				noDoor,
+				{Status: http.StatusConflict, Description: "The door's controller is not connected.", Body: errorBody{}},
+			},
+		}),
+		apiRoute(http.MethodPost, "/doors/{id}/reboot", opensDoors, a.doorCommand(a.rebootDoor), apiDoc{
+			id: "rebootDoor", summary: "Restart a door's controller", tag: "doors", params: []openapi.Param{doorIDParam},
+			responses: []openapi.Response{
+				{Status: http.StatusOK, Description: "The door's controller was told to restart and connect again; the event logging it, naming the caller.", Body: eventView{}},
 				noDoor,
 				{Status: http.StatusConflict, Description: "The door's controller is not connected.", Body: errorBody{}},
 			},
@@ -145,11 +154,15 @@ func writeEvents(w http.ResponseWriter, found event.Page, page, perPage int) {
 	writeJSON(w, http.StatusOK, eventList{Events: views, Total: found.Total, Page: page, PerPage: perPage})
 }
 
-func (a *App) openDoorNow(w http.ResponseWriter, r *http.Request, caller auth.User) {
-	e, err := a.openDoor(r.Context(), pathID(r, "id"), caller)
-	if err != nil {
-		a.doorError(w, r, err)
-		return
+// doorCommand answers a request to send the door its path names a
+// command, by send, with the event logging it, naming the caller.
+func (a *App) doorCommand(send func(context.Context, int64, auth.User) (connector.StoredEvent, error)) func(http.ResponseWriter, *http.Request, auth.User) {
+	return func(w http.ResponseWriter, r *http.Request, caller auth.User) {
+		e, err := send(r.Context(), pathID(r, "id"), caller)
+		if err != nil {
+			a.doorError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, viewOfEvent(e))
 	}
-	writeJSON(w, http.StatusOK, viewOfEvent(e))
 }
