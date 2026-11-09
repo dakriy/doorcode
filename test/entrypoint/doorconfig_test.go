@@ -126,7 +126,7 @@ func TestADoorsConfigurationAnswersWithARequestIDWhenItCannotBeWorkedOut(t *test
 
 func TestEachDoorSettingAcceptsOnlyWhatADoorCanRunWith(t *testing.T) {
 	t.Parallel()
-	long := repeat("a", 253)
+	long := testsupport.Repeat("a", 253)
 	cases := map[string]struct {
 		field, value string
 		accepted     bool

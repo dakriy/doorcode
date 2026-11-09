@@ -11,6 +11,7 @@ import (
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/date"
 	"github.com/dakriy/doorcode/internal/schedule"
 )
 
@@ -28,7 +29,7 @@ func (a *App) schedulePageRoutes() []route {
 }
 
 // dayLabels names the weekdays on pages, in the order of
-// schedule.DayNames.
+// date.DayNames.
 var dayLabels = []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
 
 // dayChoice is one weekday checkbox of the schedule form.
@@ -39,7 +40,7 @@ type dayChoice struct {
 
 var dayChoices = func() []dayChoice {
 	choices := []dayChoice{}
-	for i, name := range schedule.DayNames {
+	for i, name := range date.DayNames {
 		choices = append(choices, dayChoice{Value: name, Label: dayLabels[i]})
 	}
 	return choices
@@ -327,7 +328,7 @@ func daysText(days []time.Weekday) string {
 	if len(days) == len(dayLabels) {
 		return "Every day"
 	}
-	held := func(i int) bool { return slices.Contains(days, schedule.Weekday(i)) }
+	held := func(i int) bool { return slices.Contains(days, date.Weekday(i)) }
 	var parts []string
 	// start is where the run of held days that reaches i begins.
 	start := 0

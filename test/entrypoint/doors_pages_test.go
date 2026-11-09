@@ -251,12 +251,12 @@ func TestDoorFormSaysWhatIsWrongAndKeepsWhatWasEntered(t *testing.T) {
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createDoor(t, b, frontDoor)
 
-	got := b.Post("/admin/doors", "name", "front door", "location", repeat("x", 201), "notes", "Keep", "public", "on")
+	got := b.Post("/admin/doors", "name", "front door", "location", testsupport.Repeat("x", 201), "notes", "Keep", "public", "on")
 
 	page := pageOf(got)
 	want := []any{422,
 		map[string]string{"name": "Another door has this name.", "location": "Use at most 200 characters."},
-		map[string]string{"name": "front door", "location": repeat("x", 201), "notes": "Keep"},
+		map[string]string{"name": "front door", "location": testsupport.Repeat("x", 201), "notes": "Keep"},
 		[]string{"public=on"},
 	}
 	if diff := cmp.Diff(want, []any{got.Status, page.FieldErrors, page.Values, page.Checked}); diff != "" {
@@ -436,12 +436,12 @@ func TestSavingADoorsDetailsFromItsPageSaysWhatIsWrong(t *testing.T) {
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createDoor(t, b, frontDoor)
 
-	got := b.Post("/admin/doors/1", "name", "", "location", "Side", "notes", repeat("x", 2001), "public", "on")
+	got := b.Post("/admin/doors/1", "name", "", "location", "Side", "notes", testsupport.Repeat("x", 2001), "public", "on")
 
 	page := pageOf(got)
 	want := []any{422, "Front door",
 		map[string]string{"name": "Enter a name.", "notes": "Use at most 2000 characters."},
-		map[string]string{"name": "", "location": "Side", "notes": repeat("x", 2001), "picture": ""},
+		map[string]string{"name": "", "location": "Side", "notes": testsupport.Repeat("x", 2001), "picture": ""},
 		[]string{"public=on"}}
 	if diff := cmp.Diff(want, []any{got.Status, page.Heading, page.FieldErrors, page.Values, page.Checked}); diff != "" {
 		t.Errorf("status, heading, field errors, values, checked (-want +got):\n%s", diff)

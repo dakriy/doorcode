@@ -8,8 +8,8 @@ import (
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/check"
+	"github.com/dakriy/doorcode/internal/date"
 	"github.com/dakriy/doorcode/internal/directory"
-	"github.com/dakriy/doorcode/internal/schedule"
 	"github.com/dakriy/doorcode/internal/settings"
 )
 
@@ -97,7 +97,7 @@ func formDate(value string, zone *time.Location) (*time.Time, error) {
 	if value == "" {
 		return nil, nil
 	}
-	day, err := time.ParseInLocation(schedule.DateLayout, value, zone)
+	day, err := time.ParseInLocation(date.Layout, value, zone)
 	return &day, err
 }
 
@@ -107,7 +107,7 @@ func inputDate(t *time.Time, zone *time.Location) string {
 	if t == nil {
 		return ""
 	}
-	return shownAt(zone, *t, schedule.DateLayout)
+	return shownAt(zone, *t, date.Layout)
 }
 
 // siteZone returns the site timezone, after showing that it could not be

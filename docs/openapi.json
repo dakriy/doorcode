@@ -5818,7 +5818,15 @@
         "security": [],
         "responses": {
           "200": {
-            "description": "The OpenAPI document of this API."
+            "description": "The OpenAPI document of this API.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
           }
         }
       }

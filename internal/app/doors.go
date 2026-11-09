@@ -13,6 +13,7 @@ import (
 	"github.com/dakriy/doorcode/internal/controller"
 	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/openapi"
+	"github.com/dakriy/doorcode/internal/override"
 	"github.com/dakriy/doorcode/internal/timeline"
 )
 
@@ -159,8 +160,8 @@ var doorStatuses = []refusalStatus{
 	{door.ErrNoDoor, http.StatusNotFound},
 	{door.ErrNoZone, http.StatusNotFound},
 	{door.ErrNoPicture, http.StatusNotFound},
-	{door.ErrNoOverride, http.StatusNotFound},
-	{door.ErrNotActive, http.StatusConflict},
+	{override.ErrNoOverride, http.StatusNotFound},
+	{override.ErrNotActive, http.StatusConflict},
 	{controller.ErrNotPending, http.StatusNotFound},
 	{controller.ErrDeleted, http.StatusConflict},
 	{controller.ErrOffline, http.StatusConflict},

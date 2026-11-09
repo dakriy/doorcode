@@ -16,8 +16,8 @@ import (
 
 	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/date"
 	"github.com/dakriy/doorcode/internal/proxy"
-	"github.com/dakriy/doorcode/internal/schedule"
 )
 
 // ErrUnknown reports a key that names no setting.
@@ -448,11 +448,11 @@ func updateDays(value string) ([]time.Weekday, error) {
 	}
 	var days []time.Weekday
 	for _, name := range strings.Split(value, ",") {
-		i := slices.Index(schedule.DayNames, strings.TrimSpace(name))
+		i := slices.Index(date.DayNames, strings.TrimSpace(name))
 		if i < 0 {
 			return nil, errors.New(updateDaysHint)
 		}
-		days = append(days, schedule.Weekday(i))
+		days = append(days, date.Weekday(i))
 	}
 	return days, nil
 }
@@ -746,7 +746,8 @@ func (s Service) put(ctx context.Context, key, value string, clearing bool) (Set
 			return Setting{}, fmt.Errorf("%w for %s: %w", ErrInvalid, key, err)
 		}
 	}
-	row := connector.StoredSetting{Value: s.storable(def, value), UpdatedAt: s.Clock.Now()}
+	// Postgres keeps microseconds, so the value echoed is the value read back.
+	row := connector.StoredSetting{Value: s.storable(def, value), UpdatedAt: s.Clock.Now().Truncate(time.Microsecond)}
 	if err := s.Store.PutSetting(ctx, def.key, row.Value, row.UpdatedAt); err != nil {
 		return Setting{}, err
 	}

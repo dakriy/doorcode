@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/date"
 	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/event"
-	"github.com/dakriy/doorcode/internal/schedule"
 )
 
 // Store is what the dashboard's figures are read from.
@@ -155,10 +155,10 @@ func weekdays(counts []connector.StoredHourCount) ([]Weekday, [24]int) {
 	days := make([]Weekday, 7)
 	var hours [24]int
 	for i := range days {
-		days[i].Day = schedule.Weekday(i)
+		days[i].Day = date.Weekday(i)
 	}
 	for _, c := range counts {
-		d := &days[schedule.DayIndex(c.Weekday)]
+		d := &days[date.DayIndex(c.Weekday)]
 		d.Hours[c.Hour] = c.Count
 		d.Total += c.Count
 		hours[c.Hour] += c.Count

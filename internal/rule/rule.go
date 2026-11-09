@@ -61,14 +61,7 @@ func (s Service) Rules(ctx context.Context, groupID int64) ([]connector.StoredRu
 
 // Rule returns the access rule whose id is id.
 func (s Service) Rule(ctx context.Context, id int64) (connector.StoredRule, error) {
-	r, found, err := s.Store.Rule(ctx, id)
-	if err != nil {
-		return r, err
-	}
-	if !found {
-		return r, ErrNoRule
-	}
-	return r, nil
+	return check.Lookup(ctx, id, s.Store.Rule, ErrNoRule)
 }
 
 // Create creates an access rule from f.

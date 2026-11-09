@@ -9,6 +9,7 @@ import (
 	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/door"
+	"github.com/dakriy/doorcode/internal/override"
 	"github.com/dakriy/doorcode/internal/rule"
 	"github.com/dakriy/doorcode/internal/schedule"
 	"github.com/dakriy/doorcode/internal/settings"
@@ -55,26 +56,26 @@ func (a *App) sendingFailed(err error) {
 
 func overrideID(o connector.StoredOverride) int64 { return o.ID }
 
-func (a *App) newOverride(ctx context.Context, doorID, creator int64, f door.OverrideFields) (connector.StoredOverride, error) {
+func (a *App) newOverride(ctx context.Context, doorID, creator int64, f override.Fields) (connector.StoredOverride, error) {
 	return affecting(ctx, a, rule.OfOverride, 0, func() (connector.StoredOverride, error) {
-		return a.doors.CreateOverride(ctx, doorID, creator, f)
+		return a.overrides.Create(ctx, doorID, creator, f)
 	}, overrideID)
 }
 
-func (a *App) changeOverride(ctx context.Context, doorID, id int64, f door.OverrideFields) (connector.StoredOverride, error) {
+func (a *App) changeOverride(ctx context.Context, doorID, id int64, f override.Fields) (connector.StoredOverride, error) {
 	return affecting(ctx, a, rule.OfOverride, id, func() (connector.StoredOverride, error) {
-		return a.doors.UpdateOverride(ctx, doorID, id, f)
+		return a.overrides.Update(ctx, doorID, id, f)
 	}, overrideID)
 }
 
 func (a *App) endOverride(ctx context.Context, doorID, id int64) (connector.StoredOverride, error) {
 	return affecting(ctx, a, rule.OfOverride, id, func() (connector.StoredOverride, error) {
-		return a.doors.CancelOverride(ctx, doorID, id)
+		return a.overrides.Cancel(ctx, doorID, id)
 	}, overrideID)
 }
 
 func (a *App) removeOverride(ctx context.Context, doorID, id int64) error {
-	return removing(ctx, a, rule.OfOverride, id, func() error { return a.doors.DeleteOverride(ctx, doorID, id) })
+	return removing(ctx, a, rule.OfOverride, id, func() error { return a.overrides.Delete(ctx, doorID, id) })
 }
 
 func (a *App) changeSchedule(ctx context.Context, id int64, f schedule.Fields) (connector.StoredSchedule, error) {

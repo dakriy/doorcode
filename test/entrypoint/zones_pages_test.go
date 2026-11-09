@@ -94,7 +94,7 @@ func TestZoneFormSaysWhatIsWrongAndKeepsWhatWasEntered(t *testing.T) {
 	b := zonedDoors(t, testsupport.NewFactory())
 	createZone(t, b, `{"name":"West"}`)
 
-	got := b.Post("/admin/zones", "name", "west", "description", repeat("x", 501), "door_ids", "1", "door_ids", "7",
+	got := b.Post("/admin/zones", "name", "west", "description", testsupport.Repeat("x", 501), "door_ids", "1", "door_ids", "7",
 		"open_schedule_ids", "1", "open_schedule_ids", "9")
 
 	page := pageOf(got)
@@ -103,7 +103,7 @@ func TestZoneFormSaysWhatIsWrongAndKeepsWhatWasEntered(t *testing.T) {
 			"name": "Another zone has this name.", "description": "Use at most 500 characters.", "door_ids": "No door has id 7.",
 			"open_schedule_ids": "No schedule has id 9.",
 		},
-		map[string]string{"name": "west", "description": repeat("x", 501)},
+		map[string]string{"name": "west", "description": testsupport.Repeat("x", 501)},
 		[]string{"door_ids=1", "open_schedule_ids=1"}}
 	if diff := cmp.Diff(want, []any{got.Status, page.Heading, page.FieldErrors, page.Values, page.Checked}); diff != "" {
 		t.Errorf("status, heading, field errors, values, checked (-want +got):\n%s", diff)

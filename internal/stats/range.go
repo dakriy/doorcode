@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/dakriy/doorcode/internal/check"
-	"github.com/dakriy/doorcode/internal/schedule"
+	"github.com/dakriy/doorcode/internal/date"
 )
 
 // Preset is a range the dashboard offers by name: the last Days days,
@@ -50,7 +50,7 @@ const (
 var TooLong = fmt.Sprintf("Choose at most %d days.", MaxDays)
 
 // Choice is a range as asked for: the name of a preset, or the first and
-// last dates of a custom range, written as schedule.DateLayout.
+// last dates of a custom range, written as date.Layout.
 type Choice struct {
 	Preset string
 	From   string
@@ -87,7 +87,7 @@ func Choose(c Choice, now time.Time, zone *time.Location) (Range, error) {
 	}
 	for _, p := range Presets {
 		if p.Name == name {
-			today := schedule.DateOf(now, zone)
+			today := date.Of(now, zone)
 			return within(p.Name, today.AddDate(0, 0, 1-p.Days), today, zone), nil
 		}
 	}
@@ -118,7 +118,7 @@ func dateOf(value string) (time.Time, string) {
 	if value == "" {
 		return time.Time{}, DateNeeded
 	}
-	day, err := time.Parse(schedule.DateLayout, value)
+	day, err := time.Parse(date.Layout, value)
 	if err != nil {
 		return time.Time{}, BadDate
 	}
@@ -129,6 +129,6 @@ func dateOf(value string) (time.Time, string) {
 func within(preset string, first, last time.Time, zone *time.Location) Range {
 	return Range{
 		Preset: preset, First: first, Last: last,
-		From: schedule.StartOf(first, zone), To: schedule.StartOf(last.AddDate(0, 0, 1), zone),
+		From: date.StartOf(first, zone), To: date.StartOf(last.AddDate(0, 0, 1), zone),
 	}
 }

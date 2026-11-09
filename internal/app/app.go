@@ -20,6 +20,7 @@ import (
 	"github.com/dakriy/doorcode/internal/event"
 	"github.com/dakriy/doorcode/internal/firmware"
 	"github.com/dakriy/doorcode/internal/identity"
+	"github.com/dakriy/doorcode/internal/override"
 	"github.com/dakriy/doorcode/internal/proxy"
 	"github.com/dakriy/doorcode/internal/push"
 	"github.com/dakriy/doorcode/internal/request"
@@ -40,6 +41,7 @@ type App struct {
 	directory directory.Service
 	schedules schedule.Service
 	doors     door.Service
+	overrides override.Service
 	rules     rule.Service
 	events    event.Service
 	requests  request.Service
@@ -116,6 +118,7 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 		live:      live,
 		proxies:   proxy.Service{Resolver: f.Resolver(), Resolved: proxy.NewResolved()},
 	}
+	a.overrides = override.Service{Store: store, Doors: a.doors, Clock: clock}
 	a.pushes = push.Service{Store: store, Settings: s, Broker: a.broker, Clock: clock, Sent: push.NewSent()}
 	a.controllers = controller.Service{
 		Store: store, Doors: a.doors, Broker: a.broker, Clock: clock, Entropy: entropy, Pending: controller.NewPending(),

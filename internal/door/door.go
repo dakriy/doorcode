@@ -1,8 +1,7 @@
-// Package door keeps the site's doors, the zones that group them, their
-// pictures, and their overrides, and works out their timelines. A door
-// exists once an administrator creates it; enrollment attaches the
-// hardware later. Doors are soft-deleted; zones, pictures, and overrides
-// removed.
+// Package door keeps the site's doors, the zones that group them, and
+// their pictures, and works out their timelines. A door exists once an
+// administrator creates it; enrollment attaches the hardware later. Doors
+// are soft-deleted; zones and pictures removed.
 package door
 
 import (
@@ -132,14 +131,7 @@ func inZone(d connector.StoredDoor, zoneID int64) bool {
 
 // Door returns the door whose id is id.
 func (s Service) Door(ctx context.Context, id int64) (connector.StoredDoor, error) {
-	d, found, err := s.Store.Door(ctx, id)
-	if err != nil {
-		return connector.StoredDoor{}, err
-	}
-	if !found {
-		return connector.StoredDoor{}, ErrNoDoor
-	}
-	return d, nil
+	return check.Lookup(ctx, id, s.Store.Door, ErrNoDoor)
 }
 
 // Create creates a door from f.

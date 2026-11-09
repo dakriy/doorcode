@@ -60,7 +60,7 @@ func (a *App) routes() []route {
 		pageRoute(http.MethodGet, "/api-docs", signedInUser, a.apiDocsPage),
 		apiRoute(http.MethodGet, "/openapi.json", anyone, a.serveOpenAPI, apiDoc{
 			id: "getOpenAPI", summary: "This document", tag: "documentation",
-			responses: []openapi.Response{{Status: http.StatusOK, Description: "The OpenAPI document of this API."}},
+			responses: []openapi.Response{{Status: http.StatusOK, Description: "The OpenAPI document of this API.", Body: map[string]any{}}},
 		}),
 	}
 	table = append(table, a.providerRoutes()...)
