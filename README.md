@@ -76,7 +76,7 @@ prints at start: the administrator (`admin@example.com` and
 (`user@example.com` and `doorcode-demo`), who sees the user portal: their
 access to the public doors, with pictures, and their own entries. It comes
 with users, groups, zones, schedules, access rules, overrides, doors with
-pictures, a few weeks of events and telemetry, firmware versions, and access
+pictures (and three dozen office doors in a zone of their own), a few weeks of events and telemetry, firmware versions, and access
 requests. One simulated controller waits for approval under Enrollments; the
 others are online, report telemetry, open and close, answer open commands,
 reboot and connect again when told to, and check codes now and then, so the

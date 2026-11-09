@@ -24,6 +24,16 @@
 // chip, and hides the input; the chip's × clears the choice and brings the
 // input back. Without this script the input stays a text box whose value
 // the server matches as an email or user id, and the chip's × is a link.
+//
+// A fieldset of checkboxes marked data-picker, whose labels hold each
+// choice's name in data-choice-name and detail in data-choice-detail,
+// shows the checked ones as chips in the list whose id data-picker names,
+// each with a × that unchecks it, and gets a search input above that list
+// offering at most ten unchecked choices whose name or detail holds what
+// is typed; choosing one checks it. The note whose id is the list's and
+// "-none" shows while nothing is checked, made from the list's
+// data-picker-none when the page has none. Without this script the chips
+// are plain and the checkboxes are what a person changes.
 (() => {
   if (window.doorcodeSearch) {
     return;
@@ -307,6 +317,133 @@
     box.hidden = !chip.hidden;
   }
 
+  const pickerCap = 10;
+
+  function picker(fieldset) {
+    const chosen = document.getElementById(fieldset.dataset.picker);
+    const choices = [...fieldset.querySelectorAll("input[type=checkbox]")].map((box) => {
+      const label = box.closest("label");
+      const part = (name) => (label.querySelector(`[data-choice-${name}]`) || { textContent: "" }).textContent.trim();
+      return { box, name: part("name"), detail: part("detail") };
+    });
+    if (!chosen || choices.length === 0) {
+      return;
+    }
+    let empty = document.getElementById(`${chosen.id}-none`);
+    if (!empty) {
+      empty = element("p", { id: `${chosen.id}-none`, className: "text-sm text-zinc-500 dark:text-zinc-400", textContent: chosen.dataset.pickerNone });
+      empty.setAttribute("role", "note");
+      chosen.after(empty);
+    }
+    const id = `${chosen.id}-search`;
+    const things = fieldset.querySelector("legend").textContent.trim().toLowerCase();
+    const label = `Add ${things}`;
+    const input = element("input", { type: "search", id, placeholder: `Search ${things} to add`, autocomplete: "off", spellcheck: false, className: "combobox-search" });
+    input.setAttribute("aria-label", label);
+    input.setAttribute("role", "combobox");
+    input.setAttribute("aria-autocomplete", "list");
+    input.setAttribute("aria-expanded", "false");
+    const list = element("ul", { id: `${id}-options`, className: "combobox-list", hidden: true });
+    list.setAttribute("role", "listbox");
+    input.setAttribute("aria-controls", list.id);
+    const note = none();
+    note.className = "combobox-none mb-3";
+    const box = element("div", { className: "combobox" });
+    box.append(input, list, note);
+    chosen.before(box);
+    let found = [];
+    let active = -1;
+
+    const chip = (choice) => {
+      const item = element("li", { className: "filter-chip" });
+      item.append(element("span", { className: "truncate", textContent: choice.name }));
+      if (choice.detail) {
+        item.append(element("span", { className: "truncate font-normal opacity-75", textContent: choice.detail }));
+      }
+      const remove = element("button", { type: "button", className: "filter-chip-clear", textContent: "×" });
+      remove.setAttribute("aria-label", `Remove ${choice.name}`);
+      remove.addEventListener("click", () => {
+        choice.box.checked = false;
+        render();
+        input.focus();
+      });
+      item.append(remove);
+      return item;
+    };
+    function render() {
+      const checked = choices.filter((choice) => choice.box.checked);
+      chosen.replaceChildren(...checked.map(chip));
+      empty.hidden = checked.length > 0;
+    }
+    const mark = (i) => {
+      active = i;
+      [...list.children].forEach((item, at) => item.setAttribute("aria-selected", String(at === i)));
+      if (i >= 0) {
+        input.setAttribute("aria-activedescendant", list.children[i].id);
+        list.children[i].scrollIntoView({ block: "nearest" });
+      } else {
+        input.removeAttribute("aria-activedescendant");
+      }
+    };
+    const close = () => {
+      list.hidden = true;
+      note.hidden = true;
+      input.setAttribute("aria-expanded", "false");
+      mark(-1);
+    };
+    const add = (choice) => {
+      choice.box.checked = true;
+      render();
+      input.value = "";
+      close();
+    };
+    const option = (choice, i) => {
+      const item = element("li", { id: `${id}-option-${i}`, className: "combobox-option", textContent: choice.name });
+      item.setAttribute("role", "option");
+      if (choice.detail) {
+        item.append(element("span", { className: "combobox-detail", textContent: choice.detail }));
+      }
+      item.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        add(choice);
+      });
+      return item;
+    };
+    const open = () => {
+      const wanted = words(input.value);
+      const matching = choices.filter((choice) => !choice.box.checked && words(`${choice.name} ${choice.detail}`).includes(wanted));
+      found = matching.slice(0, pickerCap);
+      list.replaceChildren(...found.map(option));
+      const more = matching.length - found.length;
+      list.hidden = found.length === 0;
+      note.hidden = found.length > 0 && more === 0;
+      note.textContent = found.length === 0 ? "Nothing left matches what you typed." : `${more} more match; keep typing to narrow them.`;
+      input.setAttribute("aria-expanded", String(!list.hidden));
+      mark(found.length > 0 ? 0 : -1);
+    };
+
+    input.addEventListener("input", open);
+    input.addEventListener("focus", open);
+    input.addEventListener("blur", close);
+    input.addEventListener("keydown", (e) => {
+      const keys = {
+        ArrowDown: () => (list.hidden ? open() : mark(Math.min(active + 1, found.length - 1))),
+        ArrowUp: () => mark(Math.max(active - 1, 0)),
+        Enter: () => add(found[active]),
+        Escape: close,
+      };
+      if (e.key === "Enter") {
+        e.preventDefault();
+      }
+      if (keys[e.key] && ((!list.hidden && active >= 0) || e.key === "ArrowDown")) {
+        e.preventDefault();
+        keys[e.key]();
+      }
+    });
+    fieldset.addEventListener("change", render);
+    render();
+  }
+
   function enhance(root) {
     for (const el of root.querySelectorAll("[data-combobox]")) {
       if (el.dataset.combobox === "done") {
@@ -314,6 +451,13 @@
       }
       el.dataset.combobox = "done";
       (el.tagName === "SELECT" ? selectBox : checkboxes)(el);
+    }
+    for (const el of root.querySelectorAll("[data-picker]")) {
+      if (el.dataset.pickerDone) {
+        continue;
+      }
+      el.dataset.pickerDone = "true";
+      picker(el);
     }
     for (const el of root.querySelectorAll("[data-user-search]")) {
       if (el.dataset.userSearchDone) {

@@ -80,10 +80,12 @@ func TestCreatingAZoneFromTheFormOpensItsPage(t *testing.T) {
 
 	want := []any{"/admin/zones/1", testsupport.Page{
 		Title: "Ground floor · doorcode", Heading: "Ground floor", Nav: zonesNav,
-		Messages:   []string{"The zone has been created."},
-		Values:     map[string]string{"name": "Ground floor", "description": "Lobby level."},
-		Checked:    []string{"door_ids=2", "open_schedule_ids=1"},
-		Comboboxes: []string{"door_ids", "open_schedule_ids"},
+		Messages:    []string{"The zone has been created."},
+		Values:      map[string]string{"name": "Ground floor", "description": "Lobby level."},
+		Checked:     []string{"open_schedule_ids=1", "door_ids=2"},
+		Comboboxes:  []string{"open_schedule_ids"},
+		Pickers:     map[string]string{"door_ids": "door_ids-chosen"},
+		Disclosures: map[string]bool{"Every door": false},
 	}}
 	if diff := cmp.Diff(want, []any{created.Location, got}); diff != "" {
 		t.Errorf("redirect, page (-want +got):\n%s", diff)
@@ -105,9 +107,80 @@ func TestZoneFormSaysWhatIsWrongAndKeepsWhatWasEntered(t *testing.T) {
 			"open_schedule_ids": "No schedule has id 9.",
 		},
 		map[string]string{"name": "west", "description": testsupport.Repeat("x", 501)},
-		[]string{"door_ids=1", "open_schedule_ids=1"}}
-	if diff := cmp.Diff(want, []any{got.Status, page.Heading, page.FieldErrors, page.Values, page.Checked}); diff != "" {
-		t.Errorf("status, heading, field errors, values, checked (-want +got):\n%s", diff)
+		[]string{"open_schedule_ids=1", "door_ids=1"}, map[string]bool{"Every door": true}}
+	if diff := cmp.Diff(want, []any{got.Status, page.Heading, page.FieldErrors, page.Values, page.Checked, page.Disclosures}); diff != "" {
+		t.Errorf("status, heading, field errors, values, checked, disclosures (-want +got):\n%s", diff)
+	}
+}
+
+func TestZoneFormsShowOpenModeAboveTheDoors(t *testing.T) {
+	t.Parallel()
+	b := zonedDoors(t, testsupport.NewFactory())
+	createZone(t, b, `{"name":"West"}`)
+
+	got := []any{testsupport.Headings(b.Get("/admin/zones/new").Body), testsupport.Headings(b.Get("/admin/zones/1").Body)}
+
+	want := []any{[]string{"Zone settings", "Open mode", "Doors"}, []string{"Zone settings", "Open mode", "Doors", "Delete zone"}}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("new and edit headings (-want +got):\n%s", diff)
+	}
+}
+
+func TestZonePageShowsItsDoorsAsChipsAndEveryDoorFoldedAway(t *testing.T) {
+	t.Parallel()
+	b := zonedDoors(t, testsupport.NewFactory())
+	send(t, b, "PUT", "/api/v1/doors/1", `{"name":"Front door","location":"Street side"}`, 200)
+	createZone(t, b, `{"name":"West","door_ids":[1]}`)
+
+	got := testsupport.ParsePage(b.Get("/admin/zones/1").Body)
+
+	want := []any{
+		map[string][]string{"Chosen doors": {"Front door Street side"}},
+		map[string]bool{"Every door": false},
+		map[string]string{"door_ids=2": "Back door", "door_ids=1": "Front door Street side", "open_schedule_ids=1": "Always Every day, all day"},
+		[]string{"door_ids=1"},
+	}
+	if diff := cmp.Diff(want, []any{got.Lists, got.Disclosures, got.Choices, got.Checked}); diff != "" {
+		t.Errorf("chips, disclosures, choices, checked (-want +got):\n%s", diff)
+	}
+}
+
+func TestZonePageSaysWhenItHasNoDoors(t *testing.T) {
+	t.Parallel()
+	b := zonedDoors(t, testsupport.NewFactory())
+	createZone(t, b, `{"name":"West"}`)
+
+	got := testsupport.ParsePage(b.Get("/admin/zones/1").Body)
+
+	want := []any{[]string{"No doors are in this zone yet."}, map[string]string{"door_ids": "door_ids-chosen"}}
+	if diff := cmp.Diff(want, []any{got.Notes, got.Pickers}); diff != "" {
+		t.Errorf("notes, pickers (-want +got):\n%s", diff)
+	}
+}
+
+func TestSavingAZoneAddsAndRemovesDoors(t *testing.T) {
+	t.Parallel()
+	cases := map[string]struct {
+		doors []string
+		want  []string
+	}{
+		"adding a door":   {[]string{"door_ids", "1", "door_ids", "2", "door_ids", "3"}, []string{"Back door", "Front door", "Side door"}},
+		"removing a door": {[]string{"door_ids", "2"}, []string{"Back door"}},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			b := zonedDoors(t, testsupport.NewFactory())
+			createDoor(t, b, `{"name":"Side door"}`)
+			createZone(t, b, `{"name":"West","door_ids":[1,2]}`)
+			b.Get("/")
+
+			saved := b.Post("/admin/zones/1", append([]string{"name", "West"}, c.doors...)...)
+			got := testsupport.ParsePage(b.Get(saved.Location).Body).Lists["Chosen doors"]
+
+			if diff := cmp.Diff(c.want, got); diff != "" {
+				t.Errorf("chips (-want +got):\n%s", diff)
+			}
+		})
 	}
 }
 
@@ -136,7 +209,7 @@ func TestSavingAZoneFromItsPage(t *testing.T) {
 	saved := b.Post("/admin/zones/1", "name", "West wing", "description", "", "door_ids", "2", "open_schedule_ids", "1")
 	got := pageOf(b.Get(saved.Location))
 
-	want := []any{"/admin/zones/1", []string{"The zone's changes have been saved."}, "West wing", []string{"door_ids=2", "open_schedule_ids=1"}}
+	want := []any{"/admin/zones/1", []string{"The zone's changes have been saved."}, "West wing", []string{"open_schedule_ids=1", "door_ids=2"}}
 	if diff := cmp.Diff(want, []any{saved.Location, got.Messages, got.Heading, got.Checked}); diff != "" {
 		t.Errorf("redirect, messages, heading, checked (-want +got):\n%s", diff)
 	}

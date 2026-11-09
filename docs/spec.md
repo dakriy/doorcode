@@ -314,11 +314,16 @@ its password to the log with instructions to change it.
 
 Pages: dashboard, doors (list, pending enrollments, detail with live state,
 timeline calendar, pictures, zones and the open mode they give it,
-who-can-enter, config, firmware, open and reboot buttons, events), zones (doors and
-open-mode schedules), users (list, detail, groups, access
+who-can-enter, config, firmware, open and reboot buttons, events), zones
+(settings, then open-mode schedules, then doors: the doors chosen as chips,
+each with a × that removes it, and a search by name or location listing at
+most 10 doors to add; without script every door is a checkbox in a folded
+list), users (list, detail, groups, access
 calendar per door, events), groups (list with role badges, detail with
-members, roles, access rules, and pre-assigned user ids while sign-in reads a
-user id claim), access rules,
+a settings card (name, slug, description, and pre-assigned user ids while
+sign-in reads a user id claim, otherwise only how many the group keeps, if
+any), then its access rules, then members beside its roles, one role per
+row; the new group form lists roles one per row too), access rules,
 schedules (list, form, calendar, where used), overrides,
 firmware (versions, default, update window, rollout progress), events
 (filters by door, user, outcome, reason, type, date), access requests
