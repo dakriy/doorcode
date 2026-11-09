@@ -14,6 +14,7 @@ import (
 
 	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/date"
 )
 
 var (
@@ -57,26 +58,8 @@ const (
 	MaxExcluded = 366
 )
 
-// DateLayout is how a date is written: in fields, in the API, and by date
-// inputs.
-const DateLayout = "2006-01-02"
-
 // clockLayout is how a time of day is written.
 const clockLayout = "15:04"
-
-// DayNames names the weekdays as fields and the API write them, Monday
-// first; the name at index i is Weekday(i).
-var DayNames = []string{"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
-
-// Weekday is the weekday at index i of DayNames.
-func Weekday(i int) time.Weekday {
-	return time.Weekday((i + 1) % 7)
-}
-
-// DayIndex is the index in DayNames of day, the inverse of Weekday.
-func DayIndex(day time.Weekday) int {
-	return (int(day) + 6) % 7
-}
 
 // Fields is what an administrator says about a schedule, as typed. Text is
 // trimmed before it is checked.
@@ -93,8 +76,8 @@ type Fields struct {
 }
 
 // WindowFields is one weekly window as typed: the days it opens on, named
-// as DayNames names them, and its start and end times of day. An end at or
-// before the start is on the next day.
+// as date.DayNames names them, and its start and end times of day. An end
+// at or before the start is on the next day.
 type WindowFields struct {
 	Days  []string
 	Start string
@@ -268,7 +251,7 @@ func optionalDate(value string) (*time.Time, string) {
 	if value == "" {
 		return nil, ""
 	}
-	day, err := time.Parse(DateLayout, value)
+	day, err := time.Parse(date.Layout, value)
 	if err != nil {
 		return nil, "Enter the date as YYYY-MM-DD, or leave it empty."
 	}
@@ -297,7 +280,7 @@ func checkWindow(found *check.List, i int, f WindowFields) connector.StoredWindo
 	n := i + 1
 	days, known := weekdays(f.Days)
 	if !known {
-		found.Add(field+"days", fmt.Sprintf("Choose days from %s for window %d.", strings.Join(DayNames, ", "), n))
+		found.Add(field+"days", fmt.Sprintf("Choose days from %s for window %d.", strings.Join(date.DayNames, ", "), n))
 	} else if len(days) == 0 {
 		found.Add(field+"days", fmt.Sprintf("Choose at least one day for window %d.", n))
 	}
@@ -313,15 +296,15 @@ func checkWindow(found *check.List, i int, f WindowFields) connector.StoredWindo
 }
 
 // weekdays reads day names into weekdays from Sunday on, without repeats,
-// and reports whether every name is one of DayNames.
+// and reports whether every name is one of date.DayNames.
 func weekdays(names []string) ([]time.Weekday, bool) {
 	days := []time.Weekday{}
 	for _, name := range names {
-		i := slices.Index(DayNames, strings.ToLower(strings.TrimSpace(name)))
+		i := slices.Index(date.DayNames, strings.ToLower(strings.TrimSpace(name)))
 		if i < 0 {
 			return days, false
 		}
-		days = append(days, Weekday(i))
+		days = append(days, date.Weekday(i))
 	}
 	return slices.Compact(slices.Sorted(slices.Values(days))), true
 }
@@ -341,7 +324,7 @@ func checkExcluded(found *check.List, values []string) []time.Time {
 	dates := []time.Time{}
 	for i, value := range values {
 		value = strings.TrimSpace(value)
-		day, err := time.Parse(DateLayout, value)
+		day, err := time.Parse(date.Layout, value)
 		if value != "" && err != nil {
 			found.Add(fmt.Sprintf("excluded-%d", i), fmt.Sprintf("Enter excluded dates as YYYY-MM-DD; “%s” is not one.", value))
 		}
@@ -361,16 +344,16 @@ func FieldsOf(sch connector.StoredSchedule) Fields {
 		f.Windows = append(f.Windows, WindowFields{Days: DayNamesOf(w.Days), Start: ClockText(w.Start), End: ClockText(w.End)})
 	}
 	for _, day := range sch.Excluded {
-		f.Excluded = append(f.Excluded, day.Format(DateLayout))
+		f.Excluded = append(f.Excluded, day.Format(date.Layout))
 	}
 	return f
 }
 
-// DayNamesOf names days as DayNames does, Monday first.
+// DayNamesOf names days as date.DayNames does, Monday first.
 func DayNamesOf(days []time.Weekday) []string {
 	names := []string{}
-	for i, name := range DayNames {
-		if slices.Contains(days, Weekday(i)) {
+	for i, name := range date.DayNames {
+		if slices.Contains(days, date.Weekday(i)) {
 			names = append(names, name)
 		}
 	}
@@ -381,7 +364,7 @@ func dateText(day *time.Time) string {
 	if day == nil {
 		return ""
 	}
-	return day.Format(DateLayout)
+	return day.Format(date.Layout)
 }
 
 // ClockText writes minutes after midnight as a time of day.

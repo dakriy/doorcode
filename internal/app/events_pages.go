@@ -12,9 +12,9 @@ import (
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/controller"
+	"github.com/dakriy/doorcode/internal/date"
 	"github.com/dakriy/doorcode/internal/directory"
 	"github.com/dakriy/doorcode/internal/event"
-	"github.com/dakriy/doorcode/internal/schedule"
 )
 
 // recentEvents is how many events a door's or a user's page shows.
@@ -196,7 +196,7 @@ func dayAfter(value string, zone *time.Location) (*time.Time, error) {
 	if day == nil {
 		return nil, err
 	}
-	next := schedule.StartOf(schedule.DateOf(*day, zone).AddDate(0, 0, 1), zone)
+	next := date.StartOf(date.Of(*day, zone).AddDate(0, 0, 1), zone)
 	return &next, err
 }
 

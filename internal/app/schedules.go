@@ -7,6 +7,7 @@ import (
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/date"
 	"github.com/dakriy/doorcode/internal/openapi"
 	"github.com/dakriy/doorcode/internal/schedule"
 )
@@ -228,20 +229,20 @@ type dayRange struct {
 
 // from is the start of the first day.
 func (d dayRange) from() time.Time {
-	return schedule.StartOf(d.first, d.zone)
+	return date.StartOf(d.first, d.zone)
 }
 
 // to is the end of the last day.
 func (d dayRange) to() time.Time {
-	return schedule.StartOf(d.last.AddDate(0, 0, 1), d.zone)
+	return date.StartOf(d.last.AddDate(0, 0, 1), d.zone)
 }
 
 func (d dayRange) firstText() string {
-	return d.first.Format(schedule.DateLayout)
+	return d.first.Format(date.Layout)
 }
 
 func (d dayRange) lastText() string {
-	return d.last.Format(schedule.DateLayout)
+	return d.last.Format(date.Layout)
 }
 
 // apiDays reads the days an API request covers from its from and to
@@ -278,16 +279,16 @@ func queryDate(r *http.Request, name string, fallback time.Time) (time.Time, boo
 	if value == "" {
 		return fallback, true
 	}
-	day, err := time.Parse(schedule.DateLayout, value)
+	day, err := time.Parse(date.Layout, value)
 	return day, err == nil
 }
 
 // today is the date it is now in zone, as midnight UTC on that date.
 func (a *App) today(zone *time.Location) time.Time {
-	return schedule.DateOf(a.clock.Now(), zone)
+	return date.Of(a.clock.Now(), zone)
 }
 
 // monday is the Monday on or before day.
 func monday(day time.Time) time.Time {
-	return day.AddDate(0, 0, -schedule.DayIndex(day.Weekday()))
+	return day.AddDate(0, 0, -date.DayIndex(day.Weekday()))
 }

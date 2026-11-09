@@ -16,7 +16,7 @@ import (
 
 	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
-	"github.com/dakriy/doorcode/internal/schedule"
+	"github.com/dakriy/doorcode/internal/date"
 )
 
 // ErrUnknown reports a key that names no setting.
@@ -440,11 +440,11 @@ func updateDays(value string) ([]time.Weekday, error) {
 	}
 	var days []time.Weekday
 	for _, name := range strings.Split(value, ",") {
-		i := slices.Index(schedule.DayNames, strings.TrimSpace(name))
+		i := slices.Index(date.DayNames, strings.TrimSpace(name))
 		if i < 0 {
 			return nil, errors.New(updateDaysHint)
 		}
-		days = append(days, schedule.Weekday(i))
+		days = append(days, date.Weekday(i))
 	}
 	return days, nil
 }
