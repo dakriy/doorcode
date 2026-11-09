@@ -75,8 +75,8 @@ type portalDoor struct {
 	Reached bool
 	// Now says what the door does for the viewer now, and Kind how it is
 	// drawn: open (anyone gets in), code (the viewer's code works), later
-	// (it works at other times), or none (it never does). A locked door is
-	// simply one where the viewer's code does not work now.
+	// (it works at other times), or none (no access: it never does). A
+	// locked door is simply one where the viewer's code does not work now.
 	Now  string
 	Kind string
 }
@@ -113,7 +113,7 @@ func doesNow(d decision.Access, now time.Time) (string, string) {
 	if d.Reached {
 		return "Your code works at set times", "later"
 	}
-	return "Your code never works here", "none"
+	return "No access", "none"
 }
 
 // searched is the doors among doors that search matches.
@@ -319,7 +319,7 @@ type doorAccessContent struct {
 }
 
 // noPortalDoor is what the portal says about a door it does not show.
-const noPortalDoor = "This door is not shown in the portal. Doors an administrator has not made public, and doors that are gone, are left out."
+const noPortalDoor = "This door is not shown in the portal. Doors an administrator has not made public, doors that are gone, and doors you never get into are left out."
 
 func (a *App) doorAccessPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	current, ok := a.siteSettings(w, r)

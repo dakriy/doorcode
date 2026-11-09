@@ -22,7 +22,7 @@ var flashes = map[string]string{
 	"signed-in":              "You are signed in.",
 	"signed-out":             "You have been signed out.",
 	"welcome":                "Welcome! Choose your door code to finish setting up your account.",
-	"own-code-set":           "Your door code is set. Remember it: it is stored only as a hash and cannot be shown again.",
+	"own-code-set":           "Your door code is set. Remember it: it cannot be shown again.",
 	"own-password-set":       "Your password has been changed. Use it the next time you sign in.",
 	"request-sent":           "Your request has been sent. An administrator will reply here.",
 	"request-saved":          "Your request has been saved.",

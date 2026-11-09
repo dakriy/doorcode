@@ -26,7 +26,7 @@
             class="-ml-px block w-full rounded-l-none rounded-r-lg border-0 bg-white px-3 py-2 font-mono text-sm tracking-widest ring-1 ring-zinc-300 ring-inset placeholder:font-sans placeholder:tracking-normal placeholder:text-zinc-400 focus:ring-2 focus:ring-brand-600 focus:outline-none aria-invalid:ring-red-500 dark:bg-zinc-950 dark:ring-zinc-700 dark:focus:ring-brand-500">
         </div>
         {{if $c.Error}}<p id="digits-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$c.Error}}</p>
-        {{else}}<p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">Avoid dates and repeated digits. Your code is stored only as a hash, so nobody can read it back, not even you.</p>{{end}}
+        {{else}}<p role="note" class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">Avoid dates and repeated digits.</p>{{end}}
       </div>
       <button type="submit" class="{{template "primary-class"}}">{{if $code.HasCode}}Replace my code{{else}}Set my code{{end}}</button>
     </form>

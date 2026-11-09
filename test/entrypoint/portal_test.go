@@ -101,6 +101,14 @@ func portalSite(t *testing.T, f *testsupport.Factory) (admin, ann *testsupport.B
 	return admin, signedInAs(t, admin, "2", annEmail)
 }
 
+// openModeAttic makes Attic (3) public and puts it in the zone Loft (3),
+// in open mode during Nights (3), which none of Ann's rules reach.
+func openModeAttic(t *testing.T, admin *testsupport.Browser) {
+	t.Helper()
+	send(t, admin, "PUT", "/api/v1/doors/3", `{"name":"Attic","public":true}`, 200)
+	createZone(t, admin, `{"name":"Loft","door_ids":[3],"open_schedule_ids":[3]}`)
+}
+
 func TestChoosingADoorCodeStoresTheHashOfTheUserIDWithoutLeadingZerosAndTheDigits(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
@@ -128,7 +136,8 @@ func TestSettingTheDoorCodeFromThePortalConfirmsWithoutShowingIt(t *testing.T) {
 
 	want := testsupport.Page{
 		Title: "Door code · doorcode", Heading: "Door code", Nav: portalNav("Door code"),
-		Messages: []string{"Your door code is set. Remember it: it is stored only as a hash and cannot be shown again."},
+		Messages: []string{"Your door code is set. Remember it: it cannot be shown again."},
+		Notes:    []string{"Avoid dates and repeated digits."},
 	}
 	if diff := cmp.Diff([]any{303, "/me/code", want, f.StoreStub.HashCode("1002344821")},
 		[]any{set.Status, set.Location, got, f.StoreStub.StoredCodeHash(annEmail)}); diff != "" {
@@ -437,6 +446,10 @@ func TestTheAccessCalendarRefusesADoorThePortalDoesNotShow(t *testing.T) {
 			send(t, admin, "DELETE", "/api/v1/doors/1", "", 204)
 		}},
 		"missing": {target: "/me/access/9"},
+		"never entered and never in open mode": {target: "/me/access/3", arrange: func(t *testing.T, admin *testsupport.Browser) {
+			send(t, admin, "PUT", "/api/v1/doors/3", `{"name":"Attic","public":true}`, 200)
+			createOverride(t, admin, "3", `{"kind":"open","start":"2026-01-05T08:30:00Z","end":"2026-01-05T09:30:00Z"}`)
+		}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -457,14 +470,15 @@ func TestTheAccessCalendarRefusesADoorThePortalDoesNotShow(t *testing.T) {
 }
 
 // accessDoors is portalSite with Dock (2) public, open from 08:30 to 09:30
-// today, Attic (3) public, locked from 08:00 to 10:00, and the door Cellar
+// today, Attic (3) as openModeAttic leaves it, locked from 08:00 to 10:00,
+// and the door Cellar
 // (4) public in Annex (2), which Staff enter at Nights (3) through a rule
 // (2) on the zone. The clock reads Monday 09:00.
 func accessDoors(t *testing.T, f *testsupport.Factory) (admin, ann *testsupport.Browser) {
 	t.Helper()
 	admin, ann = portalSite(t, f)
 	send(t, admin, "PUT", "/api/v1/doors/2", `{"name":"Dock","public":true,"zone_ids":[2]}`, 200)
-	send(t, admin, "PUT", "/api/v1/doors/3", `{"name":"Attic","public":true}`, 200)
+	openModeAttic(t, admin)
 	createDoor(t, admin, `{"name":"Cellar","location":"Basement","public":true,"zone_ids":[2]}`)
 	createOverride(t, admin, "2", `{"kind":"open","start":"2026-01-05T08:30:00Z","end":"2026-01-05T09:30:00Z"}`)
 	createOverride(t, admin, "3", `{"kind":"locked","start":"2026-01-05T08:00:00Z","end":"2026-01-05T10:00:00Z"}`)
@@ -483,7 +497,7 @@ func TestAccessListsThePortalsDoorsWithWhatEachDoesNow(t *testing.T) {
 		Values: map[string]string{"q": ""},
 		Tables: map[string][][]string{"Your doors": {
 			{"Door", "Now", "Calendar"},
-			{"Attic", "Your code never works here", "Calendar"},
+			{"Attic", "No access", "Calendar"},
 			{"Cellar Basement", "Your code works at set times", "Calendar"},
 			{"Dock", "Open now", "Calendar"},
 			{"Lobby Building A", "Your code works now", "Calendar"},
@@ -510,26 +524,48 @@ func TestAccessSaysALockedDoorTheUserMayEnterWorksAtSetTimes(t *testing.T) {
 	}
 }
 
-func TestAccessSaysWhenTheUsersCodeNeverOpensADoor(t *testing.T) {
+func TestAccessSaysNoAccessOutsideOpenModeAtADoorTheUserIsNeverLetInto(t *testing.T) {
 	t.Parallel()
 	admin, ann := portalSite(t, testsupport.NewFactory())
-	send(t, admin, "PUT", "/api/v1/doors/3", `{"name":"Attic","public":true}`, 200)
+	openModeAttic(t, admin)
 
-	got := pageOf(ann.Get("/me/access/3"))
+	got := []any{pageOf(ann.Get("/me/access")).Tables["Your doors"], pageOf(ann.Get("/me/access/3"))}
 
-	want := testsupport.Page{
-		Title: "Attic · doorcode", Heading: "Attic", Nav: append(portalNav("Access"), "Previous week", "This week", "Next week"),
-		Notes: []string{"None of your groups has access to this door, so your code does not open it; you get in only while it is in open mode. Ask for access ."},
-		Tables: map[string][][]string{
-			"When your code works": {{"Starts", "Ends", "Length"}, {"Your code does not open this door this week."}},
-			"Open and locked":      {{"State", "Starts", "Ends", "Length"}, {"The door is neither in open mode nor locked this week."}},
+	want := []any{
+		[][]string{{"Door", "Now", "Calendar"}, {"Attic", "No access", "Calendar"}, {"Lobby Building A", "Your code works now", "Calendar"}},
+		testsupport.Page{
+			Title: "Attic · doorcode", Heading: "Attic", Nav: append(portalNav("Access"), "Previous week", "This week", "Next week"),
+			Notes: []string{"None of your groups has access to this door, so your code does not open it; you get in only while it is in open mode. Ask for access ."},
+			Tables: map[string][][]string{
+				"When your code works": {{"Starts", "Ends", "Length"}, {"Mon 5 Jan 22:00 UTC", "Tue 6 Jan 06:00 UTC", "8 h"}},
+				"Open and locked":      {{"State", "Starts", "Ends", "Length"}, {"Open mode", "Mon 5 Jan 22:00 UTC", "Tue 6 Jan 06:00 UTC", "8 h"}},
+			},
 		},
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("page (-want +got):\n%s", diff)
+		t.Errorf("access list, door page (-want +got):\n%s", diff)
 	}
-	if diff := cmp.Diff("Your code never works here", pageOf(ann.Get("/me/access")).Tables["Your doors"][1][1]); diff != "" {
-		t.Errorf("access list (-want +got):\n%s", diff)
+}
+
+func TestAccessLeavesOutADoorTheUserIsNeverLetIntoThatIsNeverInOpenMode(t *testing.T) {
+	t.Parallel()
+	admin, ann := portalSite(t, testsupport.NewFactory())
+	send(t, admin, "PUT", "/api/v1/doors/3", `{"name":"Attic","public":true}`, 200)
+	createOverride(t, admin, "3", `{"kind":"open","start":"2026-01-05T08:30:00Z","end":"2026-01-05T09:30:00Z"}`)
+
+	got := []any{
+		pageOf(ann.Get("/me/access")).Tables["Your doors"],
+		testsupport.JSONAt(send(t, asUser(t, admin, "2"), "GET", "/api/v1/me/access?from=2026-01-05&to=2026-01-05", "", 200).Body, "/doors"),
+	}
+
+	want := []any{
+		[][]string{{"Door", "Now", "Calendar"}, {"Lobby Building A", "Your code works now", "Calendar"}},
+		testsupport.JSON(`[{"door":{"id":1,"name":"Lobby"},"location":"Building A","reached":true,` +
+			`"works":[{"start":"2026-01-05T08:00:00Z","end":"2026-01-05T18:00:00Z"},{"start":"2026-01-05T22:00:00Z","end":"2026-01-06T00:00:00Z"}],` +
+			`"spans":[{"start":"2026-01-05T22:00:00Z","end":"2026-01-06T00:00:00Z","state":"open"}]}]`),
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("access list, API doors (-want +got):\n%s", diff)
 	}
 }
 
@@ -584,12 +620,14 @@ func TestMyAccessAnswersWithThePortalsDoorsAndWhenTheUsersCodeWorks(t *testing.T
 	t.Parallel()
 	admin, _ := portalSite(t, testsupport.NewFactory())
 	uploadPicture(t, admin, "1", testsupport.PNG(30, 20))
-	send(t, admin, "PUT", "/api/v1/doors/3", `{"name":"Attic","public":true}`, 200)
+	openModeAttic(t, admin)
 
 	got := testsupport.JSON(send(t, asUser(t, admin, "2"), "GET", "/api/v1/me/access?from=2026-01-05&to=2026-01-05", "", 200).Body)
 
 	want := testsupport.JSON(`{"time_zone":"UTC","from":"2026-01-05","to":"2026-01-05","doors":[` +
-		`{"door":{"id":3,"name":"Attic"},"location":"","reached":false,"works":[],"spans":[]},` +
+		`{"door":{"id":3,"name":"Attic"},"location":"","reached":false,` +
+		`"works":[{"start":"2026-01-05T22:00:00Z","end":"2026-01-06T00:00:00Z"}],` +
+		`"spans":[{"start":"2026-01-05T22:00:00Z","end":"2026-01-06T00:00:00Z","state":"open"}]},` +
 		`{"door":{"id":1,"name":"Lobby"},"location":"Building A","reached":true,` +
 		`"works":[{"start":"2026-01-05T08:00:00Z","end":"2026-01-05T18:00:00Z"},{"start":"2026-01-05T22:00:00Z","end":"2026-01-06T00:00:00Z"}],` +
 		`"spans":[{"start":"2026-01-05T22:00:00Z","end":"2026-01-06T00:00:00Z","state":"open"}]}]}`)
@@ -601,12 +639,14 @@ func TestMyAccessAnswersWithThePortalsDoorsAndWhenTheUsersCodeWorks(t *testing.T
 func TestMyAccessThroughTheAPIKeepsTheDoorsTheSearchMatches(t *testing.T) {
 	t.Parallel()
 	admin, _ := portalSite(t, testsupport.NewFactory())
-	send(t, admin, "PUT", "/api/v1/doors/3", `{"name":"Attic","public":true}`, 200)
+	openModeAttic(t, admin)
 
 	got := testsupport.JSON(send(t, asUser(t, admin, "2"), "GET", "/api/v1/me/access?from=2026-01-05&to=2026-01-05&q=attic", "", 200).Body)
 
 	want := testsupport.JSON(`{"time_zone":"UTC","from":"2026-01-05","to":"2026-01-05","doors":[` +
-		`{"door":{"id":3,"name":"Attic"},"location":"","reached":false,"works":[],"spans":[]}]}`)
+		`{"door":{"id":3,"name":"Attic"},"location":"","reached":false,` +
+		`"works":[{"start":"2026-01-05T22:00:00Z","end":"2026-01-06T00:00:00Z"}],` +
+		`"spans":[{"start":"2026-01-05T22:00:00Z","end":"2026-01-06T00:00:00Z","state":"open"}]}]}`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("access (-want +got):\n%s", diff)
 	}

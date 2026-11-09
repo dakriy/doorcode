@@ -350,13 +350,18 @@ links for role holders), set door code, set password (hidden under auto
 sign-in), access, my recent entries, personal API tokens, access requests
 (create, edit while unresolved, delete), sign out.
 
-The access page lists every public door, with its primary picture while
-door pictures in the portal is on, and a search by name or location that
-narrows the list as you type (without script the full list shows, and
-submitting the search narrows it on the server). Per door it says only one
-of: open now (open mode), your code works now, your code works at set
-times, or your code never works here. A locked door is simply one where the
-user's code does not work now. Each door links to its access calendar,
+The access page lists every public door the user can ever get into: one an
+access rule of theirs reaches (or every door, for a door commander), or one
+a zone of which has an open mode schedule. A public door that is neither is
+left out, overrides notwithstanding, and its access calendar answers as for
+a door that is not public; `GET /api/v1/me/access` lists the same doors.
+Each door shows its primary picture while door pictures in the portal is
+on, and a search by name or location narrows the list as you type (without
+script the full list shows, and submitting the search narrows it on the
+server). Per door it says only one of: open now (open mode), your code
+works now, your code works at set times, or no access (a door listed for
+its open mode that the user's code never opens, outside open mode). A
+locked door is simply one where the user's code does not work now. Each door links to its access calendar,
 showing when it is unlocked (its zones' open mode and its overrides) and
 when the user's code works: whenever the decision of section 2, without
 the rate limit and keypad commands, would let it in (the access rules that

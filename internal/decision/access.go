@@ -55,16 +55,20 @@ type Access struct {
 	Spans   []timeline.Span
 }
 
-// Public returns each public door that is not deleted, in name order, with
-// u's access there from from up to to, read in zone.
+// Public returns each public door that is not deleted and that u either
+// reaches or may enter while it is in open mode, since one of its zones has
+// an open-mode schedule, in name order, with u's access there from from up
+// to to, read in zone. Overrides do not keep a door listed.
 func (s Service) Public(ctx context.Context, u connector.StoredUser, zone *time.Location, from, to time.Time) ([]Access, error) {
-	return s.doorsWhere(ctx, u, zone, from, to, func(a Access) bool { return door.InPortal(a.Door) })
+	return s.doorsWhere(ctx, u, zone, from, to, func(site Site, a Access) bool {
+		return door.InPortal(a.Door) && (a.Reached || len(timeline.OpenScheduleIDs(a.Door, site.Zones)) > 0)
+	})
 }
 
 // UserAccess returns each door that is not deleted which u reaches, in
 // name order, with u's access there from from up to to, read in zone.
 func (s Service) UserAccess(ctx context.Context, u connector.StoredUser, zone *time.Location, from, to time.Time) ([]Access, error) {
-	return s.doorsWhere(ctx, u, zone, from, to, func(a Access) bool { return a.Door.DeletedAt == nil && a.Reached })
+	return s.doorsWhere(ctx, u, zone, from, to, func(_ Site, a Access) bool { return a.Door.DeletedAt == nil && a.Reached })
 }
 
 // DoorAccess is u's access at d from from up to to, read in zone.
@@ -77,8 +81,8 @@ func (s Service) DoorAccess(ctx context.Context, u connector.StoredUser, d conne
 }
 
 // doorsWhere is u's access from from up to to, read in zone, at each door
-// whose access keep holds.
-func (s Service) doorsWhere(ctx context.Context, u connector.StoredUser, zone *time.Location, from, to time.Time, keep func(Access) bool) ([]Access, error) {
+// whose access keep holds with the site as it is.
+func (s Service) doorsWhere(ctx context.Context, u connector.StoredUser, zone *time.Location, from, to time.Time, keep func(Site, Access) bool) ([]Access, error) {
 	doors, err := s.Store.Doors(ctx)
 	if err != nil {
 		return nil, err
@@ -90,7 +94,7 @@ func (s Service) doorsWhere(ctx context.Context, u connector.StoredUser, zone *t
 	out := []Access{}
 	for _, d := range doors {
 		a := site.accessTo(u, d)
-		if !keep(a) {
+		if !keep(site, a) {
 			continue
 		}
 		a, err = s.over(ctx, u, a, site, from, to)
