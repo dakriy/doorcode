@@ -45,6 +45,22 @@ func providerSite(t *testing.T, f *testsupport.Factory) (testsupport.Handler, *t
 	return h, b
 }
 
+// unentitledSite is providerSite reading no entitlements claim, so the
+// site decides the groups of whoever signs in.
+func unentitledSite(t *testing.T, f *testsupport.Factory) (testsupport.Handler, *testsupport.Browser) {
+	t.Helper()
+	h, b := providerSite(t, f)
+	delete(f.EnvStub, "DOORCODE_OIDC_CLAIM_ENTITLEMENTS")
+	return h, b
+}
+
+// createInterns creates the group Interns (6, interns), whose pre-assigned
+// list holds Ann's user id.
+func createInterns(t *testing.T, c *testsupport.Browser) {
+	t.Helper()
+	createGroup(t, c, `{"slug":"interns","name":"Interns","preassigned_user_ids":["100234"]}`)
+}
+
 // annClaims is what the provider says about Ann, with each pair of extra
 // setting a claim, or removing it when its value is nil. Her employee id
 // is a number, as some providers send it.
@@ -102,7 +118,7 @@ func TestANewIdentitySignsInAsAMemberOfTheGroupsItsEntitlementsName(t *testing.T
 	t.Parallel()
 	f := testsupport.NewFactory()
 	h, admin := providerSite(t, f)
-	createGroup(t, admin, `{"slug":"interns","name":"Interns","preassigned_user_ids":["100234"]}`)
+	createInterns(t, admin)
 
 	b, got := viaProvider(t, f, h, annClaims())
 	landed := pageOf(b.Get(got.Location))
@@ -119,9 +135,8 @@ func TestANewIdentitySignsInAsAMemberOfTheGroupsItsEntitlementsName(t *testing.T
 func TestWithoutAnEntitlementsClaimNameANewIdentityJoinsTheDefaultAndPreassignedGroups(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	h, admin := providerSite(t, f)
-	delete(f.EnvStub, "DOORCODE_OIDC_CLAIM_ENTITLEMENTS")
-	createGroup(t, admin, `{"slug":"interns","name":"Interns","preassigned_user_ids":["100234"]}`)
+	h, admin := unentitledSite(t, f)
+	createInterns(t, admin)
 
 	viaProvider(t, f, h, annClaims())
 
@@ -163,7 +178,7 @@ func TestANewIdentityWithoutTheEntitlementsClaimJoinsNoDefaultOrPreassignedGroup
 	t.Parallel()
 	f := testsupport.NewFactory()
 	h, admin := providerSite(t, f)
-	createGroup(t, admin, `{"slug":"interns","name":"Interns","preassigned_user_ids":["100234"]}`)
+	createInterns(t, admin)
 
 	_, got := viaProvider(t, f, h, annClaims("groups", nil))
 
@@ -175,8 +190,7 @@ func TestANewIdentityWithoutTheEntitlementsClaimJoinsNoDefaultOrPreassignedGroup
 func TestWithoutAnEntitlementsClaimNameSigningInLeavesTheUsersGroupsAlone(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	h, admin := providerSite(t, f)
-	delete(f.EnvStub, "DOORCODE_OIDC_CLAIM_ENTITLEMENTS")
+	h, admin := unentitledSite(t, f)
 	createUser(t, admin, `{"email":"ann@example.com","first_name":"Ann"}`)
 	join(t, admin, "3", "2")
 
@@ -572,9 +586,10 @@ func TestASignInThatCannotBeHandledShowsTheErrorPage(t *testing.T) {
 	}
 }
 
-func TestANewIdentityWhoseDefaultGroupsCannotBeJoinedSeesTheErrorPage(t *testing.T) {
+func TestWithoutAnEntitlementsClaimNameANewIdentityThatCannotBeSavedSeesTheErrorPage(t *testing.T) {
 	t.Parallel()
 	cases := map[string]func(f *testsupport.Factory){
+		"when users cannot be written":  func(f *testsupport.Factory) { f.StoreStub.FailUserWrites() },
 		"when groups cannot be read":    func(f *testsupport.Factory) { f.StoreStub.FailGroups() },
 		"when groups cannot be changed": func(f *testsupport.Factory) { f.StoreStub.FailGroupWrites() },
 	}
@@ -582,8 +597,7 @@ func TestANewIdentityWhoseDefaultGroupsCannotBeJoinedSeesTheErrorPage(t *testing
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			f := testsupport.NewFactory()
-			h, _ := providerSite(t, f)
-			delete(f.EnvStub, "DOORCODE_OIDC_CLAIM_ENTITLEMENTS")
+			h, _ := unentitledSite(t, f)
 			b := testsupport.NewBrowser(h)
 			back := f.IdentityStub.Authorize(b.Get("/sign-in/oidc").Location, annClaims("employee_id", nil))
 			fail(f)
@@ -862,8 +876,7 @@ func TestAnEntitlementsClaimThatIsNeitherTextNorAListHoldsNone(t *testing.T) {
 func TestASignInNeedsNoUserinfoWhenTheIDTokenHoldsEveryClaimRead(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	h, _ := providerSite(t, f)
-	delete(f.EnvStub, "DOORCODE_OIDC_CLAIM_ENTITLEMENTS")
+	h, _ := unentitledSite(t, f)
 	f.IdentityStub.FailUserInfo()
 
 	_, got := viaProvider(t, f, h, annClaims())

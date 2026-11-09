@@ -467,8 +467,7 @@ func TestImportingNeedsTheManageUsersRole(t *testing.T) {
 func TestARowWithoutEmailPreassignsTheUserIDSoThePersonJoinsOnFirstSignIn(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	h, admin := providerSite(t, f)
-	delete(f.EnvStub, "DOORCODE_OIDC_CLAIM_ENTITLEMENTS")
+	h, admin := unentitledSite(t, f)
 	file := "user_id,groups,email\n100234,lab;staff,\n"
 
 	preview := pageOf(admin.Upload("/admin/users/import", "file", "people.csv", []byte(file)))

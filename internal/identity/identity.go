@@ -1,8 +1,8 @@
 // Package identity signs people in through an OpenID Connect provider: it
 // sends the browser to the provider with state, a nonce, and a PKCE
 // challenge, checks what comes back, finds or creates the user the
-// provider names, and keeps their groups those the provider's
-// entitlements name.
+// provider names, and gives them the groups the site or the provider's
+// entitlements decide.
 package identity
 
 import (
@@ -253,17 +253,48 @@ func (s Service) account(ctx context.Context, current settings.Current, claims m
 		return connector.StoredUser{}, false, auth.ErrExpired
 	}
 	profile := profileOf(u, claims, names, email)
+	if names.Entitlements == "" {
+		u, err = s.siteGrouped(ctx, current, u, found, profile)
+	} else {
+		u, err = s.entitled(ctx, current, claims, u, found, profile)
+	}
+	return u, !found, err
+}
+
+// siteGrouped saves profile as u's, who signs in while no entitlements
+// claim is read, so the site decides their groups: a new user joins the
+// groups whose pre-assigned list holds their user id and the default
+// groups, and an existing user keeps theirs.
+func (s Service) siteGrouped(ctx context.Context, current settings.Current, u connector.StoredUser, found bool, profile directory.Profile) (connector.StoredUser, error) {
+	if found {
+		return s.Directory.UpdateUser(ctx, u.ID, profile)
+	}
+	u, err := s.Directory.CreateUser(ctx, s.expiring(current, profile))
+	if err != nil {
+		return u, err
+	}
+	return u, s.Directory.Join(ctx, u.ID, current.OIDC.DefaultGroups)
+}
+
+// entitled saves profile as u's, who signs in while an entitlements claim
+// is read, so the claim decides their groups: a sign-in carrying it makes
+// u a member of exactly the groups it names, and one without it leaves
+// their groups as they are, which for a new user is none.
+func (s Service) entitled(ctx context.Context, current settings.Current, claims map[string]any, u connector.StoredUser, found bool, profile directory.Profile) (connector.StoredUser, error) {
+	var err error
 	if found {
 		u, err = s.Directory.UpdateUser(ctx, u.ID, profile)
-	} else if names.Entitlements == "" {
-		u, err = s.Directory.CreateUser(ctx, s.expiring(current, profile))
 	} else {
-		u, err = s.Directory.CreateEntitled(ctx, s.expiring(current, profile))
+		u, err = s.Directory.CreateUngrouped(ctx, s.expiring(current, profile))
 	}
 	if err != nil {
-		return connector.StoredUser{}, false, err
+		return u, err
 	}
-	return u, !found, s.groups(ctx, current.OIDC, claims, u, !found)
+	claim, carried := claims[current.OIDC.Claims.Entitlements]
+	if !carried {
+		return u, nil
+	}
+	return u, s.Directory.Entitle(ctx, u, entitlements(claim))
 }
 
 // expiring is profile expiring as a new user's account does.
@@ -271,25 +302,6 @@ func (s Service) expiring(current settings.Current, profile directory.Profile) d
 	expires := s.Clock.Now().Add(current.NewUserExpiry)
 	profile.ExpiresAt = &expires
 	return profile
-}
-
-// groups brings the groups of u, signing in with claims, into step. With
-// an entitlements claim to read, u is a member of exactly the groups its
-// entitlements name, and of the groups they had when the sign-in does not
-// carry it. Without one, a new user joins the default groups and an
-// existing user keeps theirs.
-func (s Service) groups(ctx context.Context, o settings.OIDC, claims map[string]any, u connector.StoredUser, created bool) error {
-	if o.Claims.Entitlements == "" {
-		if !created {
-			return nil
-		}
-		return s.Directory.Join(ctx, u.ID, o.DefaultGroups)
-	}
-	claim, carried := claims[o.Claims.Entitlements]
-	if !carried {
-		return nil
-	}
-	return s.Directory.Entitle(ctx, u, entitlements(claim))
 }
 
 // profileOf is u's profile as claims, read by names, tell it: each field

@@ -222,8 +222,8 @@ func badUserIDs(ids []string) string {
 }
 
 // Join makes the user whose id is userID a member of the groups whose
-// slugs are in slugs, as signing in for the first time decides. Slugs
-// that name no group are passed over, and nobody's roles limit it.
+// slugs are in slugs, keeping the groups they are in. Slugs that name no
+// group are passed over, and nobody's roles limit it.
 func (s Service) Join(ctx context.Context, userID int64, slugs []string) error {
 	groups, err := s.Store.Groups(ctx)
 	if err != nil {
@@ -239,9 +239,8 @@ func (s Service) Join(ctx context.Context, userID int64, slugs []string) error {
 	return nil
 }
 
-// Entitle makes u a member of exactly the groups whose slugs are in slugs,
-// as the identity provider's entitlements decide: it joins those u is not
-// in and leaves every other. Slugs that name no group are passed over, no
+// Entitle makes u a member of exactly the groups whose slugs are in slugs:
+// it joins those u is not in and leaves every other. Slugs that name no group are passed over, no
 // group is created, and nobody's roles limit it.
 func (s Service) Entitle(ctx context.Context, u connector.StoredUser, slugs []string) error {
 	groups, err := s.Store.Groups(ctx)

@@ -102,15 +102,14 @@ func (s Service) Match(ctx context.Context, userID, email string) (connector.Sto
 }
 
 // CreateUser creates a user from p. A user whose user id is on a group's
-// pre-assigned list joins that group as they are created; every way of
-// creating a user goes through here or CreateEntitled.
+// pre-assigned list joins that group as they are created.
 func (s Service) CreateUser(ctx context.Context, p Profile) (connector.StoredUser, error) {
 	return s.create(ctx, p, nil, true)
 }
 
-// CreateEntitled creates a user from p whose groups the identity
-// provider's entitlements decide, so no pre-assigned list applies to them.
-func (s Service) CreateEntitled(ctx context.Context, p Profile) (connector.StoredUser, error) {
+// CreateUngrouped creates a user from p in no group, whatever group's
+// pre-assigned list holds their user id.
+func (s Service) CreateUngrouped(ctx context.Context, p Profile) (connector.StoredUser, error) {
 	return s.create(ctx, p, nil, false)
 }
 
