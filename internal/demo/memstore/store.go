@@ -141,6 +141,44 @@ func byID[T any](items []T, id func(T) int64) {
 	slices.SortFunc(items, func(x, y T) int { return cmp.Compare(id(x), id(y)) })
 }
 
+// newestFirst orders items by time, latest first, and then by id, highest
+// first, as every newest-first list is.
+func newestFirst[T any](items []T, at func(T) time.Time, id func(T) int64) {
+	slices.SortFunc(items, func(x, y T) int {
+		if c := at(y).Compare(at(x)); c != 0 {
+			return c
+		}
+		return cmp.Compare(id(y), id(x))
+	})
+}
+
+// nameTaken reports whether a row of rows other than the one whose id is
+// id has name, ignoring case, as the unique indexes on lower(name) refuse.
+func nameTaken[T any](rows map[int64]T, rowName func(T) string, name string, id int64) bool {
+	for other, row := range rows {
+		if other != id && strings.EqualFold(rowName(row), name) {
+			return true
+		}
+	}
+	return false
+}
+
+// allExist reports whether rows holds a row for each of ids, as the
+// foreign keys require.
+func allExist[T any](rows map[int64]T, ids []int64) bool {
+	for _, id := range ids {
+		if _, ok := rows[id]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+// within reports whether t is at or after from and before to.
+func within(t, from, to time.Time) bool {
+	return !t.Before(from) && t.Before(to)
+}
+
 // page is the part of items that skips offset and holds at most limit.
 func page[T any](items []T, offset, limit int) []T {
 	start := min(max(offset, 0), len(items))
@@ -155,31 +193,8 @@ func contains(search string, fields ...string) bool {
 	return strings.Contains(joined, strings.ToLower(search))
 }
 
-// sameName reports whether a and b are the same name ignoring case.
-func sameName(a, b string) bool {
-	return strings.EqualFold(a, b)
-}
-
-// cloneTime is a copy of t.
-func cloneTime(t *time.Time) *time.Time {
-	if t == nil {
-		return nil
-	}
-	c := *t
-	return &c
-}
-
-// cloneString is a copy of v.
-func cloneString(v *string) *string {
-	if v == nil {
-		return nil
-	}
-	c := *v
-	return &c
-}
-
-// cloneID is a copy of v.
-func cloneID(v *int64) *int64 {
+// clone is a copy of what v points at, nil for nil.
+func clone[T any](v *T) *T {
 	if v == nil {
 		return nil
 	}
@@ -193,7 +208,8 @@ func list[T any](items []T) []T {
 	return append([]T{}, items...)
 }
 
-// sortedIDs is a copy of ids, ascending.
+// sortedIDs is a copy of ids, ascending and without repeats, as a link
+// table holds them.
 func sortedIDs(ids []int64) []int64 {
 	c := list(ids)
 	slices.Sort(c)

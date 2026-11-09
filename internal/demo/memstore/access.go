@@ -3,6 +3,7 @@ package memstore
 import (
 	"cmp"
 	"context"
+	"maps"
 	"slices"
 	"time"
 
@@ -111,27 +112,16 @@ func (s *Store) zoneOut(z connector.StoredZone) connector.StoredZone {
 // zoneNameTaken reports whether a zone other than the one whose id is id
 // has name, ignoring case.
 func (s *Store) zoneNameTaken(name string, id int64) bool {
-	for _, other := range s.zones {
-		if other.ID != id && sameName(other.Name, name) {
-			return true
-		}
-	}
-	return false
+	return nameTaken(s.zones, func(z connector.StoredZone) string { return z.Name }, name, id)
 }
 
 // fillZone makes doorIDs the doors of the zone whose id is id, refusing
 // doors the store does not hold.
 func (s *Store) fillZone(id int64, doorIDs []int64) error {
-	for _, doorID := range doorIDs {
-		if _, ok := s.doors[doorID]; !ok {
-			return errNoReference
-		}
+	if !allExist(s.doors, doorIDs) {
+		return errNoReference
 	}
-	for link := range s.zoneDoors {
-		if link.a == id {
-			delete(s.zoneDoors, link)
-		}
-	}
+	maps.DeleteFunc(s.zoneDoors, func(link pair, _ bool) bool { return link.a == id })
 	for _, doorID := range doorIDs {
 		s.zoneDoors[pair{id, doorID}] = true
 	}
@@ -168,10 +158,8 @@ func (s *Store) CreateZone(_ context.Context, z connector.StoredZone) (int64, er
 	if s.zoneNameTaken(z.Name, 0) {
 		return 0, errDuplicate
 	}
-	for _, doorID := range z.DoorIDs {
-		if _, ok := s.doors[doorID]; !ok {
-			return 0, errNoReference
-		}
+	if !allExist(s.doors, z.DoorIDs) {
+		return 0, errNoReference
 	}
 	id := s.next("zones")
 	s.zones[id] = connector.StoredZone{ID: id, Name: z.Name, Description: z.Description}
@@ -204,11 +192,7 @@ func (s *Store) DeleteZone(_ context.Context, id int64) (bool, error) {
 		return false, nil
 	}
 	delete(s.zones, id)
-	for link := range s.zoneDoors {
-		if link.a == id {
-			delete(s.zoneDoors, link)
-		}
-	}
+	maps.DeleteFunc(s.zoneDoors, func(link pair, _ bool) bool { return link.a == id })
 	for ruleID, r := range s.rules {
 		r.ZoneIDs = slices.DeleteFunc(list(r.ZoneIDs), func(x int64) bool { return x == id })
 		s.rules[ruleID] = r
@@ -227,18 +211,8 @@ func ruleCopy(r connector.StoredRule) connector.StoredRule {
 func (s *Store) checkRule(r connector.StoredRule) error {
 	_, group := s.groups[r.GroupID]
 	_, schedule := s.schedules[r.ScheduleID]
-	if !group || !schedule {
+	if !group || !schedule || !allExist(s.doors, r.DoorIDs) || !allExist(s.zones, r.ZoneIDs) {
 		return errNoReference
-	}
-	for _, id := range r.DoorIDs {
-		if _, ok := s.doors[id]; !ok {
-			return errNoReference
-		}
-	}
-	for _, id := range r.ZoneIDs {
-		if _, ok := s.zones[id]; !ok {
-			return errNoReference
-		}
 	}
 	return nil
 }
@@ -378,8 +352,8 @@ func (s *Store) DeleteOverride(_ context.Context, id int64) (bool, error) {
 
 // credentialCopy is a copy of c.
 func credentialCopy(c connector.StoredCredential) connector.StoredCredential {
-	c.UsedAt = cloneTime(c.UsedAt)
-	c.RevokedAt = cloneTime(c.RevokedAt)
+	c.UsedAt = clone(c.UsedAt)
+	c.RevokedAt = clone(c.RevokedAt)
 	return c
 }
 

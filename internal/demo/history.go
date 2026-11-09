@@ -44,42 +44,30 @@ type habit struct {
 	rule     int64
 }
 
-// The user ids of the demo's people.
-const (
-	ann   = 2
-	ben   = 3
-	chloe = 4
-	dev   = 5
-	eva   = 6
-	frank = 7
-	hugo  = 9
-	ivy   = 10
-)
-
 var staffWithCodes = []int64{ann, ben, dev, hugo, ivy}
 
 // unknown is a habit's users when the codes belong to nobody.
 var unknown []int64
 
 var habits = []habit{
-	{1, staffWithCodes, workday, 7, 9, 6, event.Allowed, event.AccessRule, 1},
-	{1, staffWithCodes, workday, 16, 19, 4, event.Allowed, event.AccessRule, 1},
-	{2, staffWithCodes, workday, 7, 19, 9, event.Allowed, event.AccessRule, 1},
-	{2, staffWithCodes, weekend, 9, 17, 2, event.Allowed, event.AccessRule, 2},
-	{1, []int64{chloe}, everyDay, 0, 24, 2, event.Allowed, event.Commander, 0},
-	{3, []int64{chloe}, everyDay, 0, 24, 2, event.Allowed, event.Commander, 0},
-	{3, []int64{dev}, everyDay, 22, 24, 0.4, event.Allowed, event.AccessRule, 5},
-	{4, []int64{frank}, workday, 7, 19, 5, event.Allowed, event.AccessRule, 4},
-	{5, []int64{frank}, workday, 7, 19, 3, event.Allowed, event.AccessRule, 4},
-	{4, []int64{eva}, workday, 7, 19, 2, event.Allowed, event.AccessRule, 4},
-	{5, []int64{dev}, everyDay, 0, 6, 0.5, event.Allowed, event.AccessRule, 5},
-	{3, staffWithCodes, workday, 9, 18, 0.7, event.Denied, event.NoRule, 0},
-	{4, []int64{ann, ben}, workday, 9, 18, 0.5, event.Denied, event.NoRule, 0},
-	{1, staffWithCodes, weekend, 10, 16, 1, event.Denied, event.NoRule, 0},
-	{1, unknown, everyDay, 0, 24, 0.5, event.Denied, event.NoRule, 0},
-	{2, unknown, everyDay, 0, 24, 0.4, event.Denied, event.NoRule, 0},
-	{4, unknown, everyDay, 0, 24, 0.3, event.Denied, event.NoRule, 0},
-	{5, unknown, everyDay, 0, 24, 0.6, event.Denied, event.NoRule, 0},
+	{mainEntrance, staffWithCodes, workday, 7, 9, 6, event.Allowed, event.AccessRule, 1},
+	{mainEntrance, staffWithCodes, workday, 16, 19, 4, event.Allowed, event.AccessRule, 1},
+	{staffEntrance, staffWithCodes, workday, 7, 19, 9, event.Allowed, event.AccessRule, 1},
+	{staffEntrance, staffWithCodes, weekend, 9, 17, 2, event.Allowed, event.AccessRule, 2},
+	{mainEntrance, []int64{chloe}, everyDay, 0, 24, 2, event.Allowed, event.Commander, 0},
+	{serverRoom, []int64{chloe}, everyDay, 0, 24, 2, event.Allowed, event.Commander, 0},
+	{serverRoom, []int64{dev}, everyDay, 22, 24, 0.4, event.Allowed, event.AccessRule, 5},
+	{workshop, []int64{frank}, workday, 7, 19, 5, event.Allowed, event.AccessRule, 4},
+	{loadingDock, []int64{frank}, workday, 7, 19, 3, event.Allowed, event.AccessRule, 4},
+	{workshop, []int64{eva}, workday, 7, 19, 2, event.Allowed, event.AccessRule, 4},
+	{loadingDock, []int64{dev}, everyDay, 0, 6, 0.5, event.Allowed, event.AccessRule, 5},
+	{serverRoom, staffWithCodes, workday, 9, 18, 0.7, event.Denied, event.NoRule, 0},
+	{workshop, []int64{ann, ben}, workday, 9, 18, 0.5, event.Denied, event.NoRule, 0},
+	{mainEntrance, staffWithCodes, weekend, 10, 16, 1, event.Denied, event.NoRule, 0},
+	{mainEntrance, unknown, everyDay, 0, 24, 0.5, event.Denied, event.NoRule, 0},
+	{staffEntrance, unknown, everyDay, 0, 24, 0.4, event.Denied, event.NoRule, 0},
+	{workshop, unknown, everyDay, 0, 24, 0.3, event.Denied, event.NoRule, 0},
+	{loadingDock, unknown, everyDay, 0, 24, 0.6, event.Denied, event.NoRule, 0},
 }
 
 // writeHistory writes weeks of events and telemetry into store, as if the
@@ -97,7 +85,7 @@ func writeHistory(ctx context.Context, store connector.Store, site Site, now tim
 
 // pastEvents is every event of the history, oldest first.
 func pastEvents(rng *rand.Rand, start, now time.Time) []connector.StoredEvent {
-	expiry := now.AddDate(0, 0, -7)
+	expiry := expiredAt(now)
 	var events []connector.StoredEvent
 	for day := start.UTC().Truncate(24 * time.Hour); day.Before(now); day = day.AddDate(0, 0, 1) {
 		for _, h := range habits {
@@ -116,9 +104,7 @@ func pastEvents(rng *rand.Rand, start, now time.Time) []connector.StoredEvent {
 // times is when h happens on day: as often as its rate says, at random
 // within its hours.
 func (h habit) times(rng *rand.Rand, day time.Time) []time.Time {
-	weekday := day.Weekday()
-	isWeekend := weekday == time.Saturday || weekday == time.Sunday
-	if (h.days == workday && isWeekend) || (h.days == weekend && !isWeekend) {
+	if (h.days == workday && isWeekend(day)) || (h.days == weekend && !isWeekend(day)) {
 		return nil
 	}
 	whole, part := math.Modf(h.perDay)
@@ -128,14 +114,25 @@ func (h habit) times(rng *rand.Rand, day time.Time) []time.Time {
 	}
 	var out []time.Time
 	for range n {
-		offset := time.Duration(h.from)*time.Hour + time.Duration(rng.Int64N(int64(time.Duration(h.to-h.from)*time.Hour)))
-		out = append(out, day.Add(offset).Truncate(time.Second))
+		out = append(out, during(rng, day, h.from, h.to))
 	}
 	return out
 }
 
+// isWeekend reports whether t falls on a Saturday or a Sunday.
+func isWeekend(t time.Time) bool {
+	return t.Weekday() == time.Saturday || t.Weekday() == time.Sunday
+}
+
+// during is a random time of day, to the second, from the hour from up to
+// the hour to.
+func during(rng *rand.Rand, day time.Time, from, to int) time.Time {
+	span := time.Duration(to-from) * time.Hour
+	return day.Add(time.Duration(from)*time.Hour + time.Duration(rng.Int64N(int64(span)))).Truncate(time.Second)
+}
+
 // event is one check of h at at by one of its users, chosen at random. A
-// user whose account ended at expiry is denied from then on.
+// user whose account has expired, at expiry, is denied from then on.
 func (h habit) event(rng *rand.Rand, at, expiry time.Time) connector.StoredEvent {
 	e := connector.StoredEvent{At: at, DoorID: h.door, Type: event.Check, Outcome: h.outcome, Reason: h.reason, RequestID: requestID(rng)}
 	if len(h.users) == 0 {
@@ -143,7 +140,7 @@ func (h habit) event(rng *rand.Rand, at, expiry time.Time) connector.StoredEvent
 	}
 	user := h.users[rng.IntN(len(h.users))]
 	e.UserID = &user
-	if user == eva && !at.Before(expiry) {
+	if hasExpired(user) && !at.Before(expiry) {
 		e.Outcome, e.Reason = event.Denied, event.Expired
 		return e
 	}
@@ -158,20 +155,18 @@ func (h habit) event(rng *rand.Rand, at, expiry time.Time) connector.StoredEvent
 // an alarm, a keypad command, a firmware update.
 func occasional(rng *rand.Rand, day time.Time) []connector.StoredEvent {
 	var out []connector.StoredEvent
-	at := func(from, to int) time.Time {
-		return day.Add(time.Duration(from)*time.Hour + time.Duration(rng.Int64N(int64(time.Duration(to-from)*time.Hour)))).Truncate(time.Second)
-	}
+	at := func(from, to int) time.Time { return during(rng, day, from, to) }
 	admin := int64(1)
 	if rng.IntN(3) == 0 {
-		out = append(out, connector.StoredEvent{At: at(9, 17), DoorID: 4, Type: event.Open, Outcome: event.Allowed, Reason: event.FromUI,
+		out = append(out, connector.StoredEvent{At: at(9, 17), DoorID: workshop, Type: event.Open, Outcome: event.Allowed, Reason: event.FromUI,
 			UserID: &admin, Detail: "Strike released for 3000 ms."})
 	}
 	if rng.IntN(5) == 0 {
-		out = append(out, connector.StoredEvent{At: at(0, 24), DoorID: 5, Type: event.Alarm, Outcome: event.Alert, Reason: event.ForcedOpen,
+		out = append(out, connector.StoredEvent{At: at(0, 24), DoorID: loadingDock, Type: event.Alarm, Outcome: event.Alert, Reason: event.ForcedOpen,
 			Detail: "Nothing unlocked it in the 6 seconds before it opened."})
 	}
 	if rng.IntN(4) == 0 {
-		out = append(out, connector.StoredEvent{At: at(8, 18), DoorID: 4, Type: event.Alarm, Outcome: event.Alert, Reason: event.HeldOpen,
+		out = append(out, connector.StoredEvent{At: at(8, 18), DoorID: workshop, Type: event.Alarm, Outcome: event.Alert, Reason: event.HeldOpen,
 			Detail: "Open for longer than 60 seconds."})
 	}
 	if rng.IntN(6) == 0 {
@@ -185,8 +180,8 @@ func occasional(rng *rand.Rand, day time.Time) []connector.StoredEvent {
 func keypadOpen(rng *rand.Rand, at time.Time) []connector.StoredEvent {
 	user := int64(chloe)
 	return []connector.StoredEvent{
-		{At: at, DoorID: 1, Type: event.Command, Outcome: event.Allowed, Reason: event.KeypadOpen, UserID: &user, Detail: "Open for 30 minutes."},
-		{At: at, DoorID: 1, Type: event.Check, Outcome: event.Allowed, Reason: event.Commanded, UserID: &user, RequestID: requestID(rng)},
+		{At: at, DoorID: mainEntrance, Type: event.Command, Outcome: event.Allowed, Reason: event.KeypadOpen, UserID: &user, Detail: "Open for 30 minutes."},
+		{At: at, DoorID: mainEntrance, Type: event.Check, Outcome: event.Allowed, Reason: event.Commanded, UserID: &user, RequestID: requestID(rng)},
 	}
 }
 

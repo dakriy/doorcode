@@ -25,8 +25,8 @@ func (s *Store) AddEvent(_ context.Context, e connector.StoredEvent) (int64, err
 	e.ID = s.next("events")
 	e.DoorName = ""
 	e.UserName = ""
-	e.UserID = cloneID(e.UserID)
-	e.RuleID = cloneID(e.RuleID)
+	e.UserID = clone(e.UserID)
+	e.RuleID = clone(e.RuleID)
 	s.events = append(s.events, e)
 	return e.ID, nil
 }
@@ -58,8 +58,8 @@ func (s *Store) eventOut(e connector.StoredEvent) connector.StoredEvent {
 	if e.UserID != nil {
 		e.UserName = s.users[*e.UserID].DisplayName
 	}
-	e.UserID = cloneID(e.UserID)
-	e.RuleID = cloneID(e.RuleID)
+	e.UserID = clone(e.UserID)
+	e.RuleID = clone(e.RuleID)
 	return e
 }
 
@@ -74,12 +74,7 @@ func (s *Store) Events(_ context.Context, q connector.EventQuery) ([]connector.S
 			kept = append(kept, e)
 		}
 	}
-	slices.SortFunc(kept, func(x, y connector.StoredEvent) int {
-		if c := y.At.Compare(x.At); c != 0 {
-			return c
-		}
-		return cmp.Compare(y.ID, x.ID)
-	})
+	newestFirst(kept, func(e connector.StoredEvent) time.Time { return e.At }, func(e connector.StoredEvent) int64 { return e.ID })
 	events := []connector.StoredEvent{}
 	for _, e := range page(kept, q.Offset, q.Limit) {
 		events = append(events, s.eventOut(e))
@@ -137,7 +132,7 @@ func (s *Store) EventStats(_ context.Context, q connector.EventRange) (connector
 		doors: map[doorKey]int{}, users: map[int64]bool{},
 	}
 	for _, e := range s.events {
-		if e.Type == q.Type && !e.At.Before(q.From) && e.At.Before(q.To) {
+		if e.Type == q.Type && within(e.At, q.From, q.To) {
 			counts.add(e, e.At.In(q.Zone))
 		}
 	}

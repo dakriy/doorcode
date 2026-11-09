@@ -15,9 +15,10 @@
 #   make verify-integration
 #
 # Set DOORCODE_POSTGRES_PORT, DOORCODE_MQTT_PORT, or DOORCODE_HTTP_PORT to
-# publish on other host ports when the defaults are taken. DOORCODE_BROKER_ADMIN_USERNAME and
-# DOORCODE_BROKER_ADMIN_PASSWORD name the broker's administrator, which the
-# server connects as; they take effect when the broker's volume is new.
+# publish on other host ports when the defaults are taken.
+# DOORCODE_BROKER_ADMIN_USERNAME and DOORCODE_BROKER_ADMIN_PASSWORD name the
+# broker's administrator, which the server connects as; they take effect
+# when the broker's volume is new.
 services:
   postgres:
     image: postgres:18

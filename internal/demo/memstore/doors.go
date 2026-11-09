@@ -23,7 +23,7 @@ func controllerCopy(c *connector.StoredController) *connector.StoredController {
 
 // stateCopy is a copy of st.
 func stateCopy(st connector.StoredDoorState) connector.StoredDoorState {
-	st.OpenedAt = cloneTime(st.OpenedAt)
+	st.OpenedAt = clone(st.OpenedAt)
 	if st.Telemetry != nil {
 		t := *st.Telemetry
 		st.Telemetry = &t
@@ -35,11 +35,11 @@ func stateCopy(st connector.StoredDoorState) connector.StoredDoorState {
 func (s *Store) doorOut(d connector.StoredDoor) connector.StoredDoor {
 	d.OpenScheduleIDs = sortedIDs(d.OpenScheduleIDs)
 	d.ZoneIDs = s.zonesOf(d.ID)
-	d.PrimaryPictureID = cloneID(d.PrimaryPictureID)
-	d.DeletedAt = cloneTime(d.DeletedAt)
+	d.PrimaryPictureID = clone(d.PrimaryPictureID)
+	d.DeletedAt = clone(d.DeletedAt)
 	d.Controller = controllerCopy(d.Controller)
 	d.Config = maps.Clone(d.Config)
-	d.FirmwareID = cloneID(d.FirmwareID)
+	d.FirmwareID = clone(d.FirmwareID)
 	return d
 }
 
@@ -58,25 +58,13 @@ func (s *Store) zonesOf(id int64) []int64 {
 // doorNameTaken reports whether a door other than the one whose id is id
 // has name, ignoring case.
 func (s *Store) doorNameTaken(name string, id int64) bool {
-	for _, other := range s.doors {
-		if other.ID != id && sameName(other.Name, name) {
-			return true
-		}
-	}
-	return false
+	return nameTaken(s.doors, func(d connector.StoredDoor) string { return d.Name }, name, id)
 }
 
 // checkDoorLinks refuses open schedules and zones the store does not hold.
 func (s *Store) checkDoorLinks(d connector.StoredDoor) error {
-	for _, id := range d.OpenScheduleIDs {
-		if _, ok := s.schedules[id]; !ok {
-			return errNoReference
-		}
-	}
-	for _, id := range d.ZoneIDs {
-		if _, ok := s.zones[id]; !ok {
-			return errNoReference
-		}
+	if !allExist(s.schedules, d.OpenScheduleIDs) || !allExist(s.zones, d.ZoneIDs) {
+		return errNoReference
 	}
 	return nil
 }
@@ -84,11 +72,7 @@ func (s *Store) checkDoorLinks(d connector.StoredDoor) error {
 // linkZones makes the zones whose ids are zoneIDs the zones of the door
 // whose id is doorID.
 func (s *Store) linkZones(doorID int64, zoneIDs []int64) {
-	for link := range s.zoneDoors {
-		if link.b == doorID {
-			delete(s.zoneDoors, link)
-		}
-	}
+	maps.DeleteFunc(s.zoneDoors, func(link pair, _ bool) bool { return link.b == doorID })
 	for _, zoneID := range zoneIDs {
 		s.zoneDoors[pair{zoneID, doorID}] = true
 	}
@@ -129,7 +113,7 @@ func (s *Store) CreateDoor(_ context.Context, d connector.StoredDoor) (int64, er
 	}
 	stored := connector.StoredDoor{
 		ID: s.next("doors"), Name: d.Name, Location: d.Location, Notes: d.Notes, Public: d.Public,
-		OpenScheduleIDs: sortedIDs(d.OpenScheduleIDs), DeletedAt: cloneTime(d.DeletedAt), CreatedAt: d.CreatedAt,
+		OpenScheduleIDs: sortedIDs(d.OpenScheduleIDs), DeletedAt: clone(d.DeletedAt), CreatedAt: d.CreatedAt,
 		Config: map[string]string{},
 	}
 	s.doors[stored.ID] = stored
@@ -180,7 +164,7 @@ func (s *Store) changeDoor(id int64, change func(d *connector.StoredDoor) error)
 // SetDoorDeleted stores at as the door's deletion time.
 func (s *Store) SetDoorDeleted(_ context.Context, id int64, at *time.Time) (bool, error) {
 	return s.changeDoor(id, func(d *connector.StoredDoor) error {
-		d.DeletedAt = cloneTime(at)
+		d.DeletedAt = clone(at)
 		return nil
 	})
 }
@@ -231,7 +215,7 @@ func (s *Store) SetDoorFirmware(_ context.Context, id int64, firmwareID *int64) 
 				return errNoReference
 			}
 		}
-		d.FirmwareID = cloneID(firmwareID)
+		d.FirmwareID = clone(firmwareID)
 		return nil
 	})
 }

@@ -1,9 +1,8 @@
 package memstore
 
 import (
-	"cmp"
 	"context"
-	"slices"
+	"time"
 
 	"github.com/dakriy/doorcode/internal/connector"
 )
@@ -50,12 +49,7 @@ func (s *Store) Firmwares(_ context.Context) ([]connector.StoredFirmware, error)
 	for _, row := range s.firmware {
 		all = append(all, s.firmwareOut(row.StoredFirmware))
 	}
-	slices.SortFunc(all, func(x, y connector.StoredFirmware) int {
-		if c := y.UploadedAt.Compare(x.UploadedAt); c != 0 {
-			return c
-		}
-		return cmp.Compare(y.ID, x.ID)
-	})
+	newestFirst(all, func(f connector.StoredFirmware) time.Time { return f.UploadedAt }, func(f connector.StoredFirmware) int64 { return f.ID })
 	return all, nil
 }
 
@@ -123,7 +117,7 @@ func (s *Store) DeleteFirmware(_ context.Context, id int64) (bool, error) {
 // updateCopy is a copy of u.
 func updateCopy(u connector.StoredUpdate) connector.StoredUpdate {
 	u.TokenHash = list(u.TokenHash)
-	u.FinishedAt = cloneTime(u.FinishedAt)
+	u.FinishedAt = clone(u.FinishedAt)
 	return u
 }
 

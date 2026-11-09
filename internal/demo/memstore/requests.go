@@ -1,9 +1,7 @@
 package memstore
 
 import (
-	"cmp"
 	"context"
-	"slices"
 	"time"
 
 	"github.com/dakriy/doorcode/internal/connector"
@@ -12,7 +10,7 @@ import (
 // requestOut is a copy of r with its user's display name.
 func (s *Store) requestOut(r connector.StoredRequest) connector.StoredRequest {
 	r.UserName = s.users[r.UserID].DisplayName
-	r.ResolvedAt = cloneTime(r.ResolvedAt)
+	r.ResolvedAt = clone(r.ResolvedAt)
 	return r
 }
 
@@ -35,12 +33,7 @@ func (s *Store) requestsWhere(keep func(connector.StoredRequest) bool) []connect
 			requests = append(requests, s.requestOut(r))
 		}
 	}
-	slices.SortFunc(requests, func(x, y connector.StoredRequest) int {
-		if c := y.CreatedAt.Compare(x.CreatedAt); c != 0 {
-			return c
-		}
-		return cmp.Compare(y.ID, x.ID)
-	})
+	newestFirst(requests, func(r connector.StoredRequest) time.Time { return r.CreatedAt }, func(r connector.StoredRequest) int64 { return r.ID })
 	return requests
 }
 
@@ -62,7 +55,7 @@ func (s *Store) CreateRequest(_ context.Context, r connector.StoredRequest) (int
 	}
 	r.ID = s.next("requests")
 	r.UserName = ""
-	r.ResolvedAt = cloneTime(r.ResolvedAt)
+	r.ResolvedAt = clone(r.ResolvedAt)
 	s.requests[r.ID] = r
 	return r.ID, nil
 }
@@ -114,7 +107,7 @@ func (s *Store) SetRequestReply(_ context.Context, id int64, reply string) (bool
 
 // SetRequestResolved stores at as when the request was resolved.
 func (s *Store) SetRequestResolved(_ context.Context, id int64, at *time.Time) (bool, error) {
-	return s.changeRequest(id, func(r *connector.StoredRequest) { r.ResolvedAt = cloneTime(at) })
+	return s.changeRequest(id, func(r *connector.StoredRequest) { r.ResolvedAt = clone(at) })
 }
 
 // DeleteRequest removes the request whose id is id.

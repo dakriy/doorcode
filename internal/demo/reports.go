@@ -8,10 +8,12 @@ import (
 	"github.com/dakriy/doorcode/internal/connector"
 )
 
-// profile is how a door's controller reports: its usual signal and
-// latency, and the firmware it ran before and after its last update.
+// profile is a door's simulated controller and how it reports: its
+// hardware id, its usual signal and latency, and the firmware it ran
+// before and after its last update, which it runs now.
 type profile struct {
 	door             int64
+	hardwareID       string
 	signal, latency  int
 	before, after    string
 	updatedDaysAgo   int
@@ -21,12 +23,19 @@ type profile struct {
 	openModeOpenings int
 }
 
+// profiles are the controllers of the doors that have one, in door order.
 var profiles = []profile{
-	{1, -54, 28, "1.4.0", "1.4.1", 10, 0, 0, 0, 3},
-	{2, -63, 34, "1.4.0", "1.4.1", 10, 16, 14, 1, 0},
-	{3, -71, 41, "1.4.0", "1.4.1", 10, 4, 10, 2, 0},
-	{4, -58, 30, "1.3.2", "1.4.0", 20, 0, 0, 0, 0},
-	{5, -77, 85, "1.3.2", "1.3.2", 0, 9, 3, 7, 0},
+	{mainEntrance, "a4cf12e0b101", -54, 28, "1.4.0", "1.4.1", 10, 0, 0, 0, 3},
+	{staffEntrance, "a4cf12e0b102", -63, 34, "1.4.0", "1.4.1", 10, 16, 14, 1, 0},
+	{serverRoom, "a4cf12e0b103", -71, 41, "1.4.0", "1.4.1", 10, 4, 10, 2, 0},
+	{workshop, "a4cf12e0b104", -58, 30, "1.3.2", "1.4.0", 20, 0, 0, 0, 0},
+	{loadingDock, "a4cf12e0b105", -77, 85, "1.3.2", "1.3.2", 0, 9, 3, 7, 0},
+}
+
+// controller is the simulated controller p describes, approved as its
+// door.
+func (p profile) controller() SimulatedDoor {
+	return SimulatedDoor{HardwareID: p.hardwareID, Firmware: p.after, Signal: p.signal, DoorID: p.door}
 }
 
 // report is what p's controller would have reported at at, opens being
@@ -138,7 +147,6 @@ func (s spread) stored() connector.StoredSpread {
 // openMode reports whether the lobby open hours schedule was active at at,
 // roughly: on workdays from 9:00 to 11:00 and 14:00 to 16:00.
 func openMode(at time.Time) bool {
-	workday := at.Weekday() != time.Saturday && at.Weekday() != time.Sunday
 	hour := at.Hour()
-	return workday && (hour == 9 || hour == 10 || hour == 14 || hour == 15)
+	return !isWeekend(at) && (hour == 9 || hour == 10 || hour == 14 || hour == 15)
 }

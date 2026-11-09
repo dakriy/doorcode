@@ -63,7 +63,7 @@ func (s *Store) DeleteExpiredSessions(_ context.Context, now time.Time) (int, er
 // tokenOut is a copy of t.
 func tokenOut(t connector.StoredToken) connector.StoredToken {
 	t.TokenHash = list(t.TokenHash)
-	t.ExpiresAt = cloneTime(t.ExpiresAt)
+	t.ExpiresAt = clone(t.ExpiresAt)
 	return t
 }
 

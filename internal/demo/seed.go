@@ -83,11 +83,26 @@ var doors = []demoDoor{
 		color.RGBA{R: 120, G: 160, B: 120, A: 255}, color.RGBA{R: 70, G: 70, B: 80, A: 255}},
 }
 
+// The door ids, in the order of doors.
+const (
+	mainEntrance  = 1
+	staffEntrance = 2
+	serverRoom    = 3
+	workshop      = 4
+	loadingDock   = 5
+)
+
 // The zones, numbered from 1.
 var zones = []map[string]any{
-	{"name": "Building A", "description": "The outside doors of building A.", "door_ids": []int64{1, 2}},
-	{"name": "Building B", "description": "The workshop and its dock.", "door_ids": []int64{4, 5}},
+	{"name": "Building A", "description": "The outside doors of building A.", "door_ids": []int64{mainEntrance, staffEntrance}},
+	{"name": "Building B", "description": "The workshop and its dock.", "door_ids": []int64{workshop, loadingDock}},
 }
+
+// The zone ids.
+const (
+	buildingA = 1
+	buildingB = 2
+)
 
 // The groups, numbered from 2: the migration seeds Administrators as 1.
 var groups = []map[string]any{
@@ -108,7 +123,7 @@ const (
 	frontDesk   = 6
 )
 
-// person is a user the demo creates, numbered from 2: the first
+// person is a user the demo creates, numbered from firstPerson: the first
 // administrator is 1.
 type person struct {
 	first, last, userID, code string
@@ -129,13 +144,41 @@ var people = []person{
 	{"Ivy", "Chen", "100242", "258680", []int64{staff}, false},
 }
 
+// firstPerson is the user id of the first of people.
+const firstPerson = 2
+
+// The user ids of people, in its order.
+const (
+	ann = firstPerson + iota
+	ben
+	chloe
+	dev
+	eva
+	frank
+	grace
+	hugo
+	ivy
+)
+
+// hasExpired reports whether the person whose user id is user is marked
+// expired.
+func hasExpired(user int64) bool {
+	return people[user-firstPerson].expired
+}
+
+// expiredAt is when the account of every person marked expired ended: a
+// week before now.
+func expiredAt(now time.Time) time.Time {
+	return now.AddDate(0, 0, -7)
+}
+
 // The access rules, numbered from 1.
 var rules = []map[string]any{
-	{"group_id": staff, "schedule_id": businessHours, "zone_ids": []int64{1}, "door_ids": []int64{}},
-	{"group_id": staff, "schedule_id": weekends, "door_ids": []int64{2}, "zone_ids": []int64{}},
-	{"group_id": security, "schedule_id": always, "door_ids": []int64{3}, "zone_ids": []int64{1, 2}},
-	{"group_id": contractors, "schedule_id": businessHours, "zone_ids": []int64{2}, "door_ids": []int64{}},
-	{"group_id": facilities, "schedule_id": nightShift, "door_ids": []int64{3, 5}, "zone_ids": []int64{}},
+	{"group_id": staff, "schedule_id": businessHours, "zone_ids": []int64{buildingA}, "door_ids": []int64{}},
+	{"group_id": staff, "schedule_id": weekends, "door_ids": []int64{staffEntrance}, "zone_ids": []int64{}},
+	{"group_id": security, "schedule_id": always, "door_ids": []int64{serverRoom}, "zone_ids": []int64{buildingA, buildingB}},
+	{"group_id": contractors, "schedule_id": businessHours, "zone_ids": []int64{buildingB}, "door_ids": []int64{}},
+	{"group_id": facilities, "schedule_id": nightShift, "door_ids": []int64{serverRoom, loadingDock}, "zone_ids": []int64{}},
 }
 
 // The firmware versions, oldest first; the last is the default.
@@ -143,15 +186,6 @@ var firmwares = []struct{ version, notes string }{
 	{"1.3.2", "Keypad debounce fix."},
 	{"1.4.0", "Telemetry reports free memory and reconnects."},
 	{"1.4.1", "Faster reconnects after a broker restart."},
-}
-
-// controllers are the simulated controllers of doors 1 to 5, in order.
-var controllers = []SimulatedDoor{
-	{HardwareID: "a4cf12e0b101", Firmware: "1.4.1", Signal: -54},
-	{HardwareID: "a4cf12e0b102", Firmware: "1.4.1", Signal: -63},
-	{HardwareID: "a4cf12e0b103", Firmware: "1.4.1", Signal: -71},
-	{HardwareID: "a4cf12e0b104", Firmware: "1.4.0", Signal: -58},
-	{HardwareID: "a4cf12e0b105", Firmware: "1.3.2", Signal: -77},
 }
 
 // waiting is the controller that announces itself and waits for approval.
@@ -232,7 +266,7 @@ func seedRules(admin client, _ time.Time, _ *Site) error {
 
 // seedDoors creates the doors, each with a picture of itself and the
 // first two with one of their keypad too, and remembers the controllers
-// to approve as doors 1 to 5.
+// to approve as their doors.
 func seedDoors(admin client, _ time.Time, site *Site) error {
 	for i, d := range doors {
 		if err := admin.call(http.MethodPost, "/api/v1/doors", d.body, nil); err != nil {
@@ -249,9 +283,8 @@ func seedDoors(admin client, _ time.Time, site *Site) error {
 			}
 		}
 	}
-	for i, c := range controllers {
-		c.DoorID = int64(i + 1)
-		site.Doors = append(site.Doors, c)
+	for _, p := range profiles {
+		site.Doors = append(site.Doors, p.controller())
 	}
 	return nil
 }
@@ -260,10 +293,10 @@ func seedDoors(admin client, _ time.Time, site *Site) error {
 // groups.
 func seedPeople(admin client, now time.Time, site *Site) error {
 	for i, p := range people {
-		id := i + 2
+		id := i + firstPerson
 		expires := now.AddDate(2, 0, 0)
 		if p.expired {
-			expires = now.AddDate(0, 0, -7)
+			expires = expiredAt(now)
 		}
 		body := map[string]any{
 			"email": strings.ToLower(p.first + "." + p.last + "@example.com"), "user_id": p.userID,
@@ -298,12 +331,12 @@ func seedOverrides(admin client, now time.Time, _ *Site) error {
 	hour := now.UTC().Truncate(time.Hour)
 	tomorrow := hour.Truncate(24*time.Hour).AddDate(0, 0, 1)
 	overrides := []struct {
-		door int
+		door int64
 		body map[string]any
 	}{
-		{4, map[string]any{"kind": "open", "start": hour.Add(-time.Hour).Format(time.RFC3339), "end": hour.Add(3 * time.Hour).Format(time.RFC3339),
+		{workshop, map[string]any{"kind": "open", "start": hour.Add(-time.Hour).Format(time.RFC3339), "end": hour.Add(3 * time.Hour).Format(time.RFC3339),
 			"reason": "Delivery of the new lathe."}},
-		{2, map[string]any{"kind": "locked", "start": tomorrow.Add(6 * time.Hour).Format(time.RFC3339), "end": tomorrow.Add(8 * time.Hour).Format(time.RFC3339),
+		{staffEntrance, map[string]any{"kind": "locked", "start": tomorrow.Add(6 * time.Hour).Format(time.RFC3339), "end": tomorrow.Add(8 * time.Hour).Format(time.RFC3339),
 			"reason": "Floor maintenance in the courtyard."}},
 	}
 	for _, o := range overrides {
@@ -328,22 +361,22 @@ func seedFirmware(admin client, _ time.Time, _ *Site) error {
 	if err := admin.call(http.MethodPut, "/api/v1/firmware/default", map[string]int{"firmware_id": newest}, nil); err != nil {
 		return err
 	}
-	return admin.call(http.MethodPut, "/api/v1/doors/4/firmware", map[string]int{"firmware_id": newest - 1}, nil)
+	return admin.call(http.MethodPut, fmt.Sprintf("/api/v1/doors/%d/firmware", workshop), map[string]int{"firmware_id": newest - 1}, nil)
 }
 
 // seedRequests has three people ask for access, and answers two of them,
 // resolving one.
 func seedRequests(admin client, _ time.Time, _ *Site) error {
 	asks := []struct {
-		user        int
+		user        int64
 		title, body string
 		reply       string
 		resolve     bool
 	}{
-		{8, "Workshop access", "I am helping with the lathe installation next week and need to get into the workshop.", "", false},
-		{10, "Weekend access", "Could I get into the staff entrance on Saturdays? I am covering the weekend shift.",
+		{grace, "Workshop access", "I am helping with the lathe installation next week and need to get into the workshop.", "", false},
+		{ivy, "Weekend access", "Could I get into the staff entrance on Saturdays? I am covering the weekend shift.",
 			"Done: staff can now use the staff entrance on weekends.", true},
-		{7, "Loading dock", "Our crew unloads at the dock from 6:00; could contractors get in from then?",
+		{frank, "Loading dock", "Our crew unloads at the dock from 6:00; could contractors get in from then?",
 			"We are checking with security first.", false},
 	}
 	for i, a := range asks {

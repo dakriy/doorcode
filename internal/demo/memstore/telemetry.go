@@ -20,11 +20,6 @@ func keyOf(r connector.StoredRollup) rollupKey {
 	return rollupKey{r.DoorID, r.Hour.Unix()}
 }
 
-// within reports whether t is at or after from and before to.
-func within(t, from, to time.Time) bool {
-	return !t.Before(from) && t.Before(to)
-}
-
 // AddSample stores sample.
 func (s *Store) AddSample(_ context.Context, sample connector.StoredSample) error {
 	s.mu.Lock()

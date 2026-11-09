@@ -9,11 +9,11 @@ import (
 
 // storedUser is a copy of u as the store keeps it, without groups.
 func storedUser(u connector.StoredUser) connector.StoredUser {
-	u.UserID = cloneString(u.UserID)
-	u.PasswordHash = cloneString(u.PasswordHash)
-	u.CodeHash = cloneString(u.CodeHash)
-	u.ExpiresAt = cloneTime(u.ExpiresAt)
-	u.DeletedAt = cloneTime(u.DeletedAt)
+	u.UserID = clone(u.UserID)
+	u.PasswordHash = clone(u.PasswordHash)
+	u.CodeHash = clone(u.CodeHash)
+	u.ExpiresAt = clone(u.ExpiresAt)
+	u.DeletedAt = clone(u.DeletedAt)
 	u.Groups = nil
 	return u
 }
@@ -71,10 +71,8 @@ func (s *Store) insertUser(u connector.StoredUser, groupIDs []int64) (int64, err
 	if s.userClash(u) {
 		return 0, errDuplicate
 	}
-	for _, g := range groupIDs {
-		if _, ok := s.groups[g]; !ok {
-			return 0, errNoReference
-		}
+	if !allExist(s.groups, groupIDs) {
+		return 0, errNoReference
 	}
 	u = storedUser(u)
 	u.ID = s.next("users")
@@ -174,23 +172,14 @@ func (s *Store) Users(_ context.Context, q connector.UserQuery) ([]connector.Sto
 
 // UpdateUser stores u's email, user id, names, and expiry.
 func (s *Store) UpdateUser(_ context.Context, u connector.StoredUser) (bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	stored, ok := s.users[u.ID]
-	if !ok {
-		return false, nil
-	}
-	stored.Email = u.Email
-	stored.UserID = cloneString(u.UserID)
-	stored.FirstName = u.FirstName
-	stored.LastName = u.LastName
-	stored.DisplayName = u.DisplayName
-	stored.ExpiresAt = cloneTime(u.ExpiresAt)
-	if s.userClash(stored) {
-		return false, errDuplicate
-	}
-	s.users[u.ID] = stored
-	return true, nil
+	return s.changeUser(u.ID, func(stored *connector.StoredUser) {
+		stored.Email = u.Email
+		stored.UserID = clone(u.UserID)
+		stored.FirstName = u.FirstName
+		stored.LastName = u.LastName
+		stored.DisplayName = u.DisplayName
+		stored.ExpiresAt = clone(u.ExpiresAt)
+	})
 }
 
 // changeUser applies change to the user whose id is id, when there is one
@@ -212,12 +201,12 @@ func (s *Store) changeUser(id int64, change func(u *connector.StoredUser)) (bool
 
 // SetUserDeleted stores at as the user's deletion time.
 func (s *Store) SetUserDeleted(_ context.Context, id int64, at *time.Time) (bool, error) {
-	return s.changeUser(id, func(u *connector.StoredUser) { u.DeletedAt = cloneTime(at) })
+	return s.changeUser(id, func(u *connector.StoredUser) { u.DeletedAt = clone(at) })
 }
 
 // SetCodeHash stores hash as the user's door code hash.
 func (s *Store) SetCodeHash(_ context.Context, id int64, hash *string) (bool, error) {
-	return s.changeUser(id, func(u *connector.StoredUser) { u.CodeHash = cloneString(hash) })
+	return s.changeUser(id, func(u *connector.StoredUser) { u.CodeHash = clone(hash) })
 }
 
 // SetPasswordHash stores hash as the user's local password hash.

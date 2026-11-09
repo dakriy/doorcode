@@ -82,34 +82,51 @@ type controller struct {
 	codes   []string
 	creds   protocol.Credentials
 	started time.Time
-	// reconnects is how often it connected again since it started.
-	reconnects int
+	// connects is how often it connected as its door since it started.
+	connects int
 }
 
+// run connects until ctx ends, pausing after a connection that failed or
+// ended.
 func (c *controller) run(ctx context.Context) {
 	for ctx.Err() == nil {
 		err := c.connect(ctx)
-		if errors.Is(err, ErrRefused) && c.creds.Username != "" {
+		switch {
+		case err == nil:
+			// Enrolled, or told to connect again with new credentials or firmware.
+		case errors.Is(err, ErrRefused) && c.enrolled():
 			// Revoked: start over as a new controller would.
 			c.creds = protocol.Credentials{}
-			continue
-		}
-		if err != nil && ctx.Err() == nil && !errors.Is(err, ErrRefused) && !errors.Is(err, errDropped) {
-			c.log.Error("a simulated controller stopped", connector.Field{Key: "hardware_id", Value: c.door.HardwareID},
-				connector.Field{Key: "error", Value: err.Error()})
-		}
-		if err != nil && !pause(ctx, 2*time.Second) {
-			return
+		default:
+			c.complain(ctx, err)
+			if !pause(ctx, 2*time.Second) {
+				return
+			}
 		}
 	}
+}
+
+// enrolled reports whether the controller holds credentials for a door.
+func (c *controller) enrolled() bool {
+	return c.creds.Username != ""
+}
+
+// complain logs err unless it is what a controller expects now and then:
+// ctx ending, or the broker refusing or ending the connection.
+func (c *controller) complain(ctx context.Context, err error) {
+	if ctx.Err() != nil || errors.Is(err, ErrRefused) || errors.Is(err, errDropped) {
+		return
+	}
+	c.log.Error("a simulated controller stopped", connector.Field{Key: "hardware_id", Value: c.door.HardwareID},
+		connector.Field{Key: "error", Value: err.Error()})
 }
 
 // connect enrolls without credentials and otherwise serves as the door.
 func (c *controller) connect(ctx context.Context) error {
-	if c.creds.Username == "" {
+	if !c.enrolled() {
 		return c.enroll(ctx)
 	}
-	c.reconnects++
+	c.connects++
 	return c.serve(ctx)
 }
 
@@ -287,13 +304,18 @@ func (c *controller) restart(d *door) error {
 	d.conn.Drop()
 	c.door.Firmware = d.installed
 	c.started = time.Now()
-	c.reconnects = 0
+	c.connects = 0
 	return nil
 }
 
+// publish sends m on the door's topic that ends in leaf.
+func (c *controller) publish(d *door, leaf string, m protocol.Message) {
+	d.conn.Publish(connector.Message{Topic: protocol.DoorTopic(c.creds.DoorID, leaf), Payload: protocol.Encode(m)})
+}
+
+// ack answers the command whose id is id as carried out.
 func (c *controller) ack(d *door, id string) {
-	ack := protocol.Ack{ID: id, Result: "done"}
-	d.conn.Publish(connector.Message{Topic: protocol.DoorTopic(c.creds.DoorID, protocol.LeafAck), Payload: protocol.Encode(&ack)})
+	c.publish(d, protocol.LeafAck, &protocol.Ack{ID: id, Result: "done"})
 }
 
 // press is someone at the keypad: in open mode the door just opens;
@@ -308,8 +330,7 @@ func (c *controller) press(d *door) {
 	if len(c.codes) > 0 && rand.IntN(4) != 0 {
 		digits = c.codes[rand.IntN(len(c.codes))]
 	}
-	check := protocol.Check{RequestID: fmt.Sprintf("%016x", rand.Uint64()), Digits: digits}
-	d.conn.Publish(connector.Message{Topic: protocol.DoorTopic(c.creds.DoorID, protocol.LeafCheck), Payload: protocol.Encode(&check)})
+	c.publish(d, protocol.LeafCheck, &protocol.Check{RequestID: fmt.Sprintf("%016x", rand.Uint64()), Digits: digits})
 }
 
 // state is what d's timeline says the door is at at: "open", "locked",
@@ -341,16 +362,15 @@ func (c *controller) swing(d *door, open time.Duration) {
 
 // say tells the server what happened to the door.
 func (c *controller) say(d *door, what string) {
-	e := protocol.DoorEvent{Event: what}
-	d.conn.Publish(connector.Message{Topic: protocol.DoorTopic(c.creds.DoorID, protocol.LeafEvent), Payload: protocol.Encode(&e)})
+	c.publish(d, protocol.LeafEvent, &protocol.DoorEvent{Event: what})
 }
 
 // report publishes the controller's telemetry.
 func (c *controller) report(d *door) {
 	t := protocol.Telemetry{
 		Signal: c.door.Signal + rand.IntN(7) - 3, LatencyMS: 20 + rand.IntN(40), UptimeS: int64(time.Since(c.started).Seconds()),
-		FreeBytes: 182000 + rand.Int64N(6000), FirmwareVersion: c.door.Firmware, Reconnects: c.reconnects - 1, DoorOpen: d.open, Opens: d.opens,
+		FreeBytes: 182000 + rand.Int64N(6000), FirmwareVersion: c.door.Firmware, Reconnects: c.connects - 1, DoorOpen: d.open, Opens: d.opens,
 	}
 	d.opens = 0
-	d.conn.Publish(connector.Message{Topic: protocol.DoorTopic(c.creds.DoorID, protocol.LeafTelemetry), Payload: protocol.Encode(&t)})
+	c.publish(d, protocol.LeafTelemetry, &t)
 }

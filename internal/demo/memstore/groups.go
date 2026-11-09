@@ -2,6 +2,7 @@ package memstore
 
 import (
 	"context"
+	"maps"
 	"slices"
 
 	"github.com/dakriy/doorcode/internal/connector"
@@ -124,16 +125,8 @@ func (s *Store) DeleteGroup(_ context.Context, id int64) (bool, error) {
 		return false, nil
 	}
 	delete(s.groups, id)
-	for m := range s.members {
-		if m.a == id {
-			delete(s.members, m)
-		}
-	}
-	for ruleID, r := range s.rules {
-		if r.GroupID == id {
-			delete(s.rules, ruleID)
-		}
-	}
+	maps.DeleteFunc(s.members, func(m pair, _ bool) bool { return m.a == id })
+	maps.DeleteFunc(s.rules, func(_ int64, r connector.StoredRule) bool { return r.GroupID == id })
 	return true, nil
 }
 

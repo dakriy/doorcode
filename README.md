@@ -259,10 +259,11 @@ protocol and door controller entries of [AGENTS.md](AGENTS.md).
    configured interval, and, outside open mode, `opened` and `closed` on
    `doorcode/doors/<id>/event`.
 7. **Obey commands.** A command carries an `id` and a `command`: `open` with
-   `strike_ms`; `credentials` with a new `username` and `token` (connect with them,
-   publish the online status, then close the old connection; credentials rotate automatically, and the old ones stop working once
-   the door has reconnected with the new ones or the grace period has
-   passed); `update` with `version`, `sha256`, and `url`. Answer on
+   `strike_ms`; `credentials` with a new `username` and `token` (connect
+   with them, publish the online status, then close the old connection;
+   credentials rotate automatically, and the old ones stop working once the
+   door has reconnected with the new ones or the grace period has passed);
+   `update` with `version`, `sha256`, and `url`. Answer on
    `doorcode/doors/<id>/ack` with the command's `id`, a `result` (`failed`
    when it could not be carried out), and a `detail`.
 
@@ -284,8 +285,9 @@ valid only for that update until it times out, so nothing is sent while
 `sha256`, installs it, and reconnects reporting the new version, which ends
 the update as succeeded. A door that cannot install it answers `failed` on
 its ack topic; one that does not come back within `update_timeout_minutes`
-fails too. A door that failed is sent its target again in the next window. A door that cannot
-reconnect on the new version reverts on its own and reappears on the old.
+fails too. A door that failed is sent its target again in the next window.
+A door that cannot reconnect on the new version reverts on its own and
+reappears on the old.
 
 ## Development and verification
 

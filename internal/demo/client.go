@@ -19,7 +19,8 @@ import (
 type client struct {
 	ctx     context.Context
 	handler http.Handler
-	// header is the Cookie or Authorization header every call sends.
+	// name and value are the header, Cookie or Authorization, every call
+	// sends; none when name is empty.
 	name, value string
 }
 

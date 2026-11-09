@@ -9,8 +9,8 @@ import (
 
 // scheduleCopy is a copy of sch.
 func scheduleCopy(sch connector.StoredSchedule) connector.StoredSchedule {
-	sch.StartsOn = cloneTime(sch.StartsOn)
-	sch.EndsOn = cloneTime(sch.EndsOn)
+	sch.StartsOn = clone(sch.StartsOn)
+	sch.EndsOn = clone(sch.EndsOn)
 	sch.Excluded = list(sch.Excluded)
 	windows := []connector.StoredWindow{}
 	for _, w := range sch.Windows {
@@ -39,12 +39,7 @@ func storedSchedule(sch connector.StoredSchedule) (connector.StoredSchedule, err
 // scheduleNameTaken reports whether a schedule other than the one whose id
 // is id has name, ignoring case.
 func (s *Store) scheduleNameTaken(name string, id int64) bool {
-	for _, other := range s.schedules {
-		if other.ID != id && sameName(other.Name, name) {
-			return true
-		}
-	}
-	return false
+	return nameTaken(s.schedules, func(sch connector.StoredSchedule) string { return sch.Name }, name, id)
 }
 
 // Schedules returns every schedule in name order.
