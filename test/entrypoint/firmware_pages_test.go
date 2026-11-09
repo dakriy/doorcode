@@ -350,6 +350,7 @@ func TestADoorPageShowsFirmwareOnlyToThoseWhoManageIt(t *testing.T) {
 	want := map[string]string{
 		"Hardware id": "A1", "Door": "Not reported yet", "Firmware": "1.4.3", "Signal": "-58 dBm", "Latency": "Not reported yet",
 		"Uptime": "Not reported yet", "Free memory": "Not reported yet", "Reconnects": "Not reported yet",
+		"Mesh layer": "Not reported yet", "Mesh parent": "Not reported yet", "Mesh children": "Not reported yet",
 		"Last seen": "Mon 5 Jan 2026 09:00:00", "Last report": "Not reported yet",
 	}
 	if diff := cmp.Diff(want, got); diff != "" {

@@ -530,9 +530,18 @@ connected, first soon after connecting. Every field is always sent.
 | `reconnects` | uint | | How often it connected to the broker again since it started (0 for the first connection). |
 | `door_open` | bool | | Whether the door sensor says the door is open now. |
 | `opens` | uint | | How often the door opened since the last report, open-mode opens included; reset to 0 after each report. |
+| `mesh_layer` | uint | | Where the controller sits in the site's Wi-Fi mesh: 0 when it is connected straight to the building's access point, 1 when it hops through one other controller, and so on. |
+| `mesh_parent` | text | | The **hardware id** (the MQTT client id it enrolled with, not a door id) of the controller it hops through; empty at layer 0. |
+| `mesh_children` | uint | | How many controllers hop through this one (its direct children in the mesh). |
 
-The server keeps the reports as history and hourly summaries, and shows the
-latest. A connected door the server has heard nothing from (online status,
+Firmware that predates the mesh fields leaves them out; the server reads a
+missing `mesh_layer` and `mesh_children` as 0 and a missing `mesh_parent`
+as empty, that is, as a controller reaching the access point itself.
+
+The server keeps the reports as history and hourly summaries (each hour
+keeps the `mesh_layer` and `mesh_children` of its last report), and shows
+the latest; a door whose `mesh_layer` is above 0 is shown meshing, naming
+the door whose controller has the `mesh_parent` hardware id. A connected door the server has heard nothing from (online status,
 telemetry, or event) for `unresponsive_minutes` (default 5) is shown
 unresponsive, so `telemetry_interval_s` should stay below that.
 
@@ -764,7 +773,7 @@ it.
 | `Config` (`Header`, `DoorConfig`) | message | `v` and the configuration fields in one map. | 9 |
 | `Span` (`Start`, `End`, `State`) | type | `start`, `end`, `state`. | 10 |
 | `Timeline` (`From`, `To`, `Spans`) | message | `from`, `to`, `spans`. | 10 |
-| `Telemetry` (`Signal`, `LatencyMS`, `UptimeS`, `FreeBytes`, `FirmwareVersion`, `Reconnects`, `DoorOpen`, `Opens`) | message | `signal`, `latency_ms`, `uptime_s`, `free_bytes`, `firmware_version`, `reconnects`, `door_open`, `opens`. | 12 |
+| `Telemetry` (`Signal`, `LatencyMS`, `UptimeS`, `FreeBytes`, `FirmwareVersion`, `Reconnects`, `DoorOpen`, `Opens`, `MeshLayer`, `MeshParent`, `MeshChildren`) | message | `signal`, `latency_ms`, `uptime_s`, `free_bytes`, `firmware_version`, `reconnects`, `door_open`, `opens`, `mesh_layer`, `mesh_parent`, `mesh_children`. | 12 |
 | `EventOpened`, `EventClosed` | constants | `opened`, `closed`. | 12 |
 | `DoorEvent` (`Event`) | message | `event`. | 12 |
 | `ErrVersion` | error | A message of another protocol version. | 4 |

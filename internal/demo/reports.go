@@ -9,8 +9,9 @@ import (
 )
 
 // profile is a door's simulated controller and how it reports: its
-// hardware id, its usual signal and latency, and the firmware it ran
-// before and after its last update, which it runs now.
+// hardware id, its usual signal and latency, the firmware it ran before
+// and after its last update, which it runs now, and the controller it
+// hops through in the mesh, empty when it reaches the access point itself.
 type profile struct {
 	door             int64
 	hardwareID       string
@@ -21,21 +22,57 @@ type profile struct {
 	outageHour       int
 	outageHours      int
 	openModeOpenings int
+	meshParent       string
 }
 
 // profiles are the controllers of the doors that have one, in door order.
 var profiles = []profile{
-	{mainEntrance, "a4cf12e0b101", -54, 28, "1.4.0", "1.4.1", 10, 0, 0, 0, 3},
-	{staffEntrance, "a4cf12e0b102", -63, 34, "1.4.0", "1.4.1", 10, 16, 14, 1, 0},
-	{serverRoom, "a4cf12e0b103", -71, 41, "1.4.0", "1.4.1", 10, 4, 10, 2, 0},
-	{workshop, "a4cf12e0b104", -58, 30, "1.3.2", "1.4.0", 20, 0, 0, 0, 0},
-	{loadingDock, "a4cf12e0b105", -77, 85, "1.3.2", "1.3.2", 0, 9, 3, 7, 0},
+	{mainEntrance, "a4cf12e0b101", -54, 28, "1.4.0", "1.4.1", 10, 0, 0, 0, 3, ""},
+	{staffEntrance, "a4cf12e0b102", -63, 34, "1.4.0", "1.4.1", 10, 16, 14, 1, 0, ""},
+	{serverRoom, "a4cf12e0b103", -71, 41, "1.4.0", "1.4.1", 10, 4, 10, 2, 0, "a4cf12e0b102"},
+	{workshop, "a4cf12e0b104", -58, 30, "1.3.2", "1.4.0", 20, 0, 0, 0, 0, "a4cf12e0b101"},
+	{loadingDock, "a4cf12e0b105", -77, 85, "1.3.2", "1.3.2", 0, 9, 3, 7, 0, "a4cf12e0b103"},
+}
+
+// meshLayer is how many controllers p's controller hops through to reach
+// the access point.
+func (p profile) meshLayer() int {
+	layer := 0
+	for parent := p.meshParent; parent != ""; layer++ {
+		parent = profileOf(parent).meshParent
+	}
+	return layer
+}
+
+// meshChildren is how many controllers hop through p's.
+func (p profile) meshChildren() int {
+	children := 0
+	for _, other := range profiles {
+		if other.meshParent == p.hardwareID {
+			children++
+		}
+	}
+	return children
+}
+
+// profileOf is the profile of the controller whose hardware id is
+// hardwareID.
+func profileOf(hardwareID string) profile {
+	for _, p := range profiles {
+		if p.hardwareID == hardwareID {
+			return p
+		}
+	}
+	return profile{}
 }
 
 // controller is the simulated controller p describes, approved as its
 // door.
 func (p profile) controller() SimulatedDoor {
-	return SimulatedDoor{HardwareID: p.hardwareID, Firmware: p.after, Signal: p.signal, DoorID: p.door}
+	return SimulatedDoor{
+		HardwareID: p.hardwareID, Firmware: p.after, Signal: p.signal, DoorID: p.door,
+		MeshLayer: p.meshLayer(), MeshParent: p.meshParent, MeshChildren: p.meshChildren(),
+	}
 }
 
 // report is what p's controller would have reported at at, opens being
@@ -61,6 +98,7 @@ func (p profile) report(rng *rand.Rand, now, at time.Time, opens int) (connector
 	return connector.StoredTelemetry{
 		At: at, Signal: p.signal + rng.IntN(7) - 3, LatencyMS: latency, UptimeS: int64(at.Sub(at.Truncate(7 * 24 * time.Hour)).Seconds()),
 		FreeBytes: 182000 + rng.Int64N(6000), FirmwareVersion: version, Reconnects: rng.IntN(3), Opens: opens,
+		MeshLayer: p.meshLayer(), MeshParent: p.meshParent, MeshChildren: p.meshChildren(),
 	}, true
 }
 
@@ -117,6 +155,7 @@ func (p profile) rollup(rng *rand.Rand, now, hour time.Time, opens map[slot]int)
 		free.add(t.FreeBytes)
 	}
 	r.Signal, r.Latency, r.FreeBytes = signal.stored(), latency.stored(), free.stored()
+	r.MeshLayer, r.MeshChildren = p.meshLayer(), p.meshChildren()
 	return r, r.Samples > 0
 }
 

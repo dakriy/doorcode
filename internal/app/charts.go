@@ -98,8 +98,12 @@ func (f chartFrame) lineClass(i int) string {
 	return seriesClass("viz-line", i)
 }
 
-// valueText is value in unit as a chart writes it, to a tenth.
+// valueText is value in unit as a chart writes it, to a tenth; a count
+// whose chart's name says what it counts has no unit.
 func valueText(value float64, unit string) string {
+	if unit == "" {
+		return tenths(value)
+	}
 	return tenths(value) + " " + unit
 }
 

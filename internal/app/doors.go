@@ -110,10 +110,12 @@ func (a *App) doorRoutes() []route {
 	}
 }
 
-// catalog is every schedule and zone, so a door can name its own.
+// catalog is every schedule, zone, and door, so a door can name its own
+// and the door its controller hops through in the mesh.
 type catalog struct {
 	schedules []connector.StoredSchedule
 	zones     []connector.StoredZone
+	doors     []connector.StoredDoor
 }
 
 func (a *App) catalog(ctx context.Context) (catalog, error) {
@@ -122,7 +124,11 @@ func (a *App) catalog(ctx context.Context) (catalog, error) {
 		return catalog{}, err
 	}
 	zones, err := a.doors.Zones(ctx)
-	return catalog{schedules: schedules, zones: zones}, err
+	if err != nil {
+		return catalog{}, err
+	}
+	doors, err := a.doors.Doors(ctx)
+	return catalog{schedules: schedules, zones: zones, doors: doors}, err
 }
 
 // openSchedules names the schedules during which d is in open mode

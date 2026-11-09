@@ -6069,6 +6069,65 @@
         }
       }
     },
+    "/mesh": {
+      "get": {
+        "operationId": "getMesh",
+        "summary": "Get the site's Wi-Fi mesh",
+        "tags": [
+          "telemetry"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Where each door's controller sits in the mesh, as its latest report said.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeshView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-doors or door-commander role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/openapi.json": {
       "get": {
         "operationId": "getOpenAPI",
@@ -11368,6 +11427,111 @@
           "members"
         ]
       },
+      "MeshEdgeView": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "integer",
+            "description": "The id of the door whose controller hops."
+          },
+          "to": {
+            "type": "integer",
+            "description": "The id of the door whose controller it hops through."
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ]
+      },
+      "MeshNodeView": {
+        "type": "object",
+        "properties": {
+          "children": {
+            "type": "integer",
+            "description": "How many controllers hop through it, as its latest report said."
+          },
+          "dependents": {
+            "type": "integer",
+            "description": "How many controllers' paths to the access point pass through this one; above 0 for a relay."
+          },
+          "door_id": {
+            "type": "integer",
+            "description": "The id of the door the controller is enrolled as."
+          },
+          "hardware_id": {
+            "type": "string",
+            "description": "The controller's hardware id."
+          },
+          "layer": {
+            "type": "integer",
+            "description": "The controller's layer in its latest report: 0 when it reaches the building's access point itself, 1 when it hops through one other controller, and so on."
+          },
+          "name": {
+            "type": "string",
+            "description": "The door's name."
+          },
+          "online": {
+            "type": "boolean",
+            "description": "True while the controller is connected to the broker."
+          },
+          "parent": {
+            "type": "string",
+            "description": "The hardware id of the controller it hops through; empty when it reaches the access point itself."
+          },
+          "parent_unknown": {
+            "type": "boolean",
+            "description": "True when it hops through a controller no door has, or through one that is offline."
+          },
+          "path": {
+            "type": "array",
+            "description": "The hardware ids of the controllers its traffic passes through on the way to the access point, its parent first, chained through each one's parent.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reaches_access_point": {
+            "type": "boolean",
+            "description": "True when the path ends at a controller that reaches the access point itself; false when it ends at a controller no door has, or comes back on itself."
+          }
+        },
+        "required": [
+          "door_id",
+          "name",
+          "hardware_id",
+          "layer",
+          "parent",
+          "children",
+          "online",
+          "parent_unknown",
+          "dependents",
+          "path",
+          "reaches_access_point"
+        ]
+      },
+      "MeshView": {
+        "type": "object",
+        "properties": {
+          "edges": {
+            "type": "array",
+            "description": "An edge from each controller to the controller it hops through, when a door has that one.",
+            "items": {
+              "$ref": "#/components/schemas/MeshEdgeView"
+            }
+          },
+          "nodes": {
+            "type": "array",
+            "description": "Each door with a controller enrolled that is not deleted, by name.",
+            "items": {
+              "$ref": "#/components/schemas/MeshNodeView"
+            }
+          }
+        },
+        "required": [
+          "nodes",
+          "edges"
+        ]
+      },
       "NameRef": {
         "type": "object",
         "properties": {
@@ -12055,6 +12219,14 @@
             "$ref": "#/components/schemas/SpreadView",
             "description": "The round trip to the server, in milliseconds."
           },
+          "mesh_children": {
+            "type": "integer",
+            "description": "How many controllers hopped through this one in its last report of the hour."
+          },
+          "mesh_layer": {
+            "type": "integer",
+            "description": "The controller's mesh layer in its last report of the hour."
+          },
           "opens": {
             "type": "integer",
             "description": "How often the door was opened in the hour."
@@ -12074,7 +12246,9 @@
           "signal",
           "latency_ms",
           "free_bytes",
-          "opens"
+          "opens",
+          "mesh_layer",
+          "mesh_children"
         ]
       },
       "RuleList": {
@@ -12409,6 +12583,18 @@
             "type": "integer",
             "description": "The round trip from the controller to the server and back, in milliseconds."
           },
+          "mesh_children": {
+            "type": "integer",
+            "description": "How many controllers hop through this one; 0 from firmware that does not report it."
+          },
+          "mesh_layer": {
+            "type": "integer",
+            "description": "The controller's layer in the site's Wi-Fi mesh: 0 when it reaches the building's access point itself, 1 when it hops through one other controller, and so on. 0 from firmware that does not report it."
+          },
+          "mesh_parent": {
+            "type": "string",
+            "description": "The hardware id of the controller it hops through; empty at layer 0 and from firmware that does not report it."
+          },
           "opens": {
             "type": "integer",
             "description": "How often the door was opened since the controller's last report."
@@ -12435,7 +12621,10 @@
           "firmware_version",
           "reconnects",
           "door_open",
-          "opens"
+          "opens",
+          "mesh_layer",
+          "mesh_parent",
+          "mesh_children"
         ]
       },
       "TimelineView": {

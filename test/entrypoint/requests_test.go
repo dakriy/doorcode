@@ -14,7 +14,7 @@ import (
 func mainNav(current, waiting string) []string {
 	nav := []string{}
 	for _, label := range []string{
-		"Dashboard", "People: Users", "People: Requests" + waiting, "People: Groups", "Doors: Doors", "Doors: Zones", "Doors: Firmware",
+		"Dashboard", "People: Users", "People: Requests" + waiting, "People: Groups", "Doors: Doors", "Doors: Mesh", "Doors: Zones", "Doors: Firmware",
 		"Access: Schedules", "Activity: Events", "Portal", "API tokens", "Site: Settings",
 	} {
 		if label == current || label == current+waiting {

@@ -117,6 +117,7 @@ var (
 	zonesTemplate   = shellPage("zones.html")
 	newZoneTemplate = shellPage("zone-new.html")
 	zoneTemplate    = shellPage("zone.html")
+	meshTemplate    = shellPage("mesh.html")
 
 	ruleTemplate           = shellPage("rule.html")
 	overrideTemplate       = shellPage("override.html")
@@ -146,7 +147,7 @@ var (
 // whoever views them and may watch it; the rest follow it only for the
 // navigation's count of access requests.
 var livePages = map[*template.Template]bool{
-	doorsTemplate: true, doorTemplate: true, enrollmentsTemplate: true, firmwareTemplate: true, dashboardTemplate: true,
+	doorsTemplate: true, doorTemplate: true, meshTemplate: true, enrollmentsTemplate: true, firmwareTemplate: true, dashboardTemplate: true,
 }
 
 // watchesLive may watch the live stream: whoever may see one of livePages

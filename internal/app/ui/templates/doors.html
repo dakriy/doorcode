@@ -55,7 +55,7 @@
             <a href="/admin/doors/{{.ID}}" class="{{template "link-class"}}">{{.Name}}</a>
             {{with .Location}}<p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{{.}}</p>{{end}}
           </td>
-          <td class="px-4 py-3 whitespace-nowrap"><div class="flex flex-wrap items-center gap-1.5">{{template "door-status" .Status}}{{range .Badges}}{{template "door-status" .}}{{end}}</div></td>
+          <td class="px-4 py-3 whitespace-nowrap"><div class="flex flex-wrap items-center gap-1.5">{{template "door-status" .Status}}{{range .Badges}}{{template "door-status" .}}{{end}}{{with .Mesh}}{{template "mesh-badge" .}}{{end}}</div></td>
           <td class="px-4 py-3 text-zinc-600 dark:text-zinc-400">{{if .Zones}}{{template "names" .Zones}}{{else}}<span class="text-zinc-400 dark:text-zinc-500">None</span>{{end}}</td>
           <td class="px-4 py-3 text-zinc-600 dark:text-zinc-400">{{if .OpenMode}}{{template "names" .OpenMode}}{{else}}<span class="text-zinc-400 dark:text-zinc-500">Never</span>{{end}}</td>
           <td class="px-4 py-3 whitespace-nowrap">{{if .Public}}{{template "public-badge"}}{{else}}<span class="text-xs text-zinc-400 dark:text-zinc-500">Hidden</span>{{end}}</td>

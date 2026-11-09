@@ -84,7 +84,6 @@ func (a *App) ruleRoutes() []route {
 type names struct {
 	catalog
 	groups []connector.StoredGroup
-	doors  []connector.StoredDoor
 }
 
 func (a *App) names(ctx context.Context) (names, error) {
@@ -93,11 +92,7 @@ func (a *App) names(ctx context.Context) (names, error) {
 		return names{}, err
 	}
 	groups, err := a.directory.Groups(ctx)
-	if err != nil {
-		return names{}, err
-	}
-	doors, err := a.doors.Doors(ctx)
-	return names{catalog: c, groups: groups, doors: doors}, err
+	return names{catalog: c, groups: groups}, err
 }
 
 // nameOf names the item whose id is id, found among items; one deleted

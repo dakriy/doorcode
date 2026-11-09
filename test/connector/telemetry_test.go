@@ -21,6 +21,7 @@ func sampleAt(door int64, minutes, signal int) connector.StoredSample {
 	return connector.StoredSample{DoorID: door, StoredTelemetry: connector.StoredTelemetry{
 		At: telemetryStart.Add(time.Duration(minutes) * time.Minute), Signal: signal, LatencyMS: 40, UptimeS: 3720,
 		FreeBytes: 120832, FirmwareVersion: "1.4.2", Reconnects: 2, DoorOpen: minutes%2 == 0, Opens: 1,
+		MeshLayer: 2, MeshParent: "a4cf12e0b102", MeshChildren: 3,
 	}}
 }
 
@@ -125,7 +126,7 @@ func rollupAt(door int64, hours, samples int) connector.StoredRollup {
 	return connector.StoredRollup{
 		DoorID: door, Hour: telemetryStart.Add(time.Duration(hours) * time.Hour), Samples: samples,
 		Signal: connector.StoredSpread{Mean: -60.5, Min: -61, Max: -60}, Latency: connector.StoredSpread{Mean: 40, Min: 40, Max: 40},
-		FreeBytes: connector.StoredSpread{Mean: 120832.25, Min: 120000, Max: 121000}, Opens: 3,
+		FreeBytes: connector.StoredSpread{Mean: 120832.25, Min: 120000, Max: 121000}, Opens: 3, MeshLayer: samples + 1, MeshChildren: 2 * samples,
 	}
 }
 
