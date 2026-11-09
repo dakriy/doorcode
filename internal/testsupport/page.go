@@ -500,3 +500,19 @@ func buttonText(form *html.Node) string {
 	}
 	return ""
 }
+
+// Headings is the text of each second-level heading on the page, in the
+// order the page shows them.
+func Headings(body string) []string {
+	doc, err := html.Parse(strings.NewReader(body))
+	if err != nil {
+		panic(err)
+	}
+	var found []string
+	for n := range doc.Descendants() {
+		if n.Type == html.ElementNode && n.Data == "h2" {
+			found = append(found, text(n))
+		}
+	}
+	return found
+}

@@ -56,6 +56,9 @@
 </div>
 {{end}}
 
+{{/* group-fields is a group's name, slug, description, and pre-assigned
+user ids: the user ids while sign-in reads a user id claim, how many the
+group keeps while it does not, and nothing when it keeps none. */}}
 {{define "group-fields"}}
 <div class="grid gap-5 sm:grid-cols-2">
   {{template "field" (field "name" "Name" "text" .Name .Errors "")}}
@@ -65,29 +68,37 @@
     <textarea id="description" name="description" rows="2"{{with index .Errors "description"}} aria-invalid="true" aria-describedby="description-error"{{end}} class="{{template "input-class"}}">{{.Description}}</textarea>
     {{template "field-note" (field "description" "" "" "" .Errors "")}}
   </div>
-  <fieldset name="roles" class="sm:col-span-2"{{with index .Errors "roles"}} aria-invalid="true" aria-describedby="roles-error"{{end}}>
-    <legend class="text-sm font-medium">Roles</legend>
-    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Every member holds these roles.</p>
-    <div class="mt-3 grid gap-2 sm:grid-cols-2">
-      {{$roles := .Roles}}{{range .Choices}}
-      <label class="flex items-start gap-3 rounded-lg px-3 py-2.5 text-sm ring-1 ring-zinc-200 ring-inset has-checked:bg-brand-50 has-checked:ring-brand-300 dark:ring-zinc-800 dark:has-checked:bg-brand-950 dark:has-checked:ring-brand-700">
-        <input type="checkbox" name="roles" value="{{.}}"{{if has $roles .}} checked{{end}} class="mt-0.5 size-4 shrink-0 rounded border-zinc-300 accent-brand-600">
-        <span class="min-w-0"><span class="block font-mono text-xs font-medium">{{.}}</span> <span class="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">{{describe .}}</span></span>
-      </label>
-      {{end}}
-    </div>
-    {{with index .Errors "roles"}}<p id="roles-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{.}}</p>{{end}}
-  </fieldset>
   {{if .Preassigning}}
   <div class="sm:col-span-2">
     <label for="preassigned_user_ids" class="block text-sm font-medium">Pre-assigned user ids</label>
     <textarea id="preassigned_user_ids" name="preassigned_user_ids" rows="4" spellcheck="false"{{with index .Errors "preassigned_user_ids"}} aria-invalid="true" aria-describedby="preassigned_user_ids-error"{{end}} class="{{template "input-class"}} font-mono">{{.Preassigned}}</textarea>
     {{template "field-note" (field "preassigned_user_ids" "" "" "" .Errors "One per line. A user with one of these user ids joins the group when they are created, and the id leaves this list.")}}
   </div>
-  {{else}}
-  <p role="note" class="sm:col-span-2 rounded-lg border border-dashed border-zinc-300 px-4 py-3 text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">{{with .PreassignedCount}}This group keeps {{.}} pre-assigned user {{if eq . 1}}id{{else}}ids{{end}}. {{end}}Pre-assigned user ids, which add people to the group when their account is created, are offered here once the user id claim is set in the settings.</p>
-  {{end}}
+  {{else}}{{with .PreassignedCount}}
+  <p role="note" class="sm:col-span-2 rounded-lg border border-dashed border-zinc-300 px-4 py-3 text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">This group keeps {{.}} pre-assigned user {{if eq . 1}}id{{else}}ids{{end}}.</p>
+  {{end}}{{end}}
 </div>
+{{end}}
+
+{{/* group-roles is the role checkboxes, one role per row with what it
+lets its holders do, under a heading of the page's own. They belong to
+the form with the id group-form, wherever on the page they sit. */}}
+{{define "group-roles"}}
+<fieldset name="roles"{{with index .Errors "roles"}} aria-invalid="true" aria-describedby="roles-error"{{end}}>
+  <legend class="sr-only">Roles</legend>
+  <p class="text-xs text-zinc-500 dark:text-zinc-400">Every member holds these roles.</p>
+  <ul aria-label="Roles" class="mt-3 divide-y divide-zinc-100 rounded-lg ring-1 ring-zinc-200 ring-inset dark:divide-zinc-800 dark:ring-zinc-800">
+    {{$roles := .Roles}}{{range .Choices}}
+    <li class="first:rounded-t-lg last:rounded-b-lg has-checked:bg-brand-50 dark:has-checked:bg-brand-950">
+      <label class="flex items-start gap-3 px-3 py-2.5 text-sm">
+        <input type="checkbox" name="roles" value="{{.}}" form="group-form"{{if has $roles .}} checked{{end}} class="mt-0.5 size-4 shrink-0 rounded border-zinc-300 accent-brand-600">
+        <span class="min-w-0"><span class="block font-mono text-xs font-medium">{{.}}</span> <span class="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">{{describe .}}</span></span>
+      </label>
+    </li>
+    {{end}}
+  </ul>
+  {{with index .Errors "roles"}}<p id="roles-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{.}}</p>{{end}}
+</fieldset>
 {{end}}
 
 {{define "builtin-badge"}}<span class="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 ring-1 ring-zinc-500/20 ring-inset dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-400/20"><svg class="size-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z" clip-rule="evenodd"/></svg>Built in</span>{{end}}
