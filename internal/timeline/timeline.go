@@ -72,7 +72,7 @@ func Merge(openMode []schedule.Interval, overrides []connector.StoredOverride, f
 		bounds = append(bounds, o.Start, o.End)
 	}
 	spans := []Span{}
-	for _, piece := range pieces(from, to, bounds) {
+	for _, piece := range Pieces(from, to, bounds) {
 		state := stateAt(piece.Start, openMode, overrides)
 		if state != "" {
 			spans = appendSpan(spans, Span{Start: piece.Start, End: piece.End, State: state})
@@ -81,31 +81,9 @@ func Merge(openMode []schedule.Interval, overrides []connector.StoredOverride, f
 	return spans
 }
 
-// CodeWorks is when a code that rules grant over intervals opens a door
-// whose timeline is spans: during intervals, except while the door is
-// locked, in order and with touching intervals joined.
-func CodeWorks(intervals []schedule.Interval, spans []Span, from, to time.Time) []schedule.Interval {
-	bounds := []time.Time{}
-	for _, in := range intervals {
-		bounds = append(bounds, in.Start, in.End)
-	}
-	for _, s := range spans {
-		bounds = append(bounds, s.Start, s.End)
-	}
-	works := []schedule.Interval{}
-	for _, piece := range pieces(from, to, bounds) {
-		granted := slices.ContainsFunc(intervals, func(in schedule.Interval) bool { return covers(in.Start, in.End, piece.Start) })
-		locked := slices.ContainsFunc(spans, func(s Span) bool { return s.State == Locked && covers(s.Start, s.End, piece.Start) })
-		if granted && !locked {
-			works = append(works, piece)
-		}
-	}
-	return schedule.Merged(works)
-}
-
-// pieces cuts the range from from up to to at every one of bounds inside
+// Pieces cuts the range from from up to to at every one of bounds inside
 // it, in order.
-func pieces(from, to time.Time, bounds []time.Time) []schedule.Interval {
+func Pieces(from, to time.Time, bounds []time.Time) []schedule.Interval {
 	cuts := []time.Time{from, to}
 	for _, b := range bounds {
 		if b.After(from) && b.Before(to) {

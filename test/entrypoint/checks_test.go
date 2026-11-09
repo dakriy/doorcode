@@ -121,6 +121,9 @@ func TestEachStepOfTheDecisionChainDecidesInItsOrder(t *testing.T) {
 		"a deleted door commander is denied": {func(k *keypad) {
 			k.f.StoreStub.DeleteUser("cid@example.com", "2026-01-05T08:00:00Z")
 		}, "222222", denied, checked("1", "denied", "expired", byCid)},
+		"a deleted door commander's keypad command is denied": {func(k *keypad) {
+			k.f.StoreStub.DeleteUser("cid@example.com", "2026-01-05T08:00:00Z")
+		}, "222222*00130", denied, checked("1", "denied", "expired", byCid)},
 		"a keypad command from someone not a door commander is denied": {staffRule, "111111*00130", denied, checked("1", "denied", "not a commander", byAnn)},
 		"a keypad command from an unknown code is denied":              {nil, "999999*00130", denied, checked("1", "denied", "not a commander", "")},
 		"a door commander's command that means nothing is denied":      {nil, "222222*00399", denied, checked("1", "denied", "bad command", byCid)},

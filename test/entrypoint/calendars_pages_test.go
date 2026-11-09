@@ -131,8 +131,8 @@ func TestAccessCalendarOfADoorTheUserCannotEnterSaysSo(t *testing.T) {
 	page := pageOf(b.Get("/admin/users/2/doors/2/calendar"))
 
 	want := []any{
-		[]string{"No access rule naming one of Ann Smith’s groups reaches this door, so their code never opens it. The open mode the door’s zones give it is shown."},
-		[][]string{{"Starts", "Ends", "Length"}, {"Their code does not open this door this week."}},
+		[]string{"No access rule naming one of Ann Smith’s groups reaches this door, so their code opens it only while the door is open."},
+		[][]string{{"Starts", "Ends", "Length"}, {"Mon 5 Jan 22:00 UTC", "Tue 6 Jan 06:00 UTC", "8 h"}},
 		[][]string{{"State", "Starts", "Ends", "Length"}, {"Open mode", "Mon 5 Jan 22:00 UTC", "Tue 6 Jan 06:00 UTC", "8 h"}},
 	}
 	if diff := cmp.Diff(want, []any{page.Notes, page.Tables["When the code works"], page.Tables["Timeline"]}); diff != "" {

@@ -197,27 +197,23 @@ func (a *App) accessCalendarPage(w http.ResponseWriter, r *http.Request, viewer 
 	zone := content.zone
 	doorID := pathID(r, "door")
 	wk := a.weekOf(r, zone, userPath(u.ID)+"/doors/"+strconv.FormatInt(doorID, 10)+"/calendar")
-	d, spans, err := a.doors.Timeline(r.Context(), doorID, zone, wk.days.from(), wk.days.to())
+	d, err := a.doors.Door(r.Context(), doorID)
 	if a.unloaded(w, r, viewer, err, door.ErrNoDoor, noDoorHere) {
 		return
 	}
-	reachable, err := a.rules.UserAccess(r.Context(), u.Groups, zone, wk.days.from(), wk.days.to())
+	access, err := a.decisions.DoorAccess(r.Context(), u, d, zone, wk.days.from(), wk.days.to())
 	if err != nil {
 		a.pageError(w, r, err)
 		return
 	}
-	calendar := accessCalendarContent{Calendar: wk, User: a.viewOfUser(u), Door: d, Works: []occurrenceRow{}}
+	calendar := accessCalendarContent{Calendar: wk, User: a.viewOfUser(u), Door: d, Reached: access.Reached, Works: []occurrenceRow{}}
 	events := []calendarEvent{}
-	i := slices.IndexFunc(reachable, func(da rule.DoorAccess) bool { return da.Door.ID == d.ID })
-	calendar.Reached = i >= 0
-	if calendar.Reached {
-		for _, in := range reachable[i].Works {
-			in = inZone(in, zone)
-			calendar.Works = append(calendar.Works, rowOfOccurrence(in))
-			events = append(events, eventOf(in, "Code works", eventCode))
-		}
+	for _, in := range access.Works {
+		in = inZone(in, zone)
+		calendar.Works = append(calendar.Works, rowOfOccurrence(in))
+		events = append(events, eventOf(in, "Code works", eventCode))
 	}
-	calendar.Spans, events = timelineRows(spans, zone, events)
+	calendar.Spans, events = timelineRows(access.Spans, zone, events)
 	calendar.Calendar.Events = eventsText(events)
 	a.render(w, r, http.StatusOK, accessCalendarTemplate, u.DisplayName+" at "+d.Name, &viewer, calendar)
 }

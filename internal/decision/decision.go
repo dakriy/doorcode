@@ -1,7 +1,10 @@
-// Package decision decides whether a code entered at a door's keypad opens
-// it. The chain, in order: the door's rate limit, an expired or deleted
-// user, a keypad command, a door commander, an override in force, the
-// door's open mode, an access rule, and otherwise no.
+// Package decision decides whether a code opens a door. The chain, in
+// order: the door's rate limit, an expired or deleted user, a keypad
+// command, a door commander, an override in force, the door's open mode,
+// an access rule, and otherwise no. At is the chain at one instant without
+// the rate limit and keypad commands; the keypad's Decide and every view
+// of when a user's code works (Public, UserAccess, DoorAccess) are
+// built on it.
 package decision
 
 import (
@@ -24,6 +27,7 @@ import (
 // Store is the part of the store this package uses.
 type Store interface {
 	connector.UsersStore
+	connector.DoorsStore
 	connector.SchedulesStore
 	connector.ZonesStore
 	connector.RulesStore
@@ -64,7 +68,8 @@ func (v Verdict) allowed(reason string) Verdict {
 
 // Decide decides whether digits, a code optionally followed by "*" and a
 // keypad command, opens d, which runs with config. The steps follow spec
-// section 2 in order.
+// section 2 in order: the rate limit and a keypad command here, the rest
+// in At.
 func (s Service) Decide(ctx context.Context, d connector.StoredDoor, config settings.DoorConfig, digits string) (Verdict, error) {
 	now := s.Clock.Now()
 	// 1. The door's rate limit, before the code is looked at.
@@ -80,21 +85,19 @@ func (s Service) Decide(ctx context.Context, d connector.StoredDoor, config sett
 	if err != nil {
 		return v, err
 	}
-	known := v.User != nil
-	// 2. A known user whose account has ended.
-	if known && auth.AccountEnded(*v.User, now) {
-		return v.Denied(event.Expired), nil
-	}
-	commander := known && auth.UserOf(*v.User).Has(auth.RoleDoorCommander)
-	// 3. A keypad command.
+	// 3. A keypad command, after step 2.
 	if commanded {
-		return commandVerdict(v, commander, command), nil
+		return commandVerdict(v, command, now), nil
 	}
-	// 4. A door commander.
-	if commander {
-		return v.allowed(event.Commander), nil
+	site, err := s.siteOf(ctx, current.Zone)
+	if err != nil {
+		return v, err
 	}
-	return s.byTime(ctx, v, d, current.Zone, now)
+	site.Overrides, err = s.Store.DoorOverrides(ctx, d.ID, now)
+	if err != nil {
+		return v, err
+	}
+	return At(v.User, d, site, now), nil
 }
 
 // holder is the verdict, still undecided, naming the user whose door code
@@ -111,11 +114,14 @@ func (s Service) holder(ctx context.Context, code string) (Verdict, error) {
 	return Verdict{User: &u}, err
 }
 
-// commandVerdict is v allowed to carry out text, a keypad command, when
-// the user is a door commander and it is a valid one, and denied
-// otherwise.
-func commandVerdict(v Verdict, commander bool, text string) Verdict {
-	if !commander {
+// commandVerdict is v allowed at now to carry out text, a keypad command,
+// when the user's account has not ended, they are a door commander, and it
+// is a valid one, and denied otherwise.
+func commandVerdict(v Verdict, text string, now time.Time) Verdict {
+	if ended(v.User, now) {
+		return v.Denied(event.Expired)
+	}
+	if !commands(v.User) {
 		return v.Denied(event.NotCommander)
 	}
 	c, ok := parseCommand(text)
@@ -126,47 +132,79 @@ func commandVerdict(v Verdict, commander bool, text string) Verdict {
 	return v.allowed(event.Commanded)
 }
 
-// byTime decides the steps that depend on what is in force at d now, with
-// schedules read in zone: an override, its open mode, and the access rules
-// that let v's user in.
-func (s Service) byTime(ctx context.Context, v Verdict, d connector.StoredDoor, zone *time.Location, now time.Time) (Verdict, error) {
-	overrides, err := s.Store.DoorOverrides(ctx, d.ID, now)
-	if err != nil {
-		return v, err
-	}
-	// 5. A locked, then an open override in force.
-	if inForce(overrides, timeline.Locked, now) {
-		return v.Denied(event.Locked), nil
-	}
-	if inForce(overrides, timeline.Open, now) {
-		return v.allowed(event.OpenOverride), nil
-	}
+// ended reports whether u, nil for a code nobody has, is a known user
+// whose account has ended at now.
+func ended(u *connector.StoredUser, now time.Time) bool {
+	return u != nil && auth.AccountEnded(*u, now)
+}
+
+// commands reports whether u, nil for a code nobody has, is a door
+// commander.
+func commands(u *connector.StoredUser) bool {
+	return u != nil && auth.UserOf(*u).Has(auth.RoleDoorCommander)
+}
+
+// Site is what the chain reads besides the code: the site's zones,
+// schedules, and access rules, the overrides of the door asked about, and
+// the timezone schedules are read in.
+type Site struct {
+	Zone      *time.Location
+	Zones     []connector.StoredZone
+	Schedules []connector.StoredSchedule
+	Rules     []connector.StoredRule
+	Overrides []connector.StoredOverride
+}
+
+// siteOf is the Site, without overrides, with schedules read in zone.
+func (s Service) siteOf(ctx context.Context, zone *time.Location) (Site, error) {
 	zones, err := s.Store.Zones(ctx)
 	if err != nil {
-		return v, err
+		return Site{}, err
 	}
 	schedules, err := s.Store.Schedules(ctx)
 	if err != nil {
-		return v, err
-	}
-	active := func(id int64) bool { return activeAt(schedules, id, zone, now) }
-	// 6. One of the open-mode schedules of the door's zones, for any code.
-	if slices.ContainsFunc(timeline.OpenScheduleIDs(d, zones), active) {
-		return v.allowed(event.OpenMode), nil
+		return Site{}, err
 	}
 	rules, err := s.Store.Rules(ctx)
-	if err != nil {
-		return v, err
+	return Site{Zone: zone, Zones: zones, Schedules: schedules, Rules: rules}, err
+}
+
+// At is the verdict on the code of u, nil for a code nobody has, at d at
+// now with site as it is: the steps of spec section 2 after the rate limit,
+// keypad commands aside. It is the one answer to whether someone's code
+// opens a door at an instant, which the keypad and every view of when a
+// code works share.
+func At(u *connector.StoredUser, d connector.StoredDoor, site Site, now time.Time) Verdict {
+	v := Verdict{User: u}
+	// 2. A known user whose account has ended.
+	if ended(u, now) {
+		return v.Denied(event.Expired)
+	}
+	// 4. A door commander.
+	if commands(u) {
+		return v.allowed(event.Commander)
+	}
+	// 5. A locked, then an open override in force.
+	if inForce(site.Overrides, timeline.Locked, now) {
+		return v.Denied(event.Locked)
+	}
+	if inForce(site.Overrides, timeline.Open, now) {
+		return v.allowed(event.OpenOverride)
+	}
+	active := func(id int64) bool { return activeAt(site.Schedules, id, site.Zone, now) }
+	// 6. One of the open-mode schedules of the door's zones, for any code.
+	if slices.ContainsFunc(timeline.OpenScheduleIDs(d, site.Zones), active) {
+		return v.allowed(event.OpenMode)
 	}
 	// 7. An access rule letting the user in now.
-	for _, r := range rules {
-		if letsIn(r, v.User, d) && active(r.ScheduleID) {
+	for _, r := range rule.ReachingFrom(d, groupsOf(u), site.Rules) {
+		if active(r.ScheduleID) {
 			v.RuleID = r.ID
-			return v.allowed(event.AccessRule), nil
+			return v.allowed(event.AccessRule)
 		}
 	}
 	// 8. Nothing else.
-	return v.Denied(event.NoRule), nil
+	return v.Denied(event.NoRule)
 }
 
 // inForce reports whether one of overrides of kind is in force at now.
@@ -181,14 +219,12 @@ func activeAt(schedules []connector.StoredSchedule, id int64, zone *time.Locatio
 	return i >= 0 && len(schedule.Expand(schedules[i], zone, now, now.Add(time.Nanosecond))) > 0
 }
 
-// letsIn reports whether r names one of u's groups and reaches d through
-// one of its zones; it names none of a code nobody has.
-func letsIn(r connector.StoredRule, u *connector.StoredUser, d connector.StoredDoor) bool {
+// groupsOf is the groups of u, none for a code nobody has.
+func groupsOf(u *connector.StoredUser) []connector.UserGroup {
 	if u == nil {
-		return false
+		return nil
 	}
-	_, reaches := rule.ReachOf(r, d)
-	return reaches && slices.ContainsFunc(u.Groups, func(g connector.UserGroup) bool { return g.ID == r.GroupID })
+	return u.Groups
 }
 
 // Cancel is the kind of keypad command that ends the overrides in force.

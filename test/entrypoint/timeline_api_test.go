@@ -171,6 +171,7 @@ func TestARuleThroughAZoneLetsTheUsersCodeWorkWhenTheDoorIsNotLocked(t *testing.
 	want := testsupport.JSON(`{"time_zone":"UTC","from":"2026-01-05","to":"2026-01-05","doors":[{"door":{"id":1,"name":"Lobby"},"rule_ids":[1,2],"works":[` +
 		`{"start":"2026-01-05T08:00:00Z","end":"2026-01-05T12:00:00Z"},` +
 		`{"start":"2026-01-05T13:00:00Z","end":"2026-01-05T18:00:00Z"},` +
+		`{"start":"2026-01-05T19:00:00Z","end":"2026-01-05T20:00:00Z"},` +
 		`{"start":"2026-01-05T22:00:00Z","end":"2026-01-06T00:00:00Z"}]}]}`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("access (-want +got):\n%s", diff)

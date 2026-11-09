@@ -1,7 +1,8 @@
 // Package rule keeps the site's access rules and works out what they
 // grant: which rules reach a door through its zones, which doors a user's
-// groups let them enter and when their code works there, and whose
-// timelines a change to a schedule, an override, or a zone affects.
+// groups let them enter, when rules are active, and whose timelines a
+// change to a schedule, an override, or a zone affects. When a user's code
+// works is the decision package's.
 package rule
 
 import (
@@ -13,9 +14,7 @@ import (
 
 	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
-	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/schedule"
-	"github.com/dakriy/doorcode/internal/timeline"
 )
 
 // ErrNoRule reports an id that names no access rule.
@@ -193,20 +192,11 @@ func Windows(rules []connector.StoredRule, schedules []connector.StoredSchedule,
 	return out
 }
 
-// DoorAccess is a door, the access rules of a user's groups that reach
-// it, and, over a range, when their code works there and the door's
-// timeline.
+// DoorAccess is a door and the access rules of a user's groups that reach
+// it.
 type DoorAccess struct {
 	Door  connector.StoredDoor
 	Rules []connector.StoredRule
-	Works []schedule.Interval
-	Spans []timeline.Span
-}
-
-// Reached reports whether an access rule of the user's groups reaches the
-// door.
-func (d DoorAccess) Reached() bool {
-	return len(d.Rules) > 0
 }
 
 // Reachable returns each door that is not deleted which an access rule
@@ -218,7 +208,7 @@ func (s Service) Reachable(ctx context.Context, groups []connector.UserGroup) ([
 	}
 	out := []DoorAccess{}
 	for _, d := range doors {
-		reaching := reachingFrom(d, groups, rules)
+		reaching := ReachingFrom(d, groups, rules)
 		if d.DeletedAt == nil && len(reaching) > 0 {
 			out = append(out, DoorAccess{Door: d, Rules: reaching})
 		}
@@ -226,9 +216,9 @@ func (s Service) Reachable(ctx context.Context, groups []connector.UserGroup) ([
 	return out, nil
 }
 
-// reachingFrom is the rules among rules that name one of groups and reach
-// d.
-func reachingFrom(d connector.StoredDoor, groups []connector.UserGroup, rules []connector.StoredRule) []connector.StoredRule {
+// ReachingFrom is the rules among rules, in their order, that name one of
+// groups and reach d.
+func ReachingFrom(d connector.StoredDoor, groups []connector.UserGroup, rules []connector.StoredRule) []connector.StoredRule {
 	var out []connector.StoredRule
 	for _, r := range rules {
 		named := slices.ContainsFunc(groups, func(g connector.UserGroup) bool { return g.ID == r.GroupID })
@@ -237,60 +227,6 @@ func reachingFrom(d connector.StoredDoor, groups []connector.UserGroup, rules []
 		}
 	}
 	return out
-}
-
-// UserAccess is Reachable with when the rules let a code work at each door
-// from from up to to, read in zone: while one of their schedules is active
-// and the door is not locked.
-func (s Service) UserAccess(ctx context.Context, groups []connector.UserGroup, zone *time.Location, from, to time.Time) ([]DoorAccess, error) {
-	doors, err := s.Reachable(ctx, groups)
-	if err != nil {
-		return nil, err
-	}
-	return s.over(ctx, doors, zone, from, to)
-}
-
-// Public returns each public door that is not deleted, in name order, with
-// the access rules naming one of groups that reach it, when they let a
-// code work there from from up to to, read in zone, and its timeline then.
-func (s Service) Public(ctx context.Context, groups []connector.UserGroup, zone *time.Location, from, to time.Time) ([]DoorAccess, error) {
-	doors, rules, err := s.doorsAndRules(ctx)
-	if err != nil {
-		return nil, err
-	}
-	public := []DoorAccess{}
-	for _, d := range doors {
-		if door.InPortal(d) {
-			public = append(public, DoorAccess{Door: d, Rules: reachingFrom(d, groups, rules)})
-		}
-	}
-	return s.over(ctx, public, zone, from, to)
-}
-
-// over is doors with when their rules let a code work and their timelines
-// from from up to to, read in zone.
-func (s Service) over(ctx context.Context, doors []DoorAccess, zone *time.Location, from, to time.Time) ([]DoorAccess, error) {
-	zones, err := s.Store.Zones(ctx)
-	if err != nil {
-		return nil, err
-	}
-	schedules, err := s.Store.Schedules(ctx)
-	if err != nil {
-		return nil, err
-	}
-	for i, d := range doors {
-		overrides, err := s.Store.DoorOverrides(ctx, d.Door.ID, from)
-		if err != nil {
-			return nil, err
-		}
-		var granted []schedule.Interval
-		for _, w := range Windows(d.Rules, schedules, zone, from, to) {
-			granted = append(granted, w.Interval)
-		}
-		doors[i].Spans = timeline.Of(d.Door, zones, schedules, overrides, zone, from, to)
-		doors[i].Works = timeline.CodeWorks(granted, doors[i].Spans, from, to)
-	}
-	return doors, nil
 }
 
 func (s Service) doorsAndRules(ctx context.Context) ([]connector.StoredDoor, []connector.StoredRule, error) {

@@ -25,14 +25,14 @@ type timelineView struct {
 type doorAccessView struct {
 	Door    nameRef          `json:"door" doc:"The door."`
 	RuleIDs []int64          `json:"rule_ids" doc:"The access rules naming one of the user's groups that reach the door."`
-	Works   []occurrenceView `json:"works" doc:"When the user's code opens the door during the days asked for: while a rule's schedule is active and the door is not locked."`
+	Works   []occurrenceView `json:"works" doc:"When the keypad lets the user's code open the door during the days asked for: never once their account has ended, always for a door commander, and otherwise while the door is open or a rule's schedule is active and the door is not locked."`
 }
 
 type userAccessView struct {
 	TimeZone string           `json:"time_zone" doc:"The site timezone schedules are read in."`
 	From     string           `json:"from" doc:"The first day covered, YYYY-MM-DD."`
 	To       string           `json:"to" doc:"The last day covered, YYYY-MM-DD."`
-	Doors    []doorAccessView `json:"doors" doc:"Each door that is not deleted which an access rule naming one of the user's groups reaches, by name."`
+	Doors    []doorAccessView `json:"doors" doc:"Each door that is not deleted which an access rule naming one of the user's groups reaches, or every one for a door commander, by name."`
 }
 
 func dayParams(first openapi.Param) []openapi.Param {
@@ -93,7 +93,7 @@ func (a *App) getUserAccess(w http.ResponseWriter, r *http.Request, _ auth.User)
 		a.directoryError(w, r, err)
 		return
 	}
-	doors, err := a.rules.UserAccess(r.Context(), u.Groups, days.zone, days.from(), days.to())
+	doors, err := a.decisions.UserAccess(r.Context(), u, days.zone, days.from(), days.to())
 	if err != nil {
 		a.internalError(w, r, err)
 		return

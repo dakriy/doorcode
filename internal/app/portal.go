@@ -7,10 +7,10 @@ import (
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/decision"
 	"github.com/dakriy/doorcode/internal/directory"
 	"github.com/dakriy/doorcode/internal/openapi"
 	"github.com/dakriy/doorcode/internal/request"
-	"github.com/dakriy/doorcode/internal/rule"
 )
 
 type ownCodeView struct {
@@ -32,8 +32,8 @@ type portalDoorView struct {
 	Door         nameRef          `json:"door" doc:"The door."`
 	Location     string           `json:"location" doc:"Where the door is; may be empty."`
 	ThumbnailURL string           `json:"thumbnail_url,omitempty" doc:"Where a thumbnail of the door's primary picture is served; absent without one, and while the setting portal_door_pictures is false."`
-	Reached      bool             `json:"reached" doc:"True when an access rule naming one of your groups reaches the door."`
-	Works        []occurrenceView `json:"works" doc:"When your code opens the door during the days asked for: while such a rule's schedule is active and the door is not locked."`
+	Reached      bool             `json:"reached" doc:"True when an access rule naming one of your groups reaches the door, or you are a door commander."`
+	Works        []occurrenceView `json:"works" doc:"When the keypad lets your code open the door during the days asked for: always for a door commander, and otherwise while the door is open or such a rule's schedule is active and the door is not locked."`
 	Spans        []spanView       `json:"spans" doc:"When the door is in open mode, and anyone gets in, or locked during those days, in order."`
 }
 
@@ -201,10 +201,10 @@ func (a *App) setOwnPassword(w http.ResponseWriter, r *http.Request, caller auth
 }
 
 // viewOfPortalDoor is d with its times in zone.
-func viewOfPortalDoor(d rule.DoorAccess, zone *time.Location) portalDoorView {
+func viewOfPortalDoor(d decision.Access, zone *time.Location) portalDoorView {
 	view := portalDoorView{
 		Door: doorRef(d.Door), Location: d.Door.Location, ThumbnailURL: thumbnailOf(d.Door),
-		Reached: d.Reached(), Works: []occurrenceView{}, Spans: []spanView{},
+		Reached: d.Reached, Works: []occurrenceView{}, Spans: []spanView{},
 	}
 	for _, in := range d.Works {
 		view.Works = append(view.Works, occurrenceView{Start: in.Start.In(zone), End: in.End.In(zone)})

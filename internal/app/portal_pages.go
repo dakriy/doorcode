@@ -10,11 +10,11 @@ import (
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/decision"
 	"github.com/dakriy/doorcode/internal/directory"
 	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/event"
 	"github.com/dakriy/doorcode/internal/request"
-	"github.com/dakriy/doorcode/internal/rule"
 	"github.com/dakriy/doorcode/internal/settings"
 	"github.com/dakriy/doorcode/internal/timeline"
 )
@@ -87,10 +87,10 @@ func inside(at, start, end time.Time) bool {
 }
 
 // portalDoorOf is d as the portal shows it at now.
-func portalDoorOf(d rule.DoorAccess, now time.Time) portalDoor {
+func portalDoorOf(d decision.Access, now time.Time) portalDoor {
 	shown := portalDoor{
 		Row:     doorRow{ID: d.Door.ID, Name: d.Door.Name, Location: d.Door.Location, Thumbnail: thumbnailOf(d.Door)},
-		Reached: d.Reached(),
+		Reached: d.Reached,
 	}
 	shown.Now, shown.Kind = doesNow(d, now)
 	return shown
@@ -99,7 +99,7 @@ func portalDoorOf(d rule.DoorAccess, now time.Time) portalDoor {
 // doesNow says what d does for the viewer at now, and how it is drawn:
 // open while its timeline has it in open mode, else whether their code
 // works.
-func doesNow(d rule.DoorAccess, now time.Time) (string, string) {
+func doesNow(d decision.Access, now time.Time) (string, string) {
 	for _, s := range d.Spans {
 		if s.State == timeline.Open && inside(now, s.Start, s.End) {
 			return "Open now", eventOpen
@@ -110,27 +110,27 @@ func doesNow(d rule.DoorAccess, now time.Time) (string, string) {
 			return "Your code works now", eventCode
 		}
 	}
-	if d.Reached() {
+	if d.Reached {
 		return "Your code works at set times", "later"
 	}
 	return "Your code never works here", "none"
 }
 
 // searched is the doors among doors that search matches.
-func searched(doors []rule.DoorAccess, search string) []rule.DoorAccess {
-	return slices.DeleteFunc(doors, func(d rule.DoorAccess) bool { return !door.Matches(d.Door, search) })
+func searched(doors []decision.Access, search string) []decision.Access {
+	return slices.DeleteFunc(doors, func(d decision.Access) bool { return !door.Matches(d.Door, search) })
 }
 
 // publicDoors is every door the portal shows, with the access viewer has
 // there from from up to to, read in the site timezone of current. The
 // doors have no primary picture while current says the portal shows no
 // door pictures.
-func (a *App) publicDoors(r *http.Request, viewer auth.User, current settings.Current, from, to time.Time) ([]rule.DoorAccess, error) {
+func (a *App) publicDoors(r *http.Request, viewer auth.User, current settings.Current, from, to time.Time) ([]decision.Access, error) {
 	u, err := a.directory.User(r.Context(), viewer.ID)
 	if err != nil {
 		return nil, err
 	}
-	doors, err := a.rules.Public(r.Context(), u.Groups, current.Zone, from, to)
+	doors, err := a.decisions.Public(r.Context(), u, current.Zone, from, to)
 	if current.PortalDoorPictures {
 		return doors, err
 	}
@@ -139,8 +139,8 @@ func (a *App) publicDoors(r *http.Request, viewer auth.User, current settings.Cu
 
 // withoutPictures is doors, each without its primary picture, as the
 // portal shows them while it shows no door pictures.
-func withoutPictures(doors []rule.DoorAccess) []rule.DoorAccess {
-	shown := make([]rule.DoorAccess, 0, len(doors))
+func withoutPictures(doors []decision.Access) []decision.Access {
+	shown := make([]decision.Access, 0, len(doors))
 	for _, d := range doors {
 		d.Door.PrimaryPictureID = nil
 		shown = append(shown, d)
@@ -334,13 +334,13 @@ func (a *App) doorAccessPage(w http.ResponseWriter, r *http.Request, viewer auth
 		a.pageError(w, r, err)
 		return
 	}
-	i := slices.IndexFunc(doors, func(d rule.DoorAccess) bool { return d.Door.ID == doorID })
+	i := slices.IndexFunc(doors, func(d decision.Access) bool { return d.Door.ID == doorID })
 	if i < 0 {
 		a.notFound(w, r, viewer, noPortalDoor)
 		return
 	}
 	d := doors[i]
-	content := doorAccessContent{Calendar: wk, Row: portalDoorOf(d, a.clock.Now()).Row, Reached: d.Reached(), Works: []occurrenceRow{}}
+	content := doorAccessContent{Calendar: wk, Row: portalDoorOf(d, a.clock.Now()).Row, Reached: d.Reached, Works: []occurrenceRow{}}
 	events := []calendarEvent{}
 	for _, in := range d.Works {
 		in = inZone(in, zone)

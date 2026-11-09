@@ -9767,7 +9767,7 @@
           },
           "works": {
             "type": "array",
-            "description": "When the user's code opens the door during the days asked for: while a rule's schedule is active and the door is not locked.",
+            "description": "When the keypad lets the user's code open the door during the days asked for: never once their account has ended, always for a door commander, and otherwise while the door is open or a rule's schedule is active and the door is not locked.",
             "items": {
               "$ref": "#/components/schemas/OccurrenceView"
             }
@@ -11297,7 +11297,7 @@
           },
           "reached": {
             "type": "boolean",
-            "description": "True when an access rule naming one of your groups reaches the door."
+            "description": "True when an access rule naming one of your groups reaches the door, or you are a door commander."
           },
           "spans": {
             "type": "array",
@@ -11312,7 +11312,7 @@
           },
           "works": {
             "type": "array",
-            "description": "When your code opens the door during the days asked for: while such a rule's schedule is active and the door is not locked.",
+            "description": "When the keypad lets your code open the door during the days asked for: always for a door commander, and otherwise while the door is open or such a rule's schedule is active and the door is not locked.",
             "items": {
               "$ref": "#/components/schemas/OccurrenceView"
             }
@@ -12095,7 +12095,7 @@
         "properties": {
           "doors": {
             "type": "array",
-            "description": "Each door that is not deleted which an access rule naming one of the user's groups reaches, by name.",
+            "description": "Each door that is not deleted which an access rule naming one of the user's groups reaches, or every one for a door commander, by name.",
             "items": {
               "$ref": "#/components/schemas/DoorAccessView"
             }

@@ -407,6 +407,7 @@ func TestTheAccessCalendarShowsWhenTheDoorIsUnlockedAndWhenTheUsersCodeWorks(t *
 			"When your code works": {
 				{"Starts", "Ends", "Length"},
 				{"Mon 5 Jan 08:00 UTC", "Mon 5 Jan 18:00 UTC", "10 h"},
+				{"Mon 5 Jan 22:00 UTC", "Tue 6 Jan 06:00 UTC", "8 h"},
 				{"Tue 6 Jan 08:00 UTC", "Tue 6 Jan 18:00 UTC", "10 h"},
 				{"Wed 7 Jan 08:00 UTC", "Wed 7 Jan 18:00 UTC", "10 h"},
 				{"Thu 8 Jan 08:00 UTC", "Thu 8 Jan 18:00 UTC", "10 h"},
@@ -590,7 +591,7 @@ func TestMyAccessAnswersWithThePortalsDoorsAndWhenTheUsersCodeWorks(t *testing.T
 	want := testsupport.JSON(`{"time_zone":"UTC","from":"2026-01-05","to":"2026-01-05","doors":[` +
 		`{"door":{"id":3,"name":"Attic"},"location":"","reached":false,"works":[],"spans":[]},` +
 		`{"door":{"id":1,"name":"Lobby"},"location":"Building A","reached":true,` +
-		`"works":[{"start":"2026-01-05T08:00:00Z","end":"2026-01-05T18:00:00Z"}],` +
+		`"works":[{"start":"2026-01-05T08:00:00Z","end":"2026-01-05T18:00:00Z"},{"start":"2026-01-05T22:00:00Z","end":"2026-01-06T00:00:00Z"}],` +
 		`"spans":[{"start":"2026-01-05T22:00:00Z","end":"2026-01-06T00:00:00Z","state":"open"}]}]}`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("access (-want +got):\n%s", diff)

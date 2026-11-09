@@ -349,8 +349,12 @@ of: open now (open mode), your code works now, your code works at set
 times, or your code never works here. A locked door is simply one where the
 user's code does not work now. Each door links to its access calendar,
 showing when it is unlocked (its zones' open mode and its overrides) and
-when the user's code works (the access rules that reach it through its
-zones).
+when the user's code works: whenever the decision of section 2, without
+the rate limit and keypad commands, would let it in (the access rules that
+reach the door through its zones, the door's open mode and open overrides,
+never while it is locked, always for a door commander, and never once the
+account has ended). The keypad and these views evaluate the same chain, so
+they cannot disagree.
 
 ## 13. Dashboard and analytics
 
