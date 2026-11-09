@@ -182,8 +182,7 @@ func activeAt(schedules []connector.StoredSchedule, id int64, zone *time.Locatio
 }
 
 // letsIn reports whether r names one of u's groups and reaches d through
-// one of its zones; it
-// names none of a code nobody has.
+// one of its zones; it names none of a code nobody has.
 func letsIn(r connector.StoredRule, u *connector.StoredUser, d connector.StoredDoor) bool {
 	if u == nil {
 		return false

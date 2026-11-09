@@ -254,6 +254,8 @@ func zoneID(z connector.StoredZone) int64 { return z.ID }
 
 func doorID(d connector.StoredDoor) int64 { return d.ID }
 
+func scheduleID(sch connector.StoredSchedule) int64 { return sch.ID }
+
 // Configure makes overrides, each keyed by the name of the field it
 // overrides, the configuration overrides of the door whose id is id, and
 // returns the door as it is now.

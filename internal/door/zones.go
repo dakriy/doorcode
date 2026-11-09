@@ -100,7 +100,7 @@ func (s Service) checkZone(ctx context.Context, id int64, f ZoneFields) (connect
 	found.Add("name", zoneNameProblem(zones, id, z.Name))
 	found.Add("description", check.TooLong(z.Description, maxDescriptionLength, check.LongText))
 	found.Add("door_ids", check.Unknown(z.DoorIDs, doors, doorID, "No door has id %d."))
-	found.Add("open_schedule_ids", check.Unknown(z.OpenScheduleIDs, schedules, func(sch connector.StoredSchedule) int64 { return sch.ID }, "No schedule has id %d."))
+	found.Add("open_schedule_ids", check.Unknown(z.OpenScheduleIDs, schedules, scheduleID, "No schedule has id %d."))
 	return z, found.Err()
 }
 

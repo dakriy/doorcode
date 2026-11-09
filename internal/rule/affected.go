@@ -8,10 +8,9 @@ import (
 	"github.com/dakriy/doorcode/internal/timeline"
 )
 
-// The kinds of thing whose changes Affected traces to doors: the only
-// things besides the zones a door is in that its timeline depends on.
-// Access rules and groups decide who may enter, never when a door is open
-// or locked.
+// The kinds of thing whose changes Affected traces to doors: besides the
+// door itself, the only things its timeline depends on. Access rules and
+// groups decide who may enter, never when a door is open or locked.
 const (
 	OfSchedule = "schedule"
 	OfOverride = "override"

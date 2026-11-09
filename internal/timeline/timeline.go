@@ -1,8 +1,8 @@
 // Package timeline works out a door's timeline: when, over a range of time,
 // it is in open mode and when it is forced locked, from the open-mode
-// schedules of its zones and its overrides. Locked overrides win over open overrides,
-// which win over schedules; between the spans a timeline lists, the door is
-// in its normal state, where a code opens it.
+// schedules of its zones and its overrides. Locked overrides win over open
+// overrides, which win over schedules; between the spans a timeline lists,
+// the door is in its normal state, where a code opens it.
 package timeline
 
 import (

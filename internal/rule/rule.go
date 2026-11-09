@@ -1,7 +1,7 @@
 // Package rule keeps the site's access rules and works out what they
-// grant: which rules reach a door through its zones, which
-// doors a user's groups let them enter and when their code works there,
-// and whose timelines a change to a schedule or an override affects.
+// grant: which rules reach a door through its zones, which doors a user's
+// groups let them enter and when their code works there, and whose
+// timelines a change to a schedule, an override, or a zone affects.
 package rule
 
 import (

@@ -10,9 +10,8 @@ import (
 )
 
 // doorColumns lists the doors columns, the ids of each door's zones, its
-// controller's columns, all null without one, and
-// its configuration overrides, in the order doorFields reads them, from
-// doorTables.
+// controller's columns, all null without one, and its configuration
+// overrides, in the order doorFields reads them, from doorTables.
 const (
 	doorColumns = `doors.id, doors.name, doors.location, doors.notes, doors.public, doors.primary_picture_id, doors.deleted_at,
 	doors.created_at,
