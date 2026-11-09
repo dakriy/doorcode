@@ -33,14 +33,7 @@ func (s Service) Groups(ctx context.Context) ([]connector.StoredGroup, error) {
 
 // Group returns the group whose id is id.
 func (s Service) Group(ctx context.Context, id int64) (connector.StoredGroup, error) {
-	g, found, err := s.Store.Group(ctx, id)
-	if err != nil {
-		return connector.StoredGroup{}, err
-	}
-	if !found {
-		return connector.StoredGroup{}, ErrNoGroup
-	}
-	return g, nil
+	return check.Lookup(ctx, id, s.Store.Group, ErrNoGroup)
 }
 
 // Members returns the group whose id is id and its members.

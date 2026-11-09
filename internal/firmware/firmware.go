@@ -153,14 +153,7 @@ func versionProblem(all []connector.StoredFirmware, version string) string {
 
 // Get returns the firmware whose id is id.
 func (s Service) Get(ctx context.Context, id int64) (connector.StoredFirmware, error) {
-	f, found, err := s.Store.Firmware(ctx, id)
-	if err != nil {
-		return connector.StoredFirmware{}, err
-	}
-	if !found {
-		return connector.StoredFirmware{}, ErrNoFirmware
-	}
-	return f, nil
+	return check.Lookup(ctx, id, s.Store.Firmware, ErrNoFirmware)
 }
 
 // Delete removes the firmware whose id is id, unless it is the default or

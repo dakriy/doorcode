@@ -13,8 +13,8 @@ import (
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
-	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/event"
+	"github.com/dakriy/doorcode/internal/override"
 	"github.com/dakriy/doorcode/internal/rule"
 	"github.com/dakriy/doorcode/internal/schedule"
 	"github.com/dakriy/doorcode/internal/settings"
@@ -166,7 +166,7 @@ func (s Service) byTime(ctx context.Context, v Verdict, d connector.StoredDoor, 
 
 // inForce reports whether one of overrides of kind is in force at now.
 func inForce(overrides []connector.StoredOverride, kind string, now time.Time) bool {
-	return slices.ContainsFunc(overrides, func(o connector.StoredOverride) bool { return o.Kind == kind && door.Active(o, now) })
+	return slices.ContainsFunc(overrides, func(o connector.StoredOverride) bool { return o.Kind == kind && override.Active(o, now) })
 }
 
 // activeAt reports whether the schedule among schedules whose id is id is

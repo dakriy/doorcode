@@ -55,14 +55,11 @@ func (s Service) Mine(ctx context.Context, userID int64) ([]connector.StoredRequ
 // One returns the request whose id is id when it is one of the user's
 // whose id is userID.
 func (s Service) One(ctx context.Context, userID, id int64) (connector.StoredRequest, error) {
-	r, found, err := s.Store.Request(ctx, id)
-	if err != nil {
-		return connector.StoredRequest{}, err
-	}
-	if !found || r.UserID != userID {
+	r, err := check.Lookup(ctx, id, s.Store.Request, ErrNoRequest)
+	if err == nil && r.UserID != userID {
 		return connector.StoredRequest{}, ErrNoRequest
 	}
-	return r, nil
+	return r, err
 }
 
 // Create stores a request from f by the user whose id is userID.
@@ -155,11 +152,7 @@ func (s Service) Waiting(ctx context.Context) (int, error) {
 
 // Get returns the request whose id is id, whoever made it.
 func (s Service) Get(ctx context.Context, id int64) (connector.StoredRequest, error) {
-	r, found, err := s.Store.Request(ctx, id)
-	if err == nil && !found {
-		return connector.StoredRequest{}, ErrNoSuchRequest
-	}
-	return r, err
+	return check.Lookup(ctx, id, s.Store.Request, ErrNoSuchRequest)
 }
 
 // Reply stores reply, trimmed, as the answer to the request whose id is

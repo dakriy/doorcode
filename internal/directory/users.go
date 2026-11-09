@@ -67,14 +67,7 @@ func (s Service) Users(ctx context.Context, q Query) (UserPage, error) {
 
 // User returns the user whose id is id.
 func (s Service) User(ctx context.Context, id int64) (connector.StoredUser, error) {
-	u, found, err := s.Store.User(ctx, id)
-	if err != nil {
-		return connector.StoredUser{}, err
-	}
-	if !found {
-		return connector.StoredUser{}, ErrNoUser
-	}
-	return u, nil
+	return check.Lookup(ctx, id, s.Store.User, ErrNoUser)
 }
 
 // FindUser returns the user whose email or, failing that, user id is

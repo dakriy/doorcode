@@ -30,14 +30,7 @@ func (s Service) Zones(ctx context.Context) ([]connector.StoredZone, error) {
 
 // Zone returns the zone whose id is id.
 func (s Service) Zone(ctx context.Context, id int64) (connector.StoredZone, error) {
-	z, found, err := s.Store.Zone(ctx, id)
-	if err != nil {
-		return connector.StoredZone{}, err
-	}
-	if !found {
-		return connector.StoredZone{}, ErrNoZone
-	}
-	return z, nil
+	return check.Lookup(ctx, id, s.Store.Zone, ErrNoZone)
 }
 
 // CreateZone creates a zone from f.

@@ -10,6 +10,7 @@ import (
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/controller"
 	"github.com/dakriy/doorcode/internal/door"
+	"github.com/dakriy/doorcode/internal/override"
 	"github.com/dakriy/doorcode/internal/picture"
 	"github.com/dakriy/doorcode/internal/telemetry"
 )
@@ -316,7 +317,7 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 		a.pageError(w, err)
 		return
 	}
-	_, overrides, err := a.doors.Overrides(r.Context(), d.ID)
+	_, overrides, err := a.overrides.Of(r.Context(), d.ID)
 	if err != nil {
 		a.pageError(w, err)
 		return
@@ -457,8 +458,8 @@ type doorRefusal struct {
 // to the status and the message the page shows.
 var doorPageRefusals = []doorRefusal{
 	{door.ErrNoPicture, http.StatusNotFound, "That picture is not there any more. It may have been deleted already."},
-	{door.ErrNoOverride, http.StatusNotFound, "That override is not there any more. It may have been deleted already."},
-	{door.ErrNotActive, http.StatusConflict, "Only an override in force can be cancelled. Delete one that has not started."},
+	{override.ErrNoOverride, http.StatusNotFound, "That override is not there any more. It may have been deleted already."},
+	{override.ErrNotActive, http.StatusConflict, "Only an override in force can be cancelled. Delete one that has not started."},
 	{controller.ErrOffline, http.StatusConflict, "The controller is not connected, so it cannot be sent new credentials. Try again once it is online."},
 }
 

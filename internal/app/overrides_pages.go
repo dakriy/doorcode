@@ -7,7 +7,7 @@ import (
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
-	"github.com/dakriy/doorcode/internal/door"
+	"github.com/dakriy/doorcode/internal/override"
 	"github.com/dakriy/doorcode/internal/timeline"
 )
 
@@ -39,7 +39,7 @@ var kindLabels = map[string]string{timeline.Open: "Open", timeline.Locked: "Lock
 
 func (a *App) rowOfOverride(o connector.StoredOverride, zone *time.Location) overrideRow {
 	return overrideRow{
-		ID: o.ID, Kind: kindLabels[o.Kind], Active: door.Active(o, a.clock.Now()),
+		ID: o.ID, Kind: kindLabels[o.Kind], Active: override.Active(o, a.clock.Now()),
 		Start: shownAt(zone, o.Start, minuteLayout), End: shownAt(zone, o.End, minuteLayout),
 		Reason: o.Reason, Creator: o.CreatorName,
 	}
@@ -64,10 +64,10 @@ func inputTime(t time.Time, zone *time.Location) string {
 
 // fields is f as an override's fields, its times read in zone; a time that
 // cannot be read is one not given.
-func (f overrideForm) fields(zone *time.Location) door.OverrideFields {
+func (f overrideForm) fields(zone *time.Location) override.Fields {
 	start, _ := time.ParseInLocation(inputTimeLayout, f.Start, zone)
 	end, _ := time.ParseInLocation(inputTimeLayout, f.End, zone)
-	return door.OverrideFields{Kind: f.Kind, Start: start, End: end, Reason: f.Reason}
+	return override.Fields{Kind: f.Kind, Start: start, End: end, Reason: f.Reason}
 }
 
 func readOverrideForm(r *http.Request) overrideForm {
@@ -120,8 +120,8 @@ func (a *App) pageOverride(w http.ResponseWriter, r *http.Request, viewer auth.U
 	if !ok {
 		return d, connector.StoredOverride{}, zone, false
 	}
-	o, err := a.doors.Override(r.Context(), d.ID, pathID(r, "override"))
-	if a.unloaded(w, r, viewer, err, door.ErrNoOverride, "There is no override here. It may have been deleted.") {
+	o, err := a.overrides.Get(r.Context(), d.ID, pathID(r, "override"))
+	if a.unloaded(w, r, viewer, err, override.ErrNoOverride, "There is no override here. It may have been deleted.") {
 		return d, o, zone, false
 	}
 	return d, o, zone, true

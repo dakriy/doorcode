@@ -11,8 +11,8 @@ import (
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/controller"
 	"github.com/dakriy/doorcode/internal/decision"
-	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/event"
+	"github.com/dakriy/doorcode/internal/override"
 	"github.com/dakriy/doorcode/internal/protocol"
 	"github.com/dakriy/doorcode/internal/timeline"
 )
@@ -105,7 +105,7 @@ func (a *App) keypadCommand(ctx context.Context, doorID, commander int64, c deci
 		return event.KeypadCancel, fmt.Sprintf("Overrides in force ended: %d.", ended), err
 	}
 	now := a.clock.Now()
-	f := door.OverrideFields{Kind: c.Kind, Start: now, End: now.Add(time.Duration(c.Minutes) * time.Minute), Reason: keypadReason}
+	f := override.Fields{Kind: c.Kind, Start: now, End: now.Add(time.Duration(c.Minutes) * time.Minute), Reason: keypadReason}
 	_, err := a.newOverride(ctx, doorID, commander, f)
 	return keypadReasons[c.Kind], fmt.Sprintf("%s for %d minutes.", kindLabels[c.Kind], c.Minutes), err
 }
@@ -117,14 +117,14 @@ var keypadReasons = map[string]string{timeline.Open: event.KeypadOpen, timeline.
 // endOverridesInForce ends every override of the door whose id is doorID
 // that is in force, and returns how many it ended.
 func (a *App) endOverridesInForce(ctx context.Context, doorID int64) (int, error) {
-	_, overrides, err := a.doors.Overrides(ctx, doorID)
+	_, overrides, err := a.overrides.Of(ctx, doorID)
 	if err != nil {
 		return 0, err
 	}
 	now := a.clock.Now()
 	ended := 0
 	for _, o := range overrides {
-		if door.Active(o, now) {
+		if override.Active(o, now) {
 			if _, err := a.endOverride(ctx, doorID, o.ID); err != nil {
 				return 0, err
 			}

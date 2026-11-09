@@ -104,14 +104,7 @@ func (s Service) Schedules(ctx context.Context) ([]connector.StoredSchedule, err
 
 // Schedule returns the schedule whose id is id.
 func (s Service) Schedule(ctx context.Context, id int64) (connector.StoredSchedule, error) {
-	sch, found, err := s.Store.Schedule(ctx, id)
-	if err != nil {
-		return connector.StoredSchedule{}, err
-	}
-	if !found {
-		return connector.StoredSchedule{}, ErrNoSchedule
-	}
-	return sch, nil
+	return check.Lookup(ctx, id, s.Store.Schedule, ErrNoSchedule)
 }
 
 // Create creates a schedule from f.
