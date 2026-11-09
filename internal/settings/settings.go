@@ -139,7 +139,7 @@ type definition struct {
 	// secret settings are stored encrypted and shown masked.
 	secret bool
 	// section is the part of the settings page that shows the setting,
-	// under label, explained by help.
+	// the one whose definitions list it, under label, explained by help.
 	section Section
 	label   string
 	help    string
@@ -151,89 +151,113 @@ type Section struct {
 	About string
 }
 
-// The sections of the settings page, in display order.
-var (
-	siteSection       = Section{Name: "Site", About: "What the site is called and the timezone every time it shows is read in."}
-	themeSection      = Section{Name: "Theme", About: "The accent color of buttons, links, and highlights. Lighter and darker tones are worked out from it for both the light and the dark theme."}
-	passwordSection   = Section{Name: "Accounts and passwords", About: "How passwords are hashed and chosen, and how long accounts made at sign-in last."}
-	providerSection   = Section{Name: "Single sign-on", About: "Signing in through an OpenID Connect provider. Register public_url followed by /sign-in/oidc/callback as the redirect address, and public_url followed by /sign-in as the address to return to after signing out."}
-	claimsSection     = Section{Name: "Identity claims", About: "The claims of the provider's ID token or userinfo that say who someone is, and the groups its entitlements decide. An empty claim name is a claim the site does not read."}
-	enrollmentSection = Section{Name: "Door enrollment", About: "The broker account every new controller enrolls with, and how long a door's old credentials keep working. A changed enrollment username or password takes effect when the server next starts."}
-	telemetrySection  = Section{Name: "Telemetry", About: "How long door reports are kept and when a silent door counts as unresponsive."}
-	updatesSection    = Section{Name: "Firmware updates", About: "Where doors download firmware from, and when and how fast updates roll out."}
-	doorSection       = Section{Name: "Door defaults", About: "The configuration every door runs with unless its own page overrides a field. Doors receive a changed default as soon as it is saved."}
-)
+// section is a part of the settings page and the definitions of the
+// settings it shows, in display order.
+type section struct {
+	Section
+	definitions []definition
+}
 
-// siteDefinitions is every setting that is not a door configuration
-// default, in display order.
-var siteDefinitions = []definition{
-	{key: keySiteName, fallback: "doorcode", section: siteSection, label: "Site name", help: "Shown in the header and every page title."},
-	{key: keySiteTimezone, fallback: "UTC", validate: func(s Service, value string) error {
-		_, err := s.siteZone(value)
-		return err
-	}, section: siteSection, label: "Timezone", help: "A tz database name such as Europe/Berlin. Schedules, dates typed on pages, and every time shown are read in it."},
-	{key: keyAdminEmail, fallback: "admin@example.com", section: siteSection, label: "First administrator's email",
-		help: "The account created on first start when there are no users."},
-	{key: keyThemeAccent, fallback: defaultAccent, validate: accepting(color), section: themeSection, label: "Accent color",
-		help: "A color as #rrggbb, such as #4f39f6."},
-	{key: keyThemeAccentDark, fallback: "", validate: accepting(optionalColor), section: themeSection, label: "Accent color in the dark theme",
-		help: "A color as #rrggbb, or empty to use the accent color."},
-	{key: keyPasswordHashMemory, fallback: "19456", validate: accepting(passwordHashMemory), section: passwordSection, label: "Password hashing memory",
-		help: "KiB of memory hashing one password takes, from 8 to 1048576. More is slower to guess."},
-	{key: keyPasswordMinLength, fallback: "12", validate: accepting(passwordMinLength), section: passwordSection, label: "Shortest password",
-		help: "How many characters a password chosen in the portal has at least, from 8 to 128."},
-	{key: keyNewUserExpiry, fallback: "1826", validate: accepting(newUserExpiry), section: passwordSection, label: "New account lifetime",
-		help: "Days until the account of a user created by signing in at the provider expires."},
-	{key: keyOIDCEnabled, fallback: "false", validate: accepting(boolean), section: providerSection, label: "Single sign-on enabled", help: "true or false."},
-	{key: keyOIDCAutoSignIn, fallback: "false", validate: accepting(boolean), section: providerSection, label: "Automatic sign-in",
-		help: "true sends the sign-in page straight on to the provider and hides the password forms; add ?auto_sign_in=false to reach them."},
-	{key: keyOIDCIssuer, fallback: "", validate: accepting(issuer), section: providerSection, label: "Issuer",
-		help: "The provider's https:// address, exactly as it names itself."},
-	{key: keyOIDCClientID, fallback: "", section: providerSection, label: "Client id", help: "The id the site is registered with at the provider."},
-	{key: keyOIDCClientSecret, fallback: "", secret: true, section: providerSection, label: "Client secret",
-		help: "The secret the site is registered with, if the provider gave one."},
-	{key: keyOIDCScopes, fallback: "openid email profile", validate: accepting(scopes), section: providerSection, label: "Scopes",
-		help: "Scopes asked for, separated by spaces, openid among them."},
-	{key: keyClaimUserID, fallback: "", section: claimsSection, label: "User id claim", help: "The claim holding the user id people are matched by first."},
-	{key: keyClaimEmail, fallback: "email", validate: accepting(claimName), section: claimsSection, label: "Email claim", help: "Required."},
-	{key: keyClaimFirstName, fallback: "given_name", section: claimsSection, label: "First name claim"},
-	{key: keyClaimLastName, fallback: "family_name", section: claimsSection, label: "Last name claim"},
-	{key: keyClaimDisplayName, fallback: "name", section: claimsSection, label: "Display name claim"},
-	{key: keyClaimEntitlements, fallback: "", section: claimsSection, label: "Entitlements claim",
-		help: "The claim listing what someone is entitled to; values equal to a slug below decide membership of that group."},
-	{key: keyEntitlementGroups, fallback: "", validate: accepting(slugs), section: claimsSection, label: "Groups entitlements decide",
-		help: "Group slugs separated by commas. Signing in joins those the entitlements name and leaves the others."},
-	{key: keyDefaultGroups, fallback: "", validate: accepting(slugs), section: claimsSection, label: "Groups new users join",
-		help: "Group slugs separated by commas."},
-	{key: keyEnrollmentUsername, fallback: "doorcode-enroll", section: enrollmentSection, label: "Enrollment username"},
-	{key: keyEnrollmentPassword, fallback: "", secret: true, section: enrollmentSection, label: "Enrollment password",
-		help: "Generated and logged on first start when empty."},
-	{key: keyGraceHours, fallback: "24", validate: accepting(graceHours), section: enrollmentSection, label: "Credential grace period",
-		help: "Hours a door's old credentials keep working after new ones are issued."},
-	{key: keyTelemetryRetention, fallback: "7", validate: accepting(telemetryRetention), section: telemetrySection, label: "Reports kept",
-		help: "Days each telemetry report is kept."},
-	{key: keyRollupRetention, fallback: "730", validate: accepting(rollupRetention), section: telemetrySection, label: "Hourly summaries kept",
-		help: "Days the hourly summaries of the reports are kept."},
-	{key: keyUnresponsive, fallback: "5", validate: accepting(unresponsiveAfter), section: telemetrySection, label: "Unresponsive after",
-		help: "Minutes a connected door may stay silent before it counts as unresponsive."},
-	{key: keyPublicURL, fallback: "", validate: accepting(publicURL), section: updatesSection, label: "Public address",
-		help: "The https:// address doors and browsers reach the server at. Nothing is sent to doors to download while it is empty."},
-	{key: KeyUpdateDays, fallback: EveryDay, validate: accepting(updateDays), section: updatesSection, label: "Update days",
-		help: "daily, or weekdays separated by commas such as sat,sun."},
-	{key: keyUpdateStart, fallback: "02:00", validate: accepting(timeOfDay), section: updatesSection, label: "Update window opens", help: "HH:MM in the site timezone."},
-	{key: keyUpdateLength, fallback: "120", validate: accepting(updateLength), section: updatesSection, label: "Update window length", help: "Minutes."},
-	{key: keyUpdateConcurrency, fallback: "5", validate: accepting(updateConcurrency), section: updatesSection, label: "Doors updating at once"},
-	{key: keyUpdateTimeout, fallback: "30", validate: accepting(updateTimeout), section: updatesSection, label: "Update timeout",
-		help: "Minutes a door may take to come back on its new version before the update fails."},
+// sections is every part of the settings page, in display order: the
+// site's own settings, then the door configuration defaults.
+var sections = []section{
+	{Section{Name: "Site", About: "What the site is called and the timezone every time it shows is read in."}, []definition{
+		{key: keySiteName, fallback: "doorcode", label: "Site name", help: "Shown in the header and every page title."},
+		{key: keySiteTimezone, fallback: "UTC", validate: func(s Service, value string) error {
+			_, err := s.siteZone(value)
+			return err
+		}, label: "Timezone", help: "A tz database name such as Europe/Berlin. Schedules, dates typed on pages, and every time shown are read in it."},
+		{key: keyAdminEmail, fallback: "admin@example.com", label: "First administrator's email",
+			help: "The account created on first start when there are no users."},
+	}},
+	{Section{Name: "Theme", About: "The accent color of buttons, links, and highlights. Lighter and darker tones are worked out from it for both the light and the dark theme."}, []definition{
+		{key: keyThemeAccent, fallback: defaultAccent, validate: accepting(color), label: "Accent color",
+			help: "A color as #rrggbb, such as #4f39f6."},
+		{key: keyThemeAccentDark, fallback: "", validate: accepting(optionalColor), label: "Accent color in the dark theme",
+			help: "A color as #rrggbb, or empty to use the accent color."},
+	}},
+	{Section{Name: "Accounts and passwords", About: "How passwords are hashed and chosen, and how long accounts made at sign-in last."}, []definition{
+		{key: keyPasswordHashMemory, fallback: "19456", validate: accepting(passwordHashMemory), label: "Password hashing memory",
+			help: "KiB of memory hashing one password takes, from 8 to 1048576. More is slower to guess."},
+		{key: keyPasswordMinLength, fallback: "12", validate: accepting(passwordMinLength), label: "Shortest password",
+			help: "How many characters a password chosen in the portal has at least, from 8 to 128."},
+		{key: keyNewUserExpiry, fallback: "1826", validate: accepting(newUserExpiry), label: "New account lifetime",
+			help: "Days until the account of a user created by signing in at the provider expires."},
+	}},
+	{Section{Name: "Single sign-on", About: "Signing in through an OpenID Connect provider. Register public_url followed by /sign-in/oidc/callback as the redirect address, and public_url followed by /sign-in as the address to return to after signing out."}, []definition{
+		{key: keyOIDCEnabled, fallback: "false", validate: accepting(boolean), label: "Single sign-on enabled", help: "true or false."},
+		{key: keyOIDCAutoSignIn, fallback: "false", validate: accepting(boolean), label: "Automatic sign-in",
+			help: "true sends the sign-in page straight on to the provider and hides the password forms; add ?auto_sign_in=false to reach them."},
+		{key: keyOIDCIssuer, fallback: "", validate: accepting(issuer), label: "Issuer",
+			help: "The provider's https:// address, exactly as it names itself."},
+		{key: keyOIDCClientID, fallback: "", label: "Client id", help: "The id the site is registered with at the provider."},
+		{key: keyOIDCClientSecret, fallback: "", secret: true, label: "Client secret",
+			help: "The secret the site is registered with, if the provider gave one."},
+		{key: keyOIDCScopes, fallback: "openid email profile", validate: accepting(scopes), label: "Scopes",
+			help: "Scopes asked for, separated by spaces, openid among them."},
+	}},
+	{Section{Name: "Identity claims", About: "The claims of the provider's ID token or userinfo that say who someone is, and the groups its entitlements decide. An empty claim name is a claim the site does not read."}, []definition{
+		{key: keyClaimUserID, fallback: "", label: "User id claim", help: "The claim holding the user id people are matched by first."},
+		{key: keyClaimEmail, fallback: "email", validate: accepting(claimName), label: "Email claim", help: "Required."},
+		{key: keyClaimFirstName, fallback: "given_name", label: "First name claim"},
+		{key: keyClaimLastName, fallback: "family_name", label: "Last name claim"},
+		{key: keyClaimDisplayName, fallback: "name", label: "Display name claim"},
+		{key: keyClaimEntitlements, fallback: "", label: "Entitlements claim",
+			help: "The claim listing what someone is entitled to; values equal to a slug below decide membership of that group."},
+		{key: keyEntitlementGroups, fallback: "", validate: accepting(slugs), label: "Groups entitlements decide",
+			help: "Group slugs separated by commas. Signing in joins those the entitlements name and leaves the others."},
+		{key: keyDefaultGroups, fallback: "", validate: accepting(slugs), label: "Groups new users join",
+			help: "Group slugs separated by commas."},
+	}},
+	{Section{Name: "Door enrollment", About: "The broker account every new controller enrolls with, and how long a door's old credentials keep working. A changed enrollment username or password takes effect when the server next starts."}, []definition{
+		{key: keyEnrollmentUsername, fallback: "doorcode-enroll", label: "Enrollment username"},
+		{key: keyEnrollmentPassword, fallback: "", secret: true, label: "Enrollment password",
+			help: "Generated and logged on first start when empty."},
+		{key: keyGraceHours, fallback: "24", validate: accepting(graceHours), label: "Credential grace period",
+			help: "Hours a door's old credentials keep working after new ones are issued."},
+	}},
+	{Section{Name: "Telemetry", About: "How long door reports are kept and when a silent door counts as unresponsive."}, []definition{
+		{key: keyTelemetryRetention, fallback: "7", validate: accepting(telemetryRetention), label: "Reports kept",
+			help: "Days each telemetry report is kept."},
+		{key: keyRollupRetention, fallback: "730", validate: accepting(rollupRetention), label: "Hourly summaries kept",
+			help: "Days the hourly summaries of the reports are kept."},
+		{key: keyUnresponsive, fallback: "5", validate: accepting(unresponsiveAfter), label: "Unresponsive after",
+			help: "Minutes a connected door may stay silent before it counts as unresponsive."},
+	}},
+	{Section{Name: "Firmware updates", About: "Where doors download firmware from, and when and how fast updates roll out."}, []definition{
+		{key: keyPublicURL, fallback: "", validate: accepting(publicURL), label: "Public address",
+			help: "The https:// address doors and browsers reach the server at. Nothing is sent to doors to download while it is empty."},
+		{key: KeyUpdateDays, fallback: EveryDay, validate: accepting(updateDays), label: "Update days",
+			help: "daily, or weekdays separated by commas such as sat,sun."},
+		{key: keyUpdateStart, fallback: "02:00", validate: accepting(timeOfDay), label: "Update window opens", help: "HH:MM in the site timezone."},
+		{key: keyUpdateLength, fallback: "120", validate: accepting(updateLength), label: "Update window length", help: "Minutes."},
+		{key: keyUpdateConcurrency, fallback: "5", validate: accepting(updateConcurrency), label: "Doors updating at once"},
+		{key: keyUpdateTimeout, fallback: "30", validate: accepting(updateTimeout), label: "Update timeout",
+			help: "Minutes a door may take to come back on its new version before the update fails."},
+	}},
+	{Section{Name: "Door defaults", About: "The configuration every door runs with unless its own page overrides a field. Doors receive a changed default as soon as it is saved."}, doorDefinitions()},
 }
 
 // UpdateKeys are the keys of the settings that say how firmware updates
 // roll out, in display order.
 var UpdateKeys = []string{KeyUpdateDays, keyUpdateStart, keyUpdateLength, keyUpdateConcurrency, keyUpdateTimeout}
 
-// definitions is every setting the site has, in display order: the
-// site's own, then the door configuration defaults.
-var definitions = append(siteDefinitions, doorDefinitions()...)
+// definitions is every setting the site has, in display order, each
+// knowing its section.
+var definitions = inSections(sections)
+
+// inSections is the definitions of sections, in order, each given the
+// section that shows it.
+func inSections(sections []section) []definition {
+	var out []definition
+	for _, s := range sections {
+		for _, def := range s.definitions {
+			def.section = s.Section
+			out = append(out, def)
+		}
+	}
+	return out
+}
 
 // Current is the settings the application acts on, parsed.
 type Current struct {
@@ -708,7 +732,7 @@ func (s Service) put(ctx context.Context, key, value string, clearing bool) (Set
 	if _, set := s.Env.Lookup(envVar); set {
 		return Setting{}, fmt.Errorf("%w: %s is set by environment variable %s", ErrReadOnly, key, envVar)
 	}
-	if !clearing && keeps(def, value) {
+	if keeps(def, value, clearing) {
 		return s.Get(ctx, key)
 	}
 	if def.validate != nil {
@@ -740,12 +764,8 @@ func (s Service) UpdateAll(ctx context.Context, values map[string]string, cleare
 	var changed []definition
 	stored := map[string]string{}
 	for i, def := range definitions {
-		value, given := values[def.key]
-		clearing := def.secret && slices.Contains(cleared, def.key)
-		if clearing {
-			value, given = "", true
-		}
-		if !given || value == all[i].Value || all[i].ReadOnly() || !clearing && keeps(def, value) {
+		value, given, clearing := formValue(def, values, cleared)
+		if !given || value == all[i].Value || all[i].ReadOnly() || keeps(def, value, clearing) {
 			continue
 		}
 		found.Add(def.key, s.refusal(def, value))
@@ -764,6 +784,16 @@ func (s Service) UpdateAll(ctx context.Context, values map[string]string, cleare
 		keys = append(keys, def.key)
 	}
 	return keys, nil
+}
+
+// formValue is the value values or cleared give the setting def, whether
+// they give one, and whether it clears a secret, which only cleared does.
+func formValue(def definition, values map[string]string, cleared []string) (value string, given, clearing bool) {
+	if def.secret && slices.Contains(cleared, def.key) {
+		return "", true, true
+	}
+	value, given = values[def.key]
+	return value, given, false
 }
 
 // refusal is why the setting def cannot take value, as a sentence; empty

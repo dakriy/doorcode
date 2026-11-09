@@ -144,11 +144,11 @@ func updateText(u *connector.StoredUpdate, zone *time.Location) string {
 	}
 	switch u.State {
 	case firmware.Updating:
-		return "Sent " + u.Version + " on " + shownAt(zone, u.SentAt, eventLayout)
+		return "Sent " + u.Version + " on " + shownAt(zone, u.SentAt, secondLayout)
 	case firmware.Succeeded:
-		return "Updated to " + u.Version + " on " + shownAt(zone, *u.FinishedAt, eventLayout)
+		return "Updated to " + u.Version + " on " + shownAt(zone, *u.FinishedAt, secondLayout)
 	}
-	return "Failed to update to " + u.Version + " on " + shownAt(zone, *u.FinishedAt, eventLayout) + ": " + u.Detail
+	return "Failed to update to " + u.Version + " on " + shownAt(zone, *u.FinishedAt, secondLayout) + ": " + u.Detail
 }
 
 func rowOfDoorFirmware(df firmware.DoorFirmware, zone *time.Location) rolloutRow {
@@ -229,7 +229,7 @@ func (a *App) showFirmware(w http.ResponseWriter, r *http.Request, status int, v
 	for _, f := range plan.Firmware {
 		running, targeting := counts(plan, f.Version)
 		content.Versions = append(content.Versions, firmwareRow{
-			ID: f.ID, Version: f.Version, Uploader: f.UploaderName, Uploaded: shownAt(zone, f.UploadedAt, eventLayout),
+			ID: f.ID, Version: f.Version, Uploader: f.UploaderName, Uploaded: shownAt(zone, f.UploadedAt, secondLayout),
 			Running: running, Targeting: targeting, Default: f.Default,
 		})
 	}
@@ -331,7 +331,7 @@ func (a *App) showFirmwareVersion(w http.ResponseWriter, r *http.Request, status
 		return
 	}
 	content := firmwareVersionContent{
-		Firmware: f, Uploaded: shownAt(zone, f.UploadedAt, eventLayout), Size: strconv.Itoa(f.Size) + " bytes", Alert: alert, Doors: []rolloutRow{},
+		Firmware: f, Uploaded: shownAt(zone, f.UploadedAt, secondLayout), Size: strconv.Itoa(f.Size) + " bytes", Alert: alert, Doors: []rolloutRow{},
 	}
 	for _, df := range plan.Doors {
 		runs, targets := concerns(df, f.Version)

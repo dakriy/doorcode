@@ -160,7 +160,7 @@ func doorDefinitions() []definition {
 	for _, f := range DoorFields {
 		out = append(out, definition{key: doorPrefix + f.Name, fallback: f.fallback, validate: func(_ Service, value string) error {
 			return f.set(&DoorConfig{}, value)
-		}, section: doorSection, label: f.Label, help: sentence(f.Hint)})
+		}, label: f.Label, help: sentence(f.Hint)})
 	}
 	return out
 }

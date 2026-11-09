@@ -23,12 +23,6 @@ func (a *App) calendarPageRoutes() []route {
 	}
 }
 
-const (
-	occurrenceLayout = "Mon 2 Jan 15:04 MST"
-	localLayout      = "2006-01-02T15:04:05"
-	longDateLayout   = "2 Jan 2006"
-)
-
 // week is the week a calendar page shows and the links to its neighbours.
 type week struct {
 	// Monday is the day the week starts on, and Today the date it is now,

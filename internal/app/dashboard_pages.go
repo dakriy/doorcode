@@ -28,9 +28,6 @@ const (
 	maxSeries = 8
 	// heatLevels is how many shades the heatmap has above zero.
 	heatLevels = 5
-	// dayLayout and longDayLayout are how the dashboard writes a day.
-	dayLayout     = "Mon 2 Jan"
-	longDayLayout = "2 Jan 2006"
 )
 
 // dashboardContent is the dashboard's content: the live counts, the range
@@ -99,9 +96,9 @@ func problemsOf(err error) map[string]string {
 // spanText is the days r spans, as the dashboard writes them.
 func spanText(r stats.Range) string {
 	if r.Days() == 1 {
-		return r.First.Format("Mon " + longDayLayout)
+		return r.First.Format("Mon " + longDateLayout)
 	}
-	return r.First.Format(longDayLayout) + " – " + r.Last.Format(longDayLayout)
+	return r.First.Format(longDateLayout) + " – " + r.Last.Format(longDateLayout)
 }
 
 // fillDashboard fills in the parts of content viewer's roles reach over

@@ -98,9 +98,10 @@ func (s Service) storable(def definition, value string) string {
 }
 
 // keeps reports whether storing value for the setting def leaves it as it
-// is: an empty value for a secret, which forms and the API offer blank.
-func keeps(def definition, value string) bool {
-	return def.secret && value == ""
+// is: an empty value for a secret, which forms and the API offer blank,
+// unless the secret is being cleared.
+func keeps(def definition, value string, clearing bool) bool {
+	return def.secret && value == "" && !clearing
 }
 
 // shown is s as the setting def lets it be seen, in its section with its

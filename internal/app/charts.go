@@ -20,9 +20,6 @@ const (
 	plotTop    = 5
 )
 
-// chartLayout is how a chart writes the times its range starts and ends.
-const chartLayout = "Mon 2 Jan 15:04"
-
 // chartView is a chart as a page draws it: what it shows, its lines, the
 // highest and lowest values, when its range starts and ends, and what it
 // says when it has nothing to draw.

@@ -221,20 +221,31 @@ func (a *App) showSettings(w http.ResponseWriter, r *http.Request, status int, v
 		a.pageError(w, err)
 		return
 	}
-	content := settingsContent{Errors: errs, SignInImage: image, Alert: alert, MaxPictureMB: picture.Megabytes(), MaxPictureSide: picture.MaxSide}
+	content := settingsContent{
+		Sections: sectionsOf(all, entered), Errors: errs, SignInImage: image, Alert: alert,
+		MaxPictureMB: picture.Megabytes(), MaxPictureSide: picture.MaxSide,
+	}
+	a.render(w, r, status, settingsTemplate, "Settings", &viewer, content)
+}
+
+// sectionsOf is all, settings listed section by section, as the settings
+// page's sections, each input holding entered or the setting's value where
+// entered has none.
+func sectionsOf(all []settings.Setting, entered map[string]string) []settingSection {
+	var sections []settingSection
 	for _, s := range all {
 		value, given := entered[s.Key]
 		if !given {
 			value = s.Value
 		}
-		last := len(content.Sections) - 1
-		if last < 0 || content.Sections[last].Name != s.Section.Name {
-			content.Sections = append(content.Sections, settingSection{Section: s.Section})
+		last := len(sections) - 1
+		if last < 0 || sections[last].Name != s.Section.Name {
+			sections = append(sections, settingSection{Section: s.Section})
 			last++
 		}
-		content.Sections[last].Rows = append(content.Sections[last].Rows, settingRow{Setting: s, Entered: value})
+		sections[last].Rows = append(sections[last].Rows, settingRow{Setting: s, Entered: value})
 	}
-	a.render(w, r, status, settingsTemplate, "Settings", &viewer, content)
+	return sections
 }
 
 func (a *App) settingsPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {

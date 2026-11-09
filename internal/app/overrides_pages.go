@@ -23,13 +23,6 @@ func (a *App) overridePageRoutes() []route {
 	}
 }
 
-const (
-	// inputTimeLayout is how a datetime-local input writes a time.
-	inputTimeLayout = "2006-01-02T15:04"
-	// overrideLayout is how pages write when an override starts and ends.
-	overrideLayout = "Mon 2 Jan 2006 15:04"
-)
-
 // overrideRow is one override as a door's page lists it.
 type overrideRow struct {
 	ID      int64
@@ -47,7 +40,7 @@ var kindLabels = map[string]string{timeline.Open: "Open", timeline.Locked: "Lock
 func (a *App) rowOfOverride(o connector.StoredOverride, zone *time.Location) overrideRow {
 	return overrideRow{
 		ID: o.ID, Kind: kindLabels[o.Kind], Active: door.Active(o, a.clock.Now()),
-		Start: shownAt(zone, o.Start, overrideLayout), End: shownAt(zone, o.End, overrideLayout),
+		Start: shownAt(zone, o.Start, minuteLayout), End: shownAt(zone, o.End, minuteLayout),
 		Reason: o.Reason, Creator: o.CreatorName,
 	}
 }

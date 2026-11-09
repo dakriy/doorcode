@@ -137,28 +137,39 @@ func upright(src image.Image, o int) image.Image {
 	if !turned {
 		return src
 	}
-	width, height := src.Bounds().Dx(), src.Bounds().Dy()
-	size := image.Pt(width, height)
-	if t.swap {
-		size = image.Pt(height, width)
-	}
+	stored := src.Bounds().Size()
+	size := t.size(stored)
 	dst := image.NewRGBA(image.Rectangle{Max: size})
 	for y := range size.Y {
 		for x := range size.X {
-			u, v := x, y
-			if t.swap {
-				u, v = y, x
-			}
-			if t.flipX {
-				u = width - 1 - u
-			}
-			if t.flipY {
-				v = height - 1 - v
-			}
-			dst.Set(x, y, src.At(u, v))
+			from := t.from(image.Pt(x, y), stored)
+			dst.Set(x, y, src.At(from.X, from.Y))
 		}
 	}
 	return dst
+}
+
+// size is the size of an image stored at stored, seen upright.
+func (t turn) size(stored image.Point) image.Point {
+	if t.swap {
+		return image.Pt(stored.Y, stored.X)
+	}
+	return stored
+}
+
+// from is where the pixel at p upright is stored in an image stored at
+// stored.
+func (t turn) from(p, stored image.Point) image.Point {
+	if t.swap {
+		p = image.Pt(p.Y, p.X)
+	}
+	if t.flipX {
+		p.X = stored.X - 1 - p.X
+	}
+	if t.flipY {
+		p.Y = stored.Y - 1 - p.Y
+	}
+	return p
 }
 
 // fit is src scaled down, keeping its proportions, so that its longest side

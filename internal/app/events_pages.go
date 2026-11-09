@@ -20,9 +20,6 @@ import (
 // recentEvents is how many events a door's or a user's page shows.
 const recentEvents = 10
 
-// eventLayout is how pages write when an event happened.
-const eventLayout = "Mon 2 Jan 2006 15:04:05"
-
 func (a *App) eventPageRoutes() []route {
 	return []route{
 		pageRoute(http.MethodGet, "/admin/events", holding(auth.RoleViewLogs), a.eventsPage),
@@ -57,7 +54,7 @@ func sentence(s string) string {
 
 func rowOfEvent(e connector.StoredEvent, zone *time.Location) eventRow {
 	row := eventRow{
-		At: shownAt(zone, e.At, eventLayout), Door: nameRef{ID: e.DoorID, Name: e.DoorName}, Type: typeLabels[e.Type],
+		At: shownAt(zone, e.At, secondLayout), Door: nameRef{ID: e.DoorID, Name: e.DoorName}, Type: typeLabels[e.Type],
 		Outcome: sentence(e.Outcome), Reason: sentence(e.Reason), RequestID: e.RequestID, Detail: e.Detail,
 	}
 	if e.UserID != nil {

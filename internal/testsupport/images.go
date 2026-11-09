@@ -49,7 +49,12 @@ func ImageInfo(body string) string {
 	if err != nil {
 		return "not an image: " + err.Error()
 	}
-	return fmt.Sprintf("%s %dx%d", format, config.Width, config.Height)
+	return sized(format, config.Width, config.Height)
+}
+
+// sized is an image's format and size, such as "jpeg 320x240".
+func sized(format string, width, height int) string {
+	return fmt.Sprintf("%s %dx%d", format, width, height)
 }
 
 // Padded is content followed by zero bytes to make size bytes, for an
@@ -59,9 +64,12 @@ func Padded(content []byte, size int) []byte {
 }
 
 // Upright is how an oriented test picture looks when seen the right way
-// up: 64 by 32 pixels, red at the top left, green at the top right, blue
-// at the bottom left, and white at the bottom right.
+// up: uprightWidth by uprightHeight pixels, red at the top left, green at
+// the top right, blue at the bottom left, and white at the bottom right.
 const Upright = "jpeg 64x32 red green blue white"
+
+// uprightWidth and uprightHeight are the size of an upright test picture.
+const uprightWidth, uprightHeight = 64, 32
 
 // quadrantColors are the colors of an upright test picture's quarters, top
 // left, top right, bottom left, bottom right.
@@ -81,15 +89,15 @@ const Orientation = 0x0112
 // orientation o: the stored pixel at x, y is the upright one where o's
 // reading puts it.
 func StoredAs(o uint16) image.Image {
-	width, height := 64, 32
+	width, height := uprightWidth, uprightHeight
 	if o >= 5 {
-		width, height = 32, 64
+		width, height = uprightHeight, uprightWidth
 	}
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
 	for y := range height {
 		for x := range width {
 			ux, uy := uprightAt(o, x, y, width, height)
-			img.Set(x, y, quadrantColors[uy/16*2+ux/32])
+			img.Set(x, y, quadrantColors[uy/(uprightHeight/2)*2+ux/(uprightWidth/2)])
 		}
 	}
 	return img
@@ -146,7 +154,7 @@ func Quadrants(body string) string {
 	}
 	b := img.Bounds()
 	corners := []image.Point{{b.Min.X, b.Min.Y}, {b.Max.X - 1, b.Min.Y}, {b.Min.X, b.Max.Y - 1}, {b.Max.X - 1, b.Max.Y - 1}}
-	out := fmt.Sprintf("%s %dx%d", format, b.Dx(), b.Dy())
+	out := sized(format, b.Dx(), b.Dy())
 	for _, p := range corners {
 		out += " " + colorName(img.At(p.X, p.Y))
 	}
@@ -156,17 +164,23 @@ func Quadrants(body string) string {
 // colorName names c when it is near red, green, blue, or white.
 func colorName(c color.Color) string {
 	r, g, b, _ := c.RGBA()
-	high := func(v uint32) bool { return v > 0xb000 }
-	low := func(v uint32) bool { return v < 0x5000 }
-	switch {
-	case high(r) && high(g) && high(b):
-		return "white"
-	case high(r) && low(g) && low(b):
-		return "red"
-	case low(r) && high(g) && low(b):
-		return "green"
-	case low(r) && low(g) && high(b):
-		return "blue"
+	if name, near := colorNames[level(r)+level(g)+level(b)]; near {
+		return name
 	}
 	return "other"
+}
+
+// colorNames names a color by the level of its red, green, and blue.
+var colorNames = map[string]string{"+++": "white", "+--": "red", "-+-": "green", "--+": "blue"}
+
+// level is a color channel's value v as high, "+", low, "-", or between,
+// "?".
+func level(v uint32) string {
+	switch {
+	case v > 0xb000:
+		return "+"
+	case v < 0x5000:
+		return "-"
+	}
+	return "?"
 }

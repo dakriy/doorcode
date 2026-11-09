@@ -107,18 +107,18 @@ func rowOfState(c connector.StoredController, zone *time.Location) stateView {
 	view := stateView{
 		Status: doorStatus(&c), Badges: telemetry.Badges(c), Door: notReported, Firmware: firmwareText(c.FirmwareVersion),
 		Signal: signalText(c.Signal), Latency: notReported, Uptime: notReported, Memory: notReported, Reconnects: notReported,
-		LastSeen: shownAt(zone, c.LastSeenAt, eventLayout), LastReport: notReported,
+		LastSeen: shownAt(zone, c.LastSeenAt, secondLayout), LastReport: notReported,
 	}
 	switch c.DoorState {
 	case telemetry.Open:
-		view.Door = "Open since " + shownAt(zone, *c.OpenedAt, eventLayout)
+		view.Door = "Open since " + shownAt(zone, *c.OpenedAt, secondLayout)
 	case telemetry.Closed:
 		view.Door = "Closed"
 	}
 	if t := c.Telemetry; t != nil {
 		view.Latency, view.Uptime = strconv.Itoa(t.LatencyMS)+" ms", uptimeText(t.UptimeS)
 		view.Memory, view.Reconnects = strconv.FormatInt(t.FreeBytes/1024, 10)+" KiB", strconv.Itoa(t.Reconnects)
-		view.LastReport = shownAt(zone, t.At, eventLayout)
+		view.LastReport = shownAt(zone, t.At, secondLayout)
 	}
 	return view
 }

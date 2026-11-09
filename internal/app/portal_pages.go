@@ -31,8 +31,6 @@ const (
 	// homeEntries how many home shows.
 	entriesPerPage = 25
 	homeEntries    = 5
-	// requestLayout is how the portal writes when a request was made.
-	requestLayout = "2 Jan 2006 15:04"
 )
 
 func (a *App) portalPageRoutes() []route {
