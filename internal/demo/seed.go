@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image/color"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -309,7 +310,8 @@ func seedSchedules(admin client, _ time.Time, _ *Site) error {
 }
 
 func seedZones(admin client, _ time.Time, _ *Site) error {
-	return createAll(admin, "/api/v1/zones", zones)
+	offices := map[string]any{"name": "Building C offices", "description": "The office doors of building C.", "door_ids": officeIDs()}
+	return createAll(admin, "/api/v1/zones", append(slices.Clone(zones), offices))
 }
 
 func seedGroups(admin client, _ time.Time, _ *Site) error {
@@ -339,10 +341,42 @@ func seedDoors(admin client, _ time.Time, site *Site) error {
 			}
 		}
 	}
+	for _, office := range offices() {
+		if err := admin.call(http.MethodPost, "/api/v1/doors", office, nil); err != nil {
+			return err
+		}
+	}
 	for _, p := range profiles {
 		site.Doors = append(site.Doors, p.controller())
 	}
 	return nil
+}
+
+// Building C's offices, enough doors to fill a zone's door picker: each
+// floor has officesPerFloor of them, numbered after the doors above and
+// without a picture or a controller.
+const (
+	officeFloors    = 3
+	officesPerFloor = 12
+)
+
+func offices() []map[string]any {
+	var out []map[string]any
+	for floor := 1; floor <= officeFloors; floor++ {
+		for room := 1; room <= officesPerFloor; room++ {
+			out = append(out, map[string]any{"name": fmt.Sprintf("Office C%d%02d", floor, room), "location": fmt.Sprintf("Building C, floor %d", floor)})
+		}
+	}
+	return out
+}
+
+// officeIDs are the ids of Building C's offices.
+func officeIDs() []int64 {
+	var out []int64
+	for i := range officeFloors * officesPerFloor {
+		out = append(out, int64(len(doors)+1+i))
+	}
+	return out
 }
 
 // seedPeople creates the users, sets their codes, and adds them to their

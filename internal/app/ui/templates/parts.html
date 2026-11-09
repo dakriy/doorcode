@@ -233,10 +233,10 @@ the form with the id group-form, wherever on the page they sit. */}}
 
 {{/* A list of checkboxes named name, one per choice, given a choiceList.
      With the search script an input above it narrows the list as you
-     type. */}}
+     type, or, for a picker, finds choices to add to the list it names. */}}
 {{define "choices"}}
 {{$name := .Name}}
-<fieldset name="{{.Name}}" class="min-w-0" data-combobox{{with .Error}} aria-invalid="true" aria-describedby="{{$name}}-error"{{end}}>
+<fieldset name="{{.Name}}" class="min-w-0"{{with .Picker}} data-picker="{{.}}"{{else}} data-combobox{{end}}{{with .Error}} aria-invalid="true" aria-describedby="{{$name}}-error"{{end}}>
   <legend class="sr-only">{{.Legend}}</legend>
   {{with .Error}}<p id="{{$name}}-error" class="mb-3 text-sm text-red-600 dark:text-red-400">{{.}}</p>{{end}}
   <ul class="space-y-2">
@@ -245,8 +245,8 @@ the form with the id group-form, wherever on the page they sit. */}}
       <label class="flex cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5 ring-1 ring-zinc-200 ring-inset transition hover:bg-zinc-50 has-checked:bg-brand-50 has-checked:ring-brand-300 dark:ring-zinc-800 dark:hover:bg-zinc-800/40 dark:has-checked:bg-brand-950 dark:has-checked:ring-brand-700">
         <input type="checkbox" name="{{$name}}" value="{{.ID}}"{{if .Checked}} checked{{end}} class="mt-0.5 size-4 shrink-0 rounded border-zinc-300 accent-brand-600">
         <span class="min-w-0">
-          <span class="block text-sm font-medium">{{.Name}}</span>
-          {{with .Detail}}<span class="mt-0.5 block truncate text-xs text-zinc-500 dark:text-zinc-400">{{.}}</span>{{end}}
+          <span data-choice-name class="block text-sm font-medium">{{.Name}}</span>
+          {{with .Detail}}<span data-choice-detail class="mt-0.5 block truncate text-xs text-zinc-500 dark:text-zinc-400">{{.}}</span>{{end}}
         </span>
       </label>
     </li>
@@ -268,26 +268,47 @@ the form with the id group-form, wherever on the page they sit. */}}
 
 {{define "names"}}{{range $i, $r := .}}{{if $i}}, {{end}}{{$r.Name}}{{end}}{{end}}
 
-{{/* The zone form's fields, given a zoneContent. */}}
+{{/* The zone form's cards, given a zoneContent: its settings, its open
+     mode, and its doors. The doors chosen show as chips; with the search
+     script a search box adds doors and each chip's × removes one, and
+     without it every door is a checkbox in the folded list below them. */}}
 {{define "zone-fields"}}
-<div class="grid gap-5">
-  {{template "field" (field "name" "Name" "text" .Form.Name .Errors "Unique. Access rules and the door list choose zones by name.")}}
-  <div>
-    <label for="description" class="block text-sm font-medium">Description</label>
-    <textarea id="description" name="description" rows="2"{{with index .Errors "description"}} aria-invalid="true" aria-describedby="description-error"{{end}} class="{{template "input-class"}}">{{.Form.Description}}</textarea>
-    {{template "field-note" (field "description" "" "" "" .Errors "")}}
+<section class="p-6 {{template "card-class"}}">
+  <h2 class="mb-5 text-sm font-semibold">Zone settings</h2>
+  <div class="grid gap-5">
+    {{template "field" (field "name" "Name" "text" .Form.Name .Errors "Unique. Access rules and the door list choose zones by name.")}}
+    <div>
+      <label for="description" class="block text-sm font-medium">Description</label>
+      <textarea id="description" name="description" rows="2"{{with index .Errors "description"}} aria-invalid="true" aria-describedby="description-error"{{end}} class="{{template "input-class"}}">{{.Form.Description}}</textarea>
+      {{template "field-note" (field "description" "" "" "" .Errors "")}}
+    </div>
   </div>
-  <div>
-    <p class="text-sm font-medium">Doors</p>
-    <p class="mt-1 mb-3 text-xs text-zinc-500 dark:text-zinc-400">A door may be in any number of zones.</p>
-    {{template "choices" (choicelist "door_ids" "Doors" .Doors (index .Errors "door_ids") "There are no doors yet. Create them on the doors page.")}}
-  </div>
-  <div>
-    <p class="text-sm font-medium">Open mode</p>
-    <p class="mt-1 mb-3 text-xs text-zinc-500 dark:text-zinc-400">While one of these schedules is active every door in the zone unlocks on any keypress, without a code.</p>
-    {{template "choices" (choicelist "open_schedule_ids" "Open-mode schedules" .Schedules (index .Errors "open_schedule_ids") "There are no schedules yet. Create them on the schedules page.")}}
-  </div>
-</div>
+</section>
+<section class="p-6 {{template "card-class"}}">
+  <h2 class="text-sm font-semibold">Open mode</h2>
+  <p class="mt-1 mb-4 text-xs text-zinc-500 dark:text-zinc-400">While one of these schedules is active every door in the zone unlocks on any keypress, without a code.</p>
+  {{template "choices" (choicelist "open_schedule_ids" "Open-mode schedules" .Schedules (index .Errors "open_schedule_ids") "There are no schedules yet. Create them on the schedules page.")}}
+</section>
+<section class="p-6 {{template "card-class"}}">
+  <h2 class="text-sm font-semibold">Doors</h2>
+  <p class="mt-1 mb-4 text-xs text-zinc-500 dark:text-zinc-400">A door may be in any number of zones.</p>
+  {{if .Doors}}
+  {{$error := index .Errors "door_ids"}}
+  <ul id="door_ids-chosen" aria-label="Chosen doors" data-picker-none="No doors are in this zone yet." class="flex flex-wrap gap-2">
+    {{range .Doors}}{{if .Checked}}<li class="filter-chip pr-3"><span class="truncate">{{.Name}}</span>{{with .Detail}}<span class="truncate font-normal opacity-75">{{.}}</span>{{end}}</li>{{end}}{{end}}
+  </ul>
+  {{$chosen := false}}{{range .Doors}}{{if .Checked}}{{$chosen = true}}{{end}}{{end}}
+  {{if not $chosen}}<p id="door_ids-chosen-none" role="note" class="text-sm text-zinc-500 dark:text-zinc-400">No doors are in this zone yet.</p>{{end}}
+  <details class="mt-5"{{if $error}} open{{end}}>
+    <summary class="cursor-pointer text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"><h3 class="inline font-medium">Every door</h3> ({{len .Doors}})</summary>
+    <div class="mt-3">
+      {{template "choices" (picker (choicelist "door_ids" "Doors" .Doors $error "") "door_ids-chosen")}}
+    </div>
+  </details>
+  {{else}}
+  <p role="note" class="rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">There are no doors yet. Create them on the doors page.</p>
+  {{end}}
+</section>
 {{end}}
 
 {{/* The links to a calendar's neighbouring weeks, given a week. */}}

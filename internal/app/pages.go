@@ -184,6 +184,10 @@ var templateFuncs = template.FuncMap{
 	"choicelist": func(name, legend string, choices []choice, problem, empty string) choiceList {
 		return choiceList{Name: name, Legend: legend, Choices: choices, Error: problem, Empty: empty}
 	},
+	"picker": func(l choiceList, chosen string) choiceList {
+		l.Picker = chosen
+		return l
+	},
 	"combobox": func(id, name, none string, options []selectOption, problem, class string) comboboxView {
 		v := comboboxView{ID: id, Name: name, None: none, NoneSelected: true, Options: options, Error: problem, Class: class}
 		for _, o := range options {
@@ -299,6 +303,10 @@ type choiceList struct {
 	Choices []choice
 	Error   string
 	Empty   string
+	// Picker is the id of the list showing the choices checked, when the
+	// search script makes the list a picker that adds and removes them
+	// rather than narrowing the list.
+	Picker string
 }
 
 // selectOption is one option of a select.

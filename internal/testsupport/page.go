@@ -67,6 +67,10 @@ type Page struct {
 	// Comboboxes is the name of each select and list of checkboxes the
 	// combobox script makes searchable, in order.
 	Comboboxes []string
+	// Pickers maps the name of each list of checkboxes the search script
+	// makes a picker, one that adds choices by search and removes them
+	// from the list of those chosen, to the id of that list.
+	Pickers map[string]string
 	// UserSearches maps the name of each text input the search script
 	// makes ask the server for users as you type to the address it asks.
 	UserSearches map[string]string
@@ -75,7 +79,7 @@ type Page struct {
 	// Inputs maps each named control a person fills in, every one but a
 	// hidden input, to its kind: an input's type, select, or textarea.
 	Inputs map[string]string
-	// Disclosures maps the heading in the summary of each disclosure that
+	// Disclosures maps the heading (second or third level) in the summary of each disclosure that
 	// has one, a part of the page that folds away, to whether it is open.
 	Disclosures map[string]bool
 }
@@ -141,6 +145,12 @@ func ParsePage(body string) Page {
 func (p *Page) readScripted(n *html.Node) {
 	if hasAttr(n, "data-combobox") {
 		p.Comboboxes = append(p.Comboboxes, attr(n, "name"))
+	}
+	if hasAttr(n, "data-picker") {
+		if p.Pickers == nil {
+			p.Pickers = map[string]string{}
+		}
+		p.Pickers[attr(n, "name")] = attr(n, "data-picker")
 	}
 	if hasAttr(n, "data-user-search") {
 		if p.UserSearches == nil {
@@ -301,11 +311,11 @@ func (p *Page) readControl(n *html.Node) {
 	}
 }
 
-// readDisclosure reads whether a disclosure whose summary holds a heading
-// is open.
+// readDisclosure reads whether a disclosure whose summary holds a second
+// or third level heading is open.
 func (p *Page) readDisclosure(details *html.Node) {
 	for d := range details.Descendants() {
-		if d.Data == "h2" && within(d, "summary") {
+		if (d.Data == "h2" || d.Data == "h3") && within(d, "summary") {
 			if p.Disclosures == nil {
 				p.Disclosures = map[string]bool{}
 			}
