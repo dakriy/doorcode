@@ -551,7 +551,7 @@ func TestDoorPagesAskForTheRole(t *testing.T) {
 	doors := b.Get("/admin/doors")
 	got := []any{doors.Status, b.Get("/admin/zones").Status, testsupport.ParsePage(doors.Body).Nav}
 
-	want := []any{403, 403, []string{"Dashboard", "Access: Schedules", "Portal", "API tokens", "API docs"}}
+	want := []any{403, 403, []string{"Dashboard", "Access: Schedules", "Portal", "API tokens"}}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("doors, zones, navigation (-want +got):\n%s", diff)
 	}

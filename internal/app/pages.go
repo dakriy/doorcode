@@ -501,6 +501,9 @@ func serveAsset(content []byte, contentType string) viewerHandler {
 	}
 }
 
+// apiDocsPath is the API documentation page, a page of the portal.
+const apiDocsPath = "/api-docs"
+
 func (a *App) apiDocsPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	a.render(w, r, http.StatusOK, apiDocsTemplate, "API documentation", &viewer, apiPrefix+"/openapi.json")
 }

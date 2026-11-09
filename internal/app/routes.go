@@ -57,7 +57,7 @@ func (a *App) routes() []route {
 		pageRoute(http.MethodPost, "/sign-in", anyone, a.signIn),
 		pageRoute(http.MethodPost, "/sign-out", anyone, a.signOut),
 		pageRoute(http.MethodGet, "/{$}", signedInUser, a.home),
-		pageRoute(http.MethodGet, "/api-docs", signedInUser, a.apiDocsPage),
+		pageRoute(http.MethodGet, apiDocsPath, signedInUser, a.apiDocsPage),
 		apiRoute(http.MethodGet, "/openapi.json", anyone, a.serveOpenAPI, apiDoc{
 			id: "getOpenAPI", summary: "This document", tag: "documentation",
 			responses: []openapi.Response{{Status: http.StatusOK, Description: "The OpenAPI document of this API.", Body: map[string]any{}}},

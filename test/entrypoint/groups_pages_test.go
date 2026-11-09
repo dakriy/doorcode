@@ -438,7 +438,7 @@ func TestGroupManagerWithoutUserManagementSeesMembersWithoutLinks(t *testing.T) 
 
 	got := pageOf(b.Get("/admin/groups/2"))
 
-	want := []any{[]string{"Dashboard", "People: Groups (current)", "Portal", "API tokens", "API docs"},
+	want := []any{[]string{"Dashboard", "People: Groups (current)", "Portal", "API tokens"},
 		[][]string{membersHead, {"Administrator", "admin@example.com", "Active", "Remove"}}}
 	if diff := cmp.Diff(want, []any{got.Nav, got.Tables["Members"]}); diff != "" {
 		t.Errorf("nav, members (-want +got):\n%s", diff)

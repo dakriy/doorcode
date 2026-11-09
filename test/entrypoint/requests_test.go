@@ -15,7 +15,7 @@ func mainNav(current, waiting string) []string {
 	nav := []string{}
 	for _, label := range []string{
 		"Dashboard", "People: Users", "People: Requests" + waiting, "People: Groups", "Doors: Doors", "Doors: Zones", "Doors: Firmware",
-		"Access: Schedules", "Activity: Events", "Portal", "API tokens", "API docs", "Site: Settings",
+		"Access: Schedules", "Activity: Events", "Portal", "API tokens", "Site: Settings",
 	} {
 		if label == current || label == current+waiting {
 			label += " (current)"
@@ -357,7 +357,7 @@ func TestAccessRequestsNeedTheManageUsersRole(t *testing.T) {
 		pageOf(b.Get("/admin/groups")).Nav,
 	}
 
-	want := []any{403, 403, 403, 403, 403, []string{"Dashboard", "People: Groups (current)", "Portal", "API tokens", "API docs"}}
+	want := []any{403, 403, 403, 403, 403, []string{"Dashboard", "People: Groups (current)", "Portal", "API tokens"}}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("pages, API, navigation (-want +got):\n%s", diff)
 	}

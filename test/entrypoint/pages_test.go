@@ -264,7 +264,7 @@ func TestUserWithoutTheAdminRoleIsRefusedTheSettingsPage(t *testing.T) {
 	want := testsupport.Page{
 		Title:   "Not allowed · doorcode",
 		Heading: "You do not have access to this page",
-		Nav:     []string{"Portal", "API tokens", "API docs"},
+		Nav:     []string{"Portal", "API tokens"},
 	}
 	if diff := cmp.Diff(want, pageOf(got)); diff != "" {
 		t.Errorf("page (-want +got):\n%s", diff)

@@ -55,7 +55,7 @@ func (a *App) portalPageRoutes() []route {
 // inPortal reports whether the page at path is part of the portal, which
 // every signed-in person uses, rather than of the administration.
 func inPortal(path string) bool {
-	return path == "/" || within(path, "/me") || within(path, "/account")
+	return path == "/" || within(path, "/me") || within(path, "/account") || path == apiDocsPath
 }
 
 // adminEntry is where the administration starts for viewer, its

@@ -15,7 +15,7 @@ func portalNav(current string) []string {
 	nav := []string{}
 	for _, link := range [][2]string{
 		{"", "Home"}, {"Doors: ", "Door code"}, {"Doors: ", "Access"}, {"Doors: ", "Entries"}, {"Doors: ", "Requests"},
-		{"Account: ", "Password"}, {"Account: ", "API tokens"},
+		{"Account: ", "Password"}, {"Account: ", "API tokens"}, {"Account: ", "API docs"},
 	} {
 		label := link[0] + link[1]
 		if link[1] == current {
@@ -270,7 +270,7 @@ func TestThePasswordFormIsOfferedUnlessEveryoneSignsInAtTheProvider(t *testing.T
 	withForm := testsupport.Page{Title: "Password · doorcode", Heading: "Password", Nav: portalNav("Password"), Notes: []string{lengthNote}}
 	without := testsupport.Page{
 		Title: "Password · doorcode", Heading: "Password",
-		Nav:   []string{"Home", "Doors: Door code", "Doors: Access", "Doors: Entries", "Doors: Requests", "Account: API tokens"},
+		Nav:   []string{"Home", "Doors: Door code", "Doors: Access", "Doors: Entries", "Doors: Requests", "Account: API tokens", "Account: API docs"},
 		Notes: []string{"Everyone signs in to this site with single sign-on, so it has no password for you to change. Change your password with your organization’s identity provider instead."},
 	}
 	if diff := cmp.Diff([]any{withForm, without, 403, without}, []any{pageOf(offered), pageOf(hidden), posted.Status, pageOf(posted)}); diff != "" {
@@ -1065,7 +1065,7 @@ func TestHomeAsksAUserWithoutACodeToChooseOne(t *testing.T) {
 	withoutPassword := homeCards(false, "")
 	delete(withoutPassword, "Password")
 	got := []any{offered.Notes, offered.Details, hidden.Details, hidden.Nav}
-	want := []any{note, homeCards(false, ""), withoutPassword, []string{"Home (current)", "Doors: Door code", "Doors: Access", "Doors: Entries", "Doors: Requests", "Account: API tokens"}}
+	want := []any{note, homeCards(false, ""), withoutPassword, []string{"Home (current)", "Doors: Door code", "Doors: Access", "Doors: Entries", "Doors: Requests", "Account: API tokens", "Account: API docs"}}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("notes and cards, cards and navigation under auto sign-in (-want +got):\n%s", diff)
 	}

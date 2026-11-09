@@ -333,7 +333,7 @@ defaults, theme, login image, timezone, with env-provided values shown
 read-only; each asked for with an input of its kind: a color picker, a
 checkbox for yes or no, a number, a select of the choices, and a searchable
 select of every zone for the timezone; the single sign-on and identity claims
-parts fold away while single sign-on is off), API docs.
+parts fold away while single sign-on is off).
 
 Lists are searchable, filterable, server-paginated, and update live over
 Server-Sent Events where state changes without a page action (door status,
@@ -352,8 +352,11 @@ sign-in page image are settings.
 
 Home (the portal's pages, the user's recent entries, and administration
 links for role holders), set door code, set password (hidden under auto
-sign-in), access, my recent entries, personal API tokens, access requests
-(create, edit while unresolved, delete), sign out.
+sign-in), access, my recent entries, personal API tokens, API docs, access
+requests (create, edit while unresolved, delete), sign out. The portal's
+navigation groups the door code, access, entries, and requests under Doors,
+and password, API tokens, and API docs under Account; the administration's
+navigation links back to the portal and to API tokens.
 
 The access page lists every public door the user can ever get into: one an
 access rule of theirs reaches (or every door, for a door commander), or one

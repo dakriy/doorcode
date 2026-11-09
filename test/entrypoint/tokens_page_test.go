@@ -189,7 +189,7 @@ func TestTokensPageAsksForSignIn(t *testing.T) {
 	}
 }
 
-func TestAPIDocsPageShowsTheDocumentationToASignedInUser(t *testing.T) {
+func TestAPIDocsPageShowsTheDocumentationToASignedInUserInThePortal(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	b := signedInAdmin(t, f)
@@ -201,10 +201,22 @@ func TestAPIDocsPageShowsTheDocumentationToASignedInUser(t *testing.T) {
 	want := testsupport.Page{
 		Title:   "API documentation · doorcode",
 		Heading: "API documentation",
-		Nav:     []string{"Portal", "API tokens", "API docs (current)"},
+		Nav:     portalNav("API docs"),
 	}
 	if diff := cmp.Diff(want, pageOf(got)); diff != "" {
 		t.Errorf("page (-want +got):\n%s", diff)
+	}
+}
+
+func TestAPIDocsPageShowsAnAdministratorThePortalNavigation(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	b := signedInAdmin(t, f)
+
+	got := pageOf(b.Get("/api-docs")).Nav
+
+	if diff := cmp.Diff(heldPortalNav("API docs"), got); diff != "" {
+		t.Errorf("nav (-want +got):\n%s", diff)
 	}
 }
 
@@ -221,7 +233,7 @@ func TestAPIDocsPageLoadsSwaggerUI(t *testing.T) {
 	}
 
 	css, js := "text/css; charset=utf-8", "text/javascript; charset=utf-8"
-	if diff := cmp.Diff([]string{css, js, css, js, js, js}, got); diff != "" {
+	if diff := cmp.Diff([]string{css, js, css, js, js}, got); diff != "" {
 		t.Errorf("asset types (-want +got):\n%s", diff)
 	}
 }

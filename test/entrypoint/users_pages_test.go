@@ -518,7 +518,7 @@ func TestUserManagerWithoutAdminSeesUsersButNotTheirTokens(t *testing.T) {
 	token := b.Post("/admin/users/1/tokens", "name", "x", "expires_in_days", "")
 
 	want := []any{
-		[]string{"Dashboard", "People: Users (current)", "People: Requests", "Portal", "API tokens", "API docs"},
+		[]string{"Dashboard", "People: Users (current)", "People: Requests", "Portal", "API tokens"},
 		map[string][][]string{"Groups": {{"Group", "Roles"}, {"Staff", "manage-users"}}, "Door access": noAccess},
 		403,
 	}
