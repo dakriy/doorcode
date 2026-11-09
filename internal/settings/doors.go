@@ -35,6 +35,27 @@ const (
 	KeyConnectTimeout   = "door_update_connect_timeout_s"
 )
 
+// BrokerHostField and BrokerCAField name the fields of the broker a
+// controller connects to and the certificate it verifies the broker
+// against, and KeyBrokerHost, KeyBrokerCA, and KeyBrokerTLS are the keys of
+// the defaults of them and of whether controllers connect over TLS.
+const (
+	BrokerHostField = "broker_host"
+	BrokerCAField   = "broker_ca_pem"
+	KeyBrokerHost   = "door_broker_host"
+	KeyBrokerCA     = "door_broker_ca_pem"
+	KeyBrokerTLS    = "door_broker_tls"
+)
+
+// NoBrokerHost is what pages warn of, and why no provisioning file is
+// made, while controllers are given no broker to connect to.
+const NoBrokerHost = "door_broker_host is empty: a controller needs an address to reach the broker, so no provisioning file can be made."
+
+// UnverifiedBroker is what pages warn of, and why no provisioning file is
+// made, while controllers connect to the broker over TLS with no
+// certificate to verify it against.
+const UnverifiedBroker = "Controllers connect to the broker over TLS, but door_broker_ca_pem gives no CA certificate: a controller could not verify the broker, so no provisioning file can be made."
+
 // DoorConfig is the configuration a door runs with. Durations are whole
 // numbers of the unit their name ends in.
 type DoorConfig struct {
@@ -84,6 +105,19 @@ func masked(value string) string {
 		return ""
 	}
 	return Mask
+}
+
+// Unprovisionable is why no provisioning file can be made with c, each
+// what a page warns of: no broker host, and TLS with no certificate to
+// verify the broker against; empty when one can.
+func (c DoorConfig) Unprovisionable() []string {
+	var problems []string
+	for _, warning := range []string{HostWarning(c.BrokerHost), BrokerWarning(strconv.FormatBool(c.BrokerTLS), c.BrokerCAPEM)} {
+		if warning != "" {
+			problems = append(problems, warning)
+		}
+	}
+	return problems
 }
 
 // RotateAfter is how long a door's credentials work before the server
@@ -420,6 +454,42 @@ func RevertWarning(connectTimeout, updateTimeout string) string {
 	}
 	return fmt.Sprintf("Longer than the update timeout of %d minutes (%d seconds): the server counts an update failed before "+
 		"a controller that cannot connect on its new firmware goes back to the old one.", minutes, minutes*60)
+}
+
+// HostWarning is what a page warns of a door with overrides that would be
+// given no broker to connect to; empty when it has one.
+func (d DoorDefaults) HostWarning(overrides map[string]string) string {
+	host, _ := doorField(BrokerHostField)
+	return HostWarning(d.Shown(overrides, host))
+}
+
+// HostWarning is what a page warns of controllers given host as the
+// broker to connect to: NoBrokerHost while it is empty, empty otherwise.
+func HostWarning(host string) string {
+	if host != "" {
+		return ""
+	}
+	return NoBrokerHost
+}
+
+// BrokerWarning is what a page warns of a door with overrides that would
+// connect over TLS with no certificate to verify the broker against; empty
+// when it would not.
+func (d DoorDefaults) BrokerWarning(overrides map[string]string) string {
+	tls, _ := doorField("broker_tls")
+	ca, _ := doorField(BrokerCAField)
+	return BrokerWarning(d.Shown(overrides, tls), d.Shown(overrides, ca))
+}
+
+// BrokerWarning is what a page warns of controllers that connect to the
+// broker over TLS when tls, the value of a broker TLS setting, is true,
+// with ca as the certificate they verify it against: UnverifiedBroker
+// while ca is empty and tls true, empty otherwise.
+func BrokerWarning(tls, ca string) string {
+	if tls != Yes || ca != "" {
+		return ""
+	}
+	return UnverifiedBroker
 }
 
 // shown is value as pages show it for f: masked when f is secret.

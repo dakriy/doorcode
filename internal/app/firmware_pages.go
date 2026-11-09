@@ -100,6 +100,9 @@ type firmwareContent struct {
 	// NoAddress is true while the public_url setting is empty, so no
 	// update can be sent.
 	NoAddress bool
+	// Unprovisionable is what the page warns of while no provisioning
+	// file can be made, each why.
+	Unprovisionable []string
 }
 
 // statusLabels names each status of a door in the rollout on pages.
@@ -189,6 +192,25 @@ func windowOf(all []settings.Setting) windowForm {
 	return form
 }
 
+// unprovisionable is why no provisioning file can be made with the site's
+// broker defaults, read from all, every setting.
+func unprovisionable(all []settings.Setting) []string {
+	values := map[string]string{}
+	for _, s := range all {
+		values[s.Key] = s.Value
+	}
+	var problems []string
+	for _, warning := range []string{
+		settings.HostWarning(values[settings.KeyBrokerHost]),
+		settings.BrokerWarning(values[settings.KeyBrokerTLS], values[settings.KeyBrokerCA]),
+	} {
+		if warning != "" {
+			problems = append(problems, warning)
+		}
+	}
+	return problems
+}
+
 // showFirmware shows the firmware page with status, its upload form
 // holding upload with the problems errs, and its window form holding
 // entered, or the settings as they are when entered is nil.
@@ -215,7 +237,7 @@ func (a *App) showFirmware(w http.ResponseWriter, r *http.Request, status int, v
 	}
 	content := firmwareContent{
 		Defaults: firmwareOptions(plan.Firmware, "No default", defaultOf(plan)), Upload: upload, Errors: errs, Window: window,
-		MaxMiB: firmware.MaxMiB, NoAddress: current.PublicURL == "", Versions: []firmwareRow{},
+		MaxMiB: firmware.MaxMiB, NoAddress: current.PublicURL == "", Versions: []firmwareRow{}, Unprovisionable: unprovisionable(all),
 	}
 	zone := current.Zone
 	for _, f := range plan.Firmware {

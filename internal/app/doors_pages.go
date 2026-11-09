@@ -264,6 +264,9 @@ type doorContent struct {
 	// overrides, and see the door list and its timeline; a viewer who
 	// only manages firmware reads the page and changes its firmware.
 	Opens bool
+	// Provisions is true when the viewer may download the door's
+	// provisioning file.
+	Provisions bool
 	// Back is the page the door page goes back to: the door list, or the
 	// firmware page for a viewer who may not see the list.
 	Back navItem
@@ -353,7 +356,7 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 		return
 	}
 	content := doorContent{
-		Manage: viewer.Has(auth.RoleManageDoors), Opens: holds(viewer, opensDoors), Back: doorPageBack(viewer),
+		Manage: viewer.Has(auth.RoleManageDoors), Opens: holds(viewer, opensDoors), Provisions: viewer.Has(auth.RoleManageFirmware), Back: doorPageBack(viewer),
 		Events: events, StrikeMS: config.StrikePulseMS, State: state, Firmware: card,
 		Door: d.StoredDoor, Row: n.rowOfDoor(d.StoredDoor), Form: form, Alert: alert,
 		Entrants: []entrantRow{}, Overrides: []overrideRow{},

@@ -24,6 +24,16 @@ var settingsNote = "Every setting can also be given by an environment variable, 
 	"a setting the environment gives is read-only here. Secret settings are stored encrypted and never shown: leave one blank " +
 	"to keep it, enter a new value to replace it, or tick Clear to remove it."
 
+// brokerNote is what pages warn of while controllers would connect to the
+// broker over TLS with no certificate to verify it against, as they do on
+// a new site.
+var brokerNote = "Controllers connect to the broker over TLS, but door_broker_ca_pem gives no CA certificate: " +
+	"a controller could not verify the broker, so no provisioning file can be made."
+
+// hostNote is what pages warn of while controllers are given no broker to
+// connect to, as they are on a new site.
+var hostNote = "door_broker_host is empty: a controller needs an address to reach the broker, so no provisioning file can be made."
+
 // shownSetting is a setting as the settings page shows it.
 type shownSetting struct {
 	key, value, source string
@@ -220,12 +230,31 @@ func words(a, b string) string {
 	return a + " " + b
 }
 
+// settingWarning adds to page the warning the setting key shows while the
+// inputs hold held, and is its text: the broker's certificate warns while
+// it is missing though controllers connect over TLS, and the broker's host
+// while it is empty.
+func settingWarning(page *testsupport.Page, held map[string]string, key string) string {
+	warning := ""
+	switch {
+	case key == "door_broker_host" && held[key] == "":
+		warning = hostNote
+	case key == "door_broker_ca_pem" && held["door_broker_tls"] == "true" && held[key] == "":
+		warning = brokerNote
+	default:
+		return ""
+	}
+	page.Notes = append(page.Notes, warning)
+	return warning
+}
+
 // settingsPage is the settings page showing shown, where changed replaces
 // the value and source of the settings it names, entered the value an
 // input holds, and refused what is wrong with a value; a read-only
 // setting shows its value in place of an input, and a secret that has a
 // value offers to clear it. The sections of single sign-on are open while
-// it is enabled.
+// it is enabled, and the broker's certificate warns while it is missing
+// though controllers connect over TLS.
 func settingsPage(shown []shownSetting, changed map[string]shownSetting, entered, refused map[string]string) testsupport.Page {
 	page := testsupport.Page{
 		Title: "Settings · doorcode", Heading: "Settings", Notes: []string{settingsNote}, Values: map[string]string{"picture": ""},
@@ -233,6 +262,7 @@ func settingsPage(shown []shownSetting, changed map[string]shownSetting, entered
 		Tables:     map[string][][]string{},
 		Comboboxes: []string{"site_timezone"},
 	}
+	held := map[string]string{}
 	for _, s := range shown {
 		if c, ok := changed[s.key]; ok {
 			s = c
@@ -242,7 +272,8 @@ func settingsPage(shown []shownSetting, changed map[string]shownSetting, entered
 		if entered[s.key] != "" || refused[s.key] != "" {
 			value = entered[s.key]
 		}
-		cell := words(settingCell(&page, s, value), refused[s.key])
+		held[s.key] = value
+		cell := words(words(settingCell(&page, s, value), refused[s.key]), settingWarning(&page, held, s.key))
 		if s.key == "oidc_enabled" {
 			page.Disclosures = map[string]bool{"Single sign-on": value == "true", "Identity claims": value == "true"}
 		}

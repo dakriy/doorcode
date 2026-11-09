@@ -45,11 +45,11 @@ it forgets them and goes back to enrolling.
 | Transport | TLS. The controller must verify the broker's certificate against a CA or certificate it ships with. (A development broker may listen without TLS, such as the compose file's port 1883.) |
 | MQTT version | 3.1.1, which the server itself speaks. |
 | QoS | 1 for every publish and subscription. The server publishes at QoS 1. |
-| Client id | The controller's **hardware id**, on every connection, enrolling or as its door. The enrollment account's permissions depend on it (section 5). |
+| Client id | The controller's **hardware id**, on every connection, enrolling or as its door. The enrollment account's permissions depend on it (section 6). |
 | Clean session | Should be true. Configuration and timeline arrive again as retained messages on every subscribe; replies and commands are meant for now, and a queued old one must not act later. |
-| Keep alive | `keepalive_s` from the configuration (section 8), 30 seconds until the first one. The broker publishes the last will, and the server shows the door offline, only once one and a half keep-alive intervals pass without a packet, so a shorter interval shows a lost door sooner. |
-| Last will | Retained, QoS 1, on the topic and with the payload given in sections 5 and 6. |
-| Reconnecting | After a lost connection, connect again with growing pauses: 1, 2, 4 seconds and so on up to `reconnect_max_s` (section 8, a minute until the first configuration). A refusal of door credentials as not authorized means they are revoked. |
+| Keep alive | `keepalive_s` from the configuration (section 9), 30 seconds until the first one. The broker publishes the last will, and the server shows the door offline, only once one and a half keep-alive intervals pass without a packet, so a shorter interval shows a lost door sooner. |
+| Last will | Retained, QoS 1, on the topic and with the payload given in sections 6 and 7. |
+| Reconnecting | After a lost connection, connect again with growing pauses: 1, 2, 4 seconds and so on up to `reconnect_max_s` (section 9, a minute until the first configuration). A refusal of door credentials as not authorized means they are revoked. |
 
 The **hardware id** is fixed for the life of the device, such as its MAC
 address in hex. It is a topic level, a client id, and part of a URL, so it
@@ -57,15 +57,72 @@ must be non-empty and should use only letters, digits, `-`, and `_`; it must
 not contain `/`, `+`, or `#`.
 
 The broker address, the CA certificate, the Wi-Fi network, and the
-enrollment credentials are the controller's provisioning; a door's
+enrollment credentials are the controller's provisioning (section 3); a door's
 configuration can later move it to another broker host, port, or CA, or
 another Wi-Fi network (`broker_host`, `broker_port`, `broker_tls`,
-`broker_ca_pem`, `wifi_ssid`, `wifi_password`, section 8). The enrollment username is the server's
+`broker_ca_pem`, `wifi_ssid`, `wifi_password`, section 9). The enrollment username is the server's
 `enrollment_username` setting (default `doorcode-enroll`); its password is
 `enrollment_password`, which the server generates and logs on first start
 when it is empty.
 
-## 3. Message encoding
+## 3. Provisioning
+
+Before it first enrolls, a controller is given its provisioning: the
+broker, the certificate to verify it against, the Wi-Fi network, the
+enrollment credentials, and a configuration to start with. The server makes
+it as a JSON file, for a flashing tool or the firmware's setup mode to write
+into the controller:
+
+| Request | File |
+| --- | --- |
+| `GET /api/v1/firmware/provisioning` | `provisioning.json`: the site's defaults. |
+| `GET /api/v1/doors/<id>/provisioning` | `provisioning-<id>.json`: the configuration of door `<id>`, its overrides applied, for a controller meant for that door. |
+
+Both need the `manage-firmware` role, with a personal API token as a bearer
+token or as the HTTP Basic password, or a signed-in browser: the firmware
+page and each door's page offer a "Download provisioning file" button. The
+answer is `application/json` with `Content-Disposition: attachment`.
+
+```
+{
+  "format": 1,
+  "generated_at": 1767603600,
+  "broker": {"host": "mqtt.example.com", "port": 8883, "tls": true,
+             "ca_pem": "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----\n"},
+  "enrollment": {"username": "doorcode-enroll", "password": "<enrollment_password>"},
+  "wifi": {"ssid": "<wifi_ssid>", "password": "<wifi_password>"},
+  "door_config": {"strike_pulse_ms": 3000, "keypad_idle_clear_ms": 10000, "...": "..."}
+}
+```
+
+| Field | JSON type | Meaning |
+| --- | --- | --- |
+| `format` | number | The version of the file's layout, 1. It changes only when a field changes meaning or goes away; new fields, in `door_config` too, come without a change. |
+| `generated_at` | number | When the server made the file, in Unix seconds. |
+| `broker.host`, `broker.port`, `broker.tls` | string, number, boolean | The broker to connect to: `broker_host`, `broker_port`, and `broker_tls` of the configuration. |
+| `broker.ca_pem` | string | The certificate to verify the broker against (`broker_ca_pem`), PEM with LF line ends; empty when `tls` is false. |
+| `enrollment.username`, `enrollment.password` | string, string | The enrollment credentials (section 6): the server's `enrollment_username` and `enrollment_password` settings. |
+| `wifi.ssid`, `wifi.password` | string, string | The Wi-Fi network to join: `wifi_ssid` and `wifi_password` of the configuration. |
+| `door_config` | object | Every field of the configuration (section 9), with the same names and types as the configuration message: integers are JSON numbers, text JSON strings, booleans JSON booleans. |
+
+Secrets are in the clear: the enrollment password and the Wi-Fi and mesh
+passwords. Besides the configuration message, this file is the only place
+they leave the server, so keep it as safe as they are.
+
+The server refuses to make a file whose broker has no host, since the
+controller would have no address to reach it, or has `tls` true and no
+certificate, since the controller could not verify the broker: it answers
+409 with an error naming `door_broker_host` or `door_broker_ca_pem`, or
+both. The settings page, the firmware page, and a door's page warn of each
+state.
+
+The controller stores the broker, its certificate, the Wi-Fi network, and
+the enrollment credentials as its provisioning, and runs with `door_config`
+until its first configuration message. It must ignore keys it does not
+know, and use the defaults of section 9 for configuration fields the file
+lacks, so files and firmware can change independently.
+
+## 4. Message encoding
 
 Every payload is a CBOR (RFC 8949) map with text-string keys.
 
@@ -102,7 +159,7 @@ for them:
 | Announcement `{"v": 1, "online": true, "signal": -61, "firmware_version": "1.4.2"}` | `a4617601666f6e6c696e65f5667369676e616c383c706669726d776172655f76657273696f6e65312e342e32` |
 | Timeline `{"v": 1, "to": 1793090000, "from": 1793000000, "spans": [{"end": 1793020000, "start": 1793010000, "state": "open"}]}` | `a461760162746f1a6ae061d06466726f6d1a6adf0240657370616e7381a363656e641a6adf50606573746172741a6adf2950657374617465646f70656e` |
 
-## 4. Topics
+## 5. Topics
 
 Every topic starts with `doorcode/`. `<hwid>` is the hardware id; `<id>` is
 the door's id, a whole number from 1, which the controller learns from its
@@ -112,17 +169,17 @@ on its own two enroll topics.
 
 | Topic | Direction | Retained | Message | Section |
 | --- | --- | --- | --- | --- |
-| `doorcode/enroll/<hwid>` | controller → server | yes | `Enrollment` (announcement and last will) | 5 |
-| `doorcode/enroll/<hwid>/credentials` | server → controller | no | `Credentials` | 5 |
-| `doorcode/doors/<id>/online` | controller → server | yes | `Online` (status and last will) | 6 |
-| `doorcode/doors/<id>/config` | server → controller | yes | `Config` | 8 |
-| `doorcode/doors/<id>/timeline` | server → controller | yes | `Timeline` | 9 |
-| `doorcode/doors/<id>/check` | controller → server | no | `Check` | 10 |
-| `doorcode/doors/<id>/reply` | server → controller | no | `Reply` | 10 |
-| `doorcode/doors/<id>/telemetry` | controller → server | no | `Telemetry` | 11 |
-| `doorcode/doors/<id>/event` | controller → server | no | `DoorEvent` | 11 |
-| `doorcode/doors/<id>/command` | server → controller | no | `Command` | 12 |
-| `doorcode/doors/<id>/ack` | controller → server | no | `Ack` | 12 |
+| `doorcode/enroll/<hwid>` | controller → server | yes | `Enrollment` (announcement and last will) | 6 |
+| `doorcode/enroll/<hwid>/credentials` | server → controller | no | `Credentials` | 6 |
+| `doorcode/doors/<id>/online` | controller → server | yes | `Online` (status and last will) | 7 |
+| `doorcode/doors/<id>/config` | server → controller | yes | `Config` | 9 |
+| `doorcode/doors/<id>/timeline` | server → controller | yes | `Timeline` | 10 |
+| `doorcode/doors/<id>/check` | controller → server | no | `Check` | 11 |
+| `doorcode/doors/<id>/reply` | server → controller | no | `Reply` | 11 |
+| `doorcode/doors/<id>/telemetry` | controller → server | no | `Telemetry` | 12 |
+| `doorcode/doors/<id>/event` | controller → server | no | `DoorEvent` | 12 |
+| `doorcode/doors/<id>/command` | server → controller | no | `Command` | 13 |
+| `doorcode/doors/<id>/ack` | controller → server | no | `Ack` | 13 |
 
 The server subscribes to `doorcode/enroll/+` (`EnrollFilter`) and to
 `doorcode/doors/+/online`, `/check`, `/telemetry`, `/event`, and `/ack`
@@ -131,7 +188,7 @@ The server subscribes to `doorcode/enroll/+` (`EnrollFilter`) and to
 `LeafReply`, `LeafCommand`, `LeafConfig`, `LeafTimeline`, `LeafTelemetry`,
 `LeafEvent`, `LeafAck`; the online leaf is `online`).
 
-## 5. Enrollment
+## 6. Enrollment
 
 ```
 controller                          broker                         server / admin
@@ -148,7 +205,7 @@ controller                          broker                         server / admi
     |<--------------------------------|  {v:1, door_id, username, token}
     |                                 |<-------------------------------| empty retained payload on
     |                                 |                                | doorcode/enroll/<hwid>
-    | store the credentials, DISCONNECT, connect as the door (section 6)
+    | store the credentials, DISCONNECT, connect as the door (section 7)
 ```
 
 1. Connect as section 2 says with the enrollment credentials and the
@@ -210,7 +267,7 @@ On `doorcode/enroll/<hwid>/credentials`, not retained, from the server.
 
 The server keeps no copy of the token. Losing it means enrolling again.
 
-## 6. Connecting as the door
+## 7. Connecting as the door
 
 ```
 controller                          broker                         server
@@ -238,7 +295,7 @@ controller                          broker                         server
 
 When the server reads `online: true` it marks the door online, records that
 this credential is in use, revokes the door's older credentials, ends a
-firmware update that this version completes (section 13), and publishes the
+firmware update that this version completes (section 14), and publishes the
 door's configuration and timeline again. An `online: false` from a revoked
 credential, such as the last will of the connection a rotation replaced,
 changes nothing.
@@ -259,7 +316,7 @@ On `doorcode/doors/<id>/online`, retained.
 | `firmware_version` | text | | The version running now. | Status; omitted when empty. |
 | `signal` | int | dBm | Signal strength. | Status; omitted when 0. |
 
-## 7. What the server sends, at a glance
+## 8. What the server sends, at a glance
 
 | When | What arrives |
 | --- | --- |
@@ -271,14 +328,15 @@ On `doorcode/doors/<id>/online`, retained.
 | After each `check` | `reply`. |
 | An administrator acts, or the server rotates credentials or rolls out firmware | `command`. |
 
-## 8. Configuration
+## 9. Configuration
 
 On `doorcode/doors/<id>/config`, retained (`Config`). The message is one
 flat map: `v` and every field below (`DoorConfig`), never omitted. Each is
 the site's default (setting `door_` + the field's name) unless the door
 overrides it. Replace the whole configuration on every message, store it in
 non-volatile memory, and use it until the next one. Before the first one,
-use the defaults below.
+use the `door_config` of the provisioning file (section 3), or the defaults
+below for a field it lacks.
 
 | Field | CBOR type | Unit | Range | Default | Who uses it, for what |
 | --- | --- | --- | --- | --- | --- |
@@ -309,7 +367,7 @@ use the defaults below.
 | `mesh_password` | text | bytes | empty, or 8 to 63 | empty | Controller: the mesh network's password. Stored encrypted like `wifi_password`. |
 | `mesh_min_router_rssi` | int | dBm | -100 to 0 | -75 | Controller: when the strongest access point it can see is below this and `mesh_enabled` is true, join the mesh through a neighboring controller instead. |
 | `mesh_max_layer` | uint | hops | 1 to 10 | 4 | Controller: the deepest hop it may sit at in the mesh. |
-| `update_connect_timeout_s` | uint | s | 60 to 1800 | 300 | Controller: after installing firmware, go back to the previous image if it has not connected as its door within this long (section 14). The server's pages warn when it is longer than `update_timeout_minutes`, after which the server counts the update failed. |
+| `update_connect_timeout_s` | uint | s | 60 to 1800 | 300 | Controller: after installing firmware, go back to the previous image if it has not connected as its door within this long (section 15). The server's pages warn when it is longer than `update_timeout_minutes`, after which the server counts the update failed. |
 | `accept_unsigned_firmware` | bool | | | `false` | Controller: when true, install firmware images without a valid signature. For bench and development boards only. |
 | `log_level` | text | | one of `error`, `warn`, `info`, `debug` | `info` | Controller: how much the controller logs. |
 
@@ -320,7 +378,7 @@ independently.
 Pin mappings and other hardware matters are the firmware's own and are not
 here.
 
-## 9. The timeline and the door's state
+## 10. The timeline and the door's state
 
 On `doorcode/doors/<id>/timeline`, retained (`Timeline`). It covers the next
 25 hours from when it was built.
@@ -350,7 +408,7 @@ At any instant the door is in one of three states:
 | --- | --- | --- | --- |
 | **open** (open mode) | Inside an `open` span. | Any keypress releases the strike for `strike_pulse_ms`. Nothing is sent to the server for it; count it in telemetry's `opens`. | The same. |
 | **locked** | Inside a `locked` span. | Send entries to the server as usual: a door commander can still enter, and keypad commands still work; the server denies everyone else. | Deny every entry. |
-| **normal** | Anywhere else within `from` to `to`. | Send each entry and follow the reply (section 10). | Deny every entry. |
+| **normal** | Anywhere else within `from` to `to`. | Send each entry and follow the reply (section 11). | Deny every entry. |
 
 After `to`, without a newer timeline, the door is in its normal state. A
 controller that does not know the time (before its first NTP answer, say)
@@ -359,7 +417,7 @@ should treat every instant as normal, which denies everything offline.
 Because an open span asks the server nothing, a keypad command typed during
 one does not reach the server.
 
-## 10. Code entry and the check exchange
+## 11. Code entry and the check exchange
 
 ### The keypad entry
 
@@ -432,7 +490,7 @@ the limit is denied without its code being looked at, and logged as rate
 limited; the controller just sees `allow: false`. The controller need not
 limit itself, though it may hold back entries faster than the bucket allows.
 
-## 11. Telemetry and door events
+## 12. Telemetry and door events
 
 ### Telemetry
 
@@ -479,7 +537,7 @@ is corrected by the next report. Events and telemetry made while offline are
 not sent later; the server learns the state from the first report after
 reconnecting.
 
-## 12. Commands and acks
+## 13. Commands and acks
 
 ### Command
 
@@ -502,8 +560,8 @@ door.
 | `command` | What the controller does |
 | --- | --- |
 | `open` (`CommandOpen`) | Release the strike for `strike_ms`, as a reply allowing someone in would. An administrator sent it from the door page; the server has logged it. |
-| `credentials` (`CommandCredentials`) | Rotate to the new credentials (section 13). |
-| `update` (`CommandUpdate`) | Install the firmware (section 14). |
+| `credentials` (`CommandCredentials`) | Rotate to the new credentials (section 14). |
+| `update` (`CommandUpdate`) | Install the firmware (section 15). |
 | `reboot` (`CommandReboot`) | Restart, as below. An administrator sent it from the door page or the API; the server has logged it. |
 
 An unknown command should be answered with a `failed` ack.
@@ -541,7 +599,7 @@ ends the update as failed with the detail. Acks of `open` are optional and
 recorded nowhere, as are those of `reboot`; an update is acknowledged as a success by reconnecting on
 the new version, not by an ack.
 
-## 13. Credentials: rotation and revocation
+## 14. Credentials: rotation and revocation
 
 A door normally has one live credential, and never more than two: the old
 and the new during a rotation. The server rotates automatically once the
@@ -557,7 +615,7 @@ waits, and an administrator's is refused.
    memory, keeping the old pair until the new one has worked.
 3. It connects with the new credentials (and the same client id), sets the
    last will with the new username, subscribes, and publishes its online
-   status with the new username, as in section 6.
+   status with the new username, as in section 7.
 4. It closes the old connection. With the same client id on both, the
    broker ends the old one as the new one connects, which also serves; a
    controller whose MQTT stack holds one connection may instead close the
@@ -577,7 +635,7 @@ which disconnects the controller. Its next connection is refused as not
 authorized; it then forgets its credentials, its stored timeline, and its
 stored configuration, and enrolls again.
 
-## 14. Firmware updates
+## 15. Firmware updates
 
 The server sends `update` to doors whose reported version differs from
 their target: during the update window, a few doors at a time, or at once
@@ -593,7 +651,7 @@ from the door page. The controller:
    - `404` when the version no longer exists.
 3. Checks the image's SHA-256 against `sha256`.
 4. Installs it into the inactive image slot and restarts into it.
-5. Connects as its door (section 6) and publishes its online status with
+5. Connects as its door (section 7) and publishes its online status with
    the new `firmware_version`. That ends the update as succeeded.
 
 If the download, the checksum, or the installation fails, the controller
@@ -602,7 +660,7 @@ stays on its current firmware and publishes an ack with the command's `id`,
 and sends it again in the next update window.
 
 **Self-revert.** New firmware that cannot connect to the broker within
-`update_connect_timeout_s` (section 8) must restart into the previous image (an A/B
+`update_connect_timeout_s` (section 9) must restart into the previous image (an A/B
 scheme with a boot counter, for instance), which then connects and reports
 the old version. It should then publish a `failed` ack with the remembered
 command `id` and a detail such as `reverted: could not connect`, so the
@@ -613,11 +671,11 @@ of sending it.
 A door that reconnects on the target version during an update succeeds;
 reporting the version only in telemetry does not end the update.
 
-## 15. Disconnected
+## 16. Disconnected
 
 While the controller cannot reach the broker, it:
 
-- follows its stored timeline (section 9): open spans unlock on any
+- follows its stored timeline (section 10): open spans unlock on any
   keypress; everything else denies every entry, logging nothing on the
   server (there is no queue of offline entries);
 - runs with its stored configuration;
@@ -625,14 +683,14 @@ While the controller cannot reach the broker, it:
 - sends nothing later: telemetry, door events, and entries made offline are
   not replayed.
 
-On reconnecting it does everything section 6 says; the retained
+On reconnecting it does everything section 7 says; the retained
 configuration and timeline bring it up to date at once.
 
-## 16. What the controller stores
+## 17. What the controller stores
 
 | What | Why |
 | --- | --- |
-| Hardware id, broker address and CA, enrollment username and password | Provisioning, to enroll. |
+| Hardware id, broker address and CA, Wi-Fi network and password, enrollment username and password | Provisioning (section 3), to enroll. |
 | `door_id`, `username`, `token` | To connect as the door after a restart. During a rotation, both pairs. |
 | The last configuration | To run offline and after a restart. |
 | The last timeline | To follow open and locked spans offline. |
@@ -641,47 +699,47 @@ configuration and timeline bring it up to date at once.
 
 Codes are never stored.
 
-## 17. Index of the protocol package
+## 18. Index of the protocol package
 
 Every name `internal/protocol` exports, and where this document describes
 it.
 
 | Name | Kind | Meaning | Section |
 | --- | --- | --- | --- |
-| `Version` | constant, 1 | The protocol version in every message's `v`. | 3 |
-| `EnrollFilter` | constant | `doorcode/enroll/+`, the announcements the server reads. | 4 |
-| `OnlineFilter` | constant | `doorcode/doors/+/online`. | 4 |
-| `CheckFilter` | constant | `doorcode/doors/+/check`. | 4 |
-| `TelemetryFilter` | constant | `doorcode/doors/+/telemetry`. | 4 |
-| `EventFilter` | constant | `doorcode/doors/+/event`. | 4 |
-| `AckFilter` | constant | `doorcode/doors/+/ack`. | 4 |
-| `EnrollOwnFilter` | constant | `doorcode/enroll/%c`, what the enrollment account may publish; the broker puts the client id for `%c`. | 5 |
-| `CredentialsOwnFilter` | constant | `doorcode/enroll/%c/credentials`, what the enrollment account may subscribe to. | 5 |
-| `LeafCheck`, `LeafReply`, `LeafCommand`, `LeafConfig`, `LeafTimeline`, `LeafTelemetry`, `LeafEvent`, `LeafAck` | constants | The last levels of a door's topics: `check`, `reply`, `command`, `config`, `timeline`, `telemetry`, `event`, `ack`. | 4 |
-| `EnrollTopic(hwid)` | function | `doorcode/enroll/<hwid>`. | 5 |
-| `CredentialsTopic(hwid)` | function | `doorcode/enroll/<hwid>/credentials`. | 5 |
-| `DoorTopic(id, leaf)` | function | `doorcode/doors/<id>/<leaf>`. | 4 |
-| `DoorFilter(id)` | function | `doorcode/doors/<id>/#`, everything a door account may use. | 4 |
-| `Topic` (`HardwareID`, `DoorID`, `Leaf`) | type | What a topic names: an enrolling controller's hardware id, or a door's id and the topic's leaf. | 4 |
-| `Parse(topic)` | function | Reads a topic into a `Topic`; a hardware id must be non-empty and a door id a whole number from 1. | 4 |
-| `Header` (`V`) | type | The `v` field every message has. | 3 |
-| `Message` | interface | Any message of the protocol. | 3 |
-| `Enrollment` (`Online`, `FirmwareVersion`, `Signal`) | message | `online`, `firmware_version`, `signal`. | 5 |
-| `Credentials` (`DoorID`, `Username`, `Token`) | message | `door_id`, `username`, `token`. | 5 |
-| `Online` (`Online`, `Username`, `FirmwareVersion`, `Signal`) | message | `online`, `username`, `firmware_version`, `signal`. | 6 |
-| `CommandCredentials`, `CommandOpen`, `CommandUpdate`, `CommandReboot` | constants | `credentials`, `open`, `update`, `reboot`. | 12 |
-| `Command` (`ID`, `Command`, `Username`, `Token`, `StrikeMS`, `Version`, `SHA256`, `URL`) | message | `id`, `command`, `username`, `token`, `strike_ms`, `version`, `sha256`, `url`. | 12 |
-| `AckFailed` | constant | `failed`. | 12 |
-| `Ack` (`ID`, `Result`, `Detail`) | message | `id`, `result`, `detail`. | 12 |
-| `Check` (`RequestID`, `Digits`) | message | `request_id`, `digits`. | 10 |
-| `Reply` (`RequestID`, `Allow`, `StrikeMS`) | message | `request_id`, `allow`, `strike_ms`. | 10 |
-| `DoorConfig` (`StrikePulseMS`, `KeypadIdleClearMS`, `MinCodeLength`, `MaxCodeLength`, `SubmitKey`, `ReplyTimeoutMS`, `TelemetryIntervalS`, `HeldOpenS`, `TimelineRefreshHours`, `CredentialRotationDays`, `RateLimitPerMinute`, `RateLimitBurst`, `NTPServer`, `BrokerHost`, `BrokerPort`, `BrokerTLS`, `BrokerCAPEM`, `WifiSSID`, `WifiPassword`, `WifiRoamRSSI`, `KeepaliveS`, `ReconnectMaxS`, `MeshEnabled`, `MeshSSID`, `MeshPassword`, `MeshMinRouterRSSI`, `MeshMaxLayer`, `UpdateConnectTimeoutS`, `AcceptUnsignedFirmware`, `LogLevel`) | type | The configuration fields, `strike_pulse_ms` through `log_level`. | 8 |
-| `Config` (`Header`, `DoorConfig`) | message | `v` and the configuration fields in one map. | 8 |
-| `Span` (`Start`, `End`, `State`) | type | `start`, `end`, `state`. | 9 |
-| `Timeline` (`From`, `To`, `Spans`) | message | `from`, `to`, `spans`. | 9 |
-| `Telemetry` (`Signal`, `LatencyMS`, `UptimeS`, `FreeBytes`, `FirmwareVersion`, `Reconnects`, `DoorOpen`, `Opens`) | message | `signal`, `latency_ms`, `uptime_s`, `free_bytes`, `firmware_version`, `reconnects`, `door_open`, `opens`. | 11 |
-| `EventOpened`, `EventClosed` | constants | `opened`, `closed`. | 11 |
-| `DoorEvent` (`Event`) | message | `event`. | 11 |
-| `ErrVersion` | error | A message of another protocol version. | 3 |
-| `Encode(m)` | function | `m` as CBOR, core deterministic, with `v` set to `Version`. | 3 |
-| `Decode(payload, m)` | function | Reads a payload, refusing anything but a CBOR map of this version. | 3 |
+| `Version` | constant, 1 | The protocol version in every message's `v`. | 4 |
+| `EnrollFilter` | constant | `doorcode/enroll/+`, the announcements the server reads. | 5 |
+| `OnlineFilter` | constant | `doorcode/doors/+/online`. | 5 |
+| `CheckFilter` | constant | `doorcode/doors/+/check`. | 5 |
+| `TelemetryFilter` | constant | `doorcode/doors/+/telemetry`. | 5 |
+| `EventFilter` | constant | `doorcode/doors/+/event`. | 5 |
+| `AckFilter` | constant | `doorcode/doors/+/ack`. | 5 |
+| `EnrollOwnFilter` | constant | `doorcode/enroll/%c`, what the enrollment account may publish; the broker puts the client id for `%c`. | 6 |
+| `CredentialsOwnFilter` | constant | `doorcode/enroll/%c/credentials`, what the enrollment account may subscribe to. | 6 |
+| `LeafCheck`, `LeafReply`, `LeafCommand`, `LeafConfig`, `LeafTimeline`, `LeafTelemetry`, `LeafEvent`, `LeafAck` | constants | The last levels of a door's topics: `check`, `reply`, `command`, `config`, `timeline`, `telemetry`, `event`, `ack`. | 5 |
+| `EnrollTopic(hwid)` | function | `doorcode/enroll/<hwid>`. | 6 |
+| `CredentialsTopic(hwid)` | function | `doorcode/enroll/<hwid>/credentials`. | 6 |
+| `DoorTopic(id, leaf)` | function | `doorcode/doors/<id>/<leaf>`. | 5 |
+| `DoorFilter(id)` | function | `doorcode/doors/<id>/#`, everything a door account may use. | 5 |
+| `Topic` (`HardwareID`, `DoorID`, `Leaf`) | type | What a topic names: an enrolling controller's hardware id, or a door's id and the topic's leaf. | 5 |
+| `Parse(topic)` | function | Reads a topic into a `Topic`; a hardware id must be non-empty and a door id a whole number from 1. | 5 |
+| `Header` (`V`) | type | The `v` field every message has. | 4 |
+| `Message` | interface | Any message of the protocol. | 4 |
+| `Enrollment` (`Online`, `FirmwareVersion`, `Signal`) | message | `online`, `firmware_version`, `signal`. | 6 |
+| `Credentials` (`DoorID`, `Username`, `Token`) | message | `door_id`, `username`, `token`. | 6 |
+| `Online` (`Online`, `Username`, `FirmwareVersion`, `Signal`) | message | `online`, `username`, `firmware_version`, `signal`. | 7 |
+| `CommandCredentials`, `CommandOpen`, `CommandUpdate`, `CommandReboot` | constants | `credentials`, `open`, `update`, `reboot`. | 13 |
+| `Command` (`ID`, `Command`, `Username`, `Token`, `StrikeMS`, `Version`, `SHA256`, `URL`) | message | `id`, `command`, `username`, `token`, `strike_ms`, `version`, `sha256`, `url`. | 13 |
+| `AckFailed` | constant | `failed`. | 13 |
+| `Ack` (`ID`, `Result`, `Detail`) | message | `id`, `result`, `detail`. | 13 |
+| `Check` (`RequestID`, `Digits`) | message | `request_id`, `digits`. | 11 |
+| `Reply` (`RequestID`, `Allow`, `StrikeMS`) | message | `request_id`, `allow`, `strike_ms`. | 11 |
+| `DoorConfig` (`StrikePulseMS`, `KeypadIdleClearMS`, `MinCodeLength`, `MaxCodeLength`, `SubmitKey`, `ReplyTimeoutMS`, `TelemetryIntervalS`, `HeldOpenS`, `TimelineRefreshHours`, `CredentialRotationDays`, `RateLimitPerMinute`, `RateLimitBurst`, `NTPServer`, `BrokerHost`, `BrokerPort`, `BrokerTLS`, `BrokerCAPEM`, `WifiSSID`, `WifiPassword`, `WifiRoamRSSI`, `KeepaliveS`, `ReconnectMaxS`, `MeshEnabled`, `MeshSSID`, `MeshPassword`, `MeshMinRouterRSSI`, `MeshMaxLayer`, `UpdateConnectTimeoutS`, `AcceptUnsignedFirmware`, `LogLevel`) | type | The configuration fields, `strike_pulse_ms` through `log_level`. | 9 |
+| `Config` (`Header`, `DoorConfig`) | message | `v` and the configuration fields in one map. | 9 |
+| `Span` (`Start`, `End`, `State`) | type | `start`, `end`, `state`. | 10 |
+| `Timeline` (`From`, `To`, `Spans`) | message | `from`, `to`, `spans`. | 10 |
+| `Telemetry` (`Signal`, `LatencyMS`, `UptimeS`, `FreeBytes`, `FirmwareVersion`, `Reconnects`, `DoorOpen`, `Opens`) | message | `signal`, `latency_ms`, `uptime_s`, `free_bytes`, `firmware_version`, `reconnects`, `door_open`, `opens`. | 12 |
+| `EventOpened`, `EventClosed` | constants | `opened`, `closed`. | 12 |
+| `DoorEvent` (`Event`) | message | `event`. | 12 |
+| `ErrVersion` | error | A message of another protocol version. | 4 |
+| `Encode(m)` | function | `m` as CBOR, core deterministic, with `v` set to `Version`. | 4 |
+| `Decode(payload, m)` | function | Reads a payload, refusing anything but a CBOR map of this version. | 4 |

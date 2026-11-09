@@ -13,7 +13,10 @@
       <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{{with $d.Location}}{{.}} · {{end}}created {{date $.Zone $d.CreatedAt}}</p>
     </div>
   </div>
-  {{if $c.Opens}}<a href="/admin/doors/{{$d.ID}}/calendar" hx-boost="false" class="shrink-0 {{template "secondary-class"}}">{{template "calendar-icon"}}View timeline</a>{{end}}
+  <div class="flex flex-wrap gap-3">
+    {{if $c.Provisions}}{{template "provisioning" (printf "/api/v1/doors/%d/provisioning" $d.ID)}}{{end}}
+    {{if $c.Opens}}<a href="/admin/doors/{{$d.ID}}/calendar" hx-boost="false" class="shrink-0 {{template "secondary-class"}}">{{template "calendar-icon"}}View timeline</a>{{end}}
+  </div>
 </div>
 
 {{with $c.Alert}}<div class="mt-6">{{template "alert" .}}</div>{{end}}

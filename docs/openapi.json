@@ -2883,6 +2883,97 @@
         }
       }
     },
+    "/doors/{id}/provisioning": {
+      "get": {
+        "operationId": "getDoorProvisioning",
+        "summary": "Download a door's provisioning file",
+        "tags": [
+          "firmware"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The door's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "provisioning-\u003cdoor id\u003e.json, as an attachment: the provisioning file with the door's configuration, its overrides applied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvisioningFile"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-firmware role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No door has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "No broker host is given, or the broker is reached over TLS with no CA certificate to verify it against; the error says which: door_broker_host is empty: a controller needs an address to reach the broker, so no provisioning file can be made. Controllers connect to the broker over TLS, but door_broker_ca_pem gives no CA certificate: a controller could not verify the broker, so no provisioning file can be made.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/doors/{id}/reboot": {
       "post": {
         "operationId": "rebootDoor",
@@ -4097,6 +4188,75 @@
           },
           "404": {
             "description": "No firmware has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/firmware/provisioning": {
+      "get": {
+        "operationId": "getProvisioning",
+        "summary": "Download the provisioning file",
+        "tags": [
+          "firmware"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "provisioning.json, as an attachment: what a controller is flashed with to enroll, with the site's defaults.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvisioningFile"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-firmware role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "No broker host is given, or the broker is reached over TLS with no CA certificate to verify it against; the error says which: door_broker_host is empty: a controller needs an address to reach the broker, so no provisioning file can be made. Controllers connect to the broker over TLS, but door_broker_ca_pem gives no CA certificate: a controller could not verify the broker, so no provisioning file can be made.",
             "content": {
               "application/json": {
                 "schema": {
@@ -11561,6 +11721,104 @@
           "reached",
           "works",
           "spans"
+        ]
+      },
+      "ProvisioningBroker": {
+        "type": "object",
+        "properties": {
+          "ca_pem": {
+            "type": "string",
+            "description": "The PEM certificate to verify the broker against; empty when tls is false."
+          },
+          "host": {
+            "type": "string",
+            "description": "The host name or IP address of the broker."
+          },
+          "port": {
+            "type": "integer",
+            "description": "The broker's port."
+          },
+          "tls": {
+            "type": "boolean",
+            "description": "Whether to connect to the broker over TLS."
+          }
+        },
+        "required": [
+          "host",
+          "port",
+          "tls",
+          "ca_pem"
+        ]
+      },
+      "ProvisioningEnrollment": {
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": "string",
+            "description": "Its password, in the clear."
+          },
+          "username": {
+            "type": "string",
+            "description": "The broker username every controller enrolls with."
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ]
+      },
+      "ProvisioningFile": {
+        "type": "object",
+        "properties": {
+          "broker": {
+            "$ref": "#/components/schemas/ProvisioningBroker",
+            "description": "The broker to connect to."
+          },
+          "door_config": {
+            "$ref": "#/components/schemas/DoorConfigView",
+            "description": "The configuration to run with until the server sends one, with the names and types of the configuration message; secrets in the clear."
+          },
+          "enrollment": {
+            "$ref": "#/components/schemas/ProvisioningEnrollment",
+            "description": "The credentials to enroll with."
+          },
+          "format": {
+            "type": "integer",
+            "description": "The version of this file's layout, 1."
+          },
+          "generated_at": {
+            "type": "integer",
+            "description": "When the file was made, in Unix seconds."
+          },
+          "wifi": {
+            "$ref": "#/components/schemas/ProvisioningWifi",
+            "description": "The Wi-Fi network to join."
+          }
+        },
+        "required": [
+          "format",
+          "generated_at",
+          "broker",
+          "enrollment",
+          "wifi",
+          "door_config"
+        ]
+      },
+      "ProvisioningWifi": {
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": "string",
+            "description": "Its password, in the clear."
+          },
+          "ssid": {
+            "type": "string",
+            "description": "The Wi-Fi network to join."
+          }
+        },
+        "required": [
+          "ssid",
+          "password"
         ]
       },
       "RangeView": {

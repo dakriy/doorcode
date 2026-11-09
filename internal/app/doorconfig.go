@@ -141,8 +141,13 @@ func configRows(d connector.StoredDoor, defaults settings.DoorDefaults, entered 
 	for _, f := range settings.DoorFields {
 		_, set := d.Config[f.Name]
 		row := configRow{DoorField: f, Default: defaults.Default(f), Entered: entered[f.Name], Effective: defaults.Shown(d.Config, f), Set: set}
-		if f.Name == settings.ConnectTimeoutField {
+		switch f.Name {
+		case settings.ConnectTimeoutField:
 			row.Warning = defaults.RevertWarning(d.Config)
+		case settings.BrokerHostField:
+			row.Warning = defaults.HostWarning(d.Config)
+		case settings.BrokerCAField:
+			row.Warning = defaults.BrokerWarning(d.Config)
 		}
 		rows = append(rows, row)
 	}

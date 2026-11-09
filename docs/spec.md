@@ -191,7 +191,9 @@ accepted, log level. The Wi-Fi and mesh passwords are secrets: stored
 encrypted as defaults and as a door's overrides, shown masked in the UI and
 the API, and sent in the clear only in the door's configuration message.
 The settings page and a door's page warn when new firmware may take longer
-to connect than the update timeout gives it. The server pushes the
+to connect than the update timeout gives it, when doors would be given no
+broker host, and when they would connect to the broker over TLS with no CA
+certificate to verify it against. The server pushes the
 effective config on connect and on change. Pin mappings are firmware
 concerns and are not here.
 
@@ -245,6 +247,17 @@ installs, restarts, and reconnects reporting the new version, or acknowledges
 that it failed. If it cannot reconnect it reverts on its own and reappears
 with the old version. Rollout continues in the next window until every door
 matches its target.
+
+A controller is flashed with a *provisioning file* before it first enrolls:
+the broker (host, port, TLS, and CA certificate), the enrollment
+credentials, the Wi-Fi network, and every door configuration field, secrets
+in the clear. Holders of *manage-firmware* download it from the firmware
+page or the API with the site's defaults, or from a door's page or the API
+with that door's configuration, its overrides applied. It is refused while
+the broker host is empty, since a controller would have no address to
+reach the broker, and while the broker is reached over TLS with no CA
+certificate, since a controller could not verify the broker. Its layout is in
+[controller.md](controller.md).
 
 ## 9. MQTT protocol
 
@@ -324,13 +337,15 @@ its password to the log with instructions to change it.
 
 Pages: dashboard, doors (list, pending enrollments, detail with live state,
 timeline calendar, pictures, zones and the open mode they give it,
-who-can-enter, config, firmware, open and reboot buttons, events), zones (doors and
+who-can-enter, config, firmware, provisioning file, open and reboot
+buttons, events), zones (doors and
 open-mode schedules), users (list, detail, groups, access
 calendar per door, events), groups (list with role badges, detail with
 members, roles, access rules, and pre-assigned user ids while sign-in reads a
 user id claim), access rules,
 schedules (list, form, calendar, where used), overrides,
-firmware (versions, default, update window, rollout progress), events
+firmware (versions, default, update window, rollout progress,
+provisioning file), events
 (filters by door, user, outcome, reason, type, date), access requests
 (reply, resolve), bulk import (CSV of user id and group slugs, preview
 before apply), settings (sign-in, identity claims, defaults, door config

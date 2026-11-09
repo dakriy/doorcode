@@ -36,7 +36,8 @@ the engineering contract is [AGENTS.md](AGENTS.md).
   kept as samples and hourly summaries, charted on each door's page.
 - **Firmware.** Uploads through the UI or the API, a default version and
   per-door overrides, rollout inside an update window a few doors at a time,
-  and update-now from a door's page.
+  update-now from a door's page, and provisioning files to flash new
+  controllers with, for the site or one door.
 - **Events.** Every code check, keypad command, UI opening and reboot,
   alarm, and update is logged with who and why, and searchable by door,
   user, type, outcome, reason, and date. The user is picked by searching
@@ -270,6 +271,14 @@ disconnected, credential rotation, and firmware updates. The demo's
 simulated controller, `internal/demo/doors.go`, is a reference
 implementation. In short:
 
+0. **Provision.** Flash the controller with a provisioning file: the
+   broker, its CA certificate, the Wi-Fi network, the enrollment
+   credentials, and a starting configuration. A holder of manage-firmware
+   downloads it from the firmware page, or a door's page for a controller
+   meant for that door, or from `GET /api/v1/firmware/provisioning` and
+   `GET /api/v1/doors/<id>/provisioning` with an API token. It carries
+   secrets in the clear, and is refused while `door_broker_host` is empty
+   or `door_broker_tls` is on with no `door_broker_ca_pem`.
 1. **Enroll.** Connect to the broker with the shared enrollment credentials
    (`enrollment_username`, `enrollment_password`) and the controller's
    hardware id as the MQTT client id, with a last will of `online: false`

@@ -204,9 +204,9 @@ func TestTheSettingsPageWarnsWhenNewFirmwareMayRevertAfterTheUpdateTimeout(t *te
 		timeout string
 		notes   []string
 	}{
-		"as long as the update timeout":   {"30", []string{settingsNote, hashNote}},
-		"longer than the update timeout":  {"29", []string{settingsNote, hashNote, revertWarning("29", "1740")}},
-		"shorter than the update timeout": {"31", []string{settingsNote, hashNote}},
+		"as long as the update timeout":   {"30", []string{settingsNote, hashNote, hostNote, brokerNote}},
+		"longer than the update timeout":  {"29", []string{settingsNote, hashNote, hostNote, brokerNote, revertWarning("29", "1740")}},
+		"shorter than the update timeout": {"31", []string{settingsNote, hashNote, hostNote, brokerNote}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -281,7 +281,7 @@ func TestARefusedUpdateTimeoutShowsItsErrorBesideTheSettingsNotes(t *testing.T) 
 
 	page := pageOf(got)
 	want := []any{422, map[string]string{"update_timeout_minutes": "Must be a whole number of minutes from 1 to 1440."},
-		[]string{settingsNote, "Set by DOORCODE_PASSWORD_HASH_MEMORY_KIB in the environment; change it there."}}
+		[]string{settingsNote, "Set by DOORCODE_PASSWORD_HASH_MEMORY_KIB in the environment; change it there.", hostNote, brokerNote}}
 	if diff := cmp.Diff(want, []any{got.Status, page.FieldErrors, page.Notes}); diff != "" {
 		t.Errorf("status, field errors, notes (-want +got):\n%s", diff)
 	}

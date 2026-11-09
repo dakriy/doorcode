@@ -259,8 +259,13 @@ func (a *App) sectionsOf(all []settings.Setting, entered map[string]string) []se
 		if choices := a.settings.Choices(s); len(choices) > 0 {
 			row.Options = choiceOptions(choices, row.Entered)
 		}
-		if s.Key == settings.KeyConnectTimeout {
+		switch s.Key {
+		case settings.KeyConnectTimeout:
 			row.Warning = settings.RevertWarning(row.Entered, held[settings.KeyUpdateTimeout])
+		case settings.KeyBrokerHost:
+			row.Warning = settings.HostWarning(row.Entered)
+		case settings.KeyBrokerCA:
+			row.Warning = settings.BrokerWarning(held[settings.KeyBrokerTLS], row.Entered)
 		}
 		sections[last].Rows = append(sections[last].Rows, row)
 	}

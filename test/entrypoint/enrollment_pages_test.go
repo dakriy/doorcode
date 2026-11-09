@@ -154,7 +154,7 @@ func TestApprovingAsANewDoorFromTheFormOpensTheDoor(t *testing.T) {
 	}
 	want := []any{
 		[]string{"The controller has been approved. Its credentials are on their way, and it connects as this door once it has them."},
-		[]string{noTargetNote, "New credentials can be sent only while the controller is connected.", picturesNote, openNote, neverOpenNote},
+		[]string{noTargetNote, "New credentials can be sent only while the controller is connected.", hostNote, brokerNote, picturesNote, openNote, neverOpenNote},
 		[]string{"zone_ids=1"},
 		[][]string{credentialsHead, {firstUsername, "Mon 5 Jan 2026 09:00", "Issued, not yet used"}},
 	}

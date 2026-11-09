@@ -286,9 +286,12 @@ func TestARefusedDoorSettingSaysWhatItTakes(t *testing.T) {
 
 // configTable is the configuration table of the page of a door that
 // follows the site's defaults, but for the overrides and the values in
-// effect changed names, by field.
+// effect changed names, by field; the broker's host warns while it is
+// empty, and its certificate while it is missing though the door connects
+// over TLS.
 func configTable(changed map[string][2]string) [][]string {
 	rows := [][]string{{"Setting", "Site default", "This door", "In effect"}}
+	tls := ""
 	for _, f := range []struct{ name, label, hint, value string }{
 		{"strike_pulse_ms", "Strike pulse", "a whole number of milliseconds from 100 to 60000", "3000"},
 		{"keypad_idle_clear_ms", "Keypad idle clear", "a whole number of milliseconds from 1000 to 600000", "10000"},
@@ -324,6 +327,15 @@ func configTable(changed map[string][2]string) [][]string {
 		effective := f.value
 		if c, ok := changed[f.name]; ok {
 			effective = c[1]
+		}
+		if f.name == "broker_tls" {
+			tls = effective
+		}
+		if f.name == "broker_ca_pem" && tls == "true" && effective == "" {
+			effective = brokerNote
+		}
+		if f.name == "broker_host" && effective == "" {
+			effective = hostNote
 		}
 		rows = append(rows, []string{f.label + " " + f.hint, f.value, "", effective})
 	}
