@@ -18,7 +18,8 @@ type Page struct {
 	Nav []string
 	// NavTargets is the address of each link in navigation, in order.
 	NavTargets []string
-	// Messages is the text of each alert and status message, in order.
+	// Messages is the text of each alert and status message not hidden,
+	// in order.
 	Messages []string
 	// Notes is the text of each note, such as why an action is not
 	// offered, in order.
@@ -66,6 +67,9 @@ type Page struct {
 	// Comboboxes is the name of each select and list of checkboxes the
 	// combobox script makes searchable, in order.
 	Comboboxes []string
+	// UserSearches maps the name of each text input the search script
+	// makes ask the server for users as you type to the address it asks.
+	UserSearches map[string]string
 	// Styles is the text of each style sheet the page holds itself.
 	Styles []string
 	// Inputs maps each named control a person fills in, every one but a
@@ -120,9 +124,7 @@ func ParsePage(body string) Page {
 		if attr(n, "aria-invalid") == "true" {
 			invalid = append(invalid, n)
 		}
-		if hasAttr(n, "data-combobox") {
-			p.Comboboxes = append(p.Comboboxes, attr(n, "name"))
-		}
+		p.readScripted(n)
 		p.readControl(n)
 		p.read(n)
 	}
@@ -135,6 +137,19 @@ func ParsePage(body string) Page {
 	return p
 }
 
+// readScripted reads a control the search script enhances.
+func (p *Page) readScripted(n *html.Node) {
+	if hasAttr(n, "data-combobox") {
+		p.Comboboxes = append(p.Comboboxes, attr(n, "name"))
+	}
+	if hasAttr(n, "data-user-search") {
+		if p.UserSearches == nil {
+			p.UserSearches = map[string]string{}
+		}
+		p.UserSearches[attr(n, "name")] = attr(n, "data-user-search")
+	}
+}
+
 func (p *Page) read(n *html.Node) {
 	switch {
 	case n.Data == "title" && !within(n, "svg"):
@@ -144,7 +159,7 @@ func (p *Page) read(n *html.Node) {
 	case n.Data == "a" && within(n, "nav"):
 		p.Nav = append(p.Nav, navText(n))
 		p.NavTargets = append(p.NavTargets, attr(n, "href"))
-	case attr(n, "role") == "alert" || attr(n, "role") == "status":
+	case (attr(n, "role") == "alert" || attr(n, "role") == "status") && !hasAttr(n, "hidden"):
 		p.Messages = append(p.Messages, text(n))
 	case attr(n, "role") == "note":
 		p.Notes = append(p.Notes, text(n))

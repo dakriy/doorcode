@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"errors"
-	"math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -113,7 +112,10 @@ type eventFilters struct {
 	connector.EventQuery
 	FromDate string
 	ToDate   string
-	Page     int
+	// Who is what was typed in the user filter's text box when nobody has
+	// it as their email or user id.
+	Who  string
+	Page int
 }
 
 // eventsContent is the events page's content.
@@ -123,10 +125,12 @@ type eventsContent struct {
 	Types    []selectOption
 	Outcomes []selectOption
 	Reasons  []selectOption
-	// Users is every user, and the user the events are filtered by
-	// though they are deleted or nobody has their id.
-	Users []selectOption
-	Rows  []eventRow
+	// User is the user the events are filtered by, though they are
+	// deleted or nobody has their id; nil when they are not.
+	User *nameRef
+	// WithoutUser is the events page with the same filters but the user.
+	WithoutUser string
+	Rows        []eventRow
 	// Empty says why the list is empty, and Filtered whether filters are
 	// set, so the page can offer to clear them.
 	Empty    string
@@ -153,9 +157,39 @@ func readEventFilters(r *http.Request, zone *time.Location) (eventFilters, bool,
 	return f, filterOK && fromErr == nil && toErr == nil, pageOK
 }
 
-// link is the events page with the filters f holds, on page.
+// eventFiltersOf reads the events page's filters, their dates in zone,
+// and the email or user id typed in its user filter's text box, which
+// names the user it filters by in place of the user id the form holds,
+// and says what could not be read or found and was left out.
+func (a *App) eventFiltersOf(r *http.Request, zone *time.Location) (eventFilters, string, error) {
+	f, filtersOK, pageOK := readEventFilters(r, zone)
+	if !filtersOK {
+		return eventFilters{Page: 1}, "Some filters could not be read, so every event is shown.", nil
+	}
+	alert := ""
+	if !pageOK {
+		alert = "The page number could not be read, so the first page is shown."
+	}
+	typed := strings.TrimSpace(r.URL.Query().Get("who"))
+	if typed == "" {
+		return f, alert, nil
+	}
+	u, found, err := a.directory.FindUser(r.Context(), typed)
+	if !found {
+		f.UserID, f.Who = 0, typed
+		return f, "Nobody has the email or user id you typed, so events of every user are shown.", err
+	}
+	f.UserID = u.ID
+	return f, alert, nil
+}
+
+// link is the events page with the filters f holds, on page, or on the
+// first when page is zero.
 func (f eventFilters) link(page int) string {
-	values := url.Values{"page": {strconv.Itoa(page)}}
+	values := url.Values{}
+	if page > 0 {
+		values.Set("page", strconv.Itoa(page))
+	}
 	for name, value := range map[string]string{
 		"door": idText(f.DoorID), "user": idText(f.UserID), "type": f.Type, "outcome": f.Outcome, "reason": f.Reason,
 		"from": f.FromDate, "to": f.ToDate,
@@ -192,14 +226,12 @@ func (a *App) eventsPage(w http.ResponseWriter, r *http.Request, viewer auth.Use
 	if !ok {
 		return
 	}
-	f, filtersOK, pageOK := readEventFilters(r, zone)
-	content := eventsContent{}
-	if !pageOK {
-		content.Alert = "The page number could not be read, so the first page is shown."
+	f, alert, err := a.eventFiltersOf(r, zone)
+	if err != nil {
+		a.pageError(w, r, err)
+		return
 	}
-	if !filtersOK {
-		f, content.Alert = eventFilters{Page: 1}, "Some filters could not be read, so every event is shown."
-	}
+	content := eventsContent{Alert: alert}
 	found, err := a.events.Find(r.Context(), event.Query{EventQuery: f.EventQuery, Page: f.Page, PerPage: eventsPerPage})
 	if err != nil {
 		a.pageError(w, r, err)
@@ -210,12 +242,14 @@ func (a *App) eventsPage(w http.ResponseWriter, r *http.Request, viewer auth.Use
 		a.pageError(w, r, err)
 		return
 	}
-	users, err := a.userOptions(r.Context(), f.UserID)
+	content.User, err = a.filterUser(r.Context(), f.UserID)
 	if err != nil {
 		a.pageError(w, r, err)
 		return
 	}
-	content.Filters, content.Users, content.Rows = f, users, rowsOfEvents(found.Events, zone)
+	withoutUser := f
+	withoutUser.UserID = 0
+	content.Filters, content.WithoutUser, content.Rows = f, withoutUser.link(0), rowsOfEvents(found.Events, zone)
 	content.Filtered = f.EventQuery != connector.EventQuery{}
 	content.Doors = doorOptions(doors, f.DoorID)
 	content.Types = optionsOf(event.Types, func(t string) string { return typeLabels[t] }, f.Type)
@@ -234,30 +268,6 @@ func doorOptions(doors []connector.StoredDoor, chosen int64) []selectOption {
 		out = append(out, idOption(d.ID, d.Name, d.ID == chosen))
 	}
 	return out
-}
-
-// everyUser is a page size that holds every user.
-const everyUser = math.MaxInt32
-
-// userOptions is every current user as the user filter offers them, with
-// the user whose id is chosen selected; a chosen user who is deleted, or
-// whose id nobody has, is added at the end.
-func (a *App) userOptions(ctx context.Context, chosen int64) ([]selectOption, error) {
-	found, err := a.directory.Users(ctx, directory.Query{Page: 1, PerPage: everyUser})
-	if err != nil {
-		return nil, err
-	}
-	var out []selectOption
-	listed := chosen == 0
-	for _, u := range found.Users {
-		out = append(out, idOption(u.ID, u.DisplayName, u.ID == chosen))
-		listed = listed || u.ID == chosen
-	}
-	if listed {
-		return out, nil
-	}
-	u, err := a.filterUser(ctx, chosen)
-	return append(out, idOption(chosen, u.Name, true)), err
 }
 
 // filterUser is the user whose id is id, by id and display name, for the

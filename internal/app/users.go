@@ -16,6 +16,8 @@ const (
 	// asks for another number.
 	usersPerPage   = 25
 	maxUsersAPIPer = 200
+	// userMatchCap is how many users a search for a user filter returns.
+	userMatchCap = 20
 )
 
 type userList struct {
@@ -23,6 +25,18 @@ type userList struct {
 	Total   int        `json:"total" doc:"How many users the search selects, on every page together."`
 	Page    int        `json:"page" doc:"This page's number, from 1."`
 	PerPage int        `json:"per_page" doc:"How many users a page holds."`
+}
+
+// userMatch is a user a search for a user filter found.
+type userMatch struct {
+	ID    int64  `json:"id" doc:"Names the user in the API."`
+	Name  string `json:"name" doc:"The name pages show for the user."`
+	Email string `json:"email" doc:"The user's email address, lowercase."`
+}
+
+type userMatches struct {
+	Users []userMatch `json:"users" doc:"The first matching users by display name, at most 20."`
+	Total int         `json:"total" doc:"How many users match, though only the first are returned."`
 }
 
 type userRequest struct {
@@ -66,6 +80,11 @@ func (a *App) userRoutes() []route {
 				{Status: http.StatusOK, Description: "The page of users.", Body: userList{}},
 				badBody("A query parameter is out of range."),
 			},
+		}),
+		apiRoute(http.MethodGet, "/users/search", holding(auth.RoleManageUsers, auth.RoleViewLogs), a.searchUsers, apiDoc{
+			id: "searchUsers", summary: "Find users to filter by, as you type", tag: "users",
+			params:    []openapi.Param{{Name: "q", In: "query", Description: "Keeps current users whose email, user id, or names contain this text, ignoring case.", Example: "smith"}},
+			responses: []openapi.Response{{Status: http.StatusOK, Description: "The first matching users and how many match.", Body: userMatches{}}},
 		}),
 		apiRoute(http.MethodPost, "/users", users, a.createUser, apiDoc{
 			id: "createUser", summary: "Create a user", tag: "users", request: example,
@@ -161,6 +180,21 @@ func (a *App) listUsers(w http.ResponseWriter, r *http.Request, _ auth.User) {
 		return
 	}
 	writeJSON(w, http.StatusOK, userList{Users: a.viewsOfUsers(found.Users), Total: found.Total, Page: page, PerPage: perPage})
+}
+
+// searchUsers answers with the first current users whose email, user id,
+// or names hold the text q, for a user filter that asks as you type.
+func (a *App) searchUsers(w http.ResponseWriter, r *http.Request, _ auth.User) {
+	found, err := a.directory.Users(r.Context(), directory.Query{Search: r.URL.Query().Get("q"), Page: 1, PerPage: userMatchCap})
+	if err != nil {
+		a.internalError(w, r, err)
+		return
+	}
+	matches := userMatches{Users: []userMatch{}, Total: found.Total}
+	for _, u := range found.Users {
+		matches.Users = append(matches.Users, userMatch{ID: u.ID, Name: u.DisplayName, Email: u.Email})
+	}
+	writeJSON(w, http.StatusOK, matches)
 }
 
 const (

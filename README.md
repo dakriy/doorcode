@@ -39,7 +39,8 @@ the engineering contract is [AGENTS.md](AGENTS.md).
   and update-now from a door's page.
 - **Events.** Every code check, keypad command, UI opening and reboot,
   alarm, and update is logged with who and why, and searchable by door,
-  user, type, outcome, reason, and date.
+  user, type, outcome, reason, and date. The user is picked by searching
+  the server as you type, so the page stays fast with thousands of users.
 - **Dashboard.** Entries per day, a weekday by hour heatmap, denial reasons,
   the busiest and quietest doors, door uptime, signal and latency trends,
   firmware versions, and live counts.

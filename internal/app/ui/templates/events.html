@@ -14,8 +14,10 @@
       {{template "combobox" (combobox "door" "door" "Every door" $c.Doors "" "mt-1")}}
     </div>
     <div>
-      <label for="user" class="block text-xs font-medium text-zinc-600 dark:text-zinc-400">User</label>
-      {{template "combobox" (combobox "user" "user" "Every user" $c.Users "" "mt-1")}}
+      <label for="who" class="block text-xs font-medium text-zinc-600 dark:text-zinc-400">User</label>
+      <input type="hidden" name="user" value="{{with $c.User}}{{.ID}}{{end}}">
+      <input id="who" name="who" type="text" value="{{$f.Who}}" placeholder="Email or user id" autocomplete="off" spellcheck="false" data-user-search="/api/v1/users/search" data-user-field="user" data-user-chip="user-chip" class="mt-1 {{template "input-base"}}">
+      <p id="user-chip" role="status" class="mt-1.5 filter-chip"{{if not $c.User}} hidden{{end}}>User: <span data-user-name class="truncate">{{with $c.User}}{{.Name}}{{end}}</span><a href="{{$c.WithoutUser}}" aria-label="Stop filtering by user" class="filter-chip-clear">×</a></p>
     </div>
     <div>
       <label for="type" class="block text-xs font-medium text-zinc-600 dark:text-zinc-400">Type</label>

@@ -8297,6 +8297,77 @@
         }
       }
     },
+    "/users/search": {
+      "get": {
+        "operationId": "searchUsers",
+        "summary": "Find users to filter by, as you type",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Keeps current users whose email, user id, or names contain this text, ignoring case.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "smith"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The first matching users and how many match.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserMatches"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the manage-users or view-logs role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/users/{id}": {
       "delete": {
         "operationId": "deleteUser",
@@ -12239,6 +12310,48 @@
           "total",
           "page",
           "per_page"
+        ]
+      },
+      "UserMatch": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "The user's email address, lowercase."
+          },
+          "id": {
+            "type": "integer",
+            "description": "Names the user in the API."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name pages show for the user."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email"
+        ]
+      },
+      "UserMatches": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "description": "How many users match, though only the first are returned."
+          },
+          "users": {
+            "type": "array",
+            "description": "The first matching users by display name, at most 20.",
+            "items": {
+              "$ref": "#/components/schemas/UserMatch"
+            }
+          }
+        },
+        "required": [
+          "users",
+          "total"
         ]
       },
       "UserRequest": {

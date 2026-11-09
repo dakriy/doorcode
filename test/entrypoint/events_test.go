@@ -131,16 +131,93 @@ func TestTheEventsPageFiltersByWhatItsFormSays(t *testing.T) {
 
 	want := []any{
 		[][]string{eventsHead, {"Mon 5 Jan 2026 09:20:00", "Dock", "Ann Smith", "Denied No rule", "Code check d1"}, {"Showing 1 to 1 of 1"}},
-		map[string]string{"from": "2026-01-05", "to": "2026-01-05"},
+		map[string]string{"from": "2026-01-05", "to": "2026-01-05", "user": "2", "who": ""},
 		[]string{"Every door", "Dock (selected)", "Lobby"},
-		[]string{"Every user", "Administrator", "Ann Smith (selected)", "Cid Jones", "Eve Brown"},
+		[]string{"User: Ann Smith ×"},
 		[]string{"Every type", "Code check (selected)", "Door command", "Opened from the UI", "Door alarm", "Firmware update"},
 		[]string{"Every outcome", "Allowed", "Denied (selected)", "Alert", "Info"},
-		[]string{"door", "user"},
+		[]string{"door"},
 	}
-	got := []any{page.Tables["Events"], page.Values, page.Options["door"], page.Options["user"], page.Options["type"], page.Options["outcome"], page.Comboboxes}
+	got := []any{page.Tables["Events"], page.Values, page.Options["door"], page.Messages, page.Options["type"], page.Options["outcome"], page.Comboboxes}
 	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("events, values, doors, users, types, outcomes, searchable selects (-want +got):\n%s", diff)
+		t.Errorf("events, values, doors, user, types, outcomes, searchable selects (-want +got):\n%s", diff)
+	}
+}
+
+// Without script the user filter is a text box whose value names the user
+// by email or user id, in place of the user the form held.
+func TestTheEventsPageFiltersByTheUserWhoseEmailOrUserIDIsTyped(t *testing.T) {
+	t.Parallel()
+	for name, query := range map[string]string{
+		"an email":                     "?user=&who=ANN@example.com",
+		"a user id":                    "?who=+100234+",
+		"in place of the user it held": "?user=3&who=ann@example.com",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			k := loggedSite(t, testsupport.NewFactory())
+			k.b.Get("/")
+
+			page := pageOf(k.b.Get("/admin/events" + query))
+
+			rows := page.Tables["Events"]
+			want := []any{[]string{"User: Ann Smith ×"}, map[string]string{"user": "2", "who": "", "from": "", "to": ""}, []string{"Showing 1 to 2 of 2"}}
+			if diff := cmp.Diff(want, []any{page.Messages, page.Values, rows[len(rows)-1]}); diff != "" {
+				t.Errorf("user, values, events shown (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestTheEventsPageShowsEveryUsersEventsWhenNobodyHasTheTypedEmailOrUserID(t *testing.T) {
+	t.Parallel()
+	k := loggedSite(t, testsupport.NewFactory())
+	k.b.Get("/")
+
+	page := pageOf(k.b.Get("/admin/events?user=2&who=nobody&page=x"))
+
+	rows := page.Tables["Events"]
+	want := []any{
+		[]string{"Nobody has the email or user id you typed, so events of every user are shown."},
+		map[string]string{"user": "", "who": "nobody", "from": "", "to": ""}, []string{"Showing 1 to 5 of 5"},
+	}
+	if diff := cmp.Diff(want, []any{page.Messages, page.Values, rows[len(rows)-1]}); diff != "" {
+		t.Errorf("messages, values, events shown (-want +got):\n%s", diff)
+	}
+}
+
+func TestTheEventsPageClearsItsUserKeepingItsOtherFilters(t *testing.T) {
+	t.Parallel()
+	k := loggedSite(t, testsupport.NewFactory())
+	k.b.Get("/")
+
+	clear := pageOf(k.b.Get("/admin/events?user=2&door=1")).LinkTargets["Stop filtering by user"]
+	page := pageOf(k.b.Get(clear))
+
+	rows := page.Tables["Events"]
+	want := []any{"/admin/events?door=1", map[string]string{"user": "", "who": "", "from": "", "to": ""}, []string{"Showing 1 to 4 of 4"}}
+	if diff := cmp.Diff(want, []any{clear, page.Values, rows[len(rows)-1]}); diff != "" {
+		t.Errorf("link, values, events shown (-want +got):\n%s", diff)
+	}
+}
+
+// With script the user filter's text box asks the server for the users
+// matching what is typed, a page at most, and choosing one fills the
+// form's user, as TestTheEventsPageFiltersByWhatItsFormSays submits it.
+func TestTheEventsPageUserFilterAsksTheServerAsYouType(t *testing.T) {
+	t.Parallel()
+	k := loggedSite(t, testsupport.NewFactory())
+	k.b.Get("/")
+
+	searches := pageOf(k.b.Get("/admin/events")).UserSearches
+	got := testsupport.JSON(k.b.Get(searches["who"] + "?q=smith").Body)
+
+	want := []any{
+		map[string]string{"who": "/api/v1/users/search"},
+		testsupport.JSON(`{"users":[{"id":2,"name":"Ann Smith","email":"ann@example.com"}],"total":1}`),
+	}
+	if diff := cmp.Diff(want, []any{searches, got}); diff != "" {
+		t.Errorf("user searches, what one finds (-want +got):\n%s", diff)
 	}
 }
 
@@ -207,10 +284,10 @@ func TestTheEventsPageNamesAUserItsFilterNamesThoughNobodyHasTheID(t *testing.T)
 	b := signedInAdmin(t, testsupport.NewFactory())
 	b.Get("/")
 
-	got := testsupport.ParsePage(b.Get("/admin/events?user=99").Body).Options["user"]
+	got := testsupport.ParsePage(b.Get("/admin/events?user=99").Body).Messages
 
-	if diff := cmp.Diff([]string{"Every user", "Administrator", "No such user (selected)"}, got); diff != "" {
-		t.Errorf("users (-want +got):\n%s", diff)
+	if diff := cmp.Diff([]string{"User: No such user ×"}, got); diff != "" {
+		t.Errorf("user (-want +got):\n%s", diff)
 	}
 }
 
@@ -218,11 +295,12 @@ func TestTheEventsPageNamesADeletedUserItsFilterNames(t *testing.T) {
 	t.Parallel()
 	k := loggedSite(t, testsupport.NewFactory())
 	k.b.Post("/admin/users/2/delete")
+	k.b.Get("/")
 
-	got := testsupport.ParsePage(k.b.Get("/admin/events?user=2").Body).Options["user"]
+	got := testsupport.ParsePage(k.b.Get("/admin/events?user=2").Body).Messages
 
-	if diff := cmp.Diff([]string{"Every user", "Administrator", "Cid Jones", "Eve Brown", "Ann Smith (selected)"}, got); diff != "" {
-		t.Errorf("users (-want +got):\n%s", diff)
+	if diff := cmp.Diff([]string{"User: Ann Smith ×"}, got); diff != "" {
+		t.Errorf("user (-want +got):\n%s", diff)
 	}
 }
 
@@ -272,13 +350,15 @@ func TestEventPagesFailWhenTheStoreDoes(t *testing.T) {
 		fail   func(f *testsupport.Factory)
 		target string
 	}{
-		"the events page's events":   {func(f *testsupport.Factory) { f.StoreStub.FailEvents() }, "/admin/events"},
-		"the events page's doors":    {func(f *testsupport.Factory) { f.StoreStub.FailDoors() }, "/admin/events"},
-		"the events page's user":     {func(f *testsupport.Factory) { f.StoreStub.FailUsers() }, "/admin/events?user=1"},
-		"the events page's timezone": {func(f *testsupport.Factory) { f.StoreStub.FailSettings() }, "/admin/events"},
-		"the events API":             {func(f *testsupport.Factory) { f.StoreStub.FailEvents() }, "/api/v1/events"},
-		"a door page's events":       {func(f *testsupport.Factory) { f.StoreStub.FailEvents() }, "/admin/doors/1"},
-		"a user page's events":       {func(f *testsupport.Factory) { f.StoreStub.FailEvents() }, "/admin/users/1"},
+		"the events page's events":     {func(f *testsupport.Factory) { f.StoreStub.FailEvents() }, "/admin/events"},
+		"the events page's doors":      {func(f *testsupport.Factory) { f.StoreStub.FailDoors() }, "/admin/events"},
+		"the events page's user":       {func(f *testsupport.Factory) { f.StoreStub.FailUsers() }, "/admin/events?user=1"},
+		"the events page's typed user": {func(f *testsupport.Factory) { f.StoreStub.FailUsers() }, "/admin/events?who=ann@example.com"},
+		"the user search":              {func(f *testsupport.Factory) { f.StoreStub.FailUsers() }, "/api/v1/users/search?q=a"},
+		"the events page's timezone":   {func(f *testsupport.Factory) { f.StoreStub.FailSettings() }, "/admin/events"},
+		"the events API":               {func(f *testsupport.Factory) { f.StoreStub.FailEvents() }, "/api/v1/events"},
+		"a door page's events":         {func(f *testsupport.Factory) { f.StoreStub.FailEvents() }, "/admin/doors/1"},
+		"a user page's events":         {func(f *testsupport.Factory) { f.StoreStub.FailEvents() }, "/admin/users/1"},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -340,8 +420,8 @@ func TestTheEventsPageShowsTheFirstPageKeepingItsFiltersWhenThePageNumberCannotB
 	}
 }
 
-// The events page loads the script of its two searchable selects once,
-// and the live script.
+// The events page loads the script of its searchable select and user
+// search once, and the live script.
 func TestTheEventsPageLoadsTheScriptOfItsSearchableSelects(t *testing.T) {
 	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())

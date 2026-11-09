@@ -22,7 +22,7 @@
   <button type="submit" class="{{template "secondary-class"}}">Search</button>
 </form>
 {{with $c.User}}
-<p class="mt-3 text-sm"><span role="status" class="inline-flex items-center gap-2 rounded-full bg-brand-50 py-0.5 pr-1 pl-3 text-xs font-medium text-brand-700 ring-1 ring-brand-600/20 ring-inset dark:bg-brand-950 dark:text-brand-300 dark:ring-brand-400/20">User: {{.Name}}<a href="{{$c.WithoutUser}}" aria-label="Stop filtering by user" class="rounded-full px-1.5 hover:bg-brand-100 dark:hover:bg-brand-900">×</a></span></p>
+<p class="mt-3 text-sm"><span role="status" class="filter-chip">User: {{.Name}}<a href="{{$c.WithoutUser}}" aria-label="Stop filtering by user" class="filter-chip-clear">×</a></span></p>
 {{end}}
 
 <div id="requests-list" hx-get="{{.URI}}" hx-select="#requests-list" hx-swap="outerHTML" hx-trigger="live-requests from:body" class="mt-6 overflow-hidden {{template "card-class"}}">

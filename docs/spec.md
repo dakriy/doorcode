@@ -333,9 +333,13 @@ parts fold away while single sign-on is off), API docs.
 Lists are searchable, filterable, server-paginated, and update live over
 Server-Sent Events where state changes without a page action (door status,
 enrollments, dashboard). Every select or list of checkboxes of something that
-may be long (doors, zones, schedules, users, firmware) narrows its options as
-you type, from the keyboard as well, and stays a plain select or list of
-checkboxes without script. Every destructive action confirms. Forms validate
+may be long (doors, zones, schedules, firmware) narrows its options as you
+type, from the keyboard as well, and stays a plain select or list of
+checkboxes without script. Users, of whom a site may have thousands, are never
+listed whole: a user filter asks the server as you type (name, email, or user
+id, at most 20 matches, `GET /api/v1/users/search`), shows the chosen user by
+name with a × that clears it, and without script is a text box matched as an
+email or user id. Every destructive action confirms. Forms validate
 inline. Light and dark themes follow the browser; theme colors and the
 sign-in page image are settings.
 
