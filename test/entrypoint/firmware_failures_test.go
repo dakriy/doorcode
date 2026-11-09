@@ -23,7 +23,7 @@ var (
 	settingWritesFail   fleetFailure = func(fl *fleet) { fl.f.StoreStub.FailSettingWrites() }
 	eventWritesFail     fleetFailure = func(fl *fleet) { fl.f.StoreStub.FailEventWrites() }
 	publishingFails     fleetFailure = func(fl *fleet) { fl.f.BrokerStub.FailPublishing() }
-	addressUnreadable   fleetFailure = func(fl *fleet) { fl.f.EnvStub["DOORCODE_PUBLIC_URL"] = "http://doorcode.example.com" }
+	addressUnreadable   fleetFailure = func(fl *fleet) { fl.f.EnvStub["DOORCODE_PUBLIC_URL"] = "ftp://doorcode.example.com" }
 	timezoneUnreadable  fleetFailure = func(fl *fleet) { fl.f.EnvStub["DOORCODE_SITE_TIMEZONE"] = "Mars/Olympus" }
 	unusedFirmwareAdded fleetFailure = func(fl *fleet) { uploadFirmware(fl.t, fl.b, "1.6.0") }
 	updateSentToLobby   fleetFailure = func(fl *fleet) { send(fl.t, fl.b, "POST", "/api/v1/doors/1/update", "", 200) }
@@ -183,7 +183,7 @@ func TestTheRolloutLogsSettingsItCannotRead(t *testing.T) {
 	t.Parallel()
 	cases := map[string]struct{ key, value, error string }{
 		"the public address": {"public_url", "ftp://doorcode.example.com",
-			"invalid value for public_url: must be empty or an https:// address without a query, such as https://doorcode.example.com"},
+			"invalid value for public_url: must be empty or an https:// or http:// address without a query, such as https://doorcode.example.com"},
 		"the weekdays":    {"update_window_days", "mon,someday", "invalid value for update_window_days: must be daily or weekdays separated by commas, such as sat,sun"},
 		"the start":       {"update_window_start", "2am", "invalid value for update_window_start: must be a time of day as HH:MM, such as 02:00"},
 		"the concurrency": {"update_concurrency", "many", "invalid value for update_concurrency: must be a whole number of doors from 1 to 1000"},

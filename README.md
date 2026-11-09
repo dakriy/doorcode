@@ -123,7 +123,9 @@ Mosquitto 2 with its dynamic-security plugin. Migrations apply on start.
 
 4. In Settings, set `public_url` to the `https://` address people and doors
    reach the server at (such as `https://doorcode.example.com`). Firmware
-   downloads and single sign-on need it.
+   downloads and single sign-on need it. An `http://` address is accepted
+   for development only: doors verify the server's certificate only over
+   https.
 
 The compose file is a starting point: the broker listens without TLS on
 1883, and the database and broker passwords are `doorcode`. For production,
@@ -200,7 +202,7 @@ single sign-on and identity claims parts while `oidc_enabled` is off.
 | `telemetry_retention_days` | Days each telemetry report is kept. | `7` |
 | `telemetry_rollup_retention_days` | Days the hourly summaries of the reports are kept. | `730` |
 | `unresponsive_minutes` | Minutes a connected door may stay silent before it counts as unresponsive. | `5` |
-| `public_url` | The `https://` address doors and browsers reach the server at. Firmware is not sent while it is empty, and single sign-on needs it. | empty |
+| `public_url` | The `https://` address, without a query, doors and browsers reach the server at; `http://` only for development, since doors verify the server's certificate only over https. Firmware is not sent while it is empty, and single sign-on needs it. | empty |
 | `update_window_days` | `daily`, or weekdays separated by commas such as `sat,sun`. | `daily` |
 | `update_window_start` | When the update window opens, `HH:MM` in the site timezone. | `02:00` |
 | `update_window_minutes` | How long the update window lasts, in minutes. | `120` |

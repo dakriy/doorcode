@@ -104,7 +104,7 @@ var settingRows = map[string]struct{ section, label, help string }{
 	"telemetry_retention_days":        {"Telemetry", "Reports kept", "Days each telemetry report is kept."},
 	"telemetry_rollup_retention_days": {"Telemetry", "Hourly summaries kept", "Days the hourly summaries of the reports are kept."},
 	"unresponsive_minutes":            {"Telemetry", "Unresponsive after", "Minutes a connected door may stay silent before it counts as unresponsive."},
-	"public_url":                      {"Firmware updates", "Public address", "The https:// address doors and browsers reach the server at. Nothing is sent to doors to download while it is empty."},
+	"public_url":                      {"Firmware updates", "Public address", "The https:// address doors and browsers reach the server at; http:// only for development, since doors verify the server's certificate only over https. Nothing is sent to doors to download while it is empty."},
 	"update_window_days":              {"Firmware updates", "Update days", "daily, or weekdays separated by commas such as sat,sun."},
 	"update_window_start":             {"Firmware updates", "Update window opens", "A time of day in the site timezone."},
 	"update_window_minutes":           {"Firmware updates", "Update window length", "Minutes."},

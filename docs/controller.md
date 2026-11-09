@@ -642,8 +642,10 @@ their target: during the update window, a few doors at a time, or at once
 from the door page. The controller:
 
 1. Remembers the command's `id` and `version` in non-volatile memory.
-2. Downloads the image with an HTTPS `GET` of `url`, verifying the server's
-   certificate. The address is the server's `public_url` followed by
+2. Downloads the image with a `GET` of `url`, verifying the server's
+   certificate when `url` is `https://`. An `http://` address is for
+   development only; the controller downloads over it without any server
+   verification. The address is the server's `public_url` followed by
    `/api/v1/doors/<id>/firmware/<version>?token=<token>`; the token is for
    this one update and must not be logged. The server answers:
    - `200` with the image as `application/octet-stream` (at most 16 MiB);

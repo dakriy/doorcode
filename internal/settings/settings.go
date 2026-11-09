@@ -66,7 +66,7 @@ const (
 	keyRollupRetention     = "telemetry_rollup_retention_days"
 	keyUnresponsive        = "unresponsive_minutes"
 	keyPublicURL           = "public_url"
-	publicURLHint          = "must be empty or an https:// address without a query, such as https://doorcode.example.com"
+	publicURLHint          = "must be empty or an https:// or http:// address without a query, such as https://doorcode.example.com"
 	// KeyUpdateDays is the key of the setting naming the weekdays the
 	// update window opens on, EveryDay when it opens daily.
 	KeyUpdateDays         = "update_window_days"
@@ -301,7 +301,7 @@ var sections = []section{
 	}},
 	{Section{Name: "Firmware updates", About: "Where doors download firmware from, and when and how fast updates roll out."}, []definition{
 		{key: keyPublicURL, fallback: "", validate: accepting(publicURL), label: "Public address",
-			help: "The https:// address doors and browsers reach the server at. Nothing is sent to doors to download while it is empty."},
+			help: "The https:// address doors and browsers reach the server at; http:// only for development, since doors verify the server's certificate only over https. Nothing is sent to doors to download while it is empty."},
 		{key: KeyUpdateDays, fallback: EveryDay, validate: accepting(updateDays), label: "Update days",
 			help: "daily, or weekdays separated by commas such as sat,sun."},
 		{key: keyUpdateStart, fallback: "02:00", validate: accepting(timeOfDay).askedWith(Input{Kind: KindTime}), label: "Update window opens", help: "A time of day in the site timezone."},
@@ -431,7 +431,7 @@ type UpdateWindow struct {
 // publicURL parses the address the server is reached at, dropping a
 // trailing slash.
 func publicURL(value string) (string, error) {
-	if !httpsAddress(value) {
+	if !address(value, "https", "http") {
 		return "", errors.New(publicURLHint)
 	}
 	return strings.TrimSuffix(value, "/"), nil
@@ -440,20 +440,20 @@ func publicURL(value string) (string, error) {
 // issuer parses the address of an OpenID Connect provider, kept exactly as
 // given, since the provider's issuer must match it to the letter.
 func issuer(value string) (string, error) {
-	if !httpsAddress(value) {
+	if !address(value, "https") {
 		return "", errors.New(issuerHint)
 	}
 	return value, nil
 }
 
-// httpsAddress reports whether value is empty or an https:// address
-// without a query or fragment.
-func httpsAddress(value string) bool {
+// address reports whether value is empty or an address in one of the
+// given schemes without a query or fragment.
+func address(value string, schemes ...string) bool {
 	if value == "" {
 		return true
 	}
 	u, err := url.Parse(value)
-	return err == nil && u.Scheme == "https" && u.Host != "" && u.RawQuery == "" && u.Fragment == ""
+	return err == nil && slices.Contains(schemes, u.Scheme) && u.Host != "" && u.RawQuery == "" && u.Fragment == ""
 }
 
 // boolean parses true or false.
