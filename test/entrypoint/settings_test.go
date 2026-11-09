@@ -79,6 +79,7 @@ var brokerSettingsJSON = `{"key":"enrollment_username","value":"doorcode-enroll"
 	defaultSetting("door_rate_limit_per_minute", "30") + `,` +
 	defaultSetting("door_rate_limit_burst", "10") + `,` +
 	defaultSetting("door_ntp_server", "pool.ntp.org") + `,` +
+	defaultSetting("door_broker_host", "") + `,` +
 	defaultSetting("door_log_level", "info")
 
 // defaultSetting is how the settings API shows the setting named key

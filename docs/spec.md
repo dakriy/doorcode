@@ -164,8 +164,10 @@ Door configuration has site defaults editable in settings and per-door
 overrides. Fields: strike pulse duration, keypad idle clear time, minimum and
 maximum code length, submit key, reply timeout, telemetry interval, timeline
 refresh interval, credential rotation interval, rate limit (checks per minute
-and burst), NTP server, log level. The server pushes the effective config on connect and on change. Pin
-mappings are firmware concerns and are not here.
+and burst), NTP server, broker host (the host name or IP address of the
+broker the door connects to; empty keeps the one it has), log level. The
+server pushes the effective config on connect and on change. Pin mappings
+are firmware concerns and are not here.
 
 ### Timeline cache
 
@@ -227,7 +229,7 @@ Payloads are CBOR maps with a `v` protocol version field. Topic prefix
 | door → server | `doors/<id>/telemetry` | the telemetry fields above |
 | door → server | `doors/<id>/online` | retained, with a last-will of offline |
 | server → door | `doors/<id>/timeline` | retained merged intervals |
-| server → door | `doors/<id>/config` | retained effective config |
+| server → door | `doors/<id>/config` | retained effective config, including the broker host to connect to (empty: keep the current one) |
 | server → door | `doors/<id>/command` | open, update (url, version, hash), reboot, new credentials |
 | door → server | `doors/<id>/ack` | command id, result |
 

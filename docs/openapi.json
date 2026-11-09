@@ -9799,6 +9799,10 @@
       "DoorConfigView": {
         "type": "object",
         "properties": {
+          "broker_host": {
+            "type": "string",
+            "description": "The host name or IP address of the broker the door connects to; empty keeps the broker it has."
+          },
           "credential_rotation_days": {
             "type": "integer",
             "description": "How many days the door's broker credentials work before the server issues new ones."
@@ -9870,6 +9874,7 @@
           "rate_limit_per_minute",
           "rate_limit_burst",
           "ntp_server",
+          "broker_host",
           "log_level"
         ]
       },

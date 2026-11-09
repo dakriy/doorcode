@@ -52,7 +52,7 @@ var defaultSettings = []shownSetting{
 	{"door_reply_timeout_ms", "3000", "default"}, {"door_telemetry_interval_s", "60", "default"},
 	{"door_held_open_s", "60", "default"}, {"door_timeline_refresh_hours", "6", "default"}, {"door_credential_rotation_days", "30", "default"},
 	{"door_rate_limit_per_minute", "30", "default"}, {"door_rate_limit_burst", "10", "default"},
-	{"door_ntp_server", "pool.ntp.org", "default"}, {"door_log_level", "info", "default"},
+	{"door_ntp_server", "pool.ntp.org", "default"}, {"door_broker_host", "", "default"}, {"door_log_level", "info", "default"},
 }
 
 // settingRows is the section each setting is shown in, and its label and
@@ -104,6 +104,7 @@ var settingRows = map[string]struct{ section, label, help string }{
 	"door_rate_limit_per_minute":      {"Door defaults", "Code checks a minute", "A whole number of checks from 1 to 6000."},
 	"door_rate_limit_burst":           {"Door defaults", "Code checks in a burst", "A whole number of checks from 1 to 1000."},
 	"door_ntp_server":                 {"Door defaults", "Time server", "A host name of up to 253 letters, digits, dots, and hyphens."},
+	"door_broker_host":                {"Door defaults", "Broker host", "A host name of up to 253 letters, digits, dots, and hyphens, an IP address, or nothing to keep the door's broker."},
 	"door_log_level":                  {"Door defaults", "Log level", "One of error, warn, info, debug."},
 }
 

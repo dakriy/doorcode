@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net/netip"
 	"slices"
 	"strings"
 	"time"
@@ -18,10 +19,12 @@ import (
 const doorPrefix = "door_"
 
 // hostHint is what a time server must be; 253 characters is the longest
-// host name there is.
+// host name there is. brokerHint is what a broker host must be: empty
+// tells the door to keep the broker it connects to.
 const (
 	maxHostLength = 253
 	hostHint      = "a host name of up to 253 letters, digits, dots, and hyphens"
+	brokerHint    = "a host name of up to 253 letters, digits, dots, and hyphens, an IP address, or nothing to keep the door's broker"
 )
 
 // DoorConfig is the configuration a door runs with. Durations are whole
@@ -40,6 +43,7 @@ type DoorConfig struct {
 	RateLimitPerMinute     int
 	RateLimitBurst         int
 	NTPServer              string
+	BrokerHost             string
 	LogLevel               string
 }
 
@@ -98,6 +102,7 @@ var DoorFields = []DoorField{
 	wholeField("rate_limit_burst", "Code checks in a burst", "10", 1, 1000, "checks", func(c *DoorConfig) *int { return &c.RateLimitBurst }),
 	{
 		Name: "ntp_server", Label: "Time server", Hint: hostHint, fallback: "pool.ntp.org", set: setHost},
+	{Name: "broker_host", Label: "Broker host", Hint: brokerHint, fallback: "", set: setBrokerHost},
 	choiceField("log_level", "Log level", "info", []string{"error", "warn", "info", "debug"}, func(c *DoorConfig) *string { return &c.LogLevel }),
 }
 
@@ -129,6 +134,17 @@ func setHost(c *DoorConfig, value string) error {
 	c.NTPServer = value
 	if !isHostName(value) {
 		return errors.New("must be " + hostHint)
+	}
+	return nil
+}
+
+// setBrokerHost keeps value as the broker the door connects to when it is
+// empty, a host name, or an IP address.
+func setBrokerHost(c *DoorConfig, value string) error {
+	c.BrokerHost = value
+	_, notAddress := netip.ParseAddr(value)
+	if value != "" && !isHostName(value) && notAddress != nil {
+		return errors.New("must be " + brokerHint)
 	}
 	return nil
 }

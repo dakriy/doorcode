@@ -230,8 +230,9 @@ type Reply struct {
 // it, how long it waits for the server's answer, how often it reports its
 // telemetry, how long it may stay open, how often it expects a new
 // timeline, how often its credentials rotate, how many codes a minute
-// (and in a burst) the server checks, where it gets the time, and how
-// much it logs.
+// (and in a burst) the server checks, where it gets the time, which
+// broker it connects to (empty to keep the one it has), and how much it
+// logs.
 type DoorConfig struct {
 	StrikePulseMS          int    `cbor:"strike_pulse_ms"`
 	KeypadIdleClearMS      int    `cbor:"keypad_idle_clear_ms"`
@@ -246,6 +247,7 @@ type DoorConfig struct {
 	RateLimitPerMinute     int    `cbor:"rate_limit_per_minute"`
 	RateLimitBurst         int    `cbor:"rate_limit_burst"`
 	NTPServer              string `cbor:"ntp_server"`
+	BrokerHost             string `cbor:"broker_host"`
 	LogLevel               string `cbor:"log_level"`
 }
 

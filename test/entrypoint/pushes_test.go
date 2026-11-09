@@ -67,7 +67,7 @@ func configWith(changed map[string]any) map[string]any {
 		"v": int64(1), "strike_pulse_ms": int64(3000), "keypad_idle_clear_ms": int64(10000), "min_code_length": int64(4),
 		"max_code_length": int64(32), "submit_key": "#", "reply_timeout_ms": int64(3000), "telemetry_interval_s": int64(60),
 		"held_open_s": int64(60), "timeline_refresh_hours": int64(6), "credential_rotation_days": int64(30), "rate_limit_per_minute": int64(30),
-		"rate_limit_burst": int64(10), "ntp_server": "pool.ntp.org", "log_level": "info",
+		"rate_limit_burst": int64(10), "ntp_server": "pool.ntp.org", "broker_host": "", "log_level": "info",
 	}
 	for key, value := range changed {
 		m[key] = value
@@ -193,6 +193,21 @@ func TestChangingADoorsConfigurationSendsItItsConfiguration(t *testing.T) {
 		f.BrokerStub.RetainedDecoded(doorTopic("1", "config"))}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("configurations sent, Dock's, Lobby's (-want +got):\n%s", diff)
+	}
+}
+
+func TestADoorsConfigurationTellsItWhichBrokerToConnectTo(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	_, b := pushSite(t, f)
+	send(t, b, "PUT", "/api/v1/settings/door_broker_host", `{"value":"mqtt.example.com"}`, 200)
+
+	send(t, b, "PUT", "/api/v1/doors/2/config", `{"overrides":{"broker_host":"2001:db8::10"}}`, 200)
+
+	want := []any{configWith(map[string]any{"broker_host": "mqtt.example.com"}), configWith(map[string]any{"broker_host": "2001:db8::10"})}
+	got := []any{f.BrokerStub.RetainedDecoded(doorTopic("1", "config")), f.BrokerStub.RetainedDecoded(doorTopic("2", "config"))}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Lobby's, Dock's configuration (-want +got):\n%s", diff)
 	}
 }
 

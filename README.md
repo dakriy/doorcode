@@ -205,6 +205,7 @@ door, and doors receive a change at once.
 | `door_rate_limit_per_minute` | Code checks a minute the door's token bucket refills, 1 to 6000. | `30` |
 | `door_rate_limit_burst` | Code checks the bucket holds, 1 to 1000. | `10` |
 | `door_ntp_server` | The time server the door uses. | `pool.ntp.org` |
+| `door_broker_host` | The host name or IP address of the broker the door connects to, pushed with the rest of its configuration so doors can be moved to another broker; empty keeps the broker each door already uses. | empty |
 | `door_log_level` | `error`, `warn`, `info`, or `debug`. | `info` |
 
 ## Single sign-on

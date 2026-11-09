@@ -25,6 +25,7 @@ type doorConfigView struct {
 	RateLimitPerMinute     int    `json:"rate_limit_per_minute" doc:"How many codes a minute the server checks for the door."`
 	RateLimitBurst         int    `json:"rate_limit_burst" doc:"How many codes the server checks for the door in a burst."`
 	NTPServer              string `json:"ntp_server" doc:"The time server the door sets its clock from."`
+	BrokerHost             string `json:"broker_host" doc:"The host name or IP address of the broker the door connects to; empty keeps the broker it has."`
 	LogLevel               string `json:"log_level" doc:"How much the door logs: error, warn, info, or debug."`
 }
 
