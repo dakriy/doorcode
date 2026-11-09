@@ -290,7 +290,10 @@ implementation. In short:
 2. **Wait for approval.** The controller shows as pending under Enrollments
    for as long as it stays connected. When an administrator approves it as a
    door, the server publishes on the credentials topic the `door_id`, a
-   `username`, and a `token`, and clears the retained announcement.
+   `username`, and a `token`, and clears the retained announcement. There is
+   no rejection: the list is what is connected and waiting right now. Power
+   off a controller that should not be there, or, if it is not yours, change
+   `enrollment_password` so nothing holding the old one can enroll.
 3. **Connect as the door.** Reconnect with that username and token as the
    password. The door may use only `doorcode/doors/<id>/#`. Publish,
    retained, on `doorcode/doors/<id>/online` `online: true` with the

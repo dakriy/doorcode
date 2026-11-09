@@ -154,7 +154,10 @@ announces its hardware id, firmware version, and signal strength. It appears
 in the admin UI as pending for as long as it stays connected. On approval the
 admin sets name, location, pictures, zones, and optional firmware override;
 the server creates per-door broker credentials and sends them to the door,
-which reconnects as itself.
+which reconnects as itself. There is no rejection: the pending list is
+whatever is connected with the enrollment credentials right now, so an
+unwanted controller is powered off or, if it is not the site's, shut out by
+changing the enrollment password.
 
 Credentials rotate automatically at a configurable interval and on demand
 from the door page. A door has at most two live credentials: the server

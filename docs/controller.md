@@ -236,6 +236,13 @@ pending list even if the credentials never reach it, so a controller still
 waiting after a while (such as ten minutes) should publish its announcement
 again; it is then pending again and can be approved again.
 
+There is no way to reject a waiting controller, and no message that would
+tell it so: the pending list is simply every controller connected with the
+enrollment credentials and waiting right now. A controller that should not
+be there is powered off, or, if it is not the site's own, the enrollment
+password is changed (`enrollment_password`, section 2), which closes the
+enrollment account to everything still holding the old one.
+
 Approval also revokes any credentials the door had before, and, if this
 hardware id was enrolled as another door, takes it off that door and
 revokes that door's credentials.
