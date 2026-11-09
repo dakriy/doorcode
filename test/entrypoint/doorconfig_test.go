@@ -11,7 +11,7 @@ import (
 // defaultConfigJSON is the effective configuration of a door that follows
 // the site's defaults, as the API shows it.
 const defaultConfigJSON = `{"strike_pulse_ms":3000,"keypad_idle_clear_ms":10000,"min_code_length":4,"max_code_length":32,` +
-	`"submit_key":"#","reply_timeout_ms":3000,"telemetry_interval_s":60,"held_open_s":60,"timeline_refresh_hours":6,` +
+	`"reply_timeout_ms":3000,"telemetry_interval_s":60,"held_open_s":60,"timeline_refresh_hours":6,` +
 	`"credential_rotation_days":30,"rate_limit_per_minute":30,"rate_limit_burst":10,"ntp_server":"pool.ntp.org","broker_host":"",` +
 	`"broker_port":8883,"broker_tls":true,"broker_ca_pem":"","wifi_ssid":"","wifi_password":"","wifi_roam_rssi":-70,"keepalive_s":30,` +
 	`"reconnect_max_s":60,"mesh_enabled":false,"mesh_ssid":"","mesh_password":"","mesh_min_router_rssi":-75,"mesh_max_layer":4,` +
@@ -34,7 +34,7 @@ func TestADoorsOverridesReplaceTheDefaultsTheyNameAndEachOther(t *testing.T) {
 	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createDoor(t, b, frontDoor)
-	send(t, b, "PUT", "/api/v1/doors/1/config", `{"overrides":{"submit_key":"A"}}`, 200)
+	send(t, b, "PUT", "/api/v1/doors/1/config", `{"overrides":{"reply_timeout_ms":"5000"}}`, 200)
 
 	got := b.PutJSON("/api/v1/doors/1/config", `{"overrides":{"strike_pulse_ms":"500","log_level":"debug"}}`)
 
@@ -69,6 +69,7 @@ func TestADoorsConfigurationRefusesWhatItCannotHold(t *testing.T) {
 		want         string
 	}{
 		"an unknown field":         {"/api/v1/doors/1/config", `{"overrides":{"strike":"500"}}`, 400, "No door setting has this name."},
+		"the retired submit key":   {"/api/v1/doors/1/config", `{"overrides":{"submit_key":"#"}}`, 400, "No door setting has this name."},
 		"a value out of range":     {"/api/v1/doors/1/config", `{"overrides":{"strike_pulse_ms":"50"}}`, 400, "Enter a whole number of milliseconds from 100 to 60000."},
 		"no overrides":             {"/api/v1/doors/1/config", `{}`, 400, `body must be a JSON object with an object "overrides" of strings`},
 		"overrides not strings":    {"/api/v1/doors/1/config", `{"overrides":{"strike_pulse_ms":500}}`, 400, `body must be a JSON object with an object "overrides" of strings`},
@@ -148,9 +149,6 @@ func TestEachDoorSettingAcceptsOnlyWhatADoorCanRunWith(t *testing.T) {
 		"a longest code of 15":            {"max_code_length", "15", false},
 		"a longest code of 64":            {"max_code_length", "64", true},
 		"a longest code of 65":            {"max_code_length", "65", false},
-		"the hash submit key":             {"submit_key", "#", true},
-		"the D submit key":                {"submit_key", "D", true},
-		"the star submit key":             {"submit_key", "*", false},
 		"the shortest reply timeout":      {"reply_timeout_ms", "100", true},
 		"too short a reply timeout":       {"reply_timeout_ms", "99", false},
 		"the shortest telemetry":          {"telemetry_interval_s", "5", true},
@@ -267,16 +265,16 @@ func TestARefusedDoorSettingSaysWhatItTakes(t *testing.T) {
 	createDoor(t, b, frontDoor)
 
 	got := []any{
-		testsupport.JSONAt(b.PutJSON("/api/v1/doors/1/config", `{"overrides":{"submit_key":"*"}}`).Body, "/error"),
+		testsupport.JSONAt(b.PutJSON("/api/v1/doors/1/config", `{"overrides":{"log_level":"loud"}}`).Body, "/error"),
 		testsupport.JSONAt(b.PutJSON("/api/v1/doors/1/config", `{"overrides":{"ntp_server":"a b"}}`).Body, "/error"),
-		testsupport.JSONAt(b.PutJSON("/api/v1/settings/door_submit_key", `{"value":"*"}`).Body, "/error"),
+		testsupport.JSONAt(b.PutJSON("/api/v1/settings/door_log_level", `{"value":"loud"}`).Body, "/error"),
 		testsupport.JSONAt(b.PutJSON("/api/v1/settings/door_ntp_server", `{"value":"a b"}`).Body, "/error"),
 	}
 
 	want := []any{
-		"Enter one of #, A, B, C, D.",
+		"Enter one of error, warn, info, debug.",
 		"Enter a host name of up to 253 letters, digits, dots, and hyphens.",
-		"invalid value for door_submit_key: must be one of #, A, B, C, D",
+		"invalid value for door_log_level: must be one of error, warn, info, debug",
 		"invalid value for door_ntp_server: must be a host name of up to 253 letters, digits, dots, and hyphens",
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
@@ -292,37 +290,65 @@ func TestARefusedDoorSettingSaysWhatItTakes(t *testing.T) {
 func configTable(changed map[string][2]string) [][]string {
 	rows := [][]string{{"Setting", "Site default", "This door", "In effect"}}
 	tls := ""
-	for _, f := range []struct{ name, label, hint, value string }{
-		{"strike_pulse_ms", "Strike pulse", "a whole number of milliseconds from 100 to 60000", "3000"},
-		{"keypad_idle_clear_ms", "Keypad idle clear", "a whole number of milliseconds from 1000 to 600000", "10000"},
-		{"min_code_length", "Shortest code", "a whole number of digits from 1 to 16", "4"},
-		{"max_code_length", "Longest code", "a whole number of digits from 16 to 64", "32"},
-		{"submit_key", "Submit key", "one of #, A, B, C, D", "#"},
-		{"reply_timeout_ms", "Reply timeout", "a whole number of milliseconds from 100 to 60000", "3000"},
-		{"telemetry_interval_s", "Telemetry interval", "a whole number of seconds from 5 to 86400", "60"},
-		{"held_open_s", "Held open after", "a whole number of seconds from 5 to 86400", "60"},
-		{"timeline_refresh_hours", "Timeline refresh", "a whole number of hours from 1 to 24", "6"},
-		{"credential_rotation_days", "Credential rotation", "a whole number of days from 1 to 3650", "30"},
-		{"rate_limit_per_minute", "Code checks a minute", "a whole number of checks from 1 to 6000", "30"},
-		{"rate_limit_burst", "Code checks in a burst", "a whole number of checks from 1 to 1000", "10"},
-		{"ntp_server", "Time server", "a host name of up to 253 letters, digits, dots, and hyphens", "pool.ntp.org"},
-		{"broker_host", "Broker host", "a host name of up to 253 letters, digits, dots, and hyphens, an IP address, or nothing to keep the door's broker", ""},
-		{"broker_port", "Broker port", "a port from 1 to 65535", "8883"},
-		{"broker_tls", "Broker over TLS", "true to connect to the broker over TLS, false for a development broker only", "true"},
-		{"broker_ca_pem", "Broker CA certificate", "the PEM certificate of the broker's CA or of the broker itself, or nothing", ""},
-		{"wifi_ssid", "Wi-Fi network", "a network name of up to 32 bytes, or nothing to keep the door's network", ""},
-		{"wifi_password", "Wi-Fi password", "a password of up to 63 bytes", ""},
-		{"wifi_roam_rssi", "Roam below", "a whole number of dBm from -100 to 0", "-70"},
-		{"keepalive_s", "Keep-alive", "a whole number of seconds from 10 to 300", "30"},
-		{"reconnect_max_s", "Longest reconnect pause", "a whole number of seconds from 5 to 600", "60"},
-		{"mesh_enabled", "Mesh", "true to let the door join or form a mesh with other doors when its signal is poor", "false"},
-		{"mesh_ssid", "Mesh network", "a network name of up to 32 bytes, or nothing", ""},
-		{"mesh_password", "Mesh password", "a password of 8 to 63 bytes, or nothing", ""},
-		{"mesh_min_router_rssi", "Mesh below", "a whole number of dBm from -100 to 0", "-75"},
-		{"mesh_max_layer", "Deepest mesh hop", "a whole number of hops from 1 to 10", "4"},
-		{"update_connect_timeout_s", "Revert new firmware after", "a whole number of seconds from 60 to 1800", "300"},
-		{"accept_unsigned_firmware", "Unsigned firmware", "true to install firmware without a valid signature, on bench and development boards only", "false"},
-		{"log_level", "Log level", "one of error, warn, info, debug", "info"},
+	for _, f := range []struct{ name, label, about, value string }{
+		{"strike_pulse_ms", "Strike pulse",
+			"How long the door's strike stays released each time it lets someone in. The door may open within this, plus the reply timeout, without counting as forced open. A whole number of milliseconds from 100 to 60000.", "3000"},
+		{"keypad_idle_clear_ms", "Keypad idle clear",
+			"How long a partly typed entry waits for the next key before the keypad discards it. A whole number of milliseconds from 1000 to 600000.", "10000"},
+		{"min_code_length", "Shortest code",
+			"The fewest digits a code may have; the door discards a shorter entry without asking the server. A whole number of digits from 1 to 16.", "4"},
+		{"max_code_length", "Longest code",
+			"The longest entry the keypad takes, a keypad command included; the door takes no more keys once an entry is this long. A whole number of digits from 16 to 64.", "32"},
+		{"reply_timeout_ms", "Reply timeout",
+			"How long the door waits for the server's answer to a code before denying it. A whole number of milliseconds from 100 to 60000.", "3000"},
+		{"telemetry_interval_s", "Telemetry interval",
+			"How often the door reports its health readings, such as its signal and uptime, to the server. A whole number of seconds from 5 to 86400.", "60"},
+		{"held_open_s", "Held open after",
+			"How long a door may stand open, when it should be locked, before it counts as held open and an event is logged. A whole number of seconds from 5 to 86400.", "60"},
+		{"timeline_refresh_hours", "Timeline refresh",
+			"How often the server sends the door its timeline of when to stay open and locked, even when nothing changed it. A whole number of hours from 1 to 24.", "6"},
+		{"credential_rotation_days", "Credential rotation",
+			"How many days the door's broker credentials work before the server issues it new ones. A whole number of days from 1 to 3650.", "30"},
+		{"rate_limit_per_minute", "Code checks a minute",
+			"How many codes a minute the server checks from the door once its burst is spent; an entry over the limit is denied without being looked at and logged as rate limited. A whole number of checks from 1 to 6000.", "30"},
+		{"rate_limit_burst", "Code checks in a burst",
+			"How many codes the server checks from the door in quick succession before the limit a minute applies. A whole number of checks from 1 to 1000.", "10"},
+		{"ntp_server", "Time server",
+			"The time server the door sets its clock from; the door keeps to its timeline by this clock. A host name of up to 253 letters, digits, dots, and hyphens.", "pool.ntp.org"},
+		{"broker_host", "Broker host",
+			"The broker the door connects to, from its next connection on; empty keeps the broker it uses now. A host name of up to 253 letters, digits, dots, and hyphens, an IP address, or nothing to keep the door's broker.", ""},
+		{"broker_port", "Broker port",
+			"The port of the broker the door connects to, from its next connection on. A port from 1 to 65535.", "8883"},
+		{"broker_tls", "Broker over TLS",
+			"Whether the door connects to the broker over TLS, checking the broker against the broker CA certificate. Turn it off for a development broker only. True or false.", "true"},
+		{"broker_ca_pem", "Broker CA certificate",
+			"The certificate the door checks the broker against while it connects over TLS: the broker's CA's, or the broker's own. Empty keeps the one the door has. The PEM certificate of the broker's CA or of the broker itself, or nothing.", ""},
+		{"wifi_ssid", "Wi-Fi network",
+			"The Wi-Fi network the door joins; empty keeps the network it uses now. A door that cannot join a new network goes back to the last one that worked. A network name of up to 32 bytes, or nothing to keep the door's network.", ""},
+		{"wifi_password", "Wi-Fi password",
+			"The Wi-Fi network's password. It is stored encrypted and sent to nobody but the door. A password of up to 63 bytes.", ""},
+		{"wifi_roam_rssi", "Roam below",
+			"When the signal from its access point is weaker than this, the door moves to an access point of the same network at least 8 dB stronger, if it finds one. A whole number of dBm from -100 to 0.", "-70"},
+		{"keepalive_s", "Keep-alive",
+			"How often the door lets the broker know it is still there, from its next connection on; it shows offline once one and a half of these pass without a word from it. A whole number of seconds from 10 to 300.", "30"},
+		{"reconnect_max_s", "Longest reconnect pause",
+			"The longest the door waits between attempts to connect again; it waits 1, 2, 4 seconds and so on up to this. A whole number of seconds from 5 to 600.", "60"},
+		{"mesh_enabled", "Mesh",
+			"Whether the door may join or form a Wi-Fi mesh with other doors when its own access point's signal is poor. True or false.", "false"},
+		{"mesh_ssid", "Mesh network",
+			"The mesh network's name, the same at every door of the site. A network name of up to 32 bytes, or nothing.", ""},
+		{"mesh_password", "Mesh password",
+			"The mesh network's password, the same at every door of the site. It is stored encrypted and sent to nobody but the doors. A password of 8 to 63 bytes, or nothing.", ""},
+		{"mesh_min_router_rssi", "Mesh below",
+			"When the strongest access point a door with the mesh on can see is weaker than this, the door joins the mesh through a neighboring door instead. A whole number of dBm from -100 to 0.", "-75"},
+		{"mesh_max_layer", "Deepest mesh hop",
+			"How many hops from the access point a door may sit in the mesh. A whole number of hops from 1 to 10.", "4"},
+		{"update_connect_timeout_s", "Revert new firmware after",
+			"How long a door on newly installed firmware tries to connect before it goes back to its previous firmware. Keep it within the update timeout, after which the server counts the update failed. A whole number of seconds from 60 to 1800.", "300"},
+		{"accept_unsigned_firmware", "Unsigned firmware",
+			"Whether the door installs firmware that has no valid signature. Leave it off except on bench and development boards. True or false.", "false"},
+		{"log_level", "Log level",
+			"How much the door writes to its own log, from errors only to every detail. One of error, warn, info, debug.", "info"},
 	} {
 		effective := f.value
 		if c, ok := changed[f.name]; ok {
@@ -337,7 +363,7 @@ func configTable(changed map[string][2]string) [][]string {
 		if f.name == "broker_host" && effective == "" {
 			effective = hostNote
 		}
-		rows = append(rows, []string{f.label + " " + f.hint, f.value, "", effective})
+		rows = append(rows, []string{f.label + " " + f.about, f.value, "", effective})
 	}
 	return rows
 }
@@ -363,11 +389,11 @@ func TestSavingADoorsConfigurationFromItsPageSendsIt(t *testing.T) {
 	_, b, _, _ := enrolledDoor(t, f)
 	b.Get("/")
 
-	got := b.Post("/admin/doors/1/config", "strike_pulse_ms", " 500 ", "log_level", "", "submit_key", "A")
+	got := b.Post("/admin/doors/1/config", "strike_pulse_ms", " 500 ", "log_level", "", "reply_timeout_ms", "5000")
 	page := pageOf(b.Get(got.Location))
 
 	want := []any{303, "/admin/doors/1", []string{"The door's configuration has been saved and sent to its controller."},
-		configWith(map[string]any{"strike_pulse_ms": int64(500), "submit_key": "A"})}
+		configWith(map[string]any{"strike_pulse_ms": int64(500), "reply_timeout_ms": int64(5000)})}
 	if diff := cmp.Diff(want, []any{got.Status, got.Location, page.Messages, f.BrokerStub.RetainedDecoded(doorTopic("1", "config"))}); diff != "" {
 		t.Errorf("status, location, messages, configuration sent (-want +got):\n%s", diff)
 	}

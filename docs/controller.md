@@ -362,36 +362,35 @@ below for a field it lacks.
 
 | Field | CBOR type | Unit | Range | Default | Who uses it, for what |
 | --- | --- | --- | --- | --- | --- |
-| `strike_pulse_ms` | uint | ms | 100 to 60000 | 3000 | Controller: how long to release the strike for an open span's keypress. The server sends the same value as a reply's or open command's `strike_ms`. |
+| `strike_pulse_ms` | uint | ms | 100 to 60000 | 3000 | Controller: how long the strike stays released each time the door lets someone in, and for an open span's keypress. The server sends the same value as a reply's or open command's `strike_ms`, and lets the door open within this, plus `reply_timeout_ms`, of letting someone in without calling it forced open. |
 | `keypad_idle_clear_ms` | uint | ms | 1000 to 600000 | 10000 | Controller: discard a partly typed entry after this long without a key. |
-| `min_code_length` | uint | digits | 1 to 16 | 4 | Controller: do not send an entry whose code (the digits before any `*`) is shorter. |
-| `max_code_length` | uint | digits | 16 to 64 | 32 | Controller: stop taking keys once an entry is this long, and do not send a longer one. |
-| `submit_key` | text | | one of `#`, `A`, `B`, `C`, `D` | `#` | Controller: the key that ends an entry and sends it. |
-| `reply_timeout_ms` | uint | ms | 100 to 60000 | 3000 | Controller: how long to wait for a reply before denying. The server allows a door to open this long, plus the strike pulse, after it let someone in before calling it forced. |
-| `telemetry_interval_s` | uint | s | 5 to 86400 | 60 | Controller: how often to publish telemetry. |
-| `held_open_s` | uint | s | 5 to 86400 | 60 | Server: a door open this long is held open. The controller may use it for a local warning. |
-| `timeline_refresh_hours` | uint | hours | 1 to 24 | 6 | Server: how often it sends the timeline unprompted. The controller can expect a new timeline at least this often while connected. |
-| `credential_rotation_days` | uint | days | 1 to 3650 | 30 | Server: how old the door's credentials get before it rotates them. |
-| `rate_limit_per_minute` | uint | checks | 1 to 6000 | 30 | Server: the door's token bucket refills at this many checks a minute. |
-| `rate_limit_burst` | uint | checks | 1 to 1000 | 10 | Server: the bucket holds this many checks. |
-| `ntp_server` | text | | a host name, up to 253 letters, digits, dots, and hyphens | `pool.ntp.org` | Controller: where to get the time. The timeline is in Unix seconds, so the clock matters. |
+| `min_code_length` | uint | digits | 1 to 16 | 4 | Controller: the fewest digits a code may have; discard an entry whose code (the digits before any `*`) is shorter without sending it. |
+| `max_code_length` | uint | digits | 16 to 64 | 32 | Controller: the longest entry the keypad takes, a keypad command included; take no more keys once an entry is this long, and do not send a longer one. |
+| `reply_timeout_ms` | uint | ms | 100 to 60000 | 3000 | Controller: how long to wait for the server's reply to a check before denying the entry. The server allows a door to open this long, plus the strike pulse, after it let someone in before calling it forced. |
+| `telemetry_interval_s` | uint | s | 5 to 86400 | 60 | Controller: how often to publish telemetry, its health readings such as its signal and uptime. |
+| `held_open_s` | uint | s | 5 to 86400 | 60 | Server: how long a door may stand open, while it should be locked, before it counts as held open and an event is logged. The controller may use it for a local warning. |
+| `timeline_refresh_hours` | uint | hours | 1 to 24 | 6 | Server: how often it sends the door its timeline of when to stay open and locked even when nothing changed it. The controller can expect a new timeline at least this often while connected. |
+| `credential_rotation_days` | uint | days | 1 to 3650 | 30 | Server: how many days the door's broker credentials work before it issues new ones. |
+| `rate_limit_per_minute` | uint | checks | 1 to 6000 | 30 | Server: the door's token bucket refills at this many checks a minute once its burst is spent; an entry over the limit is denied without its code being looked at and logged as rate limited. |
+| `rate_limit_burst` | uint | checks | 1 to 1000 | 10 | Server: the bucket holds this many checks, the codes the door may send in quick succession before the limit a minute applies. |
+| `ntp_server` | text | | a host name, up to 253 letters, digits, dots, and hyphens | `pool.ntp.org` | Controller: the time server to set the clock from. The timeline is in Unix seconds, so the door keeps to it only while the clock is right. |
 | `broker_host` | text | | empty, a host name of up to 253 letters, digits, dots, and hyphens, or an IP address, IPv6 included | empty | Controller: the host name or IP address of the broker to connect to. Empty keeps the broker the controller uses now. When it names another broker, store it in place of the provisioned host and connect there from the next connection on, with the same credentials and the port, TLS, and CA below. |
-| `broker_port` | uint | | 1 to 65535 | 8883 | Controller: the broker's port, from the next connection on. |
-| `broker_tls` | bool | | | `true` | Controller: whether to connect to the broker over TLS. `false` is for development brokers only. |
+| `broker_port` | uint | | 1 to 65535 | 8883 | Controller: the port of the broker to connect to, from the next connection on. |
+| `broker_tls` | bool | | | `true` | Controller: whether to connect to the broker over TLS, checking the broker against `broker_ca_pem`. `false` is for development brokers only. |
 | `broker_ca_pem` | text | | empty, or one or more PEM certificates (LF line ends) | empty | Controller: the certificate of the CA, or the broker's own certificate, to verify the broker against while `broker_tls` is true. Empty keeps the certificate the controller has. |
 | `wifi_ssid` | text | bytes | up to 32 | empty | Controller: the Wi-Fi network to join. Empty keeps the network the controller uses now. Keep the last credentials that worked and fall back to them when the new ones fail. |
-| `wifi_password` | text | bytes | up to 63 | empty | Controller: the Wi-Fi network's password. The server stores it encrypted and shows it to nobody; this message is the one place it travels in the clear. |
+| `wifi_password` | text | bytes | up to 63 | empty | Controller: the Wi-Fi network's password. The server stores it encrypted and shows it to nobody; this message is the one place it travels in the clear, to the door alone. |
 | `wifi_roam_rssi` | int | dBm | -100 to 0 | -70 | Controller: when the signal to the current access point is below this, scan and move to an access point of the same network that is at least 8 dB stronger, if there is one. |
-| `keepalive_s` | uint | s | 10 to 300 | 30 | Controller: the MQTT keep-alive interval, from the next connection on. The server shows the door offline once one and a half of these pass without a packet. |
+| `keepalive_s` | uint | s | 10 to 300 | 30 | Controller: the MQTT keep-alive interval, how often the door lets the broker know it is still there, from the next connection on. The server shows the door offline once one and a half of these pass without a packet. |
 | `reconnect_max_s` | uint | s | 5 to 600 | 60 | Controller: the longest pause between attempts to connect again; back off 1, 2, 4 seconds and so on up to this. |
 | `mesh_enabled` | bool | | | `false` | Controller: whether it may join or form a Wi-Fi mesh with other controllers when its own access point's signal is poor. |
 | `mesh_ssid` | text | bytes | up to 32 | empty | Controller: the mesh network's name, the same at every controller of the site. |
-| `mesh_password` | text | bytes | empty, or 8 to 63 | empty | Controller: the mesh network's password. Stored encrypted like `wifi_password`. |
+| `mesh_password` | text | bytes | empty, or 8 to 63 | empty | Controller: the mesh network's password, the same at every controller of the site. Stored encrypted and sent only to the doors, like `wifi_password`. |
 | `mesh_min_router_rssi` | int | dBm | -100 to 0 | -75 | Controller: when the strongest access point it can see is below this and `mesh_enabled` is true, join the mesh through a neighboring controller instead. |
-| `mesh_max_layer` | uint | hops | 1 to 10 | 4 | Controller: the deepest hop it may sit at in the mesh. |
-| `update_connect_timeout_s` | uint | s | 60 to 1800 | 300 | Controller: after installing firmware, go back to the previous image if it has not connected as its door within this long (section 15). The server's pages warn when it is longer than `update_timeout_minutes`, after which the server counts the update failed. |
-| `accept_unsigned_firmware` | bool | | | `false` | Controller: when true, install firmware images without a valid signature. For bench and development boards only. |
-| `log_level` | text | | one of `error`, `warn`, `info`, `debug` | `info` | Controller: how much the controller logs. |
+| `mesh_max_layer` | uint | hops | 1 to 10 | 4 | Controller: how many hops from the access point it may sit in the mesh. |
+| `update_connect_timeout_s` | uint | s | 60 to 1800 | 300 | Controller: after installing firmware, go back to the previous image if it has not connected as its door within this long (section 15). Keep it within the server's `update_timeout_minutes`, after which the server counts the update failed; the server's pages warn when it is longer. |
+| `accept_unsigned_firmware` | bool | | | `false` | Controller: when true, install firmware images without a valid signature. Leave it false except on bench and development boards. |
+| `log_level` | text | | one of `error`, `warn`, `info`, `debug` | `info` | Controller: how much it writes to its own log, from errors only (`error`) to every detail (`debug`). |
 
 A controller must ignore keys it does not know and use the defaults above
 for keys a message lacks, so server and firmware can ship new fields
@@ -443,9 +442,10 @@ one does not reach the server.
 
 ### The keypad entry
 
-The controller collects the keys pressed: digits and `*`. The configured
-`submit_key` ends the entry; it is not part of it. The entry is discarded
-when no key comes for `keypad_idle_clear_ms`. An entry whose code part is
+The controller collects the keys pressed: digits and `*`. The controller
+decides which other key ends the entry, `#` by convention; that key is not
+part of it. The entry is discarded when no key comes for
+`keypad_idle_clear_ms`. An entry whose code part is
 shorter than `min_code_length` is discarded without asking; the controller
 takes no more keys once an entry reaches `max_code_length`.
 
@@ -477,7 +477,7 @@ On `doorcode/doors/<id>/check`, published once per entry.
 | --- | --- | --- |
 | `v` | uint | Protocol version, 1. |
 | `request_id` | text | An id the controller makes up for this check, unique among its recent checks, such as 16 random hex digits. The server echoes it in the reply and records it on the entry's event. |
-| `digits` | text | The entry: the code, optionally followed by `*` and a command, without the submit key. |
+| `digits` | text | The entry: the code, optionally followed by `*` and a command, without the key that ended it. |
 
 ### Reply
 
@@ -769,7 +769,7 @@ it.
 | `Ack` (`ID`, `Result`, `Detail`) | message | `id`, `result`, `detail`. | 13 |
 | `Check` (`RequestID`, `Digits`) | message | `request_id`, `digits`. | 11 |
 | `Reply` (`RequestID`, `Allow`, `StrikeMS`) | message | `request_id`, `allow`, `strike_ms`. | 11 |
-| `DoorConfig` (`StrikePulseMS`, `KeypadIdleClearMS`, `MinCodeLength`, `MaxCodeLength`, `SubmitKey`, `ReplyTimeoutMS`, `TelemetryIntervalS`, `HeldOpenS`, `TimelineRefreshHours`, `CredentialRotationDays`, `RateLimitPerMinute`, `RateLimitBurst`, `NTPServer`, `BrokerHost`, `BrokerPort`, `BrokerTLS`, `BrokerCAPEM`, `WifiSSID`, `WifiPassword`, `WifiRoamRSSI`, `KeepaliveS`, `ReconnectMaxS`, `MeshEnabled`, `MeshSSID`, `MeshPassword`, `MeshMinRouterRSSI`, `MeshMaxLayer`, `UpdateConnectTimeoutS`, `AcceptUnsignedFirmware`, `LogLevel`) | type | The configuration fields, `strike_pulse_ms` through `log_level`. | 9 |
+| `DoorConfig` (`StrikePulseMS`, `KeypadIdleClearMS`, `MinCodeLength`, `MaxCodeLength`, `ReplyTimeoutMS`, `TelemetryIntervalS`, `HeldOpenS`, `TimelineRefreshHours`, `CredentialRotationDays`, `RateLimitPerMinute`, `RateLimitBurst`, `NTPServer`, `BrokerHost`, `BrokerPort`, `BrokerTLS`, `BrokerCAPEM`, `WifiSSID`, `WifiPassword`, `WifiRoamRSSI`, `KeepaliveS`, `ReconnectMaxS`, `MeshEnabled`, `MeshSSID`, `MeshPassword`, `MeshMinRouterRSSI`, `MeshMaxLayer`, `UpdateConnectTimeoutS`, `AcceptUnsignedFirmware`, `LogLevel`) | type | The configuration fields, `strike_pulse_ms` through `log_level`. | 9 |
 | `Config` (`Header`, `DoorConfig`) | message | `v` and the configuration fields in one map. | 9 |
 | `Span` (`Start`, `End`, `State`) | type | `start`, `end`, `state`. | 10 |
 | `Timeline` (`From`, `To`, `Spans`) | message | `from`, `to`, `spans`. | 10 |

@@ -17,7 +17,6 @@ type doorConfigView struct {
 	KeypadIdleClearMS      int    `json:"keypad_idle_clear_ms" doc:"How long a half-typed code waits for the next key before the keypad clears it, in milliseconds."`
 	MinCodeLength          int    `json:"min_code_length" doc:"The fewest digits the keypad sends as a code."`
 	MaxCodeLength          int    `json:"max_code_length" doc:"The most digits the keypad sends as a code."`
-	SubmitKey              string `json:"submit_key" doc:"The key that ends a code: #, A, B, C, or D."`
 	ReplyTimeoutMS         int    `json:"reply_timeout_ms" doc:"How long the door waits for the server's answer to a code, in milliseconds."`
 	TelemetryIntervalS     int    `json:"telemetry_interval_s" doc:"How often the door reports its telemetry, in seconds."`
 	HeldOpenS              int    `json:"held_open_s" doc:"How long the door may stay open before it is logged as held open, in seconds."`

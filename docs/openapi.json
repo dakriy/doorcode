@@ -10290,10 +10290,6 @@
             "type": "integer",
             "description": "How long the strike is released for an entry, in milliseconds."
           },
-          "submit_key": {
-            "type": "string",
-            "description": "The key that ends a code: #, A, B, C, or D."
-          },
           "telemetry_interval_s": {
             "type": "integer",
             "description": "How often the door reports its telemetry, in seconds."
@@ -10324,7 +10320,6 @@
           "keypad_idle_clear_ms",
           "min_code_length",
           "max_code_length",
-          "submit_key",
           "reply_timeout_ms",
           "telemetry_interval_s",
           "held_open_s",

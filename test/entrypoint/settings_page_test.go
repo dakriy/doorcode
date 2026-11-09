@@ -35,7 +35,7 @@ func TestTheSettingsPageAsksForEachSettingWithAnInputOfItsKind(t *testing.T) {
 			"site_name": "text", "site_timezone": "select", "theme_accent": "color", "theme_accent_dark": "color",
 			"password_min_length": "number", "oidc_enabled": "checkbox", "oidc_auto_sign_in": "checkbox",
 			"update_window_start": "time", "update_window_minutes": "number", "door_strike_pulse_ms": "number",
-			"door_submit_key": "select", "door_log_level": "select", "door_ntp_server": "text",
+			"door_log_level": "select", "door_ntp_server": "text",
 		},
 		[]string{"America/New_York", "Asia/Tokyo", "Europe/Berlin", "UTC (selected)"},
 		[]string{"error", "warn", "info (selected)", "debug"},
@@ -43,7 +43,7 @@ func TestTheSettingsPageAsksForEachSettingWithAnInputOfItsKind(t *testing.T) {
 	}
 	got := []any{
 		inputsOf(page, "site_name", "site_timezone", "theme_accent", "theme_accent_dark", "password_min_length", "oidc_enabled",
-			"oidc_auto_sign_in", "update_window_start", "update_window_minutes", "door_strike_pulse_ms", "door_submit_key",
+			"oidc_auto_sign_in", "update_window_start", "update_window_minutes", "door_strike_pulse_ms",
 			"door_log_level", "door_ntp_server"),
 		site.Options["site_timezone"], doors.Options["door_log_level"], site.Comboboxes,
 	}

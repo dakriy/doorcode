@@ -230,8 +230,8 @@ type Reply struct {
 }
 
 // DoorConfig is how a door runs: how long it releases the strike, how
-// long a half-typed code waits, how long a code may be and what key ends
-// it, how long it waits for the server's answer, how often it reports its
+// long a half-typed code waits, how long a code may be, how long it
+// waits for the server's answer, how often it reports its
 // telemetry, how long it may stay open, how often it expects a new
 // timeline, how often its credentials rotate, how many codes a minute
 // (and in a burst) the server checks, where it gets the time, which
@@ -248,7 +248,6 @@ type DoorConfig struct {
 	KeypadIdleClearMS      int    `cbor:"keypad_idle_clear_ms"`
 	MinCodeLength          int    `cbor:"min_code_length"`
 	MaxCodeLength          int    `cbor:"max_code_length"`
-	SubmitKey              string `cbor:"submit_key"`
 	ReplyTimeoutMS         int    `cbor:"reply_timeout_ms"`
 	TelemetryIntervalS     int    `cbor:"telemetry_interval_s"`
 	HeldOpenS              int    `cbor:"held_open_s"`

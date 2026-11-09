@@ -74,7 +74,6 @@ var brokerSettingsJSON = `{"key":"enrollment_username","value":"doorcode-enroll"
 	defaultSetting("door_keypad_idle_clear_ms", "10000") + `,` +
 	defaultSetting("door_min_code_length", "4") + `,` +
 	defaultSetting("door_max_code_length", "32") + `,` +
-	defaultSetting("door_submit_key", "#") + `,` +
 	defaultSetting("door_reply_timeout_ms", "3000") + `,` +
 	defaultSetting("door_telemetry_interval_s", "60") + `,` +
 	defaultSetting("door_held_open_s", "60") + `,` +

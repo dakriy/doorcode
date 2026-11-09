@@ -250,7 +250,7 @@ func TestStoreKeepsADoorsConfigurationAcrossUpdates(t *testing.T) {
 
 			found, err := store.SetDoorConfig(ctx, id, map[string]string{"strike_pulse_ms": "500", "log_level": "debug"})
 			first := mustDoor(t, store, id).Config
-			if _, err := store.SetDoorConfig(ctx, id, map[string]string{"submit_key": "A"}); err != nil {
+			if _, err := store.SetDoorConfig(ctx, id, map[string]string{"reply_timeout_ms": "5000"}); err != nil {
 				t.Fatal(err)
 			}
 			changed := mustDoor(t, store, id)
@@ -264,7 +264,7 @@ func TestStoreKeepsADoorsConfigurationAcrossUpdates(t *testing.T) {
 			}
 
 			want := []any{map[string]string{}, true, "<nil>", map[string]string{"strike_pulse_ms": "500", "log_level": "debug"},
-				map[string]string{"submit_key": "A"}, map[string]string{}}
+				map[string]string{"reply_timeout_ms": "5000"}, map[string]string{}}
 			got := []any{fresh, found, testsupport.ErrorText(err), first, doors[1].Config, doors[0].Config}
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("fresh, found, error, first, after update, other door (-want +got):\n%s", diff)

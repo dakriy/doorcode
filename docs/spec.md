@@ -70,7 +70,8 @@ Codes are digits only.
   to 8 digits chosen by the user. A user without a user id cannot set a code
   in self-service.
 - Admin-set code = 6 to 20 raw digits, no prefix.
-- The keypad submit key terminates entry.
+- A key the controller chooses, `#` by convention, ends the entry; it is
+  not part of it.
 
 New users created through sign-in expire after a configurable period
 (default 5 years). Expired or deleted users are denied everywhere and cannot
@@ -181,7 +182,7 @@ size, and stored in the database.
 
 Door configuration has site defaults editable in settings and per-door
 overrides. Fields: strike pulse duration, keypad idle clear time, minimum and
-maximum code length, submit key, reply timeout, telemetry interval,
+maximum code length, reply timeout, telemetry interval,
 held-open duration, timeline refresh interval, credential rotation interval, rate limit (checks per minute
 and burst), NTP server, broker host (the host name or IP address of the
 broker the door connects to; empty keeps the one it has), broker port, TLS,
@@ -190,7 +191,9 @@ it has) and the signal below which it roams, MQTT keep-alive, longest
 reconnect pause, mesh (enabled, network, password, the signal below which a
 door joins through a neighbor, deepest hop), how long new firmware may take
 to connect before the door reverts it, whether unsigned firmware is
-accepted, log level. The Wi-Fi and mesh passwords are secrets: stored
+accepted, log level. The settings page and a door's page show under each
+field's label a sentence saying what it does, then the values it takes.
+The Wi-Fi and mesh passwords are secrets: stored
 encrypted as defaults and as a door's overrides, shown masked in the UI and
 the API, and sent in the clear only in the door's configuration message.
 The settings page and a door's page warn when new firmware may take longer

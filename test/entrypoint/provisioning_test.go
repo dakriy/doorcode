@@ -11,8 +11,8 @@ import (
 // Rows of the configuration table of a door's page, counting its head:
 // the broker's host and its certificate.
 const (
-	brokerHostRow = 14
-	brokerCARow   = 17
+	brokerHostRow = 13
+	brokerCARow   = 16
 )
 
 // provisioningLink is the links of a page that offers the provisioning
@@ -247,8 +247,10 @@ func TestTheSettingsPageWarnsOnlyWhileNoProvisioningFileCanBeMade(t *testing.T) 
 
 func TestADoorsPageWarnsWhileNoProvisioningFileCanBeMadeForIt(t *testing.T) {
 	t.Parallel()
-	host := "Broker host a host name of up to 253 letters, digits, dots, and hyphens, an IP address, or nothing to keep the door's broker"
-	ca := "Broker CA certificate the PEM certificate of the broker's CA or of the broker itself, or nothing"
+	host := "Broker host " +
+		"The broker the door connects to, from its next connection on; empty keeps the broker it uses now. A host name of up to 253 letters, digits, dots, and hyphens, an IP address, or nothing to keep the door's broker."
+	ca := "Broker CA certificate " +
+		"The certificate the door checks the broker against while it connects over TLS: the broker's CA's, or the broker's own. Empty keeps the one the door has. The PEM certificate of the broker's CA or of the broker itself, or nothing."
 	cases := map[string]struct {
 		overrides string
 		want      [][]string

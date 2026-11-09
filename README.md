@@ -242,7 +242,9 @@ single sign-on and identity claims parts while `oidc_enabled` is off.
 Door configuration defaults are settings named `door_` followed by the field
 name (so `DOORCODE_DOOR_STRIKE_PULSE_MS` sets the strike pulse of every door
 that does not override it). A door's page overrides any of them for that
-door, and doors receive a change at once.
+door, and doors receive a change at once. Both pages say under each field
+what it does and what values it takes; `docs/controller.md` section 9 has
+the full table.
 
 | Setting | Meaning | Default |
 | --- | --- | --- |
@@ -250,7 +252,6 @@ door, and doors receive a change at once.
 | `door_keypad_idle_clear_ms` | Idle time after which the keypad clears what was typed, 1000 to 600000 ms. | `10000` |
 | `door_min_code_length` | The shortest code the keypad sends, 1 to 16 digits. | `4` |
 | `door_max_code_length` | The longest code the keypad takes, 16 to 64 digits. | `32` |
-| `door_submit_key` | The key that ends an entry: `#`, `A`, `B`, `C`, or `D`. | `#` |
 | `door_reply_timeout_ms` | How long the door waits for the server's answer, 100 to 60000 ms. | `3000` |
 | `door_telemetry_interval_s` | How often the door reports telemetry, 5 to 86400 s. | `60` |
 | `door_held_open_s` | How long a door may stay open before it is logged as held open, 5 to 86400 s. | `60` |
