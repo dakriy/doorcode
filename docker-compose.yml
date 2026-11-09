@@ -1,12 +1,21 @@
-# Local services for development and the slow connector tests.
+# The doorcode server with Postgres and Mosquitto, and the services the slow
+# connector tests need.
 #
+# The whole deployment (the app needs the key that encrypts stored secrets):
+#
+#   export DOORCODE_SECRET_KEY="$(openssl rand -base64 32)"   # keep it
 #   docker compose up -d --wait
+#   docker compose logs app    # the first administrator's password
+#
+# Only the services the slow connector tests need:
+#
+#   docker compose up -d --wait postgres mosquitto
 #   export DOORCODE_TEST_DATABASE_URL=postgres://doorcode:doorcode@localhost:5432/doorcode?sslmode=disable
 #   export DOORCODE_TEST_BROKER_URL=mqtt://doorcode:doorcode@localhost:1883
 #   make verify-integration
 #
-# Set DOORCODE_POSTGRES_PORT or DOORCODE_MQTT_PORT to publish on other host
-# ports when the defaults are taken. DOORCODE_BROKER_ADMIN_USERNAME and
+# Set DOORCODE_POSTGRES_PORT, DOORCODE_MQTT_PORT, or DOORCODE_HTTP_PORT to
+# publish on other host ports when the defaults are taken. DOORCODE_BROKER_ADMIN_USERNAME and
 # DOORCODE_BROKER_ADMIN_PASSWORD name the broker's administrator, which the
 # server connects as; they take effect when the broker's volume is new.
 services:
@@ -40,6 +49,31 @@ services:
       - mosquitto:/mosquitto/data
     healthcheck:
       test: ["CMD-SHELL", "mosquitto_sub -u \"$$DOORCODE_BROKER_ADMIN_USERNAME\" -P \"$$DOORCODE_BROKER_ADMIN_PASSWORD\" -t '$$SYS/broker/version' -C 1 -W 3"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  app:
+    build:
+      context: .
+      target: doorcode
+    environment:
+      DOORCODE_DATABASE_URL: postgres://doorcode:doorcode@postgres:5432/doorcode?sslmode=disable
+      DOORCODE_BROKER_URL: mqtt://${DOORCODE_BROKER_ADMIN_USERNAME:-doorcode}:${DOORCODE_BROKER_ADMIN_PASSWORD:-doorcode}@mosquitto:1883
+      DOORCODE_LISTEN_ADDR: ":8080"
+      # 32 random bytes in standard base64: openssl rand -base64 32. The
+      # server refuses to start without it; keep it, since stored secrets
+      # cannot be read under another key.
+      DOORCODE_SECRET_KEY: ${DOORCODE_SECRET_KEY:-}
+    ports:
+      - "${DOORCODE_HTTP_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mosquitto:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
       interval: 2s
       timeout: 5s
       retries: 30

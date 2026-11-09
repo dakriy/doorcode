@@ -39,6 +39,7 @@ linters:
             - "!**/cmd/**"
             - "!**/internal/driver/**"
             - "!**/internal/testsupport/**"
+            - "!**/internal/demo/**"
           deny:
             - pkg: github.com/dakriy/doorcode/internal/driver
               desc: connector implementation; reach it through a connector interface
@@ -101,10 +102,29 @@ linters:
             - "!**/cmd/**"
             - "!**/internal/driver/**"
             - "!**/internal/testsupport/**"
+            - "!**/internal/demo/**"
             - "!**/internal/protocol/**"
           deny:
             - pkg: github.com/fxamacker/cbor
               desc: "CBOR is encoded only in internal/protocol; use protocol.Encode and protocol.Decode"
+        # The demo's stand-ins and simulated doors are for the demo binary
+        # alone: no production code, application code, or test reaches them.
+        demo:
+          files:
+            - "$all"
+            - "!**/cmd/doorcode-demo/**"
+            - "!**/internal/demo/**"
+          deny:
+            - pkg: github.com/dakriy/doorcode/internal/demo
+              desc: the demo's stand-ins are for cmd/doorcode-demo only
+        # Production wiring and the demo's stand-ins reuse no test code.
+        no-test-support:
+          files:
+            - "**/cmd/**"
+            - "**/internal/demo/**"
+          deny:
+            - pkg: github.com/dakriy/doorcode/internal/testsupport
+              desc: test support is for tests only; the demo has stand-ins of its own
         # Entrypoint suite: an allowlist. Nothing else may be imported.
         entrypoint-suite:
           list-mode: strict
@@ -158,7 +178,7 @@ linters:
     rules:
       - path: (^|/)(cmd|internal/driver)/
         linters: [gocyclo, gocognit]
-      - path: (^|/)(cmd|internal/driver|internal/testsupport|test)/
+      - path: (^|/)(cmd|internal/driver|internal/testsupport|internal/demo|test)/
         linters: [forbidigo]
       # Connector-test helpers are shared by the fast and slow files; under
       # either build tag the other half's helpers look unused.

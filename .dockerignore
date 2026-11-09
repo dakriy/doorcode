@@ -1,0 +1,7 @@
+.git
+build
+notes
+HANDOFF.md
+Dockerfile
+.dockerignore
+docker-compose.yml

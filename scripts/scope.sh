@@ -1,7 +1,7 @@
 # Sourced by the verify scripts. The single list of what is NOT application
 # code; everything else in the module is application code and is measured by
 # the coverage and mutation gates. Directories are module-relative.
-NON_APP_DIRS="cmd internal/driver internal/testsupport test"
+NON_APP_DIRS="cmd internal/driver internal/testsupport internal/demo test"
 # Connector code: implementations and production wiring.
 CONNECTOR_DIRS="cmd internal/driver"
 
