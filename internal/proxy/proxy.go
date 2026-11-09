@@ -19,8 +19,8 @@ import (
 	"github.com/dakriy/doorcode/internal/connector"
 )
 
-// Hint is what the trusted list must be.
-const Hint = "must be IP addresses, CIDR ranges, and host names separated by commas, such as 10.0.0.0/8,proxy.example.com"
+// hint is what the trusted list must be.
+const hint = "must be IP addresses, CIDR ranges, and host names separated by commas, such as 10.0.0.0/8,proxy.example.com"
 
 // List is the proxies the site trusts: the addresses in Ranges (a single
 // address is a range of one), and the addresses Names resolve to.
@@ -48,7 +48,7 @@ func Parse(value string) (List, error) {
 			continue
 		}
 		if !check.HostName(entry) {
-			return List{}, errors.New(Hint)
+			return List{}, errors.New(hint)
 		}
 		l.Names = append(l.Names, entry)
 	}

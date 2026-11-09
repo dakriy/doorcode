@@ -126,8 +126,7 @@ func (a *App) sweepIfDue(ctx context.Context) {
 // sends doors their timelines again when they are due, removes the
 // sessions that have expired, watches the doors' state and keeps their
 // telemetry history, rolls firmware updates out, and looks up the trusted
-// proxies named by host name. A part that fails
-// does not stop the others.
+// proxies named by host name. A part that fails does not stop the others.
 func (a *App) sweep(ctx context.Context) error {
 	defaults, err := a.settings.DoorDefaults(ctx)
 	if err != nil {
