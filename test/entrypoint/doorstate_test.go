@@ -55,6 +55,13 @@ func (k *keypad) at(at string) {
 	k.f.ClockStub.Set(at)
 }
 
+// inOpenMode puts Lobby in open mode all the time, through its zone's
+// open-mode schedule.
+func (k *keypad) inOpenMode() {
+	k.t.Helper()
+	send(k.t, k.b, "PUT", "/api/v1/zones/1", `{"name":"North","door_ids":[1],"open_schedule_ids":[2]}`, 200)
+}
+
 // state is what the API shows of Lobby's state at the JSON pointer
 // pointer, all of it for the empty pointer.
 func (k *keypad) state(pointer string) any {

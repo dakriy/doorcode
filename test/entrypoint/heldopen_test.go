@@ -8,13 +8,6 @@ import (
 	"github.com/dakriy/doorcode/internal/testsupport"
 )
 
-// inOpenMode puts Lobby in open mode all the time, through its zone's
-// open-mode schedule.
-func (k *keypad) inOpenMode() {
-	k.t.Helper()
-	send(k.t, k.b, "PUT", "/api/v1/zones/1", `{"name":"North","door_ids":[1],"open_schedule_ids":[2]}`, 200)
-}
-
 // sweepAt has the server do its periodic work at each of the RFC 3339
 // times at, in order.
 func (k *keypad) sweepAt(at ...string) {

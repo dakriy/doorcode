@@ -342,9 +342,9 @@ type StoredController struct {
 // controller last said, empty until it has; OpenedAt is when the door
 // opened, nil unless it is open; HeldOpen is whether it has been logged as
 // held open since then or since the latest open span of its timeline
-// ended, and is false while one holds it open. Unresponsive marks a controller the server has not
-// heard from for too long. Telemetry is its latest report, nil until its
-// first.
+// ended, and is false while one holds it open. Unresponsive marks a
+// controller the server has not heard from for too long. Telemetry is its
+// latest report, nil until its first.
 type StoredDoorState struct {
 	FirmwareVersion string
 	Signal          int

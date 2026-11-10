@@ -349,8 +349,9 @@ implementation. In short:
    `allow`, and, when allowed, `strike_ms`. Without an answer within the
    reply timeout, deny.
 6. **Report.** Publish telemetry on `doorcode/doors/<id>/telemetry` at the
-   configured interval, and, outside open mode, `opened` and `closed` on
-   `doorcode/doors/<id>/event`.
+   configured interval, and `opened` and `closed` on
+   `doorcode/doors/<id>/event` as the door opens and closes, in open mode
+   too.
 7. **Obey commands.** A command carries an `id` and a `command`: `open` with
    `strike_ms`; `credentials` with a new `username` and `token` (connect
    with them, publish the online status, then close the old connection;

@@ -430,11 +430,14 @@ func (s Service) lockedSince(ctx context.Context, doorID int64, openedAt time.Ti
 	// The timeline runs to just past now, so a span in force at now ends
 	// after it.
 	_, spans, err := s.Doors.Timeline(ctx, doorID, zone, openedAt, now.Add(time.Nanosecond))
+	if err != nil {
+		return openedAt, err
+	}
 	since := openedAt
 	for _, span := range spans {
 		if span.State == timeline.Open {
 			since = span.End
 		}
 	}
-	return since, err
+	return since, nil
 }

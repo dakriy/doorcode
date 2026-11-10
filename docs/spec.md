@@ -260,12 +260,12 @@ through: offline doors are dimmed, a controller whose parent no door has or
 whose parent is offline is marked, relays (controllers others hop through) are
 flagged with how many doors depend on them, and each door's path to the access
 point is listed; when nothing meshes it says so. `GET /api/v1/mesh` returns
-the same graph. Outside open mode,
-doors also send door open and close transitions as events. The server derives
-*forced open* (opened without a preceding unlock) and *held open* (open longer
-than a configurable duration while it should be locked, counting no time in
-open mode or an open override) and shows them live. A door with no contact for
-a configurable period is *unresponsive*.
+the same graph. Doors also send door open and close transitions as events, in
+open mode too. The server derives *forced open* (opened without a preceding
+unlock) and *held open* (open longer than a configurable duration while it
+should be locked, counting no time in open mode or an open override) and
+shows them live. A door with no contact for a configurable period is
+*unresponsive*.
 
 ## 8. Firmware
 
