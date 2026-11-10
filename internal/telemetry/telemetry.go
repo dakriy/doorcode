@@ -89,6 +89,9 @@ func (s Service) report(ctx context.Context, doorID int64, payload []byte) error
 	c := heard(held, now)
 	c.Telemetry, c.FirmwareVersion, c.Signal = &t, m.FirmwareVersion, m.Signal
 	if m.DoorOpen {
+		if err := s.checkOpened(ctx, d.ID, held, now); err != nil {
+			return err
+		}
 		c = opened(c, now)
 	} else {
 		if err := s.checkClosed(ctx, d.ID, held, nil, now); err != nil {
@@ -101,7 +104,7 @@ func (s Service) report(ctx context.Context, doorID int64, payload []byte) error
 
 // doorEvent handles what the controller of the door whose id is doorID
 // says happened to the door. A door that opens locked is logged as
-// forced open.
+// forced open as well as opened.
 func (s Service) doorEvent(ctx context.Context, doorID int64, payload []byte) error {
 	var m protocol.DoorEvent
 	if err := protocol.Decode(payload, &m); err != nil {
@@ -115,6 +118,9 @@ func (s Service) doorEvent(ctx context.Context, doorID int64, payload []byte) er
 	c := heard(held, now)
 	switch m.Event {
 	case protocol.EventOpened:
+		if err := s.checkOpened(ctx, d.ID, held, now); err != nil {
+			return err
+		}
 		if err := s.checkForced(ctx, d, held, m.Unlocked, now); err != nil {
 			return err
 		}
@@ -311,27 +317,29 @@ func (s Service) openDuring(ctx context.Context, doorID int64, from, to time.Tim
 	return slices.ContainsFunc(spans, func(span timeline.Span) bool { return span.State == timeline.Open }), err
 }
 
+// checkOpened logs the door whose id is doorID as opened at now, unless
+// its controller, which was held, had it open already.
+func (s Service) checkOpened(ctx context.Context, doorID int64, held connector.StoredController, now time.Time) error {
+	if held.DoorState == Open {
+		return nil
+	}
+	_, err := s.Events.Record(ctx, connector.StoredEvent{At: now, DoorID: doorID, Type: event.Door, Outcome: event.Info, Reason: event.Opened})
+	return err
+}
+
 // checkClosed logs how long the door whose id is doorID was open when it
-// closes at now, if its controller, which was held, had it open and the
-// opening did not begin while its timeline held it open. The length is
-// the openMS its controller said, when it said one, else the time since
-// the door opened.
+// closes at now, if its controller, which was held, had it open. The
+// length is the openMS its controller said, when it said one, else the
+// time since the door opened.
 func (s Service) checkClosed(ctx context.Context, doorID int64, held connector.StoredController, openMS *uint64, now time.Time) error {
 	if held.DoorState != Open {
 		return nil
 	}
-	since := *held.OpenedAt
-	// The opening began in an open span when the timeline holds the door
-	// open at the instant it opened, the shortest range from since.
-	spanned, err := s.openDuring(ctx, doorID, since, since.Add(time.Nanosecond))
-	if err != nil || spanned {
-		return err
-	}
-	length := now.Sub(since).Milliseconds()
+	length := now.Sub(*held.OpenedAt).Milliseconds()
 	if openMS != nil {
 		length = int64(*openMS)
 	}
-	_, err = s.Events.Record(ctx, connector.StoredEvent{
+	_, err := s.Events.Record(ctx, connector.StoredEvent{
 		At: now, DoorID: doorID, Type: event.Door, Outcome: event.Info, Reason: event.Closed, OpenMS: &length,
 	})
 	return err

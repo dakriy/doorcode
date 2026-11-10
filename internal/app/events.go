@@ -25,9 +25,9 @@ type eventView struct {
 	ID          int64     `json:"id" doc:"Names the event."`
 	At          time.Time `json:"at" doc:"When it happened."`
 	Door        nameRef   `json:"door" doc:"The door, by id and name; deleted doors keep their events."`
-	Type        string    `json:"type" doc:"check (a code entered at the keypad), command (a keypad command carried out), open (opened from the admin UI or the API), alarm (the door forced open or held open), door (the door closing after it was open, or its controller starting), or update (a firmware update sent, succeeded, or failed)."`
+	Type        string    `json:"type" doc:"check (a code entered at the keypad), command (a keypad command carried out), open (opened from the admin UI or the API), alarm (the door forced open or held open), door (the door opening, closing after it was open, or its controller starting), or update (a firmware update sent, succeeded, or failed)."`
 	Outcome     string    `json:"outcome" doc:"allowed or denied, alert for an alarm or a failed firmware update, or info for a firmware update sent or done, a door closing, or a controller starting."`
-	Reason      string    `json:"reason" doc:"Why, such as access rule, open mode, no rule, locked, expired, rate limited, unreachable, forced open, held open, closed, started, update sent, update succeeded, or update failed."`
+	Reason      string    `json:"reason" doc:"Why, such as access rule, open mode, no rule, locked, expired, rate limited, unreachable, forced open, held open, opened, closed, started, update sent, update succeeded, or update failed."`
 	User        *nameRef  `json:"user,omitempty" doc:"The user whose code it was, or who gave the command, opened the door, or sent the update, by id and display name; absent for a code nobody has and for what nobody did."`
 	RuleID      *int64    `json:"rule_id,omitempty" doc:"The access rule that let the user in; absent unless one did."`
 	RequestID   string    `json:"request_id,omitempty" doc:"The id the door gave the code check; absent for other events."`

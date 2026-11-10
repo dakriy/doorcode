@@ -612,12 +612,19 @@ From these the server derives:
   through open mode is not held open there, and one still open when the
   span ends is held open `held_open_s` after its end. A locked override is
   not an open span. One event per stretch.
+- **opened:** whenever the door goes from not open to open in the
+  server's state, by an `opened` event or by a report with `door_open`
+  true, in an open span or outside one, one event of type `door`,
+  outcome `info`, reason `opened`, with no length. None is recorded when
+  the server had the door open already. When the opening is also forced
+  open, the alarm is a separate event beside it. Its outcome is `info`,
+  so it never counts as an unlock for the forced open check.
 - **closed:** whenever the door goes from open to closed in the server's
-  state, by a `closed` event or by a report with `door_open` false, one
-  event saying how long it was open: `open_ms` when the message carries
-  it, else the time since the server saw it open. None is recorded when
-  the server did not have the door open, or when the opening began in an
-  open span of the door's timeline (open mode or an open override).
+  state, by a `closed` event or by a report with `door_open` false, in an
+  open span or outside one, one event of type `door`, outcome `info`,
+  reason `closed`, saying how long it was open: `open_ms` when the
+  message carries it, else the time since the server saw it open. None
+  is recorded when the server did not have the door open.
 
 `door_open` in each telemetry report also sets the state, so a missed event
 is corrected by the next report. Events and telemetry made while offline are

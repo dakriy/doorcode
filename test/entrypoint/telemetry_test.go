@@ -47,7 +47,7 @@ func TestADoorStaysOpenSinceItOpenedWhileItReportsItOpen(t *testing.T) {
 	k.report(map[string]any{"door_open": true})
 
 	got := []any{k.state("/opened_at"), k.reasons()}
-	if diff := cmp.Diff([]any{"2026-01-05T09:00:00Z", []any{"forced open"}}, got); diff != "" {
+	if diff := cmp.Diff([]any{"2026-01-05T09:00:00Z", []any{"forced open", "opened"}}, got); diff != "" {
 		t.Errorf("opened at, reasons (-want +got):\n%s", diff)
 	}
 }

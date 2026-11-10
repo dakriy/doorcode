@@ -229,6 +229,7 @@ const (
 	controllerWrites
 	eventsAggregate
 	eventWrites
+	eventReads
 	telemetryAggregate
 	telemetryWrites
 	sampleReads

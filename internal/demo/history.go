@@ -103,11 +103,14 @@ func pastEvents(rng *rand.Rand, start, now time.Time) []connector.StoredEvent {
 	events = slices.DeleteFunc(events, func(e connector.StoredEvent) bool {
 		return e.DoorID == workshop && e.Reason == event.HeldOpen && !e.At.Before(deliveryStart)
 	})
-	events = append(events, closings(rng, events)...)
+	// The doors' openings and closings go first, so an opening at the
+	// instant of a forced open alarm stays before it, as the server
+	// records them.
+	events = append(doorActivity(rng, events), events...)
 	events = append(events, pastUpdates(now)...)
 	events = append(events, pastStarts(now)...)
 	events = slices.DeleteFunc(events, func(e connector.StoredEvent) bool { return !e.At.Before(now) })
-	slices.SortFunc(events, func(a, b connector.StoredEvent) int { return a.At.Compare(b.At) })
+	slices.SortStableFunc(events, func(a, b connector.StoredEvent) int { return a.At.Compare(b.At) })
 	return events
 }
 
@@ -195,21 +198,21 @@ func keypadOpen(rng *rand.Rand, at time.Time) []connector.StoredEvent {
 	}
 }
 
-// closings is the door closing after each opening among events that the
-// server would time: someone let in by a code or from the UI, or the door
-// forced open, each closing seconds later, and a door held open, closing
-// a little after the alarm. A door let in by open mode, an open override,
-// or a keypad command (which makes an open override) was opened in an
-// open span, so nothing times it.
-func closings(rng *rand.Rand, events []connector.StoredEvent) []connector.StoredEvent {
-	spanned := []string{event.OpenMode, event.OpenOverride, event.Commanded, event.KeypadOpen}
+// doorActivity is the door opening and closing for each opening among
+// events, in open spans as much as outside them: someone let in by a code
+// or from the UI opening it a moment later, and the door forced open
+// opening as the alarm is raised, each closing seconds later, and a door
+// held open, opening a minute before the alarm and closing a little after
+// it. A keypad command is not an opening; the check it came with is.
+func doorActivity(rng *rand.Rand, events []connector.StoredEvent) []connector.StoredEvent {
 	var out []connector.StoredEvent
 	for _, e := range events {
 		var openedAt time.Time
 		var open time.Duration
 		switch {
-		case e.Outcome == event.Allowed && !slices.Contains(spanned, e.Reason):
-			openedAt, open = e.At, time.Duration(3000+rng.IntN(7000))*time.Millisecond
+		case e.Outcome == event.Allowed && e.Type != event.Command:
+			openedAt = e.At.Add(time.Duration(500+rng.IntN(2000)) * time.Millisecond)
+			open = time.Duration(3000+rng.IntN(7000)) * time.Millisecond
 		case e.Reason == event.ForcedOpen:
 			openedAt, open = e.At, time.Duration(5000+rng.IntN(10000))*time.Millisecond
 		case e.Reason == event.HeldOpen:
@@ -218,9 +221,10 @@ func closings(rng *rand.Rand, events []connector.StoredEvent) []connector.Stored
 			continue
 		}
 		ms := open.Milliseconds()
-		out = append(out, connector.StoredEvent{
-			At: openedAt.Add(open), DoorID: e.DoorID, Type: event.Door, Outcome: event.Info, Reason: event.Closed, OpenMS: &ms,
-		})
+		out = append(out,
+			connector.StoredEvent{At: openedAt, DoorID: e.DoorID, Type: event.Door, Outcome: event.Info, Reason: event.Opened},
+			connector.StoredEvent{At: openedAt.Add(open), DoorID: e.DoorID, Type: event.Door, Outcome: event.Info, Reason: event.Closed, OpenMS: &ms},
+		)
 	}
 	return out
 }

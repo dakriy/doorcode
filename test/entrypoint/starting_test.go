@@ -55,7 +55,7 @@ func TestAControllerStartingLeavesTheDoorAsItWas(t *testing.T) {
 	}{
 		"not yet known": {func(*keypad) {}, []any{"unknown", nil, []any{"started"}}},
 		"closed":        {func(k *keypad) { k.says("closed") }, []any{"closed", nil, []any{"started"}}},
-		"open":          {func(k *keypad) { k.opens(true) }, []any{"open", "2026-01-05T09:00:00Z", []any{"started"}}},
+		"open":          {func(k *keypad) { k.opens(true) }, []any{"open", "2026-01-05T09:00:00Z", []any{"started", "opened"}}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

@@ -30,7 +30,7 @@ func (s *Store) AddEvent(_ context.Context, e connector.StoredEvent) (int64, err
 func (s *Store) Events(_ context.Context, q connector.EventQuery) ([]connector.StoredEvent, int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if err := s.usable(eventsAggregate); err != nil {
+	if err := s.writable(eventsAggregate, eventReads); err != nil {
 		return nil, 0, err
 	}
 	var kept []connector.StoredEvent
@@ -95,4 +95,10 @@ func (s *Store) FailEvents() {
 // works.
 func (s *Store) FailEventWrites() {
 	s.failing[eventWrites] = true
+}
+
+// FailEventReads makes Events report ErrUnavailable, while AddEvent still
+// works.
+func (s *Store) FailEventReads() {
+	s.failing[eventReads] = true
 }

@@ -36,21 +36,21 @@ func TestADoorIsHeldOpenOnlyForTheTimeItShouldBeLocked(t *testing.T) {
 		at      []string
 		want    []any
 	}{
-		"open through an open override": {overriding(openNow), []string{"2026-01-05T09:01:00Z", "2026-01-05T09:05:00Z"}, []any{}},
-		"open through open mode":        {(*keypad).inOpenMode, []string{"2026-01-05T09:01:00Z", "2026-01-05T09:05:00Z"}, []any{}},
+		"open through an open override": {overriding(openNow), []string{"2026-01-05T09:01:00Z", "2026-01-05T09:05:00Z"}, []any{"opened"}},
+		"open through open mode":        {(*keypad).inOpenMode, []string{"2026-01-05T09:01:00Z", "2026-01-05T09:05:00Z"}, []any{"opened"}},
 		"open for less than its held-open time after an open override ends": {
-			endsAt910, []string{"2026-01-05T09:05:00Z", "2026-01-05T09:10:59Z"}, []any{},
+			endsAt910, []string{"2026-01-05T09:05:00Z", "2026-01-05T09:10:59Z"}, []any{"opened"},
 		},
 		"open for its held-open time after an open override ends, looked at twice": {
-			endsAt910, []string{"2026-01-05T09:05:00Z", "2026-01-05T09:11:00Z", "2026-01-05T09:12:00Z"}, []any{"held open"},
+			endsAt910, []string{"2026-01-05T09:05:00Z", "2026-01-05T09:11:00Z", "2026-01-05T09:12:00Z"}, []any{"held open", "opened"},
 		},
 		"open for less than its held-open time after an open override that began after it opened": {
-			brieflyOpen, []string{"2026-01-05T09:01:44Z"}, []any{},
+			brieflyOpen, []string{"2026-01-05T09:01:44Z"}, []any{"opened"},
 		},
 		"open for its held-open time after an open override that began after it opened": {
-			brieflyOpen, []string{"2026-01-05T09:01:45Z"}, []any{"held open"},
+			brieflyOpen, []string{"2026-01-05T09:01:45Z"}, []any{"held open", "opened"},
 		},
-		"open through a locked override": {overriding(lockedNow), []string{"2026-01-05T09:01:00Z"}, []any{"held open"}},
+		"open through a locked override": {overriding(lockedNow), []string{"2026-01-05T09:01:00Z"}, []any{"held open", "opened"}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -95,7 +95,7 @@ func TestADoorHeldOpenWhenAnOpenSpanBeginsShowsOpenInItAndIsHeldOpenAgainAfterIt
 	beforeItRunsOut := k.reasons()
 	k.sweepAt("2026-01-05T09:04:59Z")
 
-	want := []any{"Online Open", []any{"held open"}, []any{"held open", "held open"}, "Online Held open"}
+	want := []any{"Online Open", []any{"held open", "opened"}, []any{"held open", "held open", "opened"}, "Online Held open"}
 	if diff := cmp.Diff(want, []any{inSpan, beforeItRunsOut, k.reasons(), k.badges()}); diff != "" {
 		t.Errorf("status in the span, reasons before and after the count runs out, status (-want +got):\n%s", diff)
 	}

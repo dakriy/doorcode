@@ -75,7 +75,7 @@ func TestADoorOpenedWithNothingUnlockingItIsLoggedAsForcedOpen(t *testing.T) {
 
 	k.says("opened")
 
-	want := testsupport.JSON(`{"id":1,"at":"2026-01-05T09:00:00Z","door":{"id":1,"name":"Lobby"},"type":"alarm","outcome":"alert",` +
+	want := testsupport.JSON(`{"id":2,"at":"2026-01-05T09:00:00Z","door":{"id":1,"name":"Lobby"},"type":"alarm","outcome":"alert",` +
 		`"reason":"forced open","detail":"Nothing unlocked it in the 6 seconds before it opened."}`)
 	if diff := cmp.Diff(want, k.lastEvent()); diff != "" {
 		t.Errorf("event (-want +got):\n%s", diff)
@@ -93,33 +93,33 @@ func TestADoorOpenedWithinTheStrikeWindowOfAnUnlockIsNotForced(t *testing.T) {
 		"a code allowed": {func(k *keypad) {
 			createRule(k.t, k.b, staffRule)
 			k.press("111111")
-		}, "2026-01-05T09:00:06Z", []any{"access rule"}},
+		}, "2026-01-05T09:00:06Z", []any{"opened", "access rule"}},
 		"a code allowed longer ago than the strike pulse and reply timeout": {func(k *keypad) {
 			createRule(k.t, k.b, staffRule)
 			k.press("111111")
-		}, "2026-01-05T09:00:06.001Z", []any{"forced open", "access rule"}},
-		"a door commander's code": {func(k *keypad) { k.press("222222") }, "2026-01-05T09:00:06Z", []any{"door commander"}},
-		"a code denied":           {func(k *keypad) { k.press("111111") }, "2026-01-05T09:00:01Z", []any{"forced open", "no rule"}},
+		}, "2026-01-05T09:00:06.001Z", []any{"forced open", "opened", "access rule"}},
+		"a door commander's code": {func(k *keypad) { k.press("222222") }, "2026-01-05T09:00:06Z", []any{"opened", "door commander"}},
+		"a code denied":           {func(k *keypad) { k.press("111111") }, "2026-01-05T09:00:01Z", []any{"forced open", "opened", "no rule"}},
 		"an opening from the UI": {func(k *keypad) {
 			send(k.t, k.b, "POST", "/api/v1/doors/1/open", "", 200)
-		}, "2026-01-05T09:00:02Z", []any{"admin UI"}},
+		}, "2026-01-05T09:00:02Z", []any{"opened", "admin UI"}},
 		"an open override in force": {func(k *keypad) {
 			createOverride(k.t, k.b, "1", openNow)
-		}, "2026-01-05T10:00:00Z", []any{}},
+		}, "2026-01-05T10:00:00Z", []any{"opened"}},
 		"an open override that ended within the window": {func(k *keypad) {
 			createOverride(k.t, k.b, "1", `{"kind":"open","start":"2026-01-05T08:00:00Z","end":"2026-01-05T09:59:55Z"}`)
-		}, "2026-01-05T10:00:00Z", []any{}},
+		}, "2026-01-05T10:00:00Z", []any{"opened"}},
 		"a locked override in force": {func(k *keypad) {
 			createOverride(k.t, k.b, "1", lockedNow)
-		}, "2026-01-05T10:00:00Z", []any{"forced open"}},
+		}, "2026-01-05T10:00:00Z", []any{"forced open", "opened"}},
 		"open mode": {func(k *keypad) {
 			k.inOpenMode()
-		}, "2026-01-05T10:00:00Z", []any{}},
+		}, "2026-01-05T10:00:00Z", []any{"opened"}},
 		"a longer strike pulse": {func(k *keypad) {
 			createRule(k.t, k.b, staffRule)
 			send(k.t, k.b, "PUT", "/api/v1/doors/1/config", `{"overrides":{"strike_pulse_ms":"5000"}}`, 200)
 			k.press("111111")
-		}, "2026-01-05T09:00:08Z", []any{"access rule"}},
+		}, "2026-01-05T09:00:08Z", []any{"opened", "access rule"}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -146,7 +146,7 @@ func TestADoorThatSaysItOpenedWhileOpenIsNotForcedAgain(t *testing.T) {
 
 	k.says("opened")
 
-	if diff := cmp.Diff([]any{"forced open"}, k.reasons()); diff != "" {
+	if diff := cmp.Diff([]any{"forced open", "opened"}, k.reasons()); diff != "" {
 		t.Errorf("reasons (-want +got):\n%s", diff)
 	}
 }
@@ -160,7 +160,7 @@ func TestADoorClosedAndOpenedAgainIsForcedAgain(t *testing.T) {
 
 	k.says("opened")
 
-	if diff := cmp.Diff([]any{"forced open", "closed", "forced open"}, k.reasons()); diff != "" {
+	if diff := cmp.Diff([]any{"forced open", "opened", "closed", "forced open", "opened"}, k.reasons()); diff != "" {
 		t.Errorf("reasons (-want +got):\n%s", diff)
 	}
 }
@@ -173,17 +173,17 @@ func TestADoorItsControllerSaysOpenedLockedIsForcedWhateverUnlockedIt(t *testing
 		opened string
 		want   []any
 	}{
-		"nothing": {func(*keypad) {}, "2026-01-05T09:00:00Z", []any{"forced open"}},
+		"nothing": {func(*keypad) {}, "2026-01-05T09:00:00Z", []any{"forced open", "opened"}},
 		"a code allowed": {func(k *keypad) {
 			createRule(k.t, k.b, staffRule)
 			k.press("111111")
-		}, "2026-01-05T09:00:01Z", []any{"forced open", "access rule"}},
+		}, "2026-01-05T09:00:01Z", []any{"forced open", "opened", "access rule"}},
 		"an opening from the UI": {func(k *keypad) {
 			send(k.t, k.b, "POST", "/api/v1/doors/1/open", "", 200)
-		}, "2026-01-05T09:00:01Z", []any{"forced open", "admin UI"}},
+		}, "2026-01-05T09:00:01Z", []any{"forced open", "opened", "admin UI"}},
 		"an open override in force": {func(k *keypad) {
 			createOverride(k.t, k.b, "1", openNow)
-		}, "2026-01-05T10:00:00Z", []any{"forced open"}},
+		}, "2026-01-05T10:00:00Z", []any{"forced open", "opened"}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -209,16 +209,16 @@ func TestADoorItsControllerSaysOpenedUnlockedIsNotForcedWhateverTheStrikeWindowH
 		before func(k *keypad)
 		want   []any
 	}{
-		"nothing":       {func(*keypad) {}, []any{}},
-		"a code denied": {func(k *keypad) { k.press("111111") }, []any{"no rule"}},
+		"nothing":       {func(*keypad) {}, []any{"opened"}},
+		"a code denied": {func(k *keypad) { k.press("111111") }, []any{"opened", "no rule"}},
 		"a locked override in force": {func(k *keypad) {
 			createOverride(k.t, k.b, "1", lockedNow)
 			k.at("2026-01-05T10:00:00Z")
-		}, []any{}},
+		}, []any{"opened"}},
 		"open mode": {func(k *keypad) {
 			k.inOpenMode()
 			k.at("2026-01-05T10:00:00Z")
-		}, []any{}},
+		}, []any{"opened"}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -244,7 +244,7 @@ func TestADoorItsControllerSaysOpenedLockedWhileOpenIsNotForcedAgain(t *testing.
 
 	k.opens(false)
 
-	if diff := cmp.Diff([]any{"forced open"}, k.reasons()); diff != "" {
+	if diff := cmp.Diff([]any{"forced open", "opened"}, k.reasons()); diff != "" {
 		t.Errorf("reasons (-want +got):\n%s", diff)
 	}
 }
@@ -256,20 +256,20 @@ func TestADoorOpenPastItsHeldOpenTimeIsLoggedAsHeldOpenOnce(t *testing.T) {
 		at      []string
 		want    []any
 	}{
-		"open for its held-open time": {nil, []string{"2026-01-05T09:01:00Z"}, []any{"held open", "admin UI"}},
-		"open for less":               {nil, []string{"2026-01-05T09:00:59Z"}, []any{"admin UI"}},
+		"open for its held-open time": {nil, []string{"2026-01-05T09:01:00Z"}, []any{"held open", "opened", "admin UI"}},
+		"open for less":               {nil, []string{"2026-01-05T09:00:59Z"}, []any{"opened", "admin UI"}},
 		"open for longer, looked at twice": {
-			nil, []string{"2026-01-05T09:01:00Z", "2026-01-05T09:02:00Z"}, []any{"held open", "admin UI"},
+			nil, []string{"2026-01-05T09:01:00Z", "2026-01-05T09:02:00Z"}, []any{"held open", "opened", "admin UI"},
 		},
-		"closed before its held-open time": {func(k *keypad) { k.says("closed") }, []string{"2026-01-05T09:05:00Z"}, []any{"closed", "admin UI"}},
+		"closed before its held-open time": {func(k *keypad) { k.says("closed") }, []string{"2026-01-05T09:05:00Z"}, []any{"closed", "opened", "admin UI"}},
 		"with its own longer held-open time": {func(k *keypad) {
 			send(k.t, k.b, "PUT", "/api/v1/doors/1/config", `{"overrides":{"held_open_s":"120"}}`, 200)
-		}, []string{"2026-01-05T09:01:59Z"}, []any{"admin UI"}},
+		}, []string{"2026-01-05T09:01:59Z"}, []any{"opened", "admin UI"}},
 		"opened again by its telemetry after closing": {func(k *keypad) {
 			k.says("closed")
 			k.at("2026-01-05T09:00:30Z")
 			k.report(map[string]any{"door_open": true})
-		}, []string{"2026-01-05T09:01:00Z"}, []any{"closed", "admin UI"}},
+		}, []string{"2026-01-05T09:01:00Z"}, []any{"opened", "closed", "opened", "admin UI"}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -302,7 +302,7 @@ func TestAHeldOpenAlarmSaysForHowLong(t *testing.T) {
 
 	run(t, k.a)
 
-	want := testsupport.JSON(`{"id":2,"at":"2026-01-05T09:01:00Z","door":{"id":1,"name":"Lobby"},"type":"alarm","outcome":"alert",` +
+	want := testsupport.JSON(`{"id":3,"at":"2026-01-05T09:01:00Z","door":{"id":1,"name":"Lobby"},"type":"alarm","outcome":"alert",` +
 		`"reason":"held open","detail":"Open for longer than 60 seconds."}`)
 	if diff := cmp.Diff(want, k.lastEvent()); diff != "" {
 		t.Errorf("event (-want +got):\n%s", diff)
@@ -411,7 +411,7 @@ func TestWhatADoorSaysOfItselfThatCannotBeHandledIsLoggedAndIgnored(t *testing.T
 		"an opening when the door's configuration is invalid": {event, opened, func(f *testsupport.Factory) {
 			f.StoreStub.SeedSetting("door_strike_pulse_ms", "1", testsupport.DefaultNow)
 		}, "invalid value for door_strike_pulse_ms: must be a whole number of milliseconds from 100 to 60000"},
-		"an opening when events cannot be read": {event, opened, func(f *testsupport.Factory) { f.StoreStub.FailEvents() }, unavailable},
+		"an opening when events cannot be read": {event, opened, func(f *testsupport.Factory) { f.StoreStub.FailEventReads() }, unavailable},
 		"an opening when a setting is invalid": {event, opened, func(f *testsupport.Factory) {
 			f.StoreStub.SeedSetting("telemetry_retention_days", "0", testsupport.DefaultNow)
 		}, "invalid value for telemetry_retention_days: must be a whole number of days from 1 to 365"},

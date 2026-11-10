@@ -10914,7 +10914,7 @@
           },
           "reason": {
             "type": "string",
-            "description": "Why, such as access rule, open mode, no rule, locked, expired, rate limited, unreachable, forced open, held open, closed, started, update sent, update succeeded, or update failed."
+            "description": "Why, such as access rule, open mode, no rule, locked, expired, rate limited, unreachable, forced open, held open, opened, closed, started, update sent, update succeeded, or update failed."
           },
           "request_id": {
             "type": "string",
@@ -10930,7 +10930,7 @@
           },
           "type": {
             "type": "string",
-            "description": "check (a code entered at the keypad), command (a keypad command carried out), open (opened from the admin UI or the API), alarm (the door forced open or held open), door (the door closing after it was open, or its controller starting), or update (a firmware update sent, succeeded, or failed)."
+            "description": "check (a code entered at the keypad), command (a keypad command carried out), open (opened from the admin UI or the API), alarm (the door forced open or held open), door (the door opening, closing after it was open, or its controller starting), or update (a firmware update sent, succeeded, or failed)."
           },
           "user": {
             "$ref": "#/components/schemas/NameRef",
