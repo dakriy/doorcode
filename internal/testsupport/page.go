@@ -85,6 +85,9 @@ type Page struct {
 	// Disclosures maps the heading (second or third level) in the summary of each disclosure that
 	// has one, a part of the page that folds away, to whether it is open.
 	Disclosures map[string]bool
+	// Reloads maps the id of each part of the page that reloads itself,
+	// taking its own part of the page at an address, to that address.
+	Reloads map[string]string
 }
 
 // Image is an image a page shows: where it is served from and its
@@ -153,8 +156,15 @@ func ParsePage(body string) Page {
 	return p
 }
 
-// readScripted reads a control the search script enhances.
+// readScripted reads a control the search script enhances, and a part of
+// the page htmx reloads.
 func (p *Page) readScripted(n *html.Node) {
+	if hasAttr(n, "hx-select") {
+		if p.Reloads == nil {
+			p.Reloads = map[string]string{}
+		}
+		p.Reloads[attr(n, "id")] = attr(n, "hx-get")
+	}
 	if hasAttr(n, "data-combobox") {
 		p.Comboboxes = append(p.Comboboxes, attr(n, "name"))
 	}

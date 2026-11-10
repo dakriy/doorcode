@@ -34,7 +34,7 @@ func TestADoorCommanderRebootsADoorFromItsPageAndIsToldSo(t *testing.T) {
 	rebooted := b.Post("/admin/doors/1/reboot")
 	page := pageOf(b.Get(rebooted.Location))
 
-	want := []any{303, "/admin/doors/1", "reboot",
+	want := []any{303, "/admin/doors/1?tab=overview", "reboot",
 		[]string{"The controller has been told to restart. It goes offline for a moment and connects again. The reboot is logged under your name."}}
 	if diff := cmp.Diff(want, []any{rebooted.Status, rebooted.Location, commandOf(t, conn)["command"], page.Messages}); diff != "" {
 		t.Errorf("status, where it goes, command, messages (-want +got):\n%s", diff)

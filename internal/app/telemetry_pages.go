@@ -93,7 +93,7 @@ func (a *App) stateOf(r *http.Request, viewer auth.User, c catalog, d connector.
 	view := c.rowOfState(*d.Controller, zone)
 	chosen := chosenRange(r.URL.Query().Get("range"))
 	for _, cr := range chartRanges {
-		view.Ranges = append(view.Ranges, rangeLink{Label: cr.Label, Href: doorPath(d.ID) + "?range=" + cr.Name, Current: cr == chosen})
+		view.Ranges = append(view.Ranges, rangeLink{Label: cr.Label, Href: doorTabPath(d.ID, doorOverview) + "&range=" + cr.Name, Current: cr == chosen})
 	}
 	to := a.clock.Now()
 	from := to.Add(-time.Duration(chosen.Hours) * time.Hour)

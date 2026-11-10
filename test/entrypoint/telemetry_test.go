@@ -65,11 +65,10 @@ func TestADoorPageShowsTheDoorsLiveState(t *testing.T) {
 
 	want := []any{
 		map[string]string{
-			"Hardware id": "A1", "Door": "Open since Mon 5 Jan 2026 09:00:00", "Firmware": "1.4.3", "Signal": "-61 dBm", "Latency": "40 ms",
+			"Door": "Open since Mon 5 Jan 2026 09:00:00", "Firmware": "1.4.3", "Signal": "-61 dBm", "Latency": "40 ms",
 			"Uptime": "3 d 2 h", "Free memory": "118 KiB", "Reconnects": "2",
 			"Mesh layer": "0, the access point itself", "Mesh parent": "None", "Mesh children": "0",
 			"Last seen": "Mon 5 Jan 2026 09:00:30", "Last report": "Mon 5 Jan 2026 09:00:30",
-			"Running": "1.4.3", "Target": "None", "Rollout": "Not in the rollout", "Latest update": "Never sent one",
 		},
 		[][]string{{"When", "Alarm", "Details"},
 			{"Mon 5 Jan 2026 09:01:00", "Held open", "Open for longer than 60 seconds."},
@@ -433,8 +432,8 @@ func TestADoorPageChartsTheLast24HoursUnlessAskedForAnotherRange(t *testing.T) {
 	want := []any{
 		testsupport.Chart{Labels: []string{"Nothing reported in the last 24 hours.", "Sun 4 Jan 09:00", "Mon 5 Jan 09:00"}},
 		map[string]string{
-			"Show the last 6 hours": "/admin/doors/1?range=6h", "Show the last 7 days": "/admin/doors/1?range=7d",
-			"Show the last 30 days": "/admin/doors/1?range=30d", "Download provisioning file": "/api/v1/doors/1/provisioning",
+			"Show the last 6 hours": "/admin/doors/1?tab=overview&range=6h", "Show the last 7 days": "/admin/doors/1?tab=overview&range=7d",
+			"Show the last 30 days": "/admin/doors/1?tab=overview&range=30d", "Download provisioning file": "/api/v1/doors/1/provisioning",
 		},
 	}
 	if diff := cmp.Diff(want, []any{page.Charts["Signal over the last 24 hours"], page.LinkTargets}); diff != "" {

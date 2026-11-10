@@ -177,7 +177,7 @@ func TestADoorWhoseMeshIsLeftOpenIsSentItOff(t *testing.T) {
 	want := []any{true, false, false, false, []string{meshLabel, "false", "", "true " + meshWarning(noMeshPassword)}}
 	got := []any{on, sentConfig(f, "1", "mesh_enabled"), testsupport.JSONAt(b.Get("/api/v1/doors/1/config").Body, "/effective/mesh_enabled"),
 		testsupport.JSONAt(b.Get("/api/v1/doors/1/provisioning").Body, "/door_config/mesh_enabled"),
-		doorPage(t, b, "/admin/doors/1").Tables["Configuration"][meshRow]}
+		doorPage(t, b, "/admin/doors/1?tab=configuration").Tables["Configuration"][meshRow]}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("mesh sent before, after, in effect, provisioned, row (-want +got):\n%s", diff)
 	}

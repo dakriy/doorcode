@@ -30,6 +30,7 @@ func pageOf(r testsupport.Response) testsupport.Page {
 	p.Options = nil
 	p.Lists = nil
 	p.Styles = nil
+	p.Reloads = nil
 	return p
 }
 

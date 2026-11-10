@@ -266,7 +266,7 @@ func TestADoorsPageWarnsWhileNoProvisioningFileCanBeMadeForIt(t *testing.T) {
 			_, b, _, _ := enrolledDoor(t, testsupport.NewFactory())
 			send(t, b, "PUT", "/api/v1/doors/1/config", `{"overrides":`+c.overrides+`}`, 200)
 
-			rows := doorPage(t, b, "/admin/doors/1").Tables["Configuration"]
+			rows := doorPage(t, b, "/admin/doors/1?tab=configuration").Tables["Configuration"]
 
 			if diff := cmp.Diff(c.want, [][]string{rows[brokerHostRow], rows[brokerCARow]}); diff != "" {
 				t.Errorf("rows (-want +got):\n%s", diff)

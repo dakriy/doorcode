@@ -164,18 +164,18 @@ func (a *App) approved(w http.ResponseWriter, r *http.Request, viewer auth.User,
 		a.notFound(w, r, viewer, noEnrollmentHere)
 		return
 	}
-	a.changed(w, r, err, doorPath(d.ID), "controller-approved")
+	a.changed(w, r, err, doorTabPath(d.ID, doorController), "controller-approved")
 }
 
 func (a *App) rotateCredentialsFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	if d, ok := a.pageDoor(w, r, viewer); ok {
-		a.doorChanged(w, r, viewer, d, a.controllers.Rotate(r.Context(), d.ID), "credentials-rotated")
+		a.doorChanged(w, r, viewer, d, doorController, a.controllers.Rotate(r.Context(), d.ID), "credentials-rotated")
 	}
 }
 
 func (a *App) revokeCredentialsFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	if d, ok := a.pageDoor(w, r, viewer); ok {
-		a.doorChanged(w, r, viewer, d, a.controllers.Revoke(r.Context(), d.ID), "credentials-revoked")
+		a.doorChanged(w, r, viewer, d, doorController, a.controllers.Revoke(r.Context(), d.ID), "credentials-revoked")
 	}
 }
 

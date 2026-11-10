@@ -316,8 +316,8 @@ func (a *App) commandFromForm(w http.ResponseWriter, r *http.Request, viewer aut
 	}
 	_, err := send(r.Context(), d.ID, viewer)
 	if errors.Is(err, controller.ErrOffline) {
-		a.showDoor(w, r, http.StatusConflict, viewer, d, d.fresh(), "The controller is not connected, so "+refused+" from here. Try again once it is online.")
+		a.showDoor(w, r, http.StatusConflict, viewer, d, doorOverview, d.fresh(), "The controller is not connected, so "+refused+" from here. Try again once it is online.")
 		return
 	}
-	a.changed(w, r, err, doorPath(d.ID), flash)
+	a.changed(w, r, err, doorTabPath(d.ID, doorOverview), flash)
 }

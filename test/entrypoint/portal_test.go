@@ -1019,7 +1019,7 @@ func TestADoorPageSaysThePrimaryPictureIsWhatPeopleSeeWhileThePortalShowsDoorPic
 	f.EnvStub["DOORCODE_PORTAL_DOOR_PICTURES"] = "true"
 	admin, _ := portalSite(t, f)
 
-	got := pageOf(admin.Get("/admin/doors/1")).Notes[1]
+	got := pageOf(admin.Get("/admin/doors/1?tab=details")).Notes[0]
 
 	want := "The primary picture is shown in the door list, at the top of this page, and to people in the portal, since the setting Door pictures in the portal is on."
 	if diff := cmp.Diff(want, got); diff != "" {

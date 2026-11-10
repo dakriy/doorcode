@@ -148,17 +148,18 @@ func TestApprovingAsANewDoorFromTheFormOpensTheDoor(t *testing.T) {
 
 	approved := b.Post("/admin/enrollments/A1/new-door", "name", "Lobby", "location", "Building A", "zone_ids", "1")
 	got := pageOf(b.Get(approved.Location))
+	details := pageOf(b.Get("/admin/doors/1?tab=details"))
 
-	if diff := cmp.Diff([]any{303, "/admin/doors/1", firstUsername}, []any{approved.Status, approved.Location, credentialsOf(t, conn).username}); diff != "" {
+	if diff := cmp.Diff([]any{303, "/admin/doors/1?tab=controller", firstUsername}, []any{approved.Status, approved.Location, credentialsOf(t, conn).username}); diff != "" {
 		t.Errorf("redirect, credentials sent (-want +got):\n%s", diff)
 	}
 	want := []any{
 		[]string{"The controller has been approved. Its credentials are on their way, and it connects as this door once it has them."},
-		[]string{noTargetNote, "New credentials can be sent only while the controller is connected.", hostNote, brokerNote, picturesNote, openNote, neverOpenNote},
+		[]string{"New credentials can be sent only while the controller is connected.", noTargetNote},
 		[]string{"zone_ids=1"},
 		[][]string{credentialsHead, {firstUsername, "Mon 5 Jan 2026 09:00", "Issued, not yet used"}},
 	}
-	if diff := cmp.Diff(want, []any{got.Messages, got.Notes, got.Checked, got.Tables["Credentials"]}); diff != "" {
+	if diff := cmp.Diff(want, []any{got.Messages, got.Notes, details.Checked, got.Tables["Credentials"]}); diff != "" {
 		t.Errorf("messages, notes, checked, credentials (-want +got):\n%s", diff)
 	}
 }
@@ -188,7 +189,7 @@ func TestApprovingAsAnExistingDoorFromTheForm(t *testing.T) {
 
 	got := b.Post("/admin/enrollments/A1/door", "door_id", "1")
 
-	want := []any{303, "/admin/doors/1", "1"}
+	want := []any{303, "/admin/doors/1?tab=controller", "1"}
 	if diff := cmp.Diff(want, []any{got.Status, got.Location, credentialsOf(t, conn).door}); diff != "" {
 		t.Errorf("status, location, door sent (-want +got):\n%s", diff)
 	}
@@ -293,16 +294,12 @@ func TestDoorPageShowsItsControllerAndCredentials(t *testing.T) {
 	connectAs(t, f, rotated)
 	run(t, a)
 
-	page := doorPage(t, b, "/admin/doors/1")
+	page := doorPage(t, b, "/admin/doors/1?tab=controller")
 
 	got := []any{page.Details, page.Tables["Credentials"]}
 	want := []any{
 		map[string]string{
-			"Hardware id": "A1", "Door": "Not reported yet", "Firmware": "1.4.3", "Signal": "-58 dBm", "Latency": "Not reported yet",
-			"Uptime": "Not reported yet", "Free memory": "Not reported yet", "Reconnects": "Not reported yet",
-			"Mesh layer": "Not reported yet", "Mesh parent": "Not reported yet", "Mesh children": "Not reported yet",
-			"Last seen": "Mon 5 Jan 2026 09:30:00", "Last report": "Not reported yet",
-			"Running": "1.4.3", "Target": "None", "Rollout": "Not in the rollout", "Latest update": "Never sent one",
+			"Hardware id": "A1", "Running": "1.4.3", "Target": "None", "Rollout": "Not in the rollout", "Latest update": "Never sent one",
 		},
 		[][]string{credentialsHead,
 			{secondUsername, "Mon 5 Jan 2026 09:00", "In use"},

@@ -194,8 +194,8 @@ func (a *App) configureDoorFromForm(w http.ResponseWriter, r *http.Request, view
 	if errs, rejected := fieldErrors(err); rejected {
 		form := d.fresh()
 		form.Config, form.Errors = overrides, errs
-		a.showDoor(w, r, http.StatusUnprocessableEntity, viewer, d, form, "")
+		a.showDoor(w, r, http.StatusUnprocessableEntity, viewer, d, doorConfiguration, form, "")
 		return
 	}
-	a.changed(w, r, err, doorPath(d.ID), "door-config-saved")
+	a.changed(w, r, err, doorTabPath(d.ID, doorConfiguration), "door-config-saved")
 }

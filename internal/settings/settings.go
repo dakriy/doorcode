@@ -161,8 +161,8 @@ type Section struct {
 	Tab    Tab
 }
 
-// Tab is a tab of the settings page: what its address names it by and
-// what it is called.
+// Tab is a tab of a page: what its address names it by and what it is
+// called.
 type Tab struct {
 	Slug string
 	Name string
@@ -178,16 +178,6 @@ var (
 
 // Tabs is every tab of the settings page, in display order.
 var Tabs = []Tab{TabSite, TabSignIn, TabLook, TabDoors}
-
-// TabFor is the tab whose slug is slug, or the first tab when none is.
-func TabFor(slug string) Tab {
-	for _, t := range Tabs {
-		if t.Slug == slug {
-			return t
-		}
-	}
-	return Tabs[0]
-}
 
 // TabHolding is the tab that shows the first setting, in display order,
 // that keys name, or the first tab when they name none.

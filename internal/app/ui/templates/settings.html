@@ -6,12 +6,7 @@
     <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">How the site looks, how people sign in, and what doors are told, part by part.</p>
   </div>
 </div>
-{{/* Each tab is a plain link, so a tab works without script and its address can be shared; at phone width the row scrolls rather than wraps. */}}
-<nav aria-label="Settings tabs" class="-mx-4 mt-6 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-  <div class="flex min-w-max gap-6 border-b border-zinc-200 dark:border-zinc-800">
-    {{range $c.Tabs}}<a href="{{.Href}}"{{if .Current}} aria-current="page"{{end}} class="-mb-px border-b-2 border-transparent px-1 pb-3 text-sm font-medium whitespace-nowrap text-zinc-500 transition hover:border-zinc-300 hover:text-zinc-800 aria-[current=page]:border-brand-600 aria-[current=page]:text-brand-700 dark:text-zinc-400 dark:hover:border-zinc-600 dark:hover:text-zinc-200 dark:aria-[current=page]:border-brand-400 dark:aria-[current=page]:text-brand-300">{{.Name}}</a>{{end}}
-  </div>
-</nav>
+{{template "tab-strip" $c.Tabs}}
 <div role="note" class="mt-6 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400">
   Every setting can also be given by an environment variable, <span class="font-mono text-xs">DOORCODE_</span> followed by its key in capitals; a setting the environment gives is read-only here. Secret settings are stored encrypted and never shown: leave one blank to keep it, enter a new value to replace it, or tick Clear to remove it.
 </div>

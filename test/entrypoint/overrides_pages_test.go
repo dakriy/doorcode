@@ -22,7 +22,7 @@ func TestDoorPageListsWhoCanEnterAndTheOverrides(t *testing.T) {
 	createOverride(t, b, "1", `{"kind":"open","start":"2026-01-05T08:00:00Z","end":"2026-01-06T08:00:00Z"}`)
 	b.Get("/")
 
-	got := pageOf(b.Get("/admin/doors/1")).Tables
+	got := pageOf(b.Get("/admin/doors/1?tab=access")).Tables
 
 	want := map[string][][]string{
 		"Overrides": {overridesHead,
@@ -34,7 +34,6 @@ func TestDoorPageListsWhoCanEnterAndTheOverrides(t *testing.T) {
 			{"Guests", "Nights", "Zones Annex, North", "Rule 2"},
 			{"Guests", "Always", "Zone Annex", "Rule 3"},
 		},
-		"Recent events": noDoorEvents,
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("tables (-want +got):\n%s", diff)
@@ -68,7 +67,7 @@ func TestCreatingAnOverrideFromTheFormReadsItsTimesInTheSiteTimezone(t *testing.
 	page := pageOf(b.Get(created.Location))
 	stored := testsupport.JSON(b.Get("/api/v1/doors/1/overrides/1").Body)
 
-	want := []any{303, "/admin/doors/1", []string{"The override has been created."},
+	want := []any{303, "/admin/doors/1?tab=access", []string{"The override has been created."},
 		[][]string{overridesHead, {"Open Upcoming", "Mon 5 Jan 2026 11:00 – Mon 5 Jan 2026 12:30", "Fair by Administrator", "Edit Delete"}},
 		"2026-01-05T10:00:00Z",
 	}
@@ -128,7 +127,7 @@ func TestSavingAnOverrideFromItsPage(t *testing.T) {
 	saved := b.Post("/admin/doors/1/overrides/1", "kind", "open", "start", "2026-01-05T10:30", "end", "2026-01-05T11:00", "reason", "")
 	got := pageOf(b.Get(saved.Location))
 
-	want := []any{"/admin/doors/1", []string{"The override's changes have been saved."},
+	want := []any{"/admin/doors/1?tab=access", []string{"The override's changes have been saved."},
 		[][]string{overridesHead, {"Open Upcoming", "Mon 5 Jan 2026 10:30 – Mon 5 Jan 2026 11:00", "by Administrator", "Edit Delete"}}}
 	if diff := cmp.Diff(want, []any{saved.Location, got.Messages, got.Tables["Overrides"]}); diff != "" {
 		t.Errorf("redirect, messages, overrides (-want +got):\n%s", diff)
@@ -151,9 +150,9 @@ func TestCancellingAndDeletingOverridesFromTheDoorPage(t *testing.T) {
 	afterDelete := pageOf(b.Get(deleted.Location))
 
 	want := []any{
-		"/admin/doors/1", []string{"The override has been cancelled. It ends now."},
+		"/admin/doors/1?tab=access", []string{"The override has been cancelled. It ends now."},
 		[][]string{overridesHead, {"Open Upcoming", "Mon 5 Jan 2026 13:00 – Mon 5 Jan 2026 14:00", "by Administrator", "Edit Delete"}},
-		"/admin/doors/1", []string{"The override has been deleted."}, freshDoorTables["Overrides"],
+		"/admin/doors/1?tab=access", []string{"The override has been deleted."}, freshAccessTables["Overrides"],
 	}
 	got := []any{cancelled.Location, afterCancel.Messages, afterCancel.Tables["Overrides"], deleted.Location, afterDelete.Messages, afterDelete.Tables["Overrides"]}
 	if diff := cmp.Diff(want, got); diff != "" {

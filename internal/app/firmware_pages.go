@@ -430,13 +430,13 @@ var firmwareRefusals = []doorRefusal{
 func (a *App) doorFirmwareFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	if d, ok := a.pageDoor(w, r, viewer); ok {
 		_, err := a.firmware.SetOverride(r.Context(), d.ID, formFirmware(r))
-		a.doorRefused(w, r, viewer, d, err, "door-firmware-saved", firmwareRefusals)
+		a.doorRefused(w, r, viewer, d, doorController, err, "door-firmware-saved", firmwareRefusals)
 	}
 }
 
 func (a *App) updateDoorFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	if d, ok := a.pageDoor(w, r, viewer); ok {
 		_, err := a.firmware.UpdateNow(r.Context(), d.ID, viewer.ID)
-		a.doorRefused(w, r, viewer, d, err, "update-sent", firmwareRefusals)
+		a.doorRefused(w, r, viewer, d, doorController, err, "update-sent", firmwareRefusals)
 	}
 }

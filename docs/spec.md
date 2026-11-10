@@ -380,10 +380,23 @@ its password to the log with instructions to change it.
 
 ## 11. Admin UI
 
-Pages: dashboard, doors (list, pending enrollments, detail with live state,
-timeline calendar, pictures, zones and the open mode they give it,
-who-can-enter, config, firmware, provisioning file, open and reboot
-buttons, events), zones (settings, then open-mode schedules, then doors:
+Pages: dashboard, doors (list, pending enrollments, detail, timeline
+calendar; a door's page keeps its picture, name, badges, provisioning file,
+and timeline link in the header above tabs like the settings page's:
+Overview (live state with its badges, charts, and alarms, the open and
+reboot buttons, and recent events), Access (who can enter, and the overrides
+with a new one), Controller (the controller, its credentials with rotate and
+revoke, its firmware with update now, and restoring a deleted door),
+Configuration (the door's overrides of the site's defaults, once a
+controller is enrolled), and Details (name, location, notes, and whether the
+portal shows it, the zones and the open mode they give it, pictures, and deleting
+the door); the tab is in the address (`/admin/doors/{id}?tab=` `overview`,
+`access`, `controller`, `configuration`, or `details`; none, an unknown one,
+or one the viewer is not shown opens Overview), a viewer is shown only the
+tabs with something for them (Controller to those who manage doors or
+firmware, Configuration and Details to those who manage doors), every form
+goes back to its tab and a refused one shows on it, and the live parts
+reload from the tab they are on), zones (settings, then open-mode schedules, then doors:
 the doors chosen as chips, each with a × that removes it, and a search by
 name or location listing at most 10 doors to add; without script every
 door is a checkbox in a folded list), users (list, detail, groups, access

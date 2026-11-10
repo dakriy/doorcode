@@ -112,7 +112,7 @@ func TestADoorsPageMasksItsSecretAndOffersToClearIt(t *testing.T) {
 	_, b, _, _ := enrolledDoor(t, f)
 	send(t, b, "PUT", "/api/v1/doors/1/config", `{"overrides":{"wifi_password":"hunter2 now"}}`, 200)
 
-	page := doorPage(t, b, "/admin/doors/1")
+	page := doorPage(t, b, "/admin/doors/1?tab=configuration")
 
 	want := []any{[]string{"Wi-Fi password " + "The Wi-Fi network's password. It is stored encrypted and sent to nobody but the door. A password of up to 63 bytes.", "", "Clear", "********"}, ""}
 	if diff := cmp.Diff(want, []any{page.Tables["Configuration"][wifiPasswordRow], page.Values["wifi_password"]}); diff != "" {
@@ -157,7 +157,7 @@ func TestABrokerCertificateIsSentWithLineFeedsAndShownInATextArea(t *testing.T) 
 
 	send(t, b, "PUT", "/api/v1/doors/1/config", `{"overrides":{"broker_ca_pem":`+testsupport.Quoted(testsupport.CRLF(testsupport.Certificate))+`}}`, 200)
 
-	page := doorPage(t, b, "/admin/doors/1")
+	page := doorPage(t, b, "/admin/doors/1?tab=configuration")
 	want := []any{testsupport.Certificate, testsupport.Certificate}
 	if diff := cmp.Diff(want, []any{sentConfig(f, "1", "broker_ca_pem"), page.Values["broker_ca_pem"]}); diff != "" {
 		t.Errorf("sent, text area (-want +got):\n%s", diff)
@@ -243,7 +243,7 @@ func TestADoorsPageWarnsWhenItsNewFirmwareMayRevertAfterTheUpdateTimeout(t *test
 			send(t, b, "PUT", "/api/v1/settings/update_timeout_minutes", `{"value":"20"}`, 200)
 			send(t, b, "PUT", "/api/v1/doors/1/config", `{"overrides":{"update_connect_timeout_s":"`+c.override+`"}}`, 200)
 
-			got := doorPage(t, b, "/admin/doors/1").Tables["Configuration"][connectTimeoutRow]
+			got := doorPage(t, b, "/admin/doors/1?tab=configuration").Tables["Configuration"][connectTimeoutRow]
 
 			if diff := cmp.Diff(c.want, got); diff != "" {
 				t.Errorf("row (-want +got):\n%s", diff)

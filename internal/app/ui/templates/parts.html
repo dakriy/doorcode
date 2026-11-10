@@ -540,3 +540,12 @@ the form with the id group-form, wherever on the page they sit. */}}
   {{end}}
 </section>
 {{end}}
+
+{{define "tab-strip"}}
+{{/* The tabs of a page, given a tabStrip. Each tab is a plain link, so a tab works without script and its address can be shared; at phone width the row scrolls rather than wraps. */}}
+<nav aria-label="{{.Label}}" class="-mx-4 mt-6 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+  <div class="flex min-w-max gap-6 border-b border-zinc-200 dark:border-zinc-800">
+    {{range .Links}}<a href="{{.Href}}"{{if .Current}} aria-current="page"{{end}} class="-mb-px border-b-2 border-transparent px-1 pb-3 text-sm font-medium whitespace-nowrap text-zinc-500 transition hover:border-zinc-300 hover:text-zinc-800 aria-[current=page]:border-brand-600 aria-[current=page]:text-brand-700 dark:text-zinc-400 dark:hover:border-zinc-600 dark:hover:text-zinc-200 dark:aria-[current=page]:border-brand-400 dark:aria-[current=page]:text-brand-300">{{.Name}}</a>{{end}}
+  </div>
+</nav>
+{{end}}

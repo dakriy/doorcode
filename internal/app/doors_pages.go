@@ -12,6 +12,7 @@ import (
 	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/override"
 	"github.com/dakriy/doorcode/internal/picture"
+	"github.com/dakriy/doorcode/internal/settings"
 	"github.com/dakriy/doorcode/internal/telemetry"
 )
 
@@ -34,6 +35,39 @@ func (a *App) doorPageRoutes() []route {
 
 func doorPath(id int64) string {
 	return "/admin/doors/" + strconv.FormatInt(id, 10)
+}
+
+// The tabs of a door's page.
+var (
+	doorOverview      = settings.Tab{Slug: "overview", Name: "Overview"}
+	doorAccess        = settings.Tab{Slug: "access", Name: "Access"}
+	doorController    = settings.Tab{Slug: "controller", Name: "Controller"}
+	doorConfiguration = settings.Tab{Slug: "configuration", Name: "Configuration"}
+	doorDetails       = settings.Tab{Slug: "details", Name: "Details"}
+)
+
+// doorTabsFor is the tabs of d's page that show viewer something, in
+// display order: the controller to those who manage doors or firmware,
+// and the configuration, once a controller is enrolled, and the details to
+// those who manage doors.
+func doorTabsFor(viewer auth.User, d connector.StoredDoor) []settings.Tab {
+	tabs := []settings.Tab{doorOverview, doorAccess}
+	manage := viewer.Has(auth.RoleManageDoors)
+	if manage || viewer.Has(auth.RoleManageFirmware) {
+		tabs = append(tabs, doorController)
+	}
+	if manage && d.Controller != nil {
+		tabs = append(tabs, doorConfiguration)
+	}
+	if manage {
+		tabs = append(tabs, doorDetails)
+	}
+	return tabs
+}
+
+// doorTabPath is the address of the page of the door id showing tab.
+func doorTabPath(id int64, tab settings.Tab) string {
+	return tabPath(doorPath(id), tab)
 }
 
 // doorRow is one door as the list shows it.
@@ -233,8 +267,13 @@ type pictureTile struct {
 	Number int
 }
 
-// doorContent is the door detail page's content.
+// doorContent is the door detail page's content: the tab it shows, by
+// slug, among the tabs of the strip, and Here, the address that shows the
+// page as it is, which its live parts reload from.
 type doorContent struct {
+	Tab  string
+	Tabs tabStrip
+	Here string
 	Door connector.StoredDoor
 	Row  doorRow
 	// Form is the door's fields as entered, which may not be stored.
@@ -306,9 +345,9 @@ func (a *App) pageDoor(w http.ResponseWriter, r *http.Request, viewer auth.User)
 	return storedDoor{StoredDoor: d, pictures: pictures}, true
 }
 
-// showDoor shows the page about d with its forms holding form, answering
-// with status.
-func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewer auth.User, d storedDoor, form doorForm, alert string) {
+// showDoor shows tab of the page about d, or its first tab when viewer
+// has no such tab, with its forms holding form, answering with status.
+func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewer auth.User, d storedDoor, tab settings.Tab, form doorForm, alert string) {
 	current, ok := a.siteSettings(w, r)
 	if !ok {
 		return
@@ -354,7 +393,10 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 		a.pageError(w, r, err)
 		return
 	}
+	tabs := doorTabsFor(viewer, d.StoredDoor)
+	tab = tabNamed(tabs, tab.Slug)
 	content := doorContent{
+		Tab: tab.Slug, Tabs: stripOf("Door tabs", doorPath(d.ID), tabs, tab), Here: doorHere(r, d.ID, tab),
 		Manage: viewer.Has(auth.RoleManageDoors), Opens: holds(viewer, opensDoors), Provisions: viewer.Has(auth.RoleManageFirmware), Back: doorPageBack(viewer),
 		Events: events, StrikeMS: config.StrikePulseMS, State: state, Firmware: card,
 		Door: d.StoredDoor, Row: n.rowOfDoor(d.StoredDoor), Form: form, Alert: alert,
@@ -379,6 +421,16 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 	a.render(w, r, status, doorTemplate, d.Name, &viewer, content)
 }
 
+// doorHere is the address of the page of the door id showing tab and the
+// chart range r asks for, if any.
+func doorHere(r *http.Request, id int64, tab settings.Tab) string {
+	here := doorTabPath(id, tab)
+	if chart := r.URL.Query().Get("range"); chart != "" {
+		here += "&range=" + url.QueryEscape(chart)
+	}
+	return here
+}
+
 // doorPageBack is the page a door's page goes back to for viewer.
 func doorPageBack(viewer auth.User) navItem {
 	if holds(viewer, opensDoors) {
@@ -394,12 +446,13 @@ func (d storedDoor) fresh() doorForm {
 
 func (a *App) doorPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	if d, ok := a.pageDoor(w, r, viewer); ok {
-		a.showDoor(w, r, http.StatusOK, viewer, d, d.fresh(), "")
+		a.showDoor(w, r, http.StatusOK, viewer, d, settings.Tab{Slug: r.URL.Query().Get("tab")}, d.fresh(), "")
 	}
 }
 
 // doorSaver saves the part of the door the path names that read takes
-// from the form posted, and goes back to its page with flash.
+// from the form posted, and goes back to the details of its page with
+// flash.
 func (a *App) doorSaver(read func(r *http.Request, f door.Fields) door.Fields, flash string) viewerHandler {
 	return func(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 		d, ok := a.pageDoor(w, r, viewer)
@@ -409,22 +462,22 @@ func (a *App) doorSaver(read func(r *http.Request, f door.Fields) door.Fields, f
 		f := read(r, door.FieldsOf(d.StoredDoor))
 		_, err := a.changeDoor(r.Context(), d.ID, f)
 		if errs, rejected := fieldErrors(err); rejected {
-			a.showDoor(w, r, http.StatusUnprocessableEntity, viewer, d, doorForm{Fields: f, Errors: errs}, "")
+			a.showDoor(w, r, http.StatusUnprocessableEntity, viewer, d, doorDetails, doorForm{Fields: f, Errors: errs}, "")
 			return
 		}
-		a.changed(w, r, err, doorPath(d.ID), flash)
+		a.changed(w, r, err, doorTabPath(d.ID, doorDetails), flash)
 	}
 }
 
 func (a *App) deleteDoorFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	if d, ok := a.pageDoor(w, r, viewer); ok {
-		a.changed(w, r, a.controllers.Delete(r.Context(), d.ID), doorPath(d.ID), "door-deleted")
+		a.changed(w, r, a.controllers.Delete(r.Context(), d.ID), doorTabPath(d.ID, doorDetails), "door-deleted")
 	}
 }
 
 func (a *App) restoreDoorFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	if d, ok := a.pageDoor(w, r, viewer); ok {
-		a.changed(w, r, a.doors.Restore(r.Context(), d.ID), doorPath(d.ID), "door-restored")
+		a.changed(w, r, a.doors.Restore(r.Context(), d.ID), doorTabPath(d.ID, doorController), "door-restored")
 	}
 }
 
@@ -437,10 +490,10 @@ func (a *App) uploadPictureFromForm(w http.ResponseWriter, r *http.Request, view
 	if status, refused := uploadRefusal(err); refused {
 		form := d.fresh()
 		form.Errors = map[string]string{picture.Field: err.Error()}
-		a.showDoor(w, r, status, viewer, d, form, "")
+		a.showDoor(w, r, status, viewer, d, doorDetails, form, "")
 		return
 	}
-	a.changed(w, r, err, doorPath(d.ID), "picture-added")
+	a.changed(w, r, err, doorTabPath(d.ID, doorDetails), "picture-added")
 }
 
 // uploadRefusal is the status a page answers a refused upload with, and
@@ -471,34 +524,34 @@ var doorPageRefusals = []doorRefusal{
 	{controller.ErrHandingOver, http.StatusConflict, "The controller has not yet connected with the credentials it was last sent, so it is sent no more. Its old ones keep working until it does."},
 }
 
-// doorChanged finishes a change to d made from its page: a refusal is
-// shown on the page, a failure as an error, and success by going back to
-// the page with flash.
-func (a *App) doorChanged(w http.ResponseWriter, r *http.Request, viewer auth.User, d storedDoor, err error, flash string) {
-	a.doorRefused(w, r, viewer, d, err, flash, doorPageRefusals)
+// doorChanged finishes a change to d made from tab of its page: a refusal
+// is shown on the tab, a failure as an error, and success by going back to
+// the tab with flash.
+func (a *App) doorChanged(w http.ResponseWriter, r *http.Request, viewer auth.User, d storedDoor, tab settings.Tab, err error, flash string) {
+	a.doorRefused(w, r, viewer, d, tab, err, flash, doorPageRefusals)
 }
 
-// doorRefused finishes a change to d made from its page: a refusal among
-// known is shown on the page, a failure as an error, and success by going
-// back to the page with flash.
-func (a *App) doorRefused(w http.ResponseWriter, r *http.Request, viewer auth.User, d storedDoor, err error, flash string, known []doorRefusal) {
+// doorRefused finishes a change to d made from tab of its page: a refusal
+// among known is shown on the tab, a failure as an error, and success by
+// going back to the tab with flash.
+func (a *App) doorRefused(w http.ResponseWriter, r *http.Request, viewer auth.User, d storedDoor, tab settings.Tab, err error, flash string, known []doorRefusal) {
 	for _, known := range known {
 		if errors.Is(err, known.err) {
-			a.showDoor(w, r, known.status, viewer, d, d.fresh(), known.message)
+			a.showDoor(w, r, known.status, viewer, d, tab, d.fresh(), known.message)
 			return
 		}
 	}
-	a.changed(w, r, err, doorPath(d.ID), flash)
+	a.changed(w, r, err, doorTabPath(d.ID, tab), flash)
 }
 
 func (a *App) primaryPictureFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	if d, ok := a.pageDoor(w, r, viewer); ok {
-		a.doorChanged(w, r, viewer, d, a.doors.SetPrimaryPicture(r.Context(), d.ID, pathID(r, "picture")), "picture-primary")
+		a.doorChanged(w, r, viewer, d, doorDetails, a.doors.SetPrimaryPicture(r.Context(), d.ID, pathID(r, "picture")), "picture-primary")
 	}
 }
 
 func (a *App) deletePictureFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	if d, ok := a.pageDoor(w, r, viewer); ok {
-		a.doorChanged(w, r, viewer, d, a.doors.DeletePicture(r.Context(), d.ID, pathID(r, "picture")), "picture-deleted")
+		a.doorChanged(w, r, viewer, d, doorDetails, a.doors.DeletePicture(r.Context(), d.ID, pathID(r, "picture")), "picture-deleted")
 	}
 }

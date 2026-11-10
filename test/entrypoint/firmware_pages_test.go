@@ -310,12 +310,12 @@ func TestADoorPageShowsItsFirmware(t *testing.T) {
 	send(t, fl.b, "POST", "/api/v1/doors/1/update", "", 200)
 	b := fl.browser()
 
-	page := testsupport.ParsePage(b.Get("/admin/doors/1").Body)
+	page := testsupport.ParsePage(b.Get("/admin/doors/1?tab=controller").Body)
 
 	want := []any{
 		"1.4.3", "1.6.0", "Updating", "Sent 1.6.0 on Mon 5 Jan 2026 09:00:00",
 		[]string{"Follow the default (1.5.0)", "1.6.0 (selected)", "1.5.0"},
-		[]string{"firmware_id", "zone_ids"},
+		[]string{"firmware_id"},
 	}
 	got := []any{page.Details["Running"], page.Details["Target"], page.Details["Rollout"], page.Details["Latest update"], page.Options["firmware_id"], page.Comboboxes}
 	if diff := cmp.Diff(want, got); diff != "" {
@@ -330,10 +330,9 @@ func TestADoorPageSaysWhenAnOfflineDoorCanBeUpdated(t *testing.T) {
 	run(t, fl.a)
 	b := fl.browser()
 
-	got := pageOf(b.Get("/admin/doors/1")).Notes
+	got := pageOf(b.Get("/admin/doors/1?tab=controller")).Notes
 
-	want := []string{"The door can be updated once its controller is connected.", "New credentials can be sent only while the controller is connected.", hostNote, brokerNote, picturesNote, openNote,
-		neverOpenNote, "There are no zones yet. Create one on the zones page."}
+	want := []string{"New credentials can be sent only while the controller is connected.", "The door can be updated once its controller is connected."}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("notes (-want +got):\n%s", diff)
 	}
@@ -345,14 +344,9 @@ func TestADoorPageShowsFirmwareOnlyToThoseWhoManageIt(t *testing.T) {
 	_, b, _, _ := enrolledDoor(t, f)
 	holdingOnly(t, f, b, `["manage-doors"]`)
 
-	got := doorPage(t, b, "/admin/doors/1").Details
+	got := doorPage(t, b, "/admin/doors/1?tab=controller").Details
 
-	want := map[string]string{
-		"Hardware id": "A1", "Door": "Not reported yet", "Firmware": "1.4.3", "Signal": "-58 dBm", "Latency": "Not reported yet",
-		"Uptime": "Not reported yet", "Free memory": "Not reported yet", "Reconnects": "Not reported yet",
-		"Mesh layer": "Not reported yet", "Mesh parent": "Not reported yet", "Mesh children": "Not reported yet",
-		"Last seen": "Mon 5 Jan 2026 09:00:00", "Last report": "Not reported yet",
-	}
+	want := map[string]string{"Hardware id": "A1"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("details (-want +got):\n%s", diff)
 	}

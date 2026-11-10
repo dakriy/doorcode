@@ -18,10 +18,12 @@
     {{if $c.Opens}}<a href="/admin/doors/{{$d.ID}}/calendar" hx-boost="false" class="shrink-0 {{template "secondary-class"}}">{{template "calendar-icon"}}View timeline</a>{{end}}
   </div>
 </div>
+{{template "tab-strip" $c.Tabs}}
 
 {{with $c.Alert}}<div class="mt-6">{{template "alert" .}}</div>{{end}}
+{{if eq $c.Tab "overview"}}
 {{with $c.State}}
-<section id="state-live" hx-get="{{$.URI}}" hx-trigger="live-doors from:body, live-door-{{$d.ID}} from:body" hx-select="#state-live" hx-swap="outerHTML" aria-labelledby="state-heading" class="mt-6 overflow-hidden {{template "card-class"}}">
+<section id="state-live" hx-get="{{$c.Here}}" hx-trigger="live-doors from:body, live-door-{{$d.ID}} from:body" hx-select="#state-live" hx-swap="outerHTML" aria-labelledby="state-heading" class="mt-6 overflow-hidden {{template "card-class"}}">
   <div class="flex flex-col gap-3 px-6 pt-6 sm:flex-row sm:items-start sm:justify-between">
     <div>
       <div class="flex flex-wrap items-center gap-2">
@@ -87,35 +89,119 @@
   {{end}}
 </section>
 {{end}}
-{{with $c.Firmware}}
-<section id="firmware-live" hx-get="{{$.URI}}" hx-trigger="live-doors from:body" hx-select="#firmware-live" hx-swap="outerHTML" aria-labelledby="firmware-heading" class="mt-6 p-6 {{template "card-class"}}">
-  <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-    <div>
-      <h2 id="firmware-heading" class="text-sm font-semibold">Firmware</h2>
-      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">The door runs the default version unless one is chosen for it here. The rollout sends it its target in the update window.</p>
-    </div>
-    {{if not .Note}}
-    <form method="post" action="/admin/doors/{{$d.ID}}/update" hx-confirm="Send {{$d.Name}} version {{.Target}} now? The controller restarts to install it." hx-disabled-elt="find button" class="shrink-0">
-      <button type="submit" class="{{template "secondary-class"}}">Update now</button>
-    </form>
-    {{end}}
+<section aria-labelledby="pulse-heading" class="mt-6 p-6 {{template "card-class"}}">
+  <div class="flex items-center justify-between gap-3">
+    <h2 id="pulse-heading" class="text-sm font-semibold">Open the door</h2>
+    {{template "door-status" $c.Row.Status}}
   </div>
-  <dl class="mt-5 grid gap-4 sm:grid-cols-4">
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Running</dt><dd class="mt-1 font-mono text-sm">{{.Running}}</dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Target</dt><dd class="mt-1 font-mono text-sm">{{.Target}}</dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Rollout</dt><dd class="mt-1 text-sm">{{.Status}}</dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Latest update</dt><dd class="mt-1 text-sm">{{.LastUpdate}}</dd></div>
-  </dl>
-  {{with .Note}}<p role="note" class="mt-4 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">{{.}}</p>{{end}}
-  <form method="post" action="/admin/doors/{{$d.ID}}/firmware" hx-disabled-elt="find button" class="mt-5 flex flex-col gap-3 border-t border-zinc-200 pt-5 sm:flex-row sm:items-end dark:border-zinc-800">
-    <div class="flex-1">
-      <label for="door-firmware" class="block text-sm font-medium">Firmware for this door</label>
-      {{template "combobox" (combobox "door-firmware" "firmware_id" "" .Options "" "mt-2")}}
-    </div>
-    <button type="submit" class="shrink-0 {{template "primary-class"}}">Save firmware</button>
+  <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Releases the strike once, for {{$c.StrikeMS}} ms, as if a code had been accepted. The opening is logged under your name.</p>
+  {{if not $c.Opens}}
+  <p role="note" class="mt-4 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">Opening the door needs the manage-doors or door-commander role.</p>
+  {{else if eq $c.Row.Status "Online"}}
+  <form method="post" action="/admin/doors/{{$d.ID}}/open" hx-confirm="Release the strike of {{$d.Name}} now?" hx-disabled-elt="find button" class="mt-4">
+    <button type="submit" class="w-full {{template "primary-class"}}">
+      <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M14.5 1A4.5 4.5 0 0 0 10 5.5V9H3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-1.5V5.5a3 3 0 1 1 6 0v2.75a.75.75 0 0 0 1.5 0V5.5A4.5 4.5 0 0 0 14.5 1Z" clip-rule="evenodd"/></svg>
+      Open now
+    </button>
   </form>
+  <div class="mt-4 flex items-center justify-between gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+    <p class="text-xs text-zinc-500 dark:text-zinc-400">Reboot restarts the controller. It goes offline for a moment and connects again. The reboot is logged under your name.</p>
+    <form method="post" action="/admin/doors/{{$d.ID}}/reboot" hx-confirm="Reboot the controller of {{$d.Name}} now? The door is offline until it connects again." hx-disabled-elt="find button" class="shrink-0">
+      <button type="submit" class="{{template "secondary-class"}}">Reboot</button>
+    </form>
+  </div>
+  {{else}}
+  <p role="note" class="mt-4 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">The door can be opened, and its controller rebooted, from here once its controller is connected.</p>
+  {{end}}
 </section>
-{{end}}
+{{with $c.Events}}{{template "recent-events" .}}{{end}}
+{{else if eq $c.Tab "access"}}
+<section aria-labelledby="entrants-heading" class="mt-6 overflow-hidden {{template "card-class"}}">
+  <div class="px-6 pt-6">
+    <h2 id="entrants-heading" class="text-sm font-semibold">Who can enter</h2>
+    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Members of these groups may enter with their code while the schedule is active. Change access from a group’s page.</p>
+  </div>
+  <div class="mt-4 overflow-x-auto">
+    <table aria-label="Who can enter" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+      <thead class="{{template "table-head-class"}}">
+        <tr>
+          <th scope="col" class="px-6 py-2">Group</th>
+          <th scope="col" class="px-6 py-2">Schedule</th>
+          <th scope="col" class="px-6 py-2">Through</th>
+          <th scope="col" class="px-6 py-2"><span class="sr-only">Rule</span></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {{range $c.Entrants}}
+        <tr>
+          <td class="px-6 py-3 font-medium whitespace-nowrap">{{.Group.Name}}</td>
+          <td class="px-6 py-3 whitespace-nowrap">{{.Schedule.Name}}</td>
+          <td class="px-6 py-3 text-zinc-600 dark:text-zinc-400">{{.Through}}</td>
+          <td class="px-6 py-3 text-right whitespace-nowrap">{{if $.Viewer.Has "manage-groups"}}<a href="/admin/groups/{{.Group.ID}}/rules/{{.RuleID}}" class="{{template "row-button-class"}}">Rule {{.RuleID}}</a>{{else}}<span class="text-xs text-zinc-500 dark:text-zinc-400">Rule {{.RuleID}}</span>{{end}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="4" class="px-6 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">No access rule reaches this door, so only open mode, overrides, and door commanders open it.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section aria-labelledby="overrides-heading" class="mt-6 overflow-hidden {{template "card-class"}}">
+  <div class="flex flex-col gap-3 px-6 pt-6 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <h2 id="overrides-heading" class="text-sm font-semibold">Overrides</h2>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Force the door open or locked for a while. Locked wins over open, and both win over open mode; door commanders always get in.</p>
+    </div>
+    {{if $c.Opens}}<a href="/admin/doors/{{$d.ID}}/overrides/new" class="shrink-0 {{template "secondary-class"}}">{{template "plus-icon"}}New override</a>{{end}}
+  </div>
+  {{if not $c.Opens}}<p role="note" class="mx-6 mt-4 text-xs text-zinc-500 dark:text-zinc-400">Overrides are made and ended by holders of the manage-doors or door-commander role.</p>{{end}}
+  <div class="mt-4 overflow-x-auto">
+    <table aria-label="Overrides" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+      <thead class="{{template "table-head-class"}}">
+        <tr>
+          <th scope="col" class="px-6 py-2">Override</th>
+          <th scope="col" class="px-6 py-2">When</th>
+          <th scope="col" class="px-6 py-2">Reason</th>
+          <th scope="col" class="px-6 py-2"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {{range $c.Overrides}}
+        <tr>
+          <td class="px-6 py-3 whitespace-nowrap">
+            <div class="flex items-center gap-2">
+              {{if eq .Kind "Locked"}}<span class="inline-flex rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 ring-1 ring-red-600/20 ring-inset dark:bg-red-950 dark:text-red-300 dark:ring-red-400/20">Locked</span>
+              {{else}}<span class="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-600/20 ring-inset dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-400/20">Open</span>{{end}}
+              {{if .Active}}{{template "badge" "In force"}}{{else}}{{template "badge" "Upcoming"}}{{end}}
+            </div>
+          </td>
+          <td class="px-6 py-3 whitespace-nowrap tabular-nums text-zinc-600 dark:text-zinc-400">{{.Start}} – {{.End}}</td>
+          <td class="px-6 py-3"><span class="block">{{.Reason}}</span><span class="block text-xs text-zinc-500 dark:text-zinc-400">by {{.Creator}}</span></td>
+          <td class="px-6 py-3 text-right whitespace-nowrap">
+            {{if $c.Opens}}
+            <div class="flex justify-end gap-1">
+              <a href="/admin/doors/{{$d.ID}}/overrides/{{.ID}}" class="{{template "row-button-class"}}">Edit</a>
+              {{if .Active}}
+              <form method="post" action="/admin/doors/{{$d.ID}}/overrides/{{.ID}}/cancel" hx-confirm="End this override of {{$d.Name}} now?">
+                <button type="submit" class="{{template "row-button-class"}}">End now</button>
+              </form>
+              {{end}}
+              <form method="post" action="/admin/doors/{{$d.ID}}/overrides/{{.ID}}/delete" hx-confirm="Delete this override of {{$d.Name}}? This cannot be undone.">
+                <button type="submit" class="{{template "row-button-class"}} hover:text-red-700 dark:hover:text-red-300">Delete</button>
+              </form>
+            </div>
+            {{end}}
+          </td>
+        </tr>
+        {{else}}
+        <tr><td colspan="4" class="px-6 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">No overrides are in force or to come. The door follows its open mode and access rules.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</section>
+{{else if eq $c.Tab "controller"}}
 {{if $c.Manage}}{{with $d.DeletedAt}}
 <div class="mt-6 flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200">
   <p>Deleted on {{date $.Zone .}}. The door is listed only under deleted doors; its history stays.</p>
@@ -124,8 +210,7 @@
   </form>
 </div>
 {{end}}
-
-<div id="controller-live" hx-get="{{.URI}}" hx-trigger="live-doors from:body" hx-select="#controller-live" hx-swap="outerHTML">
+<div id="controller-live" hx-get="{{$c.Here}}" hx-trigger="live-doors from:body" hx-select="#controller-live" hx-swap="outerHTML">
 {{with $c.Controller}}
 <section aria-labelledby="controller-heading" class="mt-6 overflow-hidden {{template "card-class"}}">
   <div class="flex flex-col gap-3 px-6 pt-6 sm:flex-row sm:items-start sm:justify-between">
@@ -179,8 +264,38 @@
 </p>
 {{end}}
 </div>
-
-{{if $d.Controller}}{{$errors := $c.Form.Errors}}
+{{end}}
+{{with $c.Firmware}}
+<section id="firmware-live" hx-get="{{$c.Here}}" hx-trigger="live-doors from:body" hx-select="#firmware-live" hx-swap="outerHTML" aria-labelledby="firmware-heading" class="mt-6 p-6 {{template "card-class"}}">
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <h2 id="firmware-heading" class="text-sm font-semibold">Firmware</h2>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">The door runs the default version unless one is chosen for it here. The rollout sends it its target in the update window.</p>
+    </div>
+    {{if not .Note}}
+    <form method="post" action="/admin/doors/{{$d.ID}}/update" hx-confirm="Send {{$d.Name}} version {{.Target}} now? The controller restarts to install it." hx-disabled-elt="find button" class="shrink-0">
+      <button type="submit" class="{{template "secondary-class"}}">Update now</button>
+    </form>
+    {{end}}
+  </div>
+  <dl class="mt-5 grid gap-4 sm:grid-cols-4">
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Running</dt><dd class="mt-1 font-mono text-sm">{{.Running}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Target</dt><dd class="mt-1 font-mono text-sm">{{.Target}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Rollout</dt><dd class="mt-1 text-sm">{{.Status}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Latest update</dt><dd class="mt-1 text-sm">{{.LastUpdate}}</dd></div>
+  </dl>
+  {{with .Note}}<p role="note" class="mt-4 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">{{.}}</p>{{end}}
+  <form method="post" action="/admin/doors/{{$d.ID}}/firmware" hx-disabled-elt="find button" class="mt-5 flex flex-col gap-3 border-t border-zinc-200 pt-5 sm:flex-row sm:items-end dark:border-zinc-800">
+    <div class="flex-1">
+      <label for="door-firmware" class="block text-sm font-medium">Firmware for this door</label>
+      {{template "combobox" (combobox "door-firmware" "firmware_id" "" .Options "" "mt-2")}}
+    </div>
+    <button type="submit" class="shrink-0 {{template "primary-class"}}">Save firmware</button>
+  </form>
+</section>
+{{end}}
+{{else if eq $c.Tab "configuration"}}
+{{$errors := $c.Form.Errors}}
 <form method="post" action="/admin/doors/{{$d.ID}}/config" novalidate hx-disabled-elt="find button" aria-labelledby="config-heading" class="mt-6 overflow-hidden {{template "card-class"}}">
   <div class="px-6 pt-6">
     <h2 id="config-heading" class="text-sm font-semibold">Configuration</h2>
@@ -225,12 +340,9 @@
     <button type="submit" class="{{template "primary-class"}}">Save configuration</button>
   </div>
 </form>
-{{end}}
-{{end}}
-
-<div class="mt-8 grid gap-8 lg:grid-cols-3">
+{{else if eq $c.Tab "details"}}
+<div class="mt-6 grid gap-8 lg:grid-cols-3">
   <div class="space-y-8 lg:col-span-2">
-    {{if $c.Manage}}
     <section aria-labelledby="details-heading" class="p-6 {{template "card-class"}}">
       <h2 id="details-heading" class="text-sm font-semibold">Details</h2>
       <form method="post" action="/admin/doors/{{$d.ID}}" novalidate hx-disabled-elt="find button" class="mt-5">
@@ -240,95 +352,7 @@
         </div>
       </form>
     </section>
-    {{end}}
 
-    <section aria-labelledby="overrides-heading" class="overflow-hidden {{template "card-class"}}">
-      <div class="flex flex-col gap-3 px-6 pt-6 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 id="overrides-heading" class="text-sm font-semibold">Overrides</h2>
-          <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Force the door open or locked for a while. Locked wins over open, and both win over open mode; door commanders always get in.</p>
-        </div>
-        {{if $c.Opens}}<a href="/admin/doors/{{$d.ID}}/overrides/new" class="shrink-0 {{template "secondary-class"}}">{{template "plus-icon"}}New override</a>{{end}}
-      </div>
-      {{if not $c.Opens}}<p role="note" class="mx-6 mt-4 text-xs text-zinc-500 dark:text-zinc-400">Overrides are made and ended by holders of the manage-doors or door-commander role.</p>{{end}}
-      <div class="mt-4 overflow-x-auto">
-        <table aria-label="Overrides" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
-          <thead class="{{template "table-head-class"}}">
-            <tr>
-              <th scope="col" class="px-6 py-2">Override</th>
-              <th scope="col" class="px-6 py-2">When</th>
-              <th scope="col" class="px-6 py-2">Reason</th>
-              <th scope="col" class="px-6 py-2"><span class="sr-only">Actions</span></th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
-            {{range $c.Overrides}}
-            <tr>
-              <td class="px-6 py-3 whitespace-nowrap">
-                <div class="flex items-center gap-2">
-                  {{if eq .Kind "Locked"}}<span class="inline-flex rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 ring-1 ring-red-600/20 ring-inset dark:bg-red-950 dark:text-red-300 dark:ring-red-400/20">Locked</span>
-                  {{else}}<span class="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-600/20 ring-inset dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-400/20">Open</span>{{end}}
-                  {{if .Active}}{{template "badge" "In force"}}{{else}}{{template "badge" "Upcoming"}}{{end}}
-                </div>
-              </td>
-              <td class="px-6 py-3 whitespace-nowrap tabular-nums text-zinc-600 dark:text-zinc-400">{{.Start}} – {{.End}}</td>
-              <td class="px-6 py-3"><span class="block">{{.Reason}}</span><span class="block text-xs text-zinc-500 dark:text-zinc-400">by {{.Creator}}</span></td>
-              <td class="px-6 py-3 text-right whitespace-nowrap">
-                {{if $c.Opens}}
-                <div class="flex justify-end gap-1">
-                  <a href="/admin/doors/{{$d.ID}}/overrides/{{.ID}}" class="{{template "row-button-class"}}">Edit</a>
-                  {{if .Active}}
-                  <form method="post" action="/admin/doors/{{$d.ID}}/overrides/{{.ID}}/cancel" hx-confirm="End this override of {{$d.Name}} now?">
-                    <button type="submit" class="{{template "row-button-class"}}">End now</button>
-                  </form>
-                  {{end}}
-                  <form method="post" action="/admin/doors/{{$d.ID}}/overrides/{{.ID}}/delete" hx-confirm="Delete this override of {{$d.Name}}? This cannot be undone.">
-                    <button type="submit" class="{{template "row-button-class"}} hover:text-red-700 dark:hover:text-red-300">Delete</button>
-                  </form>
-                </div>
-                {{end}}
-              </td>
-            </tr>
-            {{else}}
-            <tr><td colspan="4" class="px-6 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">No overrides are in force or to come. The door follows its open mode and access rules.</td></tr>
-            {{end}}
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section aria-labelledby="entrants-heading" class="overflow-hidden {{template "card-class"}}">
-      <div class="px-6 pt-6">
-        <h2 id="entrants-heading" class="text-sm font-semibold">Who can enter</h2>
-        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Members of these groups may enter with their code while the schedule is active. Change access from a group’s page.</p>
-      </div>
-      <div class="mt-4 overflow-x-auto">
-        <table aria-label="Who can enter" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
-          <thead class="{{template "table-head-class"}}">
-            <tr>
-              <th scope="col" class="px-6 py-2">Group</th>
-              <th scope="col" class="px-6 py-2">Schedule</th>
-              <th scope="col" class="px-6 py-2">Through</th>
-              <th scope="col" class="px-6 py-2"><span class="sr-only">Rule</span></th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
-            {{range $c.Entrants}}
-            <tr>
-              <td class="px-6 py-3 font-medium whitespace-nowrap">{{.Group.Name}}</td>
-              <td class="px-6 py-3 whitespace-nowrap">{{.Schedule.Name}}</td>
-              <td class="px-6 py-3 text-zinc-600 dark:text-zinc-400">{{.Through}}</td>
-              <td class="px-6 py-3 text-right whitespace-nowrap">{{if $.Viewer.Has "manage-groups"}}<a href="/admin/groups/{{.Group.ID}}/rules/{{.RuleID}}" class="{{template "row-button-class"}}">Rule {{.RuleID}}</a>{{else}}<span class="text-xs text-zinc-500 dark:text-zinc-400">Rule {{.RuleID}}</span>{{end}}</td>
-            </tr>
-            {{else}}
-            <tr><td colspan="4" class="px-6 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">No access rule reaches this door, so only open mode, overrides, and door commanders open it.</td></tr>
-            {{end}}
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    {{if $c.Manage}}
     <section aria-labelledby="pictures-heading" class="p-6 {{template "card-class"}}">
       <div class="sm:flex sm:items-start sm:justify-between sm:gap-6">
         <div>
@@ -376,37 +400,9 @@
         {{else}}<p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">JPEG, PNG, GIF, or WebP, up to {{$c.MaxPictureMB}} MB. Larger pictures are reduced to {{$c.MaxPictureSide}} pixels on their longest side.</p>{{end}}
       </form>
     </section>
-    {{end}}
   </div>
 
   <div class="space-y-8">
-    <section aria-labelledby="pulse-heading" class="p-6 {{template "card-class"}}">
-      <div class="flex items-center justify-between gap-3">
-        <h2 id="pulse-heading" class="text-sm font-semibold">Open the door</h2>
-        {{template "door-status" $c.Row.Status}}
-      </div>
-      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Releases the strike once, for {{$c.StrikeMS}} ms, as if a code had been accepted. The opening is logged under your name.</p>
-      {{if not $c.Opens}}
-      <p role="note" class="mt-4 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">Opening the door needs the manage-doors or door-commander role.</p>
-      {{else if eq $c.Row.Status "Online"}}
-      <form method="post" action="/admin/doors/{{$d.ID}}/open" hx-confirm="Release the strike of {{$d.Name}} now?" hx-disabled-elt="find button" class="mt-4">
-        <button type="submit" class="w-full {{template "primary-class"}}">
-          <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M14.5 1A4.5 4.5 0 0 0 10 5.5V9H3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-1.5V5.5a3 3 0 1 1 6 0v2.75a.75.75 0 0 0 1.5 0V5.5A4.5 4.5 0 0 0 14.5 1Z" clip-rule="evenodd"/></svg>
-          Open now
-        </button>
-      </form>
-      <div class="mt-4 flex items-center justify-between gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-800">
-        <p class="text-xs text-zinc-500 dark:text-zinc-400">Reboot restarts the controller. It goes offline for a moment and connects again. The reboot is logged under your name.</p>
-        <form method="post" action="/admin/doors/{{$d.ID}}/reboot" hx-confirm="Reboot the controller of {{$d.Name}} now? The door is offline until it connects again." hx-disabled-elt="find button" class="shrink-0">
-          <button type="submit" class="{{template "secondary-class"}}">Reboot</button>
-        </form>
-      </div>
-      {{else}}
-      <p role="note" class="mt-4 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">The door can be opened, and its controller rebooted, from here once its controller is connected.</p>
-      {{end}}
-    </section>
-
-    {{if $c.Manage}}
     <section aria-labelledby="zones-heading" class="p-6 {{template "card-class"}}">
       <h2 id="zones-heading" class="text-sm font-semibold">Zones</h2>
       <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Access rules name zones and reach every door in them, and while one of a zone's open-mode schedules is active its doors unlock on any keypress.</p>
@@ -418,14 +414,12 @@
         </div>
       </form>
     </section>
-    {{end}}
   </div>
 </div>
 
-{{with $c.Events}}{{template "recent-events" .}}{{end}}
-
-{{if and $c.Manage (not $d.DeletedAt)}}
+{{if not $d.DeletedAt}}
 {{template "delete-section" (deletion "Delete door" "A deleted door leaves the lists and its name stays taken. Its history stays, and you can restore it later." (printf "/admin/doors/%d/delete" $d.ID) (printf "Delete the door %s?" $d.Name) "" "")}}
+{{end}}
 {{end}}
 {{template "search-script" .}}
 {{end}}

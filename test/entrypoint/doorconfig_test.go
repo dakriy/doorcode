@@ -377,7 +377,7 @@ func TestAnEnrolledDoorsPageShowsItsConfiguration(t *testing.T) {
 	_, b, _, _ := enrolledDoor(t, f)
 	send(t, b, "PUT", "/api/v1/doors/1/config", `{"overrides":{"log_level":"debug"}}`, 200)
 
-	page := doorPage(t, b, "/admin/doors/1")
+	page := doorPage(t, b, "/admin/doors/1?tab=configuration")
 
 	want := []any{configTable(map[string][2]string{"log_level": {"debug", "debug"}}), "debug", ""}
 	got := []any{page.Tables["Configuration"], page.Values["log_level"], page.Values["strike_pulse_ms"]}
@@ -395,7 +395,7 @@ func TestSavingADoorsConfigurationFromItsPageSendsIt(t *testing.T) {
 	got := b.Post("/admin/doors/1/config", "strike_pulse_ms", " 500 ", "log_level", "", "reply_timeout_ms", "5000")
 	page := pageOf(b.Get(got.Location))
 
-	want := []any{303, "/admin/doors/1", []string{"The door's configuration has been saved and sent to its controller."},
+	want := []any{303, "/admin/doors/1?tab=configuration", []string{"The door's configuration has been saved and sent to its controller."},
 		configWith(map[string]any{"strike_pulse_ms": int64(500), "reply_timeout_ms": int64(5000)})}
 	if diff := cmp.Diff(want, []any{got.Status, got.Location, page.Messages, f.BrokerStub.RetainedDecoded(doorTopic("1", "config"))}); diff != "" {
 		t.Errorf("status, location, messages, configuration sent (-want +got):\n%s", diff)

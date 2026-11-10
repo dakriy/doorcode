@@ -190,7 +190,7 @@ func (a *App) settingError(w http.ResponseWriter, r *http.Request, err error) {
 // everything else. It shows the sections of one tab, and the sign-in
 // page's picture with them when Pictures says so.
 type settingsContent struct {
-	Tabs           []settingsTab
+	Tabs           tabStrip
 	Sections       []settingSection
 	Pictures       bool
 	Errors         map[string]string
@@ -200,17 +200,12 @@ type settingsContent struct {
 	MaxPictureSide int
 }
 
-// settingsTab is a link to a tab of the settings page, Current when the
-// page shows that tab.
-type settingsTab struct {
-	Name    string
-	Href    string
-	Current bool
-}
+// settingsPath is the settings page's address.
+const settingsPath = "/admin/settings"
 
 // settingsTabPath is the address of the settings page showing tab.
 func settingsTabPath(tab settings.Tab) string {
-	return "/admin/settings?tab=" + tab.Slug
+	return tabPath(settingsPath, tab)
 }
 
 // settingSection is one part of the settings page and its settings, On
@@ -259,12 +254,8 @@ func (a *App) showSettings(w http.ResponseWriter, r *http.Request, status int, v
 		a.pageError(w, r, err)
 		return
 	}
-	tabs := make([]settingsTab, 0, len(settings.Tabs))
-	for _, t := range settings.Tabs {
-		tabs = append(tabs, settingsTab{Name: t.Name, Href: settingsTabPath(t), Current: t == tab})
-	}
 	content := settingsContent{
-		Tabs: tabs, Sections: a.sectionsOf(all, tab, entered), Pictures: pictures,
+		Tabs: stripOf("Settings tabs", settingsPath, settings.Tabs, tab), Sections: a.sectionsOf(all, tab, entered), Pictures: pictures,
 		Errors: errs, SignInImage: image, Alert: alert,
 		MaxPictureMB: picture.Megabytes(), MaxPictureSide: picture.MaxSide,
 	}
@@ -342,7 +333,7 @@ func choiceOptions(choices []string, value string) []selectOption {
 }
 
 func (a *App) settingsPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	a.showSettings(w, r, http.StatusOK, viewer, settings.TabFor(r.URL.Query().Get("tab")), nil, nil, "")
+	a.showSettings(w, r, http.StatusOK, viewer, tabNamed(settings.Tabs, r.URL.Query().Get("tab")), nil, nil, "")
 }
 
 // saveSettingsFromForm stores every setting the form changed, and clears

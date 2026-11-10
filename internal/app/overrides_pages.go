@@ -156,7 +156,7 @@ func (a *App) createOverrideFromForm(w http.ResponseWriter, r *http.Request, vie
 		a.showOverride(w, r, http.StatusUnprocessableEntity, viewer, d, connector.StoredOverride{}, form, errs, zone)
 		return
 	}
-	a.changed(w, r, err, doorPath(d.ID), "override-created")
+	a.changed(w, r, err, doorTabPath(d.ID, doorAccess), "override-created")
 }
 
 func (a *App) overridePage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
@@ -176,18 +176,18 @@ func (a *App) saveOverrideFromForm(w http.ResponseWriter, r *http.Request, viewe
 		a.showOverride(w, r, http.StatusUnprocessableEntity, viewer, d, o, form, errs, zone)
 		return
 	}
-	a.changed(w, r, err, doorPath(d.ID), "override-saved")
+	a.changed(w, r, err, doorTabPath(d.ID, doorAccess), "override-saved")
 }
 
 func (a *App) cancelOverrideFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	if d, ok := a.pageDoor(w, r, viewer); ok {
 		_, err := a.endOverride(r.Context(), d.ID, pathID(r, "override"))
-		a.doorChanged(w, r, viewer, d, err, "override-cancelled")
+		a.doorChanged(w, r, viewer, d, doorAccess, err, "override-cancelled")
 	}
 }
 
 func (a *App) deleteOverrideFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	if d, ok := a.pageDoor(w, r, viewer); ok {
-		a.doorChanged(w, r, viewer, d, a.removeOverride(r.Context(), d.ID, pathID(r, "override")), "override-deleted")
+		a.doorChanged(w, r, viewer, d, doorAccess, a.removeOverride(r.Context(), d.ID, pathID(r, "override")), "override-deleted")
 	}
 }

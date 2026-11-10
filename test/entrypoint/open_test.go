@@ -53,7 +53,7 @@ func TestADoorCommanderOpensDoorsAndManagesOverridesButChangesNothingElse(t *tes
 		b.Send("POST", "/api/v1/doors/1/overrides", lockedToday).Status, b.Post("/admin/doors/1/overrides/1/delete").Status,
 		testsupport.JSON(b.Send("PUT", "/api/v1/doors/1", `{"name":"Hall"}`).Body), b.Get("/admin/doors/1/calendar").Status}
 
-	want := []any{303, "/admin/doors/1", "open", 403, 201, 303, testsupport.JSON(`{"error":"the manage-doors role is required"}`), 200}
+	want := []any{303, "/admin/doors/1?tab=overview", "open", 403, 201, 303, testsupport.JSON(`{"error":"the manage-doors role is required"}`), 200}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("open, where it goes, command, doors API, override, deleting it, changing the door, timeline (-want +got):\n%s", diff)
 	}
@@ -66,12 +66,12 @@ func TestADoorCommandersDoorPageOffersOpeningAndOverridesOnly(t *testing.T) {
 	holdingOnly(t, f, b, `["door-commander"]`)
 	b.Get("/")
 
-	page := pageOf(b.Get("/admin/doors/1"))
+	page := pageOf(b.Get("/admin/doors/1?tab=access"))
 	list := pageOf(b.Get("/admin/doors"))
 
 	want := []any{
-		[]string{"Dashboard", "Doors: Doors (current)", "Doors: Mesh", "Portal", "API tokens"},
-		map[string][][]string{"Overrides": freshDoorTables["Overrides"], "Who can enter": freshDoorTables["Who can enter"]},
+		[]string{"Dashboard", "Doors: Doors (current)", "Doors: Mesh", "Portal", "API tokens", "Overview", "Access (current)"},
+		freshAccessTables,
 		[]string{"", "Lobby", "Online", "None", "Never", "Hidden"},
 	}
 	if diff := cmp.Diff(want, []any{page.Nav, page.Tables, list.Tables["Doors"][1]}); diff != "" {
@@ -209,19 +209,19 @@ func TestAFirmwareManagersDoorPageIsReadOnlyApartFromTheFirmwareCard(t *testing.
 	createOverride(t, b, "1", lockedToday)
 	holdingOnly(t, f, b, `["manage-firmware"]`)
 
-	page := doorPage(t, b, "/admin/doors/1")
+	overview := doorPage(t, b, "/admin/doors/1")
+	access := pageOf(b.Get("/admin/doors/1?tab=access"))
+	page := pageOf(b.Get("/admin/doors/1?tab=controller"))
 	saved := b.Post("/admin/doors/1/firmware", "firmware_id", "")
 
 	want := []any{
-		"Lobby",
-		[]string{
-			"Choose a default version on the firmware page, or one for this door, to update it.",
-			"Overrides are made and ended by holders of the manage-doors or door-commander role.",
-			"Opening the door needs the manage-doors or door-commander role.",
-		},
+		[]string{"Dashboard", "Doors: Firmware", "Portal", "API tokens", "Overview", "Access", "Controller (current)"},
+		[]string{"Opening the door needs the manage-doors or door-commander role."},
+		[]string{"Overrides are made and ended by holders of the manage-doors or door-commander role."},
 		[]string{"Locked Upcoming", "Mon 5 Jan 2026 10:00 – Mon 5 Jan 2026 12:00", "Floor polishing. by Administrator", ""},
+		[]string{"Choose a default version on the firmware page, or one for this door, to update it."},
 		[]string{"Running", "Target", "Rollout", "Latest update"},
-		303,
+		[]any{303, "/admin/doors/1?tab=controller"},
 	}
 	firmware := []string{}
 	for _, term := range []string{"Running", "Target", "Rollout", "Latest update"} {
@@ -229,7 +229,8 @@ func TestAFirmwareManagersDoorPageIsReadOnlyApartFromTheFirmwareCard(t *testing.
 			firmware = append(firmware, term)
 		}
 	}
-	if diff := cmp.Diff(want, []any{page.Heading, page.Notes, page.Tables["Overrides"][1], firmware, saved.Status}); diff != "" {
-		t.Errorf("heading, notes, override, firmware card, saving its firmware (-want +got):\n%s", diff)
+	got := []any{page.Nav, overview.Notes, access.Notes, access.Tables["Overrides"][1], page.Notes, firmware, []any{saved.Status, saved.Location}}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("navigation, overview's notes, access's notes and override, controller's notes and firmware card, saving its firmware (-want +got):\n%s", diff)
 	}
 }
