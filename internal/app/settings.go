@@ -299,24 +299,32 @@ func (a *App) sectionsOf(all []settings.Setting, tab settings.Tab, entered map[s
 			sections = append(sections, settingSection{Section: s.Section, On: on})
 			last++
 		}
-		row := settingRow{Setting: s, Entered: held[s.Key], Heading: heading(s.Group, previous)}
+		row := a.settingRowOf(s, held, previous)
 		previous = s.Group
-		if choices := a.settings.Choices(s); len(choices) > 0 {
-			row.Options = choiceOptions(choices, row.Entered)
-		}
-		switch s.Key {
-		case settings.KeyConnectTimeout:
-			row.Warning = settings.RevertWarning(row.Entered, held[settings.KeyUpdateTimeout])
-		case settings.KeyBrokerHost:
-			row.Warning = settings.HostWarning(row.Entered)
-		case settings.KeyBrokerCA:
-			row.Warning = settings.BrokerWarning(held[settings.KeyBrokerTLS], row.Entered)
-		case settings.KeyMeshEnabled:
-			row.Warning = settings.MeshWarning(row.Entered, held[settings.KeyMeshSSID], held[settings.KeyMeshPassword])
-		}
 		sections[last].Rows = append(sections[last].Rows, row)
 	}
 	return sections
+}
+
+// settingRowOf is the settings page's row for s after a row of the group
+// previous, its input holding what held holds for it, with the choices it
+// offers and what the page warns of the value held.
+func (a *App) settingRowOf(s settings.Setting, held map[string]string, previous string) settingRow {
+	row := settingRow{Setting: s, Entered: held[s.Key], Heading: heading(s.Group, previous)}
+	if choices := a.settings.Choices(s); len(choices) > 0 {
+		row.Options = choiceOptions(choices, row.Entered)
+	}
+	switch s.Key {
+	case settings.KeyConnectTimeout:
+		row.Warning = settings.RevertWarning(row.Entered, held[settings.KeyUpdateTimeout])
+	case settings.KeyBrokerHost:
+		row.Warning = settings.HostWarning(row.Entered)
+	case settings.KeyBrokerCA:
+		row.Warning = settings.BrokerWarning(held[settings.KeyBrokerTLS], row.Entered)
+	case settings.KeyMeshEnabled:
+		row.Warning = settings.MeshWarning(row.Entered, held[settings.KeyMeshSSID], held[settings.KeyMeshPassword])
+	}
+	return row
 }
 
 // choiceOptions is the options of a select offering choices with value
