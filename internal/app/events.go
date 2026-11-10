@@ -24,13 +24,14 @@ type eventView struct {
 	ID        int64     `json:"id" doc:"Names the event."`
 	At        time.Time `json:"at" doc:"When it happened."`
 	Door      nameRef   `json:"door" doc:"The door, by id and name; deleted doors keep their events."`
-	Type      string    `json:"type" doc:"check (a code entered at the keypad), command (a keypad command carried out), open (opened from the admin UI or the API), alarm (the door forced open or held open), or update (a firmware update sent, succeeded, or failed)."`
-	Outcome   string    `json:"outcome" doc:"allowed or denied, alert for an alarm or a failed firmware update, or info for a firmware update sent or done."`
-	Reason    string    `json:"reason" doc:"Why, such as access rule, open mode, no rule, locked, expired, rate limited, unreachable, forced open, held open, update sent, update succeeded, or update failed."`
+	Type      string    `json:"type" doc:"check (a code entered at the keypad), command (a keypad command carried out), open (opened from the admin UI or the API), alarm (the door forced open or held open), door (the door closing after it was open), or update (a firmware update sent, succeeded, or failed)."`
+	Outcome   string    `json:"outcome" doc:"allowed or denied, alert for an alarm or a failed firmware update, or info for a firmware update sent or done or a door closing."`
+	Reason    string    `json:"reason" doc:"Why, such as access rule, open mode, no rule, locked, expired, rate limited, unreachable, forced open, held open, closed, update sent, update succeeded, or update failed."`
 	User      *nameRef  `json:"user,omitempty" doc:"The user whose code it was, or who gave the command, opened the door, or sent the update, by id and display name; absent for a code nobody has and for what nobody did."`
 	RuleID    *int64    `json:"rule_id,omitempty" doc:"The access rule that let the user in; absent unless one did."`
 	RequestID string    `json:"request_id,omitempty" doc:"The id the door gave the code check; absent for other events."`
 	Detail    string    `json:"detail,omitempty" doc:"More about it in words, such as what a command did."`
+	OpenMS    *int64    `json:"open_ms,omitempty" doc:"How many milliseconds the door was open, by its controller's clock when it said, else from when the server saw it open; absent unless the event is a door closing."`
 }
 
 type eventList struct {
@@ -51,7 +52,7 @@ func (a *App) eventRoutes() []route {
 	params := []openapi.Param{
 		{Name: "door", In: "query", Description: "Keeps the events of the door with this id.", Example: int64(1)},
 		{Name: "user", In: "query", Description: "Keeps the events of the user with this id.", Example: int64(2)},
-		{Name: "type", In: "query", Description: "Keeps the events of this type: check, command, open, alarm, or update.", Example: event.Check},
+		{Name: "type", In: "query", Description: "Keeps the events of this type: check, command, open, alarm, door, or update.", Example: event.Check},
 		{Name: "outcome", In: "query", Description: "Keeps the events with this outcome: allowed, denied, alert, or info.", Example: event.Denied},
 		{Name: "reason", In: "query", Description: "Keeps the events with this reason.", Example: event.NoRule},
 		{Name: "from", In: "query", Description: "Keeps the events at or after this RFC 3339 time.", Example: "2026-01-05T00:00:00Z"},
@@ -89,7 +90,7 @@ func (a *App) eventRoutes() []route {
 func viewOfEvent(e connector.StoredEvent) eventView {
 	view := eventView{
 		ID: e.ID, At: e.At.UTC(), Door: nameRef{ID: e.DoorID, Name: e.DoorName}, Type: e.Type, Outcome: e.Outcome, Reason: e.Reason,
-		RuleID: e.RuleID, RequestID: e.RequestID, Detail: e.Detail,
+		RuleID: e.RuleID, RequestID: e.RequestID, Detail: e.Detail, OpenMS: e.OpenMS,
 	}
 	if e.UserID != nil {
 		view.User = &nameRef{ID: *e.UserID, Name: e.UserName}

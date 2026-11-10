@@ -340,12 +340,15 @@ const (
 // DoorEvent is what a door publishes on its event topic when something
 // happens to it, such as EventOpened. Outside open mode a door says each
 // time it opens and closes. With EventOpened, Unlocked says whether the
-// door was unlocked when it opened; controllers that predate it leave it
-// out.
+// door was unlocked when it opened, and with EventClosed, OpenMS how many
+// milliseconds it was open by the controller's clock, sent only when the
+// controller saw the opening from its start outside an open span;
+// controllers that predate them leave them out.
 type DoorEvent struct {
 	Header
-	Event    string `cbor:"event"`
-	Unlocked *bool  `cbor:"unlocked,omitempty"`
+	Event    string  `cbor:"event"`
+	Unlocked *bool   `cbor:"unlocked,omitempty"`
+	OpenMS   *uint64 `cbor:"open_ms,omitempty"`
 }
 
 // ErrVersion reports a message of another protocol version.

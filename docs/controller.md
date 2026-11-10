@@ -558,6 +558,7 @@ mode** only (inside an `open` span the door says nothing and `opens` counts).
 | `v` | uint | Protocol version, 1. |
 | `event` | text | `opened` (`protocol.EventOpened`) or `closed` (`protocol.EventClosed`). |
 | `unlocked` | bool | With `opened` only, optional: whether the door was unlocked when the sensor saw it open, that is, the strike was released, or had been locked again for no longer than a short grace period the controller chooses. |
+| `open_ms` | uint | With `closed` only, optional: how many milliseconds the door was open, by the controller's clock. Sent only when the controller saw the opening from its start and it began outside an open span; otherwise left out. |
 
 From these the server derives:
 
@@ -569,6 +570,12 @@ From these the server derives:
     check or keypad command, no `open` command from the administration,
     no open span), so send `opened` as soon as the sensor sees it;
 - **held open:** open for `held_open_s` or longer.
+- **closed:** whenever the door goes from open to closed in the server's
+  state, by a `closed` event or by a report with `door_open` false, one
+  event saying how long it was open: `open_ms` when the message carries
+  it, else the time since the server saw it open. None is recorded when
+  the server did not have the door open, or when the opening began in an
+  open span of the door's timeline (open mode or an open override).
 
 `door_open` in each telemetry report also sets the state, so a missed event
 is corrected by the next report. Events and telemetry made while offline are
@@ -782,7 +789,7 @@ it.
 | `Timeline` (`From`, `To`, `Spans`) | message | `from`, `to`, `spans`. | 10 |
 | `Telemetry` (`Signal`, `LatencyMS`, `UptimeS`, `FreeBytes`, `FirmwareVersion`, `Reconnects`, `DoorOpen`, `Opens`, `MeshLayer`, `MeshParent`, `MeshChildren`) | message | `signal`, `latency_ms`, `uptime_s`, `free_bytes`, `firmware_version`, `reconnects`, `door_open`, `opens`, `mesh_layer`, `mesh_parent`, `mesh_children`. | 12 |
 | `EventOpened`, `EventClosed` | constants | `opened`, `closed`. | 12 |
-| `DoorEvent` (`Event`, `Unlocked`) | message | `event`, `unlocked` (a `*bool`, nil when left out). | 12 |
+| `DoorEvent` (`Event`, `Unlocked`, `OpenMS`) | message | `event`, `unlocked` (a `*bool`, nil when left out), `open_ms` (a `*uint64`, nil when left out). | 12 |
 | `ErrVersion` | error | A message of another protocol version. | 4 |
 | `Encode(m)` | function | `m` as CBOR, core deterministic, with `v` set to `Version`. | 4 |
 | `Decode(payload, m)` | function | Reads a payload, refusing anything but a CBOR map of this version. | 4 |

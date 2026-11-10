@@ -1,7 +1,8 @@
 // Package event keeps the activity log: every code check a door asked
 // about, with what was decided and why, every keypad command, every
-// opening and reboot from the admin UI, every alarm a door's state raised, and every
-// firmware update sent to a door and how it ended.
+// opening and reboot from the admin UI, every alarm a door's state raised,
+// every closing of a door the server timed, and every firmware update sent
+// to a door and how it ended.
 // Events are only ever added.
 package event
 
@@ -25,14 +26,17 @@ const (
 	Alarm = "alarm"
 	// Update is a firmware update sent to a door, or its end.
 	Update = "update"
+	// Door is something a door did by itself that is neither an unlock
+	// nor an alarm, such as closing after it was open.
+	Door = "door"
 )
 
 // Types is every type, in the order pages list them.
-var Types = []string{Check, Command, Open, Alarm, Update}
+var Types = []string{Check, Command, Open, Alarm, Door, Update}
 
 // The outcomes of an event. An alarm's outcome is Alert, and so is a
-// failed firmware update's; an update sent or done is Info, since it
-// lets nobody in.
+// failed firmware update's; an update sent or done, and a door closing,
+// is Info, since it lets nobody in.
 const (
 	Allowed = "allowed"
 	Denied  = "denied"
@@ -106,6 +110,10 @@ const (
 	HeldOpen = "held open"
 )
 
+// Closed is the reason of a door closing after it was open, the event
+// carrying how long it was open.
+const Closed = "closed"
+
 // The reasons of firmware update events.
 const (
 	// UpdateSent is an update command sent to a door.
@@ -122,7 +130,7 @@ const (
 var Reasons = []string{
 	AccessRule, OpenMode, OpenOverride, Commander, Commanded,
 	NoRule, Locked, Expired, RateLimited, NotCommander, BadCommand, CommandFailed, Unreachable,
-	KeypadOpen, KeypadLocked, KeypadCancel, RebootSent, FromUI, ForcedOpen, HeldOpen,
+	KeypadOpen, KeypadLocked, KeypadCancel, RebootSent, FromUI, ForcedOpen, HeldOpen, Closed,
 	UpdateSent, UpdateSucceeded, UpdateFailed,
 }
 

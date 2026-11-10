@@ -153,7 +153,7 @@ func TestADoorClosedAndOpenedAgainIsForcedAgain(t *testing.T) {
 
 	k.says("opened")
 
-	if diff := cmp.Diff([]any{"forced open", "forced open"}, k.reasons()); diff != "" {
+	if diff := cmp.Diff([]any{"forced open", "closed", "forced open"}, k.reasons()); diff != "" {
 		t.Errorf("reasons (-want +got):\n%s", diff)
 	}
 }
@@ -250,7 +250,7 @@ func TestADoorOpenPastItsHeldOpenTimeIsLoggedAsHeldOpenOnce(t *testing.T) {
 		"open for longer, looked at twice": {
 			nil, []string{"2026-01-05T09:01:00Z", "2026-01-05T09:02:00Z"}, []any{"held open", "admin UI"},
 		},
-		"closed before its held-open time": {func(k *keypad) { k.says("closed") }, []string{"2026-01-05T09:05:00Z"}, []any{"admin UI"}},
+		"closed before its held-open time": {func(k *keypad) { k.says("closed") }, []string{"2026-01-05T09:05:00Z"}, []any{"closed", "admin UI"}},
 		"with its own longer held-open time": {func(k *keypad) {
 			send(k.t, k.b, "PUT", "/api/v1/doors/1/config", `{"overrides":{"held_open_s":"120"}}`, 200)
 		}, []string{"2026-01-05T09:01:59Z"}, []any{"admin UI"}},
@@ -258,7 +258,7 @@ func TestADoorOpenPastItsHeldOpenTimeIsLoggedAsHeldOpenOnce(t *testing.T) {
 			k.says("closed")
 			k.at("2026-01-05T09:00:30Z")
 			k.report(map[string]any{"door_open": true})
-		}, []string{"2026-01-05T09:01:00Z"}, []any{"admin UI"}},
+		}, []string{"2026-01-05T09:01:00Z"}, []any{"closed", "admin UI"}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

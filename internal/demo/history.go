@@ -95,6 +95,7 @@ func pastEvents(rng *rand.Rand, start, now time.Time) []connector.StoredEvent {
 		}
 		events = append(events, occasional(rng, day)...)
 	}
+	events = append(events, closings(rng, events)...)
 	events = append(events, pastUpdates(now)...)
 	events = slices.DeleteFunc(events, func(e connector.StoredEvent) bool { return !e.At.Before(now) })
 	slices.SortFunc(events, func(a, b connector.StoredEvent) int { return a.At.Compare(b.At) })
@@ -183,6 +184,36 @@ func keypadOpen(rng *rand.Rand, at time.Time) []connector.StoredEvent {
 		{At: at, DoorID: mainEntrance, Type: event.Command, Outcome: event.Allowed, Reason: event.KeypadOpen, UserID: &user, Detail: "Open for 30 minutes."},
 		{At: at, DoorID: mainEntrance, Type: event.Check, Outcome: event.Allowed, Reason: event.Commanded, UserID: &user, RequestID: requestID(rng)},
 	}
+}
+
+// closings is the door closing after each opening among events that the
+// server would time: someone let in by a code or from the UI, or the door
+// forced open, each closing seconds later, and a door held open, closing
+// a little after the alarm. A door let in by open mode, an open override,
+// or a keypad command (which makes an open override) was opened in an
+// open span, so nothing times it.
+func closings(rng *rand.Rand, events []connector.StoredEvent) []connector.StoredEvent {
+	spanned := []string{event.OpenMode, event.OpenOverride, event.Commanded, event.KeypadOpen}
+	var out []connector.StoredEvent
+	for _, e := range events {
+		var openedAt time.Time
+		var open time.Duration
+		switch {
+		case e.Outcome == event.Allowed && !slices.Contains(spanned, e.Reason):
+			openedAt, open = e.At, time.Duration(3000+rng.IntN(7000))*time.Millisecond
+		case e.Reason == event.ForcedOpen:
+			openedAt, open = e.At, time.Duration(5000+rng.IntN(10000))*time.Millisecond
+		case e.Reason == event.HeldOpen:
+			openedAt, open = e.At.Add(-time.Minute), time.Minute+time.Duration(10000+rng.IntN(50000))*time.Millisecond
+		default:
+			continue
+		}
+		ms := open.Milliseconds()
+		out = append(out, connector.StoredEvent{
+			At: openedAt.Add(open), DoorID: e.DoorID, Type: event.Door, Outcome: event.Info, Reason: event.Closed, OpenMS: &ms,
+		})
+	}
+	return out
 }
 
 // requestID is an id a controller might give a check.

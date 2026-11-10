@@ -1,7 +1,7 @@
 // Package telemetry follows the doors' state from what their controllers
 // report: their telemetry, kept as history with hourly rollups, the door
-// opening and closing, the alarms that raises (a door forced open or held
-// open), and controllers that have gone unresponsive.
+// opening and closing, how long it was open, the alarms that raises (a door
+// forced open or held open), and controllers that have gone unresponsive.
 package telemetry
 
 import (
@@ -90,6 +90,9 @@ func (s Service) report(ctx context.Context, doorID int64, payload []byte) error
 	if m.DoorOpen {
 		c = opened(c, now)
 	} else {
+		if err := s.checkClosed(ctx, d.ID, held, nil, now); err != nil {
+			return err
+		}
 		c = closed(c)
 	}
 	return s.save(ctx, d.ID, held, c)
@@ -116,6 +119,9 @@ func (s Service) doorEvent(ctx context.Context, doorID int64, payload []byte) er
 		}
 		c = opened(c, now)
 	case protocol.EventClosed:
+		if err := s.checkClosed(ctx, d.ID, held, m.OpenMS, now); err != nil {
+			return err
+		}
 		c = closed(c)
 	default:
 		return fmt.Errorf("%w %q", ErrUnknownEvent, m.Event)
@@ -262,12 +268,42 @@ func (s Service) unlocked(ctx context.Context, doorID int64, since, now time.Tim
 	if allowed.Total > 0 {
 		return true, nil
 	}
+	return s.openDuring(ctx, doorID, since, now)
+}
+
+// openDuring reports whether the timeline of the door whose id is doorID
+// holds it open at any time from from up to to.
+func (s Service) openDuring(ctx context.Context, doorID int64, from, to time.Time) (bool, error) {
 	current, err := s.Settings.Current(ctx)
 	if err != nil {
 		return false, err
 	}
-	_, spans, err := s.Doors.Timeline(ctx, doorID, current.Zone, since, now)
+	_, spans, err := s.Doors.Timeline(ctx, doorID, current.Zone, from, to)
 	return slices.ContainsFunc(spans, func(span timeline.Span) bool { return span.State == timeline.Open }), err
+}
+
+// checkClosed logs how long the door whose id is doorID was open when it
+// closes at now, if its controller, which was held, had it open and the
+// opening did not begin while its timeline held it open. The length is
+// the openMS its controller said, when it said one, else the time since
+// the door opened.
+func (s Service) checkClosed(ctx context.Context, doorID int64, held connector.StoredController, openMS *uint64, now time.Time) error {
+	if held.DoorState != Open {
+		return nil
+	}
+	since := *held.OpenedAt
+	spanned, err := s.openDuring(ctx, doorID, since, since.Add(time.Nanosecond))
+	if err != nil || spanned {
+		return err
+	}
+	length := now.Sub(since).Milliseconds()
+	if openMS != nil {
+		length = int64(*openMS)
+	}
+	_, err = s.Events.Record(ctx, connector.StoredEvent{
+		At: now, DoorID: doorID, Type: event.Door, Outcome: event.Info, Reason: event.Closed, OpenMS: &length,
+	})
+	return err
 }
 
 // alarm is the alarm of the door whose id is doorID at at, for reason.

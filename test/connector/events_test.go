@@ -120,3 +120,27 @@ func TestStoreRefusesAnEventNamingWhatItDoesNotHold(t *testing.T) {
 		}
 	}
 }
+
+func TestStoreKeepsHowLongADoorWasOpen(t *testing.T) {
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			store := eventWorld(t, impl)
+			openMS := int64(18500)
+			at := eventsStart.Add(5 * time.Hour)
+			if _, err := store.AddEvent(context.Background(), connector.StoredEvent{
+				At: at, DoorID: 1, Type: "door", Outcome: "info", Reason: "closed", OpenMS: &openMS,
+			}); err != nil {
+				t.Fatal(err)
+			}
+
+			got, total, err := store.Events(context.Background(), connector.EventQuery{Limit: 1})
+
+			want := []any{[]connector.StoredEvent{
+				{ID: 5, At: at, DoorID: 1, DoorName: "Lobby", Type: "door", Outcome: "info", Reason: "closed", OpenMS: &openMS},
+			}, 5, nil}
+			if diff := cmp.Diff(want, []any{got, total, err}); diff != "" {
+				t.Errorf("events, total, error (-want +got):\n%s", diff)
+			}
+		})
+	}
+}

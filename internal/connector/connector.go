@@ -717,7 +717,8 @@ type OverridesStore interface {
 // concerns, nil when there is none or the code was unknown; RuleID the
 // access rule that decided, nil when none did. RequestID is the id the
 // door gave the code check, empty for other events, and Detail says more
-// in words. DoorName and UserName are the door's name and the user's
+// in words. OpenMS is how many milliseconds the door was open, nil but for
+// a door closing after an opening the server timed. DoorName and UserName are the door's name and the user's
 // display name, which the store fills when it returns an event (UserName
 // empty without a user) and ignores when it stores one.
 type StoredEvent struct {
@@ -733,6 +734,7 @@ type StoredEvent struct {
 	RuleID    *int64
 	RequestID string
 	Detail    string
+	OpenMS    *int64
 }
 
 // EventQuery selects a page of events. A zero DoorID or UserID, and an

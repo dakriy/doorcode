@@ -31,7 +31,7 @@ func (a *App) eventPageRoutes() []route {
 // typeLabels names each type of event on pages.
 var typeLabels = map[string]string{
 	event.Check: "Code check", event.Command: "Door command", event.Open: "Opened from the UI", event.Alarm: "Door alarm",
-	event.Update: "Firmware update",
+	event.Door: "Door activity", event.Update: "Firmware update",
 }
 
 // eventRow is one event as pages list it.
@@ -46,6 +46,9 @@ type eventRow struct {
 	RuleID    int64
 	RequestID string
 	Detail    string
+	// OpenFor is how long the door was open, as a page shows it, for a
+	// door closing; empty otherwise.
+	OpenFor string
 }
 
 // sentence is s with its first letter upper case, as a badge shows it.
@@ -63,6 +66,10 @@ func rowOfEvent(e connector.StoredEvent, zone *time.Location) eventRow {
 	}
 	if e.RuleID != nil {
 		row.RuleID = *e.RuleID
+	}
+	if e.OpenMS != nil {
+		// Pages show how long a door was open to a tenth of a second.
+		row.OpenFor = (time.Duration(*e.OpenMS) * time.Millisecond).Round(100 * time.Millisecond).String()
 	}
 	return row
 }

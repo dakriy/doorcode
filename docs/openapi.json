@@ -3857,7 +3857,7 @@
             "name": "type",
             "in": "query",
             "required": false,
-            "description": "Keeps the events of this type: check, command, open, alarm, or update.",
+            "description": "Keeps the events of this type: check, command, open, alarm, door, or update.",
             "schema": {
               "type": "string"
             },
@@ -10894,13 +10894,17 @@
             "type": "integer",
             "description": "Names the event."
           },
+          "open_ms": {
+            "type": "integer",
+            "description": "How many milliseconds the door was open, by its controller's clock when it said, else from when the server saw it open; absent unless the event is a door closing."
+          },
           "outcome": {
             "type": "string",
-            "description": "allowed or denied, alert for an alarm or a failed firmware update, or info for a firmware update sent or done."
+            "description": "allowed or denied, alert for an alarm or a failed firmware update, or info for a firmware update sent or done or a door closing."
           },
           "reason": {
             "type": "string",
-            "description": "Why, such as access rule, open mode, no rule, locked, expired, rate limited, unreachable, forced open, held open, update sent, update succeeded, or update failed."
+            "description": "Why, such as access rule, open mode, no rule, locked, expired, rate limited, unreachable, forced open, held open, closed, update sent, update succeeded, or update failed."
           },
           "request_id": {
             "type": "string",
@@ -10912,7 +10916,7 @@
           },
           "type": {
             "type": "string",
-            "description": "check (a code entered at the keypad), command (a keypad command carried out), open (opened from the admin UI or the API), alarm (the door forced open or held open), or update (a firmware update sent, succeeded, or failed)."
+            "description": "check (a code entered at the keypad), command (a keypad command carried out), open (opened from the admin UI or the API), alarm (the door forced open or held open), door (the door closing after it was open), or update (a firmware update sent, succeeded, or failed)."
           },
           "user": {
             "$ref": "#/components/schemas/NameRef",

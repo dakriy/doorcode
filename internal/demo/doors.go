@@ -171,6 +171,10 @@ type door struct {
 	timeline protocol.Timeline
 	open     bool
 	opens    int
+	// openedAt is when the door last opened, and spanned whether its
+	// timeline held it open then, when the controller does not time it.
+	openedAt time.Time
+	spanned  bool
 	// closing rings when the door swings shut, installing when an
 	// update has been installed, each nil while nothing is under way.
 	closing    *time.Timer
@@ -231,7 +235,7 @@ func (c *controller) loop(ctx context.Context, d *door) error {
 			forced.Reset(between(2*time.Hour, 8*time.Hour))
 		case <-timerC(d.closing):
 			d.closing, d.open = nil, false
-			c.say(d, protocol.DoorEvent{Event: protocol.EventClosed})
+			c.say(d, closedEvent(d, time.Now()))
 		case <-timerC(d.installing):
 			return c.restart(d)
 		}
@@ -362,10 +366,22 @@ func (c *controller) swing(d *door, open time.Duration, unlocked bool) {
 	if rand.IntN(40) == 0 {
 		open = time.Duration(d.config.HeldOpenS)*time.Second + between(5*time.Second, 30*time.Second)
 	}
-	d.open = true
+	d.open, d.openedAt = true, time.Now()
+	d.spanned = d.state(d.openedAt) == "open"
 	d.opens++
 	d.closing = time.NewTimer(open)
 	c.say(d, protocol.DoorEvent{Event: protocol.EventOpened, Unlocked: &unlocked})
+}
+
+// closedEvent is d's door closing at now, saying how long it was open
+// unless the opening began in an open span.
+func closedEvent(d *door, now time.Time) protocol.DoorEvent {
+	e := protocol.DoorEvent{Event: protocol.EventClosed}
+	if !d.spanned {
+		ms := uint64(now.Sub(d.openedAt).Milliseconds())
+		e.OpenMS = &ms
+	}
+	return e
 }
 
 // say tells the server what happened to the door.

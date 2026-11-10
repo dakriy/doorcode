@@ -27,6 +27,7 @@ func (s *Store) AddEvent(_ context.Context, e connector.StoredEvent) (int64, err
 	e.UserName = ""
 	e.UserID = clone(e.UserID)
 	e.RuleID = clone(e.RuleID)
+	e.OpenMS = clone(e.OpenMS)
 	s.events = append(s.events, e)
 	return e.ID, nil
 }
@@ -60,6 +61,7 @@ func (s *Store) eventOut(e connector.StoredEvent) connector.StoredEvent {
 	}
 	e.UserID = clone(e.UserID)
 	e.RuleID = clone(e.RuleID)
+	e.OpenMS = clone(e.OpenMS)
 	return e
 }
 

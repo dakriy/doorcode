@@ -134,7 +134,7 @@ func TestTheEventsPageFiltersByWhatItsFormSays(t *testing.T) {
 		map[string]string{"from": "2026-01-05", "to": "2026-01-05", "user": "2", "who": ""},
 		[]string{"Every door", "Dock (selected)", "Lobby"},
 		[]string{"User: Ann Smith ×"},
-		[]string{"Every type", "Code check (selected)", "Door command", "Opened from the UI", "Door alarm", "Firmware update"},
+		[]string{"Every type", "Code check (selected)", "Door command", "Opened from the UI", "Door alarm", "Door activity", "Firmware update"},
 		[]string{"Every outcome", "Allowed", "Denied (selected)", "Alert", "Info"},
 		[]string{"door"},
 	}
