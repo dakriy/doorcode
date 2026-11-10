@@ -120,7 +120,8 @@ func (a *App) putDoorConfig(w http.ResponseWriter, r *http.Request, _ auth.User)
 // the site's default, the door's own value as entered, empty to follow
 // the default, and the value in effect, each secret masked; whether the
 // door has its own value of a secret, which its page offers to clear; and
-// what the page warns of the value in effect.
+// what the page warns of the value in effect; and the group the row
+// starts, empty when it starts none.
 type configRow struct {
 	settings.DoorField
 	Default   string
@@ -128,6 +129,7 @@ type configRow struct {
 	Effective string
 	Set       bool
 	Warning   string
+	Heading   string
 }
 
 // configRows is each field of d's configuration, with the overrides
@@ -137,9 +139,12 @@ func configRows(d connector.StoredDoor, defaults settings.DoorDefaults, entered 
 		entered = d.Config
 	}
 	var rows []configRow
+	previous := ""
 	for _, f := range settings.DoorFields {
 		_, set := d.Config[f.Name]
-		row := configRow{DoorField: f, Default: defaults.Default(f), Entered: entered[f.Name], Effective: defaults.Shown(d.Config, f), Set: set}
+		row := configRow{DoorField: f, Default: defaults.Default(f), Entered: entered[f.Name], Effective: defaults.Shown(d.Config, f), Set: set,
+			Heading: heading(f.Group, previous)}
+		previous = f.Group
 		switch f.Name {
 		case settings.ConnectTimeoutField:
 			row.Warning = defaults.RevertWarning(d.Config)

@@ -71,34 +71,34 @@ var brokerSettingsJSON = `{"key":"enrollment_username","value":"doorcode-enroll"
 	defaultSetting("update_concurrency", "5") + `,` +
 	defaultSetting("update_timeout_minutes", "30") + `,` +
 	defaultSetting("door_strike_pulse_ms", "3000") + `,` +
+	defaultSetting("door_held_open_s", "60") + `,` +
 	defaultSetting("door_keypad_idle_clear_ms", "10000") + `,` +
 	defaultSetting("door_min_code_length", "4") + `,` +
 	defaultSetting("door_max_code_length", "32") + `,` +
 	defaultSetting("door_reply_timeout_ms", "3000") + `,` +
 	defaultSetting("door_telemetry_interval_s", "60") + `,` +
-	defaultSetting("door_held_open_s", "60") + `,` +
 	defaultSetting("door_timeline_refresh_hours", "6") + `,` +
 	defaultSetting("door_credential_rotation_days", "30") + `,` +
 	defaultSetting("door_rate_limit_per_minute", "30") + `,` +
 	defaultSetting("door_rate_limit_burst", "10") + `,` +
+	defaultSetting("door_log_level", "info") + `,` +
 	defaultSetting("door_ntp_server", "pool.ntp.org") + `,` +
 	defaultSetting("door_broker_host", "") + `,` +
 	defaultSetting("door_broker_port", "8883") + `,` +
 	defaultSetting("door_broker_tls", "true") + `,` +
 	defaultSetting("door_broker_ca_pem", "") + `,` +
+	defaultSetting("door_keepalive_s", "30") + `,` +
+	defaultSetting("door_reconnect_max_s", "60") + `,` +
 	defaultSetting("door_wifi_ssid", "") + `,` +
 	`{"key":"door_wifi_password","value":"","source":"default","read_only":false,"env_var":"DOORCODE_DOOR_WIFI_PASSWORD","secret":true},` +
 	defaultSetting("door_wifi_roam_rssi", "-70") + `,` +
-	defaultSetting("door_keepalive_s", "30") + `,` +
-	defaultSetting("door_reconnect_max_s", "60") + `,` +
 	defaultSetting("door_mesh_enabled", "false") + `,` +
 	defaultSetting("door_mesh_ssid", "") + `,` +
 	`{"key":"door_mesh_password","value":"","source":"default","read_only":false,"env_var":"DOORCODE_DOOR_MESH_PASSWORD","secret":true},` +
 	defaultSetting("door_mesh_min_router_rssi", "-75") + `,` +
 	defaultSetting("door_mesh_max_layer", "4") + `,` +
 	defaultSetting("door_update_connect_timeout_s", "300") + `,` +
-	defaultSetting("door_accept_unsigned_firmware", "false") + `,` +
-	defaultSetting("door_log_level", "info")
+	defaultSetting("door_accept_unsigned_firmware", "false")
 
 // defaultSetting is how the settings API shows the setting named key
 // holding its default value.

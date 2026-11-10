@@ -8,11 +8,12 @@ import (
 	"github.com/dakriy/doorcode/internal/testsupport"
 )
 
-// Rows of the configuration table of a door's page, counting its head:
+// Rows of the configuration table of a door's page, counting its head
+// and the headings of the groups before them:
 // the broker's host and its certificate.
 const (
-	brokerHostRow = 13
-	brokerCARow   = 16
+	brokerHostRow = 17
+	brokerCARow   = 20
 )
 
 // provisioningLink is the links of a page that offers the provisioning

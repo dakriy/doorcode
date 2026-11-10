@@ -230,6 +230,17 @@ type settingRow struct {
 	Options []selectOption
 	// Warning is what the page warns of the value entered.
 	Warning string
+	// Heading is the group the row starts, empty when it starts none.
+	Heading string
+}
+
+// heading is the group a row of group starts after a row of previous:
+// group when the two differ, empty otherwise.
+func heading(group, previous string) string {
+	if group == previous {
+		return ""
+	}
+	return group
 }
 
 // showSettings shows tab of the settings page with status, its inputs
@@ -275,6 +286,9 @@ func (a *App) sectionsOf(all []settings.Setting, tab settings.Tab, entered map[s
 		held[s.Key] = value
 	}
 	var sections []settingSection
+	// Only door fields have a group, and they share one section, so the
+	// group of the row before is the last one's of any section.
+	previous := ""
 	for _, s := range all {
 		if s.Section.Tab != tab {
 			continue
@@ -285,7 +299,8 @@ func (a *App) sectionsOf(all []settings.Setting, tab settings.Tab, entered map[s
 			sections = append(sections, settingSection{Section: s.Section, On: on})
 			last++
 		}
-		row := settingRow{Setting: s, Entered: held[s.Key]}
+		row := settingRow{Setting: s, Entered: held[s.Key], Heading: heading(s.Group, previous)}
+		previous = s.Group
 		if choices := a.settings.Choices(s); len(choices) > 0 {
 			row.Options = choiceOptions(choices, row.Entered)
 		}

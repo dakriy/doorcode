@@ -36,6 +36,9 @@
 
 {{define "table-head-class"}}bg-zinc-50 text-left text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:bg-zinc-900/60 dark:text-zinc-400{{end}}
 
+{{/* A row of a table that starts a group of the rows after it, naming the group. */}}
+{{define "group-heading-class"}}bg-zinc-50 px-6 pt-4 pb-2 text-left text-xs font-semibold tracking-wide text-brand-700 uppercase dark:bg-zinc-900/60 dark:text-brand-300{{end}}
+
 {{define "link-class"}}font-medium text-brand-700 hover:text-brand-500 dark:text-brand-300 dark:hover:text-brand-200{{end}}
 
 {{define "alert"}}{{if .}}

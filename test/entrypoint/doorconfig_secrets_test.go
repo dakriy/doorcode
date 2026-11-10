@@ -8,11 +8,12 @@ import (
 	"github.com/dakriy/doorcode/internal/testsupport"
 )
 
-// Rows of the configuration table of a door's page, counting its head:
+// Rows of the configuration table of a door's page, counting its head
+// and the headings of the groups before them:
 // the Wi-Fi password and how long new firmware may take to connect.
 const (
-	wifiPasswordRow   = 18
-	connectTimeoutRow = 27
+	wifiPasswordRow   = 25
+	connectTimeoutRow = 34
 )
 
 // sentConfig is the value of field in the configuration the door whose id

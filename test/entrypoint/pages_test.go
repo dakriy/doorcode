@@ -59,18 +59,18 @@ var defaultSettings = []shownSetting{
 	{"unresponsive_minutes", "5", "default"},
 	{"device_url", "", "default"}, {"update_window_days", "daily", "default"}, {"update_window_start", "02:00", "default"},
 	{"update_window_minutes", "120", "default"}, {"update_concurrency", "5", "default"}, {"update_timeout_minutes", "30", "default"},
-	{"door_strike_pulse_ms", "3000", "default"}, {"door_keypad_idle_clear_ms", "10000", "default"},
-	{"door_min_code_length", "4", "default"}, {"door_max_code_length", "32", "default"},
-	{"door_reply_timeout_ms", "3000", "default"}, {"door_telemetry_interval_s", "60", "default"},
-	{"door_held_open_s", "60", "default"}, {"door_timeline_refresh_hours", "6", "default"}, {"door_credential_rotation_days", "30", "default"},
-	{"door_rate_limit_per_minute", "30", "default"}, {"door_rate_limit_burst", "10", "default"},
-	{"door_ntp_server", "pool.ntp.org", "default"}, {"door_broker_host", "", "default"}, {"door_broker_port", "8883", "default"},
-	{"door_broker_tls", "true", "default"}, {"door_broker_ca_pem", "", "default"}, {"door_wifi_ssid", "", "default"},
-	{"door_wifi_password", "", "default"}, {"door_wifi_roam_rssi", "-70", "default"}, {"door_keepalive_s", "30", "default"},
-	{"door_reconnect_max_s", "60", "default"}, {"door_mesh_enabled", "false", "default"}, {"door_mesh_ssid", "", "default"},
-	{"door_mesh_password", "", "default"}, {"door_mesh_min_router_rssi", "-75", "default"}, {"door_mesh_max_layer", "4", "default"},
+	{"door_strike_pulse_ms", "3000", "default"}, {"door_held_open_s", "60", "default"},
+	{"door_keypad_idle_clear_ms", "10000", "default"}, {"door_min_code_length", "4", "default"},
+	{"door_max_code_length", "32", "default"}, {"door_reply_timeout_ms", "3000", "default"},
+	{"door_telemetry_interval_s", "60", "default"}, {"door_timeline_refresh_hours", "6", "default"},
+	{"door_credential_rotation_days", "30", "default"}, {"door_rate_limit_per_minute", "30", "default"},
+	{"door_rate_limit_burst", "10", "default"}, {"door_log_level", "info", "default"}, {"door_ntp_server", "pool.ntp.org", "default"},
+	{"door_broker_host", "", "default"}, {"door_broker_port", "8883", "default"}, {"door_broker_tls", "true", "default"},
+	{"door_broker_ca_pem", "", "default"}, {"door_keepalive_s", "30", "default"}, {"door_reconnect_max_s", "60", "default"},
+	{"door_wifi_ssid", "", "default"}, {"door_wifi_password", "", "default"}, {"door_wifi_roam_rssi", "-70", "default"},
+	{"door_mesh_enabled", "false", "default"}, {"door_mesh_ssid", "", "default"}, {"door_mesh_password", "", "default"},
+	{"door_mesh_min_router_rssi", "-75", "default"}, {"door_mesh_max_layer", "4", "default"},
 	{"door_update_connect_timeout_s", "300", "default"}, {"door_accept_unsigned_firmware", "false", "default"},
-	{"door_log_level", "info", "default"},
 }
 
 // settingRows is the section each setting is shown in, and its label and
@@ -171,6 +171,34 @@ var settingRows = map[string]struct{ section, label, help string }{
 		"Whether the door installs firmware that has no valid signature. Leave it off except on bench and development boards. True or false."},
 	"door_log_level": {"Door defaults", "Log level",
 		"How much the door writes to its own log, from errors only to every detail. One of error, warn, info, debug."},
+}
+
+// doorGroups is each group of door configuration fields that the settings
+// page and a door's page show under a heading, in order, with the fields
+// it holds, in order.
+var doorGroups = []struct {
+	name   string
+	fields []string
+}{
+	{"Keypad and strike", []string{"strike_pulse_ms", "held_open_s", "keypad_idle_clear_ms", "min_code_length", "max_code_length", "reply_timeout_ms"}},
+	{"Server", []string{"telemetry_interval_s", "timeline_refresh_hours", "credential_rotation_days", "rate_limit_per_minute", "rate_limit_burst",
+		"log_level", "ntp_server"}},
+	{"Broker", []string{"broker_host", "broker_port", "broker_tls", "broker_ca_pem", "keepalive_s", "reconnect_max_s"}},
+	{"Wi-Fi", []string{"wifi_ssid", "wifi_password", "wifi_roam_rssi"}},
+	{"Mesh", []string{"mesh_enabled", "mesh_ssid", "mesh_password", "mesh_min_router_rssi", "mesh_max_layer"}},
+	{"Firmware", []string{"update_connect_timeout_s", "accept_unsigned_firmware"}},
+}
+
+// groupStarted is the heading row a page shows before the setting key,
+// the default of a door field, when the field is the first of its group,
+// and whether it is.
+func groupStarted(key string) ([]string, bool) {
+	for _, g := range doorGroups {
+		if "door_"+g.fields[0] == key {
+			return []string{g.name}, true
+		}
+	}
+	return nil, false
 }
 
 // secretSettings are the settings the settings page offers as password
@@ -346,15 +374,25 @@ func settingsPage(tab string, shown []shownSetting, changed map[string]shownSett
 		if row.help != "" {
 			setting += " " + row.help
 		}
-		if page.Tables[row.section] == nil {
-			page.Tables[row.section] = [][]string{{"Setting", "Value", "Source"}}
-		}
-		page.Tables[row.section] = append(page.Tables[row.section], []string{setting, cell, s.source})
+		page.Tables[row.section] = withSettingRow(page.Tables[row.section], s.key, []string{setting, cell, s.source})
 	}
 	if refused != nil {
 		page.FieldErrors = refused
 	}
 	return page
+}
+
+// withSettingRow is table, a section's table on the settings page, with
+// the row showing the setting key after it: the table's head first when
+// it has none, and the heading of the group key starts before the row.
+func withSettingRow(table [][]string, key string, row []string) [][]string {
+	if table == nil {
+		table = [][]string{{"Setting", "Value", "Source"}}
+	}
+	if heading, starts := groupStarted(key); starts {
+		table = append(table, heading)
+	}
+	return append(table, row)
 }
 
 func TestEachTabOfTheSettingsPageShowsOnlyItsSections(t *testing.T) {

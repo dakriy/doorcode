@@ -293,6 +293,8 @@ func configTable(changed map[string][2]string) [][]string {
 	for _, f := range []struct{ name, label, about, value string }{
 		{"strike_pulse_ms", "Strike pulse",
 			"How long the door's strike stays released each time it lets someone in. The door may open within this, plus the reply timeout, without counting as forced open. A whole number of milliseconds from 100 to 60000.", "3000"},
+		{"held_open_s", "Held open after",
+			"How long a door may stand open, when it should be locked, before it counts as held open and an event is logged. A whole number of seconds from 5 to 86400.", "60"},
 		{"keypad_idle_clear_ms", "Keypad idle clear",
 			"How long a partly typed entry waits for the next key before the keypad discards it. A whole number of milliseconds from 1000 to 600000.", "10000"},
 		{"min_code_length", "Shortest code",
@@ -303,8 +305,6 @@ func configTable(changed map[string][2]string) [][]string {
 			"How long the door waits for the server's answer to a code before denying it. A whole number of milliseconds from 100 to 60000.", "3000"},
 		{"telemetry_interval_s", "Telemetry interval",
 			"How often the door reports its health readings, such as its signal and uptime, to the server. A whole number of seconds from 5 to 86400.", "60"},
-		{"held_open_s", "Held open after",
-			"How long a door may stand open, when it should be locked, before it counts as held open and an event is logged. A whole number of seconds from 5 to 86400.", "60"},
 		{"timeline_refresh_hours", "Timeline refresh",
 			"How often the server sends the door its timeline of when to stay open and locked, even when nothing changed it. A whole number of hours from 1 to 24.", "6"},
 		{"credential_rotation_days", "Credential rotation",
@@ -313,6 +313,8 @@ func configTable(changed map[string][2]string) [][]string {
 			"How many codes a minute the server checks from the door once its burst is spent; an entry over the limit is denied without being looked at and logged as rate limited. A whole number of checks from 1 to 6000.", "30"},
 		{"rate_limit_burst", "Code checks in a burst",
 			"How many codes the server checks from the door in quick succession before the limit a minute applies. A whole number of checks from 1 to 1000.", "10"},
+		{"log_level", "Log level",
+			"How much the door writes to its own log, from errors only to every detail. One of error, warn, info, debug.", "info"},
 		{"ntp_server", "Time server",
 			"The time server the door sets its clock from; the door keeps to its timeline by this clock. A host name of up to 253 letters, digits, dots, and hyphens.", "pool.ntp.org"},
 		{"broker_host", "Broker host",
@@ -323,16 +325,16 @@ func configTable(changed map[string][2]string) [][]string {
 			"Whether the door connects to the broker over TLS, checking the broker against the broker CA certificate. Turn it off for a development broker only. True or false.", "true"},
 		{"broker_ca_pem", "Broker CA certificate",
 			"The certificate the door checks the broker against while it connects over TLS: the broker's CA's, or the broker's own. Empty keeps the one the door has. The PEM certificate of the broker's CA or of the broker itself, or nothing.", ""},
+		{"keepalive_s", "Keep-alive",
+			"How often the door lets the broker know it is still there, from its next connection on; it shows offline once one and a half of these pass without a word from it. A whole number of seconds from 10 to 300.", "30"},
+		{"reconnect_max_s", "Longest reconnect pause",
+			"The longest the door waits between attempts to connect again; it waits 1, 2, 4 seconds and so on up to this. A whole number of seconds from 5 to 600.", "60"},
 		{"wifi_ssid", "Wi-Fi network",
 			"The Wi-Fi network the door joins; empty keeps the network it uses now. A door that cannot join a new network goes back to the last one that worked. A network name of up to 32 bytes, or nothing to keep the door's network.", ""},
 		{"wifi_password", "Wi-Fi password",
 			"The Wi-Fi network's password. It is stored encrypted and sent to nobody but the door. A password of up to 63 bytes.", ""},
 		{"wifi_roam_rssi", "Roam below",
 			"When the signal from its access point is weaker than this, the door moves to an access point of the same network at least 8 dB stronger, if it finds one. A whole number of dBm from -100 to 0.", "-70"},
-		{"keepalive_s", "Keep-alive",
-			"How often the door lets the broker know it is still there, from its next connection on; it shows offline once one and a half of these pass without a word from it. A whole number of seconds from 10 to 300.", "30"},
-		{"reconnect_max_s", "Longest reconnect pause",
-			"The longest the door waits between attempts to connect again; it waits 1, 2, 4 seconds and so on up to this. A whole number of seconds from 5 to 600.", "60"},
 		{"mesh_enabled", "Mesh",
 			"Whether the door may join or form a Wi-Fi mesh with other doors when its own access point's signal is poor. True or false.", "false"},
 		{"mesh_ssid", "Mesh network",
@@ -347,8 +349,6 @@ func configTable(changed map[string][2]string) [][]string {
 			"How long a door on newly installed firmware tries to connect before it goes back to its previous firmware. Keep it within the update timeout, after which the server counts the update failed. A whole number of seconds from 60 to 1800.", "300"},
 		{"accept_unsigned_firmware", "Unsigned firmware",
 			"Whether the door installs firmware that has no valid signature. Leave it off except on bench and development boards. True or false.", "false"},
-		{"log_level", "Log level",
-			"How much the door writes to its own log, from errors only to every detail. One of error, warn, info, debug.", "info"},
 	} {
 		effective := f.value
 		if c, ok := changed[f.name]; ok {
@@ -362,6 +362,9 @@ func configTable(changed map[string][2]string) [][]string {
 		}
 		if f.name == "broker_host" && effective == "" {
 			effective = hostNote
+		}
+		if heading, starts := groupStarted("door_" + f.name); starts {
+			rows = append(rows, heading)
 		}
 		rows = append(rows, []string{f.label + " " + f.about, f.value, "", effective})
 	}

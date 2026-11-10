@@ -181,17 +181,21 @@ size, and stored in the database.
 ### Configuration
 
 Door configuration has site defaults editable in settings and per-door
-overrides. Fields: strike pulse duration, keypad idle clear time, minimum and
-maximum code length, reply timeout, telemetry interval,
-held-open duration, timeline refresh interval, credential rotation interval, rate limit (checks per minute
-and burst), NTP server, broker host (the host name or IP address of the
-broker the door connects to; empty keeps the one it has), broker port, TLS,
-and CA certificate, Wi-Fi network and password (empty network keeps the one
-it has) and the signal below which it roams, MQTT keep-alive, longest
-reconnect pause, mesh (enabled, network, password, the signal below which a
-door joins through a neighbor, deepest hop), how long new firmware may take
-to connect before the door reverts it, whether unsigned firmware is
-accepted, log level. The settings page and a door's page show under each
+overrides. The fields come in six groups, which the settings page's Doors
+tab and a door's configuration table show in this order, each under a
+heading row: Keypad and strike (strike pulse duration, held-open duration,
+keypad idle clear time, minimum and maximum code length, reply timeout);
+Server (telemetry interval, timeline refresh interval, credential rotation
+interval, rate limit (checks per minute and burst), log level, NTP server);
+Broker (host, the host name or IP address of the broker the door connects
+to, empty keeping the one it has; port, TLS, and CA certificate; MQTT
+keep-alive; longest reconnect pause); Wi-Fi (network and password, an
+empty network keeping the one it has, and the signal below which it
+roams); Mesh (enabled, network, password, the signal below which a door
+joins through a neighbor, deepest hop); and Firmware (how long new
+firmware may take to connect before the door reverts it, whether unsigned
+firmware is accepted). The API's effective configuration keeps its own
+field order. The settings page and a door's page show under each
 field's label a sentence saying what it does, then the values it takes.
 The Wi-Fi and mesh passwords are secrets: stored
 encrypted as defaults and as a door's overrides, shown masked in the UI and
@@ -397,7 +401,7 @@ before apply), settings (in four tabs across the top, each showing only its
 parts: Site setup (site, proxies), Sign-in (accounts and passwords, single
 sign-on, identity claims), Look and feel (theme, user portal, sign-in page
 picture), and Doors (door enrollment, telemetry, firmware updates, door
-config defaults); the tab is in the address (`/admin/settings?tab=` `site`,
+config defaults under a heading per group); the tab is in the address (`/admin/settings?tab=` `site`,
 `sign-in`, `look`, or `doors`; none or an unknown one shows Site setup), so
 tabs are plain links that work without script and can be shared, the current
 one marked; saving goes back to the tab saved, a refused value shows on the

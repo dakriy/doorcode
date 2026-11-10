@@ -243,32 +243,35 @@ Door configuration defaults are settings named `door_` followed by the field
 name (so `DOORCODE_DOOR_STRIKE_PULSE_MS` sets the strike pulse of every door
 that does not override it). A door's page overrides any of them for that
 door, and doors receive a change at once. Both pages say under each field
-what it does and what values it takes; `docs/controller.md` section 9 has
-the full table.
+what it does and what values it takes, the fields in six groups under a
+heading each, in the order of the table below: Keypad and strike, Server,
+Broker, Wi-Fi, Mesh, and Firmware. `docs/controller.md` section 9 has the
+full table.
 
 | Setting | Meaning | Default |
 | --- | --- | --- |
 | `door_strike_pulse_ms` | How long the strike opens, 100 to 60000 ms. | `3000` |
+| `door_held_open_s` | How long a door may stay open before it is logged as held open, 5 to 86400 s. | `60` |
 | `door_keypad_idle_clear_ms` | Idle time after which the keypad clears what was typed, 1000 to 600000 ms. | `10000` |
 | `door_min_code_length` | The shortest code the keypad sends, 1 to 16 digits. | `4` |
 | `door_max_code_length` | The longest code the keypad takes, 16 to 64 digits. | `32` |
 | `door_reply_timeout_ms` | How long the door waits for the server's answer, 100 to 60000 ms. | `3000` |
 | `door_telemetry_interval_s` | How often the door reports telemetry, 5 to 86400 s. | `60` |
-| `door_held_open_s` | How long a door may stay open before it is logged as held open, 5 to 86400 s. | `60` |
 | `door_timeline_refresh_hours` | How often the server sends a door its timeline when nothing changed it, 1 to 24 hours. | `6` |
 | `door_credential_rotation_days` | How old a door's credentials get before the server rotates them, 1 to 3650 days. | `30` |
 | `door_rate_limit_per_minute` | Code checks a minute the door's token bucket refills, 1 to 6000. | `30` |
 | `door_rate_limit_burst` | Code checks the bucket holds, 1 to 1000. | `10` |
+| `door_log_level` | `error`, `warn`, `info`, or `debug`. | `info` |
 | `door_ntp_server` | The time server the door uses. | `pool.ntp.org` |
 | `door_broker_host` | The host name or IP address of the broker the door connects to, pushed with the rest of its configuration so doors can be moved to another broker; empty keeps the broker each door already uses. | empty |
 | `door_broker_port` | The broker port doors connect to, 1 to 65535. | `8883` |
 | `door_broker_tls` | `true` connects doors to the broker over TLS; `false` is for development brokers only. | `true` |
 | `door_broker_ca_pem` | The PEM certificate of the broker's CA, or of the broker itself, doors verify it against; empty keeps the one each door has. | empty |
+| `door_keepalive_s` | The doors' MQTT keep-alive, 10 to 300 s; a door shows offline after one and a half of these without a packet. | `30` |
+| `door_reconnect_max_s` | The longest pause between a door's attempts to connect again, 5 to 600 s. | `60` |
 | `door_wifi_ssid` | The Wi-Fi network doors join, up to 32 bytes; empty keeps the network each door uses. | empty |
 | `door_wifi_password` | Its password, up to 63 bytes. Secret: stored encrypted and shown masked. | empty |
 | `door_wifi_roam_rssi` | Below this signal, -100 to 0 dBm, a door moves to an access point of its network at least 8 dB stronger. | `-70` |
-| `door_keepalive_s` | The doors' MQTT keep-alive, 10 to 300 s; a door shows offline after one and a half of these without a packet. | `30` |
-| `door_reconnect_max_s` | The longest pause between a door's attempts to connect again, 5 to 600 s. | `60` |
 | `door_mesh_enabled` | `true` lets doors join or form a Wi-Fi mesh when their own signal is poor. Refused, as a default and as a door's override, while the mesh would have no network name or password, which would leave its soft-AP open; a door whose configuration still has that (its override on, the site's password cleared later) is sent the mesh off, and its page and the settings page warn of it. | `false` |
 | `door_mesh_ssid` | The mesh network's name, up to 32 bytes; needed while the mesh is on. | empty |
 | `door_mesh_password` | The mesh network's password, empty or 8 to 63 bytes; needed while the mesh is on. Secret: stored encrypted and shown masked. | empty |
@@ -276,7 +279,6 @@ the full table.
 | `door_mesh_max_layer` | The most hops a door may be from its access point in the mesh, 1 to 10. | `4` |
 | `door_update_connect_timeout_s` | How long a door on new firmware tries to connect before it goes back to its old image, 60 to 1800 s. The settings page and a door's page warn when it is longer than `update_timeout_minutes`. | `300` |
 | `door_accept_unsigned_firmware` | `true` lets doors install firmware without a valid signature; for bench and development boards only. | `false` |
-| `door_log_level` | `error`, `warn`, `info`, or `debug`. | `info` |
 
 ## Single sign-on
 

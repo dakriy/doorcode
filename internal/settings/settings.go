@@ -142,10 +142,13 @@ type definition struct {
 	// secret settings are stored encrypted and shown masked.
 	secret bool
 	// section is the part of the settings page that shows the setting,
-	// the one whose definitions list it, under label, explained by help.
+	// the one whose definitions list it, under label, explained by help,
+	// among the settings of group, a door field's group, empty for the
+	// others.
 	section Section
 	label   string
 	help    string
+	group   string
 }
 
 // Section is a part of the settings page: its name and what it is about,
@@ -663,11 +666,13 @@ type Setting struct {
 	// SourceDatabase.
 	UpdatedAt time.Time
 	// Section is the part of the settings page that shows the setting,
-	// under Label, explained by Help, asking for a value with Input.
+	// under Label, explained by Help, asking for a value with Input, among
+	// the settings of Group, a door field's group, empty for the others.
 	Section Section
 	Label   string
 	Help    string
 	Input   Input
+	Group   string
 }
 
 // ReadOnly reports whether the setting cannot be changed from the

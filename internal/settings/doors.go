@@ -227,6 +227,8 @@ type DoorField struct {
 	Label string
 	Help  string
 	Hint  string
+	// Group is the name of the group of fields pages show it in.
+	Group string
 	// Input is how a page asks for the field's value.
 	Input Input
 	// Secret fields are stored encrypted, as defaults and as a door's
@@ -239,88 +241,119 @@ type DoorField struct {
 	set      func(c *DoorConfig, value string) error
 }
 
-// DoorFields is every field of a door's configuration, in display order.
-// The ranges of the code lengths meet but do not overlap, so the shortest
-// code a door takes is never longer than the longest.
-var DoorFields = []DoorField{
-	wholeField("strike_pulse_ms", "Strike pulse",
-		"How long the door's strike stays released each time it lets someone in. The door may open within this, plus the reply timeout, without counting as forced open.",
-		"3000", 100, 60000, "milliseconds", func(c *DoorConfig) *int { return &c.StrikePulseMS }),
-	wholeField("keypad_idle_clear_ms", "Keypad idle clear",
-		"How long a partly typed entry waits for the next key before the keypad discards it.",
-		"10000", 1000, 600000, "milliseconds", func(c *DoorConfig) *int { return &c.KeypadIdleClearMS }),
-	wholeField("min_code_length", "Shortest code",
-		"The fewest digits a code may have; the door discards a shorter entry without asking the server.",
-		"4", 1, 16, "digits", func(c *DoorConfig) *int { return &c.MinCodeLength }),
-	wholeField("max_code_length", "Longest code",
-		"The longest entry the keypad takes, a keypad command included; the door takes no more keys once an entry is this long.",
-		"32", 16, 64, "digits", func(c *DoorConfig) *int { return &c.MaxCodeLength }),
-	wholeField("reply_timeout_ms", "Reply timeout",
-		"How long the door waits for the server's answer to a code before denying it.",
-		"3000", 100, 60000, "milliseconds", func(c *DoorConfig) *int { return &c.ReplyTimeoutMS }),
-	wholeField("telemetry_interval_s", "Telemetry interval",
-		"How often the door reports its health readings, such as its signal and uptime, to the server.",
-		"60", 5, 86400, "seconds", func(c *DoorConfig) *int { return &c.TelemetryIntervalS }),
-	wholeField("held_open_s", "Held open after",
-		"How long a door may stand open, when it should be locked, before it counts as held open and an event is logged.",
-		"60", 5, 86400, "seconds", func(c *DoorConfig) *int { return &c.HeldOpenS }),
-	wholeField("timeline_refresh_hours", "Timeline refresh",
-		"How often the server sends the door its timeline of when to stay open and locked, even when nothing changed it.",
-		"6", 1, 24, "hours", func(c *DoorConfig) *int { return &c.TimelineRefreshHours }),
-	wholeField("credential_rotation_days", "Credential rotation",
-		"How many days the door's broker credentials work before the server issues it new ones.",
-		"30", 1, 3650, "days", func(c *DoorConfig) *int { return &c.CredentialRotationDays }),
-	wholeField("rate_limit_per_minute", "Code checks a minute",
-		"How many codes a minute the server checks from the door once its burst is spent; an entry over the limit is denied without being looked at and logged as rate limited.",
-		"30", 1, 6000, "checks", func(c *DoorConfig) *int { return &c.RateLimitPerMinute }),
-	wholeField("rate_limit_burst", "Code checks in a burst",
-		"How many codes the server checks from the door in quick succession before the limit a minute applies.",
-		"10", 1, 1000, "checks", func(c *DoorConfig) *int { return &c.RateLimitBurst }),
-	{Name: "ntp_server", Label: "Time server", Help: "The time server the door sets its clock from; the door keeps to its timeline by this clock.",
-		Hint: check.HostHint, fallback: "pool.ntp.org", set: setHost},
-	{Name: "broker_host", Label: "Broker host", Help: "The broker the door connects to, from its next connection on; empty keeps the broker it uses now.",
-		Hint: brokerHint, fallback: "", set: setBrokerHost},
-	numberField("broker_port", "Broker port", "The port of the broker the door connects to, from its next connection on.",
-		"8883", "a port from 1 to 65535", 1, 65535, func(c *DoorConfig) *int { return &c.BrokerPort }),
-	yesNoField("broker_tls", "Broker over TLS", "Whether the door connects to the broker over TLS, checking the broker against the broker CA certificate. Turn it off for a development broker only.",
-		"true", func(c *DoorConfig) *bool { return &c.BrokerTLS }),
-	{Name: "broker_ca_pem", Label: "Broker CA certificate",
-		Help: "The certificate the door checks the broker against while it connects over TLS: the broker's CA's, or the broker's own. Empty keeps the one the door has.",
-		Hint: caHint, Input: Input{Kind: KindLongText}, fallback: "", set: setBrokerCA},
-	textField("wifi_ssid", "Wi-Fi network",
-		"The Wi-Fi network the door joins; empty keeps the network it uses now. A door that cannot join a new network goes back to the last one that worked.",
-		"a network name of up to 32 bytes, or nothing to keep the door's network", 0, 32, func(c *DoorConfig) *string { return &c.WifiSSID }),
-	secret(textField("wifi_password", "Wi-Fi password", "The Wi-Fi network's password. It is stored encrypted and sent to nobody but the door.",
-		"a password of up to 63 bytes", 0, 63, func(c *DoorConfig) *string { return &c.WifiPassword })),
-	signalField("wifi_roam_rssi", "Roam below",
-		"When the signal from its access point is weaker than this, the door moves to an access point of the same network at least 8 dB stronger, if it finds one.",
-		"-70", 100, func(c *DoorConfig) *int { return &c.WifiRoamRSSI }),
-	wholeField("keepalive_s", "Keep-alive",
-		"How often the door lets the broker know it is still there, from its next connection on; it shows offline once one and a half of these pass without a word from it.",
-		"30", 10, 300, "seconds", func(c *DoorConfig) *int { return &c.KeepaliveS }),
-	wholeField("reconnect_max_s", "Longest reconnect pause",
-		"The longest the door waits between attempts to connect again; it waits 1, 2, 4 seconds and so on up to this.",
-		"60", 5, 600, "seconds", func(c *DoorConfig) *int { return &c.ReconnectMaxS }),
-	yesNoField("mesh_enabled", "Mesh", "Whether the door may join or form a Wi-Fi mesh with other doors when its own access point's signal is poor.",
-		"false", func(c *DoorConfig) *bool { return &c.MeshEnabled }),
-	textField("mesh_ssid", "Mesh network", "The mesh network's name, the same at every door of the site. It is needed while the mesh is on, which would otherwise leave the mesh's soft-AP open.",
-		"a network name of up to 32 bytes, or nothing", 0, 32, func(c *DoorConfig) *string { return &c.MeshSSID }),
-	secret(textField("mesh_password", "Mesh password",
-		"The mesh network's password, the same at every door of the site. It is needed while the mesh is on, which would otherwise leave the mesh's soft-AP open. It is stored encrypted and sent to nobody but the doors.",
-		"a password of 8 to 63 bytes, or nothing", 8, 63, func(c *DoorConfig) *string { return &c.MeshPassword })),
-	signalField("mesh_min_router_rssi", "Mesh below",
-		"When the strongest access point a door with the mesh on can see is weaker than this, the door joins the mesh through a neighboring door instead.",
-		"-75", 100, func(c *DoorConfig) *int { return &c.MeshMinRouterRSSI }),
-	wholeField("mesh_max_layer", "Deepest mesh hop", "How many hops from the access point a door may sit in the mesh.",
-		"4", 1, 10, "hops", func(c *DoorConfig) *int { return &c.MeshMaxLayer }),
-	wholeField(ConnectTimeoutField, "Revert new firmware after",
-		"How long a door on newly installed firmware tries to connect before it goes back to its previous firmware. Keep it within the update timeout, after which the server counts the update failed.",
-		"300", 60, 1800, "seconds", func(c *DoorConfig) *int { return &c.UpdateConnectTimeoutS }),
-	yesNoField("accept_unsigned_firmware", "Unsigned firmware",
-		"Whether the door installs firmware that has no valid signature. Leave it off except on bench and development boards.",
-		"false", func(c *DoorConfig) *bool { return &c.AcceptUnsignedFirmware }),
-	choiceField("log_level", "Log level", "How much the door writes to its own log, from errors only to every detail.",
-		"info", []string{"error", "warn", "info", "debug"}, func(c *DoorConfig) *string { return &c.LogLevel }),
+// DoorFields is every field of a door's configuration, in display order,
+// group by group, each knowing its group. The ranges of the code lengths
+// meet but do not overlap, so the shortest code a door takes is never
+// longer than the longest.
+var DoorFields = grouped(
+	doorGroup{"Keypad and strike", []DoorField{
+		wholeField("strike_pulse_ms", "Strike pulse",
+			"How long the door's strike stays released each time it lets someone in. The door may open within this, plus the reply timeout, without counting as forced open.",
+			"3000", 100, 60000, "milliseconds", func(c *DoorConfig) *int { return &c.StrikePulseMS }),
+		wholeField("held_open_s", "Held open after",
+			"How long a door may stand open, when it should be locked, before it counts as held open and an event is logged.",
+			"60", 5, 86400, "seconds", func(c *DoorConfig) *int { return &c.HeldOpenS }),
+		wholeField("keypad_idle_clear_ms", "Keypad idle clear",
+			"How long a partly typed entry waits for the next key before the keypad discards it.",
+			"10000", 1000, 600000, "milliseconds", func(c *DoorConfig) *int { return &c.KeypadIdleClearMS }),
+		wholeField("min_code_length", "Shortest code",
+			"The fewest digits a code may have; the door discards a shorter entry without asking the server.",
+			"4", 1, 16, "digits", func(c *DoorConfig) *int { return &c.MinCodeLength }),
+		wholeField("max_code_length", "Longest code",
+			"The longest entry the keypad takes, a keypad command included; the door takes no more keys once an entry is this long.",
+			"32", 16, 64, "digits", func(c *DoorConfig) *int { return &c.MaxCodeLength }),
+		wholeField("reply_timeout_ms", "Reply timeout",
+			"How long the door waits for the server's answer to a code before denying it.",
+			"3000", 100, 60000, "milliseconds", func(c *DoorConfig) *int { return &c.ReplyTimeoutMS }),
+	}},
+	doorGroup{"Server", []DoorField{
+		wholeField("telemetry_interval_s", "Telemetry interval",
+			"How often the door reports its health readings, such as its signal and uptime, to the server.",
+			"60", 5, 86400, "seconds", func(c *DoorConfig) *int { return &c.TelemetryIntervalS }),
+		wholeField("timeline_refresh_hours", "Timeline refresh",
+			"How often the server sends the door its timeline of when to stay open and locked, even when nothing changed it.",
+			"6", 1, 24, "hours", func(c *DoorConfig) *int { return &c.TimelineRefreshHours }),
+		wholeField("credential_rotation_days", "Credential rotation",
+			"How many days the door's broker credentials work before the server issues it new ones.",
+			"30", 1, 3650, "days", func(c *DoorConfig) *int { return &c.CredentialRotationDays }),
+		wholeField("rate_limit_per_minute", "Code checks a minute",
+			"How many codes a minute the server checks from the door once its burst is spent; an entry over the limit is denied without being looked at and logged as rate limited.",
+			"30", 1, 6000, "checks", func(c *DoorConfig) *int { return &c.RateLimitPerMinute }),
+		wholeField("rate_limit_burst", "Code checks in a burst",
+			"How many codes the server checks from the door in quick succession before the limit a minute applies.",
+			"10", 1, 1000, "checks", func(c *DoorConfig) *int { return &c.RateLimitBurst }),
+		choiceField("log_level", "Log level", "How much the door writes to its own log, from errors only to every detail.",
+			"info", []string{"error", "warn", "info", "debug"}, func(c *DoorConfig) *string { return &c.LogLevel }),
+		{Name: "ntp_server", Label: "Time server", Help: "The time server the door sets its clock from; the door keeps to its timeline by this clock.",
+			Hint: check.HostHint, fallback: "pool.ntp.org", set: setHost},
+	}},
+	doorGroup{"Broker", []DoorField{
+		{Name: "broker_host", Label: "Broker host", Help: "The broker the door connects to, from its next connection on; empty keeps the broker it uses now.",
+			Hint: brokerHint, fallback: "", set: setBrokerHost},
+		numberField("broker_port", "Broker port", "The port of the broker the door connects to, from its next connection on.",
+			"8883", "a port from 1 to 65535", 1, 65535, func(c *DoorConfig) *int { return &c.BrokerPort }),
+		yesNoField("broker_tls", "Broker over TLS", "Whether the door connects to the broker over TLS, checking the broker against the broker CA certificate. Turn it off for a development broker only.",
+			"true", func(c *DoorConfig) *bool { return &c.BrokerTLS }),
+		{Name: "broker_ca_pem", Label: "Broker CA certificate",
+			Help: "The certificate the door checks the broker against while it connects over TLS: the broker's CA's, or the broker's own. Empty keeps the one the door has.",
+			Hint: caHint, Input: Input{Kind: KindLongText}, fallback: "", set: setBrokerCA},
+		wholeField("keepalive_s", "Keep-alive",
+			"How often the door lets the broker know it is still there, from its next connection on; it shows offline once one and a half of these pass without a word from it.",
+			"30", 10, 300, "seconds", func(c *DoorConfig) *int { return &c.KeepaliveS }),
+		wholeField("reconnect_max_s", "Longest reconnect pause",
+			"The longest the door waits between attempts to connect again; it waits 1, 2, 4 seconds and so on up to this.",
+			"60", 5, 600, "seconds", func(c *DoorConfig) *int { return &c.ReconnectMaxS }),
+	}},
+	doorGroup{"Wi-Fi", []DoorField{
+		textField("wifi_ssid", "Wi-Fi network",
+			"The Wi-Fi network the door joins; empty keeps the network it uses now. A door that cannot join a new network goes back to the last one that worked.",
+			"a network name of up to 32 bytes, or nothing to keep the door's network", 0, 32, func(c *DoorConfig) *string { return &c.WifiSSID }),
+		secret(textField("wifi_password", "Wi-Fi password", "The Wi-Fi network's password. It is stored encrypted and sent to nobody but the door.",
+			"a password of up to 63 bytes", 0, 63, func(c *DoorConfig) *string { return &c.WifiPassword })),
+		signalField("wifi_roam_rssi", "Roam below",
+			"When the signal from its access point is weaker than this, the door moves to an access point of the same network at least 8 dB stronger, if it finds one.",
+			"-70", 100, func(c *DoorConfig) *int { return &c.WifiRoamRSSI }),
+	}},
+	doorGroup{"Mesh", []DoorField{
+		yesNoField("mesh_enabled", "Mesh", "Whether the door may join or form a Wi-Fi mesh with other doors when its own access point's signal is poor.",
+			"false", func(c *DoorConfig) *bool { return &c.MeshEnabled }),
+		textField("mesh_ssid", "Mesh network", "The mesh network's name, the same at every door of the site. It is needed while the mesh is on, which would otherwise leave the mesh's soft-AP open.",
+			"a network name of up to 32 bytes, or nothing", 0, 32, func(c *DoorConfig) *string { return &c.MeshSSID }),
+		secret(textField("mesh_password", "Mesh password",
+			"The mesh network's password, the same at every door of the site. It is needed while the mesh is on, which would otherwise leave the mesh's soft-AP open. It is stored encrypted and sent to nobody but the doors.",
+			"a password of 8 to 63 bytes, or nothing", 8, 63, func(c *DoorConfig) *string { return &c.MeshPassword })),
+		signalField("mesh_min_router_rssi", "Mesh below",
+			"When the strongest access point a door with the mesh on can see is weaker than this, the door joins the mesh through a neighboring door instead.",
+			"-75", 100, func(c *DoorConfig) *int { return &c.MeshMinRouterRSSI }),
+		wholeField("mesh_max_layer", "Deepest mesh hop", "How many hops from the access point a door may sit in the mesh.",
+			"4", 1, 10, "hops", func(c *DoorConfig) *int { return &c.MeshMaxLayer }),
+	}},
+	doorGroup{"Firmware", []DoorField{
+		wholeField(ConnectTimeoutField, "Revert new firmware after",
+			"How long a door on newly installed firmware tries to connect before it goes back to its previous firmware. Keep it within the update timeout, after which the server counts the update failed.",
+			"300", 60, 1800, "seconds", func(c *DoorConfig) *int { return &c.UpdateConnectTimeoutS }),
+		yesNoField("accept_unsigned_firmware", "Unsigned firmware",
+			"Whether the door installs firmware that has no valid signature. Leave it off except on bench and development boards.",
+			"false", func(c *DoorConfig) *bool { return &c.AcceptUnsignedFirmware }),
+	}},
+)
+
+// doorGroup is a group of door fields, shown together under its name.
+type doorGroup struct {
+	name   string
+	fields []DoorField
+}
+
+// grouped is the fields of groups, in order, each given its group's name.
+func grouped(groups ...doorGroup) []DoorField {
+	var out []DoorField
+	for _, g := range groups {
+		for _, f := range g.fields {
+			f.Group = g.name
+			out = append(out, f)
+		}
+	}
+	return out
 }
 
 // wholeField is a field, explained by help, that takes a whole number of
@@ -443,7 +476,7 @@ func doorDefinitions() []definition {
 			return f.set(&DoorConfig{}, value)
 		}
 		out = append(out, definition{key: doorPrefix + f.Name, fallback: f.fallback, validate: rule{check: check, input: f.Input},
-			secret: f.Secret, label: f.Label, help: f.About()})
+			secret: f.Secret, label: f.Label, help: f.About(), group: f.Group})
 	}
 	return out
 }

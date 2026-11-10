@@ -16,8 +16,9 @@ const (
 )
 
 // meshRow is the row of a door's configuration table that shows whether
-// its mesh is on.
-const meshRow = 22
+// its mesh is on, counting its head and the headings of the groups before
+// it.
+const meshRow = 28
 
 // meshLabel is what the mesh row says of the field under its label.
 const meshLabel = "Mesh Whether the door may join or form a Wi-Fi mesh with other doors when its own access point's signal is poor. True or false."
