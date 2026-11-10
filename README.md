@@ -149,7 +149,10 @@ Mosquitto 2 with its dynamic-security plugin. Migrations apply on start.
 The compose file is a starting point: the broker listens without TLS on
 1883, and the database and broker passwords are `doorcode`. For production,
 put TLS in front of the web server and the broker, change the passwords,
-and keep the volumes backed up.
+and keep the volumes backed up. Each door holds one broker connection
+open, so the compose file raises the broker's open file limit to 65536;
+a broker run elsewhere needs the same, since the usual default of 1024
+refuses connections short of 1000 doors.
 
 The server answers two unauthenticated probes, which log nothing:
 
