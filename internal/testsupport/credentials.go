@@ -10,6 +10,8 @@ import (
 // CreateCredential stores c with the next id, refusing a door it does not
 // hold and a username it holds already.
 func (s *Store) CreateCredential(_ context.Context, c connector.StoredCredential) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(credentialsAggregate, credentialWrites); err != nil {
 		return 0, err
 	}
@@ -28,11 +30,15 @@ func (s *Store) CreateCredential(_ context.Context, c connector.StoredCredential
 
 // DoorCredentials returns the door's credentials in id order.
 func (s *Store) DoorCredentials(_ context.Context, doorID int64) ([]connector.StoredCredential, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.credentialsWhere(func(c connector.StoredCredential) bool { return c.DoorID == doorID })
 }
 
 // LiveCredentials returns the credentials not revoked, by door and id.
 func (s *Store) LiveCredentials(context.Context) ([]connector.StoredCredential, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	live, err := s.credentialsWhere(func(c connector.StoredCredential) bool { return c.RevokedAt == nil })
 	byDoor := []connector.StoredCredential{}
 	for _, d := range s.doors {
@@ -60,11 +66,15 @@ func (s *Store) credentialsWhere(keep func(connector.StoredCredential) bool) ([]
 
 // UseCredential stores at as when the credential with id was first used.
 func (s *Store) UseCredential(_ context.Context, id int64, at time.Time) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.stampCredential(id, func(c *connector.StoredCredential) { c.UsedAt = &at })
 }
 
 // RevokeCredential stores at as when the credential with id was revoked.
 func (s *Store) RevokeCredential(_ context.Context, id int64, at time.Time) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.stampCredential(id, func(c *connector.StoredCredential) { c.RevokedAt = &at })
 }
 

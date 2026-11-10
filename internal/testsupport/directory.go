@@ -19,6 +19,8 @@ type membership struct {
 // CreateFirstUser stores u with the next id, as a member of the group with
 // groupSlug if there is one, when no user exists.
 func (s *Store) CreateFirstUser(_ context.Context, u connector.StoredUser, groupSlug string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(usersAggregate); err != nil {
 		return false, err
 	}
@@ -34,6 +36,8 @@ func (s *Store) CreateFirstUser(_ context.Context, u connector.StoredUser, group
 
 // CreateUser stores u with the next id and its memberships.
 func (s *Store) CreateUser(_ context.Context, u connector.StoredUser, groupIDs []int64) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(usersAggregate, userWrites); err != nil {
 		return 0, err
 	}
@@ -79,11 +83,15 @@ func sameValue(a, b *string) bool {
 
 // User returns the user with id.
 func (s *Store) User(_ context.Context, id int64) (connector.StoredUser, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.oneUser(func(u connector.StoredUser) bool { return u.ID == id })
 }
 
 // UserByEmail returns the user stored under email.
 func (s *Store) UserByEmail(_ context.Context, email string) (connector.StoredUser, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.failing[emailLookups] {
 		return connector.StoredUser{}, false, ErrUnavailable
 	}
@@ -92,11 +100,15 @@ func (s *Store) UserByEmail(_ context.Context, email string) (connector.StoredUs
 
 // UserByUserID returns the user stored under userID.
 func (s *Store) UserByUserID(_ context.Context, userID string) (connector.StoredUser, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.oneUser(func(u connector.StoredUser) bool { return sameValue(u.UserID, &userID) })
 }
 
 // UserByCodeHash returns the user whose door code hash is hash.
 func (s *Store) UserByCodeHash(_ context.Context, hash string) (connector.StoredUser, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.oneUser(func(u connector.StoredUser) bool { return sameValue(u.CodeHash, &hash) })
 }
 
@@ -114,6 +126,8 @@ func (s *Store) oneUser(match func(connector.StoredUser) bool) (connector.Stored
 
 // Users returns the page of users q selects.
 func (s *Store) Users(_ context.Context, q connector.UserQuery) ([]connector.StoredUser, int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(usersAggregate); err != nil {
 		return nil, 0, err
 	}
@@ -146,6 +160,8 @@ func sortUsers(users []connector.StoredUser) {
 
 // UpdateUser stores u's profile fields over the user with u.ID.
 func (s *Store) UpdateUser(_ context.Context, u connector.StoredUser) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(usersAggregate, userWrites); err != nil {
 		return false, err
 	}
@@ -163,11 +179,15 @@ func (s *Store) UpdateUser(_ context.Context, u connector.StoredUser) (bool, err
 
 // SetUserDeleted stores the deletion time of the user with id.
 func (s *Store) SetUserDeleted(_ context.Context, id int64, at *time.Time) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.changeUser(id, func(u *connector.StoredUser) { u.DeletedAt = at })
 }
 
 // SetCodeHash stores the door code hash of the user with id.
 func (s *Store) SetCodeHash(_ context.Context, id int64, hash *string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(usersAggregate, userWrites); err != nil {
 		return false, err
 	}
@@ -216,6 +236,8 @@ func sortGroups(groups []connector.StoredGroup) {
 
 // Groups returns every group in name order with its member count.
 func (s *Store) Groups(context.Context) ([]connector.StoredGroup, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(groupsAggregate); err != nil {
 		return nil, err
 	}
@@ -229,11 +251,15 @@ func (s *Store) Groups(context.Context) ([]connector.StoredGroup, error) {
 
 // Group returns the group with id.
 func (s *Store) Group(_ context.Context, id int64) (connector.StoredGroup, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.oneGroup(s.groupByID(id))
 }
 
 // GroupBySlug returns the group stored under slug.
 func (s *Store) GroupBySlug(_ context.Context, slug string) (connector.StoredGroup, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.oneGroup(s.groupBySlug(slug))
 }
 
@@ -259,6 +285,8 @@ func (s *Store) counted(g connector.StoredGroup) connector.StoredGroup {
 
 // CreateGroup stores g with the next id.
 func (s *Store) CreateGroup(_ context.Context, g connector.StoredGroup) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.storable(g); err != nil {
 		return 0, err
 	}
@@ -272,6 +300,8 @@ func (s *Store) CreateGroup(_ context.Context, g connector.StoredGroup) (int64, 
 
 // UpdateGroup stores g over the group with g.ID.
 func (s *Store) UpdateGroup(_ context.Context, g connector.StoredGroup) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.storable(g); err != nil {
 		return false, err
 	}
@@ -302,6 +332,8 @@ func (s *Store) storable(g connector.StoredGroup) error {
 
 // DeleteGroup removes the group with id, its memberships, and its rules.
 func (s *Store) DeleteGroup(_ context.Context, id int64) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(groupsAggregate, groupWrites); err != nil {
 		return false, err
 	}
@@ -317,6 +349,8 @@ func (s *Store) DeleteGroup(_ context.Context, id int64) (bool, error) {
 
 // GroupMembers returns the group's members in user order.
 func (s *Store) GroupMembers(_ context.Context, id int64) ([]connector.StoredUser, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(groupsAggregate); err != nil {
 		return nil, err
 	}
@@ -332,6 +366,8 @@ func (s *Store) GroupMembers(_ context.Context, id int64) ([]connector.StoredUse
 
 // AddMember stores the membership unless it exists.
 func (s *Store) AddMember(_ context.Context, groupID, userID int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(groupsAggregate, groupWrites); err != nil {
 		return err
 	}
@@ -351,6 +387,8 @@ func (s *Store) AddMember(_ context.Context, groupID, userID int64) error {
 // Preassign appends userID to the group's pre-assigned user ids unless
 // they hold it.
 func (s *Store) Preassign(_ context.Context, groupID int64, userID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(groupsAggregate, groupWrites); err != nil {
 		return err
 	}
@@ -363,6 +401,8 @@ func (s *Store) Preassign(_ context.Context, groupID int64, userID string) error
 
 // RemovePreassigned takes userID off the group's pre-assigned user ids.
 func (s *Store) RemovePreassigned(_ context.Context, groupID int64, userID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(groupsAggregate, groupWrites); err != nil {
 		return err
 	}
@@ -374,6 +414,8 @@ func (s *Store) RemovePreassigned(_ context.Context, groupID int64, userID strin
 
 // RemoveMember removes the membership.
 func (s *Store) RemoveMember(_ context.Context, groupID, userID int64) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(groupsAggregate, groupWrites); err != nil {
 		return false, err
 	}
@@ -435,6 +477,8 @@ func (s *Store) LeaveGroup(email, slug string) {
 
 // SetPasswordHash stores the local password hash of the user with id.
 func (s *Store) SetPasswordHash(_ context.Context, id int64, hash string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.changeUser(id, func(u *connector.StoredUser) { u.PasswordHash = &hash })
 }
 

@@ -10,6 +10,8 @@ import (
 
 // AddEvent stores e with the next id.
 func (s *Store) AddEvent(_ context.Context, e connector.StoredEvent) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(eventsAggregate, eventWrites); err != nil {
 		return 0, err
 	}
@@ -26,6 +28,8 @@ func (s *Store) AddEvent(_ context.Context, e connector.StoredEvent) (int64, err
 // Events returns the page of events q selects, newest first, and how many
 // it selects in all.
 func (s *Store) Events(_ context.Context, q connector.EventQuery) ([]connector.StoredEvent, int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(eventsAggregate); err != nil {
 		return nil, 0, err
 	}

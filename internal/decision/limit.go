@@ -1,12 +1,16 @@
 package decision
 
-import "time"
+import (
+	"sync"
+	"time"
+)
 
 // Limiter keeps a token bucket for each door, so a door cannot have codes
 // checked faster than its rate limit: the bucket holds up to a burst of
-// checks and refills at the door's checks a minute. Only the broker loop
-// uses it.
+// checks and refills at the door's checks a minute. It is safe for
+// concurrent use, since the broker's lanes check codes at once.
 type Limiter struct {
+	mu      sync.Mutex
 	buckets map[int64]bucket
 }
 
@@ -25,6 +29,8 @@ func NewLimiter() *Limiter {
 // which refills at perMinute and holds burst, at now, and reports whether
 // there was one to spend.
 func (l *Limiter) Take(doorID int64, perMinute, burst int, now time.Time) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	b, held := l.buckets[doorID]
 	if !held {
 		b = bucket{tokens: float64(burst), at: now}

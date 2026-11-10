@@ -32,6 +32,8 @@ type storedPicture struct {
 
 // Doors returns every door in name order.
 func (s *Store) Doors(context.Context) ([]connector.StoredDoor, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(doorsAggregate); err != nil {
 		return nil, err
 	}
@@ -47,6 +49,9 @@ func (s *Store) Doors(context.Context) ([]connector.StoredDoor, error) {
 
 // Door returns the door with id.
 func (s *Store) Door(_ context.Context, id int64) (connector.StoredDoor, bool, error) {
+	s.waitFor(id)
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(doorsAggregate); err != nil {
 		return connector.StoredDoor{}, false, err
 	}
@@ -59,6 +64,8 @@ func (s *Store) Door(_ context.Context, id int64) (connector.StoredDoor, bool, e
 
 // CreateDoor stores d with the next id, without a primary picture.
 func (s *Store) CreateDoor(_ context.Context, d connector.StoredDoor) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.storableDoor(d); err != nil {
 		return 0, err
 	}
@@ -74,6 +81,8 @@ func (s *Store) CreateDoor(_ context.Context, d connector.StoredDoor) (int64, er
 // UpdateDoor stores d over the door with d.ID, keeping its primary
 // picture, deletion, and creation time.
 func (s *Store) UpdateDoor(_ context.Context, d connector.StoredDoor) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.storableDoor(d); err != nil {
 		return false, err
 	}
@@ -89,6 +98,8 @@ func (s *Store) UpdateDoor(_ context.Context, d connector.StoredDoor) (bool, err
 // SetController stores c as the controller of the door with id, refusing
 // a hardware id another door's controller has.
 func (s *Store) SetController(_ context.Context, id int64, c *connector.StoredController) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(doorsAggregate, doorWrites); err != nil {
 		return false, err
 	}
@@ -128,6 +139,8 @@ func clonedController(c *connector.StoredController) *connector.StoredController
 // SetDoorState stores st as the state of the controller of the door with
 // id, keeping its hardware id and online status.
 func (s *Store) SetDoorState(_ context.Context, id int64, st connector.StoredDoorState) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(doorsAggregate, doorWrites); err != nil {
 		return false, err
 	}
@@ -147,6 +160,8 @@ func (s *Store) SetDoorState(_ context.Context, id int64, st connector.StoredDoo
 // SetDoorFirmware stores firmwareID as the firmware the door with id runs
 // instead of the default, refusing firmware the stub does not hold.
 func (s *Store) SetDoorFirmware(_ context.Context, id int64, firmwareID *int64) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(doorsAggregate, doorWrites); err != nil {
 		return false, err
 	}
@@ -173,6 +188,8 @@ func cloneID(id *int64) *int64 {
 // SetDoorConfig stores config as the configuration overrides of the door
 // with id, refusing a nil one as the column's constraint would.
 func (s *Store) SetDoorConfig(_ context.Context, id int64, config map[string]string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(doorsAggregate, doorWrites); err != nil {
 		return false, err
 	}
@@ -189,6 +206,8 @@ func (s *Store) SetDoorConfig(_ context.Context, id int64, config map[string]str
 
 // SetDoorDeleted stores at as the deletion time of the door with id.
 func (s *Store) SetDoorDeleted(_ context.Context, id int64, at *time.Time) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(doorsAggregate, doorWrites); err != nil {
 		return false, err
 	}
@@ -262,6 +281,8 @@ func (s *Store) fillZone(id int64, doors []int64) {
 
 // AddPicture stores p with the next id.
 func (s *Store) AddPicture(_ context.Context, p connector.StoredPicture, image, thumbnail []byte) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(doorsAggregate, doorWrites); err != nil {
 		return 0, err
 	}
@@ -279,6 +300,8 @@ func (s *Store) AddPicture(_ context.Context, p connector.StoredPicture, image, 
 
 // Pictures returns the door's pictures in id order.
 func (s *Store) Pictures(_ context.Context, doorID int64) ([]connector.StoredPicture, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(doorsAggregate); err != nil {
 		return nil, err
 	}
@@ -293,11 +316,15 @@ func (s *Store) Pictures(_ context.Context, doorID int64) ([]connector.StoredPic
 
 // PictureImage returns the image of the door's picture with id.
 func (s *Store) PictureImage(_ context.Context, doorID, id int64) ([]byte, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.pictureData(doorID, id, func(p storedPicture) []byte { return p.image })
 }
 
 // PictureThumbnail returns the thumbnail of the door's picture with id.
 func (s *Store) PictureThumbnail(_ context.Context, doorID, id int64) ([]byte, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.pictureData(doorID, id, func(p storedPicture) []byte { return p.thumbnail })
 }
 
@@ -314,6 +341,8 @@ func (s *Store) pictureData(doorID, id int64, data func(storedPicture) []byte) (
 
 // SetPrimaryPicture makes the picture with id the door's primary picture.
 func (s *Store) SetPrimaryPicture(_ context.Context, doorID, id int64) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(doorsAggregate, doorWrites); err != nil {
 		return false, err
 	}
@@ -334,6 +363,8 @@ func (s *Store) SetPrimaryPicture(_ context.Context, doorID, id int64) (bool, er
 // DeletePicture removes the door's picture with id; a door whose primary
 // picture it was has none.
 func (s *Store) DeletePicture(_ context.Context, doorID, id int64) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(doorsAggregate, doorWrites); err != nil {
 		return false, err
 	}
@@ -359,6 +390,8 @@ func (s *Store) pictureOf(doorID, id int64) *storedPicture {
 
 // Zones returns every zone in name order.
 func (s *Store) Zones(context.Context) ([]connector.StoredZone, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(zonesAggregate); err != nil {
 		return nil, err
 	}
@@ -374,6 +407,8 @@ func (s *Store) Zones(context.Context) ([]connector.StoredZone, error) {
 
 // Zone returns the zone with id.
 func (s *Store) Zone(_ context.Context, id int64) (connector.StoredZone, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(zonesAggregate); err != nil {
 		return connector.StoredZone{}, false, err
 	}
@@ -386,6 +421,8 @@ func (s *Store) Zone(_ context.Context, id int64) (connector.StoredZone, bool, e
 
 // CreateZone stores z with the next id.
 func (s *Store) CreateZone(_ context.Context, z connector.StoredZone) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.storableZone(z); err != nil {
 		return 0, err
 	}
@@ -399,6 +436,8 @@ func (s *Store) CreateZone(_ context.Context, z connector.StoredZone) (int64, er
 
 // UpdateZone stores z over the zone with z.ID.
 func (s *Store) UpdateZone(_ context.Context, z connector.StoredZone) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.storableZone(z); err != nil {
 		return false, err
 	}
@@ -414,6 +453,8 @@ func (s *Store) UpdateZone(_ context.Context, z connector.StoredZone) (bool, err
 // DeleteZone removes the zone with id and takes it off the rules; its
 // doors stay.
 func (s *Store) DeleteZone(_ context.Context, id int64) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(zonesAggregate, zoneWrites); err != nil {
 		return false, err
 	}
@@ -500,4 +541,36 @@ func (s *Store) FailZones() {
 // ErrUnavailable, while the ones that read them still work.
 func (s *Store) FailZoneWrites() {
 	s.failing[zoneWrites] = true
+}
+
+// Hold is a slow lookup of a door: the store answers it once Release is
+// called.
+type Hold struct {
+	release chan struct{}
+}
+
+// Release lets the held lookup be answered.
+func (h *Hold) Release() {
+	close(h.release)
+}
+
+// HoldDoor makes the next lookup of the door whose id is id wait until the
+// Hold it returns is released, while every other lookup is answered.
+func (s *Store) HoldDoor(id int64) *Hold {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	h := &Hold{release: make(chan struct{})}
+	s.holds[id] = h
+	return h
+}
+
+// waitFor waits while the door whose id is id is held, ending the hold.
+func (s *Store) waitFor(id int64) {
+	s.mu.Lock()
+	h := s.holds[id]
+	delete(s.holds, id)
+	s.mu.Unlock()
+	if h != nil {
+		<-h.release
+	}
 }

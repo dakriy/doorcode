@@ -12,6 +12,8 @@ import (
 // EventStats sums up the events q selects, as the database's grouping
 // would.
 func (s *Store) EventStats(_ context.Context, q connector.EventRange) (connector.StoredEventStats, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(eventsAggregate); err != nil {
 		return connector.StoredEventStats{}, err
 	}
@@ -74,6 +76,8 @@ type trendKey struct {
 // Trends sums up the rollups q selects by door and by the hour or day of
 // q.Zone they start in, as the database's grouping would.
 func (s *Store) Trends(_ context.Context, q connector.TrendQuery) ([]connector.StoredTrend, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(telemetryAggregate); err != nil {
 		return nil, err
 	}
@@ -120,6 +124,8 @@ func startOf(at time.Time, zone *time.Location, unit string) time.Time {
 // FirmwareVersions counts the doors that are not deleted by the firmware
 // version their controller last reported, most doors first.
 func (s *Store) FirmwareVersions(_ context.Context) ([]connector.StoredVersionCount, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(doorsAggregate); err != nil {
 		return nil, err
 	}

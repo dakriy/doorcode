@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"net/http"
 	"slices"
@@ -20,15 +21,30 @@ import (
 // sweepEvery is how often Run does the periodic work.
 const sweepEvery = time.Minute
 
+// lanes is how many messages Run handles at once. Each lane handles its
+// messages one at a time, in the order they came, and the messages of one
+// door, or of one enrolling controller, always take the same lane, so
+// they keep their order while other doors' are handled beside them. Four
+// matches the smallest pool of database connections pgx opens by
+// default, max(4, CPUs), since a handler holds one connection at a time;
+// and a code check's cost is mostly its hash, so on the small hosts a
+// door controller server runs on, more lanes would only wait for a core.
+const lanes = 4
+
+// laneDepth is how many messages wait for a lane before Run waits for it
+// too: enough for a burst at a door without holding up the other doors.
+const laneDepth = 64
+
 // enrollmentPasswordBytes is how much entropy a generated enrollment
 // password holds.
 const enrollmentPasswordBytes = 18
 
 // Run serves the door controllers: it lets them enroll with the enrollment
-// credentials, handles every message they publish as the broker delivers
-// it, and does the periodic work whenever the clock reaches its next turn.
-// It returns when the broker stops delivering, and with an error when it
-// cannot start. The first Run sets up the enrollment credentials; a later
+// credentials, hands every message they publish to its lane as the broker
+// delivers it, and does the periodic work whenever the clock reaches its
+// next turn. It returns when the broker stops delivering and the lanes
+// have handled what they were handed, and with an error when it cannot
+// start. The first Run sets up the enrollment credentials; a later
 // one keeps them, so controllers enrolling stay connected.
 func (a *App) Run(ctx context.Context) error {
 	if !a.enrolling {
@@ -43,6 +59,8 @@ func (a *App) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("subscribe: %w", err)
 	}
+	queues, wait := a.startLanes(ctx)
+	defer wait()
 	for {
 		a.sweepIfDue(ctx)
 		select {
@@ -50,10 +68,49 @@ func (a *App) Run(ctx context.Context) error {
 			if !open {
 				return nil
 			}
-			a.receive(ctx, m)
+			queues[lane(m.Topic)] <- m
 		case <-a.clock.Alarm(a.nextSweep):
 		}
 	}
+}
+
+// startLanes starts the lanes that handle messages, returning the queue
+// of each and the function that closes them and waits until each lane
+// has handled what its queue held.
+func (a *App) startLanes(ctx context.Context) ([]chan connector.Message, func()) {
+	queues := make([]chan connector.Message, lanes)
+	var handling sync.WaitGroup
+	for i := range queues {
+		queue := make(chan connector.Message, laneDepth)
+		queues[i] = queue
+		handling.Go(func() {
+			for m := range queue {
+				a.receive(ctx, m)
+			}
+		})
+	}
+	return queues, func() {
+		for _, queue := range queues {
+			close(queue)
+		}
+		handling.Wait()
+	}
+}
+
+// lane is the lane that handles the messages on topic: the door's id or
+// the enrolling controller's hardware id picks it, and a topic that names
+// neither takes the first, which only logs it.
+func lane(topic string) int {
+	t, ok := protocol.Parse(topic)
+	if !ok {
+		return 0
+	}
+	if t.HardwareID != "" {
+		h := fnv.New32a()
+		_, _ = io.WriteString(h, t.HardwareID)
+		return int(h.Sum32() % lanes)
+	}
+	return int(t.DoorID % lanes)
 }
 
 // prepareEnrollment makes the broker accept the enrollment credentials the

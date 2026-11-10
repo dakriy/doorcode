@@ -8,6 +8,7 @@ import (
 	"errors"
 	"maps"
 	"slices"
+	"sync"
 	"time"
 
 	// The embedded tz database, so the stub zones load on any host.
@@ -74,11 +75,14 @@ func (c *Clock) Set(rfc3339 string) {
 // consecutive byte values starting at 0x00, so the first 8-byte request is
 // 0001020304050607 in hex and the next 08090a0b0c0d0e0f.
 type Entropy struct {
+	mu   sync.Mutex
 	next byte
 }
 
 // Bytes returns the next n bytes of the sequence.
 func (e *Entropy) Bytes(n int) []byte {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	out := make([]byte, n)
 	for i := range out {
 		out[i] = e.next
@@ -121,18 +125,24 @@ type LogEntry struct {
 	Fields  map[string]string
 }
 
-// Log is the stub connector.Log: it records every line.
+// Log is the stub connector.Log: it records every line. A test reads
+// Entries once the application is done.
 type Log struct {
+	mu      sync.Mutex
 	Entries []LogEntry
 }
 
 // Info records an info line.
 func (l *Log) Info(msg string, fields ...connector.Field) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	l.Entries = append(l.Entries, entry("info", msg, fields))
 }
 
 // Error records an error line.
 func (l *Log) Error(msg string, fields ...connector.Field) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	l.Entries = append(l.Entries, entry("error", msg, fields))
 }
 
@@ -147,8 +157,12 @@ func entry(level, msg string, fields []connector.Field) LogEntry {
 	return LogEntry{Level: level, Message: msg, Fields: byKey}
 }
 
-// Store is the stub connector.Store, held in memory.
+// Store is the stub connector.Store, held in memory. Its connector
+// methods are safe for concurrent use, as a database is; a test arranges
+// it before the application runs and reads it after.
 type Store struct {
+	mu           sync.Mutex
+	holds        map[int64]*Hold
 	migrated     bool
 	settings     map[string]connector.StoredSetting
 	users        []connector.StoredUser
@@ -232,6 +246,7 @@ func NewStore() *Store {
 		settings: map[string]connector.StoredSetting{},
 		sessions: map[string]connector.StoredSession{},
 		failing:  map[aggregate]bool{},
+		holds:    map[int64]*Hold{},
 	}
 }
 
@@ -244,12 +259,16 @@ var AdministratorsGroup = connector.StoredGroup{
 
 // Ping reports ErrUnavailable once FailPing was called.
 func (s *Store) Ping(context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.pingErr
 }
 
 // Migrate marks the schema as present and, the first time, seeds the
 // administrators group and the Always schedule as the real migrations do.
 func (s *Store) Migrate(context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.migrateErr != nil {
 		return s.migrateErr
 	}
@@ -265,6 +284,8 @@ func (s *Store) Migrate(context.Context) error {
 
 // Settings returns a copy of the stored settings.
 func (s *Store) Settings(context.Context) (map[string]connector.StoredSetting, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(settingsAggregate); err != nil {
 		return nil, err
 	}
@@ -273,6 +294,8 @@ func (s *Store) Settings(context.Context) (map[string]connector.StoredSetting, e
 
 // PutSetting stores a setting value.
 func (s *Store) PutSetting(_ context.Context, key, value string, at time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(settingsAggregate, settingWrites); err != nil {
 		return err
 	}
@@ -283,6 +306,8 @@ func (s *Store) PutSetting(_ context.Context, key, value string, at time.Time) e
 // CodeHashing stores candidate unless parameters are stored, and returns
 // the stored ones.
 func (s *Store) CodeHashing(_ context.Context, candidate string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(settingsAggregate, settingWrites); err != nil {
 		return "", err
 	}
@@ -294,6 +319,8 @@ func (s *Store) CodeHashing(_ context.Context, candidate string) (string, error)
 
 // SignInImage returns a copy of the stored sign-in page picture.
 func (s *Store) SignInImage(context.Context) (connector.StoredImage, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(settingsAggregate, signInImageReads); err != nil {
 		return connector.StoredImage{}, false, err
 	}
@@ -307,6 +334,8 @@ func (s *Store) SignInImage(context.Context) (connector.StoredImage, bool, error
 
 // PutSignInImage stores a copy of image as the sign-in page picture.
 func (s *Store) PutSignInImage(_ context.Context, image connector.StoredImage) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(settingsAggregate, settingWrites); err != nil {
 		return err
 	}
@@ -317,6 +346,8 @@ func (s *Store) PutSignInImage(_ context.Context, image connector.StoredImage) e
 
 // RemoveSignInImage removes the sign-in page picture.
 func (s *Store) RemoveSignInImage(context.Context) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(settingsAggregate, settingWrites); err != nil {
 		return false, err
 	}
@@ -327,6 +358,8 @@ func (s *Store) RemoveSignInImage(context.Context) (bool, error) {
 
 // CreateSession stores a session.
 func (s *Store) CreateSession(_ context.Context, session connector.StoredSession) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(sessionsAggregate); err != nil {
 		return err
 	}
@@ -342,6 +375,8 @@ func (s *Store) CreateSession(_ context.Context, session connector.StoredSession
 
 // SessionUser returns the session stored under tokenHash and its user.
 func (s *Store) SessionUser(_ context.Context, tokenHash []byte) (connector.StoredSession, connector.StoredUser, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(sessionsAggregate); err != nil {
 		return connector.StoredSession{}, connector.StoredUser{}, false, err
 	}
@@ -354,6 +389,8 @@ func (s *Store) SessionUser(_ context.Context, tokenHash []byte) (connector.Stor
 
 // DeleteSession removes the session stored under tokenHash.
 func (s *Store) DeleteSession(_ context.Context, tokenHash []byte) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(sessionsAggregate); err != nil {
 		return err
 	}
@@ -363,6 +400,8 @@ func (s *Store) DeleteSession(_ context.Context, tokenHash []byte) error {
 
 // DeleteExpiredSessions removes the sessions expiring at or before now.
 func (s *Store) DeleteExpiredSessions(_ context.Context, now time.Time) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(sessionsAggregate); err != nil {
 		return 0, err
 	}
@@ -383,6 +422,8 @@ func (s *Store) Sessions() int {
 
 // CreateToken stores a token with the next id.
 func (s *Store) CreateToken(_ context.Context, t connector.StoredToken) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(tokensAggregate); err != nil {
 		return 0, err
 	}
@@ -402,6 +443,8 @@ func (s *Store) CreateToken(_ context.Context, t connector.StoredToken) (int64, 
 
 // UserTokens returns the user's tokens in id order.
 func (s *Store) UserTokens(_ context.Context, userID int64) ([]connector.StoredToken, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(tokensAggregate); err != nil {
 		return nil, err
 	}
@@ -416,6 +459,8 @@ func (s *Store) UserTokens(_ context.Context, userID int64) ([]connector.StoredT
 
 // TokenUser returns the token stored under tokenHash and its user.
 func (s *Store) TokenUser(_ context.Context, tokenHash []byte) (connector.StoredToken, connector.StoredUser, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(tokensAggregate); err != nil {
 		return connector.StoredToken{}, connector.StoredUser{}, false, err
 	}
@@ -429,6 +474,8 @@ func (s *Store) TokenUser(_ context.Context, tokenHash []byte) (connector.Stored
 
 // DeleteToken removes the user's token with id.
 func (s *Store) DeleteToken(_ context.Context, userID, id int64) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(tokensAggregate); err != nil {
 		return false, err
 	}

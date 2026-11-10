@@ -332,9 +332,13 @@ controller online and offline are in [controller.md](controller.md).
 | door → server | `doors/<id>/ack` | command id, result (`failed` when the door could not carry it out), detail |
 
 The server subscribes to the enroll topics and to each door's online,
-check, telemetry, event, and ack topics. Command results travel only in
-acks; a firmware update succeeds when the door reconnects reporting the new
-version, and fails with a `failed` ack.
+check, telemetry, event, and ack topics. It handles the messages of
+different doors at once, a few at a time, and each door's, or each
+enrolling controller's, in the order it sent them, so a slow code check at
+one door does not hold up another door's checks, enrollment, status, or
+telemetry. Command results travel only in acks; a firmware update succeeds
+when the door reconnects reporting the new version, and fails with a
+`failed` ack.
 
 The broker is Mosquitto with its dynamic-security plugin; the server manages
 clients and ACLs over `$CONTROL`. All connections use TLS.

@@ -11,6 +11,8 @@ import (
 
 // AddSample stores sample, refusing one of a door the stub does not hold.
 func (s *Store) AddSample(_ context.Context, sample connector.StoredSample) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(telemetryAggregate, telemetryWrites); err != nil {
 		return err
 	}
@@ -24,6 +26,8 @@ func (s *Store) AddSample(_ context.Context, sample connector.StoredSample) erro
 // Samples returns the samples of the door with doorID taken from from up
 // to to, oldest first.
 func (s *Store) Samples(_ context.Context, doorID int64, from, to time.Time) ([]connector.StoredSample, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.samplesWhere(func(sample connector.StoredSample) bool {
 		return sample.DoorID == doorID && between(sample.At, from, to)
 	})
@@ -32,6 +36,8 @@ func (s *Store) Samples(_ context.Context, doorID int64, from, to time.Time) ([]
 // AllSamples returns the samples of every door taken from from up to to,
 // by door and then by time.
 func (s *Store) AllSamples(_ context.Context, from, to time.Time) ([]connector.StoredSample, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.samplesWhere(func(sample connector.StoredSample) bool { return between(sample.At, from, to) })
 }
 
@@ -61,6 +67,8 @@ func between(at, from, to time.Time) bool {
 // FirstSampleSince returns when the earliest sample at or after since was
 // taken.
 func (s *Store) FirstSampleSince(_ context.Context, since time.Time) (time.Time, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(telemetryAggregate); err != nil {
 		return time.Time{}, false, err
 	}
@@ -76,6 +84,8 @@ func (s *Store) FirstSampleSince(_ context.Context, since time.Time) (time.Time,
 
 // DeleteSamplesBefore removes the samples taken before before.
 func (s *Store) DeleteSamplesBefore(_ context.Context, before time.Time) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(telemetryAggregate, telemetryWrites); err != nil {
 		return 0, err
 	}
@@ -93,6 +103,8 @@ func (s *Store) DeleteSamplesBefore(_ context.Context, before time.Time) (int, e
 // PutRollups stores rollups over those of the same door and hour,
 // refusing one of a door the stub does not hold.
 func (s *Store) PutRollups(_ context.Context, rollups []connector.StoredRollup) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(telemetryAggregate, telemetryWrites); err != nil {
 		return err
 	}
@@ -112,6 +124,8 @@ func (s *Store) PutRollups(_ context.Context, rollups []connector.StoredRollup) 
 
 // NewestRollup returns the latest hour a rollup sums up.
 func (s *Store) NewestRollup(context.Context) (time.Time, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(telemetryAggregate); err != nil {
 		return time.Time{}, false, err
 	}
@@ -127,6 +141,8 @@ func (s *Store) NewestRollup(context.Context) (time.Time, bool, error) {
 // Rollups returns the rollups of the door with doorID whose hour starts
 // from from up to to, oldest first.
 func (s *Store) Rollups(_ context.Context, doorID int64, from, to time.Time) ([]connector.StoredRollup, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(telemetryAggregate); err != nil {
 		return nil, err
 	}
@@ -142,6 +158,8 @@ func (s *Store) Rollups(_ context.Context, doorID int64, from, to time.Time) ([]
 
 // DeleteRollupsBefore removes the rollups whose hour starts before before.
 func (s *Store) DeleteRollupsBefore(_ context.Context, before time.Time) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(telemetryAggregate, telemetryWrites); err != nil {
 		return 0, err
 	}

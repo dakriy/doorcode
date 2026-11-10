@@ -17,6 +17,8 @@ type storedFirmware struct {
 // AddFirmware stores f with the next id and its image, refusing a version
 // it holds, an uploader it does not hold, and a nil image.
 func (s *Store) AddFirmware(_ context.Context, f connector.StoredFirmware, image []byte) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(firmwareAggregate, firmwareWrites); err != nil {
 		return 0, err
 	}
@@ -39,6 +41,8 @@ func (s *Store) AddFirmware(_ context.Context, f connector.StoredFirmware, image
 
 // Firmwares returns every firmware, newest upload first.
 func (s *Store) Firmwares(context.Context) ([]connector.StoredFirmware, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(firmwareAggregate); err != nil {
 		return nil, err
 	}
@@ -54,6 +58,8 @@ func (s *Store) Firmwares(context.Context) ([]connector.StoredFirmware, error) {
 
 // Firmware returns the firmware with id.
 func (s *Store) Firmware(_ context.Context, id int64) (connector.StoredFirmware, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(firmwareAggregate); err != nil {
 		return connector.StoredFirmware{}, false, err
 	}
@@ -72,6 +78,8 @@ func (s *Store) uploaded(f connector.StoredFirmware) connector.StoredFirmware {
 
 // FirmwareImage returns the image of the firmware with id.
 func (s *Store) FirmwareImage(_ context.Context, id int64) ([]byte, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(firmwareAggregate); err != nil {
 		return nil, false, err
 	}
@@ -84,6 +92,8 @@ func (s *Store) FirmwareImage(_ context.Context, id int64) ([]byte, bool, error)
 
 // SetDefaultFirmware makes the firmware with id the only default one.
 func (s *Store) SetDefaultFirmware(_ context.Context, id int64) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(firmwareAggregate, firmwareWrites); err != nil {
 		return false, err
 	}
@@ -98,6 +108,8 @@ func (s *Store) SetDefaultFirmware(_ context.Context, id int64) (bool, error) {
 
 // ClearDefaultFirmware makes no firmware the default.
 func (s *Store) ClearDefaultFirmware(context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(firmwareAggregate, firmwareWrites); err != nil {
 		return err
 	}
@@ -110,6 +122,8 @@ func (s *Store) ClearDefaultFirmware(context.Context) error {
 // DeleteFirmware removes the firmware with id, refusing firmware a door
 // names, as the foreign key would.
 func (s *Store) DeleteFirmware(_ context.Context, id int64) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(firmwareAggregate, firmwareWrites); err != nil {
 		return false, err
 	}
@@ -125,6 +139,8 @@ func (s *Store) DeleteFirmware(_ context.Context, id int64) (bool, error) {
 
 // DoorUpdates returns every door's latest update, by door.
 func (s *Store) DoorUpdates(context.Context) ([]connector.StoredUpdate, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(updatesAggregate); err != nil {
 		return nil, err
 	}
@@ -139,6 +155,8 @@ func (s *Store) DoorUpdates(context.Context) ([]connector.StoredUpdate, error) {
 // PutDoorUpdate stores u over its door's latest update, refusing a door
 // the stub does not hold.
 func (s *Store) PutDoorUpdate(_ context.Context, u connector.StoredUpdate) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(updatesAggregate, firmwareWrites); err != nil {
 		return err
 	}

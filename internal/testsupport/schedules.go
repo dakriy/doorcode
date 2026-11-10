@@ -24,6 +24,8 @@ var AlwaysSchedule = connector.StoredSchedule{
 
 // Schedules returns every schedule in name order.
 func (s *Store) Schedules(context.Context) ([]connector.StoredSchedule, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(schedulesAggregate); err != nil {
 		return nil, err
 	}
@@ -39,6 +41,8 @@ func (s *Store) Schedules(context.Context) ([]connector.StoredSchedule, error) {
 
 // Schedule returns the schedule with id.
 func (s *Store) Schedule(_ context.Context, id int64) (connector.StoredSchedule, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(schedulesAggregate); err != nil {
 		return connector.StoredSchedule{}, false, err
 	}
@@ -51,6 +55,8 @@ func (s *Store) Schedule(_ context.Context, id int64) (connector.StoredSchedule,
 
 // CreateSchedule stores sch with the next id.
 func (s *Store) CreateSchedule(_ context.Context, sch connector.StoredSchedule) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.storableSchedule(sch); err != nil {
 		return 0, err
 	}
@@ -65,6 +71,8 @@ func (s *Store) CreateSchedule(_ context.Context, sch connector.StoredSchedule) 
 // UpdateSchedule stores sch over the schedule with sch.ID, keeping whether
 // it is built in.
 func (s *Store) UpdateSchedule(_ context.Context, sch connector.StoredSchedule) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.storableSchedule(sch); err != nil {
 		return false, err
 	}
@@ -81,6 +89,8 @@ func (s *Store) UpdateSchedule(_ context.Context, sch connector.StoredSchedule) 
 // DeleteSchedule removes the schedule with id, and takes it from the zones
 // in open mode during it. It refuses a schedule an access rule uses.
 func (s *Store) DeleteSchedule(_ context.Context, id int64) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(schedulesAggregate, scheduleWrites); err != nil {
 		return false, err
 	}

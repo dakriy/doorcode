@@ -16,6 +16,8 @@ var ErrReferenced = errors.New("stub: still referenced")
 
 // Rules returns every rule in id order.
 func (s *Store) Rules(context.Context) ([]connector.StoredRule, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(rulesAggregate); err != nil {
 		return nil, err
 	}
@@ -28,6 +30,8 @@ func (s *Store) Rules(context.Context) ([]connector.StoredRule, error) {
 
 // Rule returns the rule with id.
 func (s *Store) Rule(_ context.Context, id int64) (connector.StoredRule, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(rulesAggregate); err != nil {
 		return connector.StoredRule{}, false, err
 	}
@@ -40,6 +44,8 @@ func (s *Store) Rule(_ context.Context, id int64) (connector.StoredRule, bool, e
 
 // CreateRule stores r with the next id.
 func (s *Store) CreateRule(_ context.Context, r connector.StoredRule) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.storableRule(r); err != nil {
 		return 0, err
 	}
@@ -52,6 +58,8 @@ func (s *Store) CreateRule(_ context.Context, r connector.StoredRule) (int64, er
 
 // UpdateRule stores r over the rule with r.ID.
 func (s *Store) UpdateRule(_ context.Context, r connector.StoredRule) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.storableRule(r); err != nil {
 		return false, err
 	}
@@ -65,6 +73,8 @@ func (s *Store) UpdateRule(_ context.Context, r connector.StoredRule) (bool, err
 
 // DeleteRule removes the rule with id.
 func (s *Store) DeleteRule(_ context.Context, id int64) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(rulesAggregate, ruleWrites); err != nil {
 		return false, err
 	}
@@ -127,6 +137,8 @@ func cloneRule(r connector.StoredRule) connector.StoredRule {
 // DoorOverrides returns the door's overrides that end after endsAfter, by
 // start and then id.
 func (s *Store) DoorOverrides(_ context.Context, doorID int64, endsAfter time.Time) ([]connector.StoredOverride, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(overridesAggregate); err != nil {
 		return nil, err
 	}
@@ -144,6 +156,8 @@ func (s *Store) DoorOverrides(_ context.Context, doorID int64, endsAfter time.Ti
 
 // Override returns the override with id.
 func (s *Store) Override(_ context.Context, id int64) (connector.StoredOverride, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(overridesAggregate); err != nil {
 		return connector.StoredOverride{}, false, err
 	}
@@ -156,6 +170,8 @@ func (s *Store) Override(_ context.Context, id int64) (connector.StoredOverride,
 
 // CreateOverride stores o with the next id.
 func (s *Store) CreateOverride(_ context.Context, o connector.StoredOverride) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(overridesAggregate, overrideWrites); err != nil {
 		return 0, err
 	}
@@ -172,6 +188,8 @@ func (s *Store) CreateOverride(_ context.Context, o connector.StoredOverride) (i
 // UpdateOverride stores o's kind, start, end, and reason over the override
 // with o.ID.
 func (s *Store) UpdateOverride(_ context.Context, o connector.StoredOverride) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(overridesAggregate, overrideWrites); err != nil {
 		return false, err
 	}
@@ -185,6 +203,8 @@ func (s *Store) UpdateOverride(_ context.Context, o connector.StoredOverride) (b
 
 // DeleteOverride removes the override with id.
 func (s *Store) DeleteOverride(_ context.Context, id int64) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(overridesAggregate, overrideWrites); err != nil {
 		return false, err
 	}

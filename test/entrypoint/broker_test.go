@@ -77,6 +77,7 @@ func TestRunIgnoresMessagesItCannotUseAndLogsWhy(t *testing.T) {
 		"an announcement without a hardware id": {"doorcode/enroll/", announcement, "the topic names no controller or door"},
 		"a door that is not a number":           {"doorcode/doors/front/online", onlineAs("x", true), "the topic names no controller or door"},
 		"door zero":                             {"doorcode/doors/0/online", onlineAs("x", true), "the topic names no controller or door"},
+		"a door below zero":                     {"doorcode/doors/-5/online", onlineAs("x", true), "the topic names no controller or door"},
 		"an announcement that is not CBOR":      {"doorcode/enroll/A1", []byte("hello"), "not a protocol message: unexpected EOF"},
 		"an announcement of another version":    {"doorcode/enroll/A1", v2, "unsupported protocol version 2"},
 		"a status without a version":            {"doorcode/doors/1/online", testsupport.CBOR(map[string]any{"online": true}), "unsupported protocol version 0"},

@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/fxamacker/cbor/v2"
 
@@ -45,8 +47,11 @@ const (
 // session's would; the channel Subscribe returns holds what was delivered
 // since the application last subscribed, each retained message of a filter
 // it had not subscribed to first, and is closed, so the application's Run
-// handles it and returns.
+// handles it and returns. Its connector methods are safe for concurrent
+// use, as a broker connection is; a test reads Published once the
+// application is done.
 type Broker struct {
+	mu       sync.Mutex
 	clients  map[string]connector.BrokerClient
 	conns    []*Connection
 	retained map[string]connector.Message
@@ -66,6 +71,8 @@ func NewBroker() *Broker {
 
 // Publish records m and routes it as the broker would.
 func (b *Broker) Publish(_ context.Context, m connector.Message) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	if b.failing[publishing] {
 		return ErrUnavailable
 	}
@@ -110,6 +117,8 @@ func (b *Broker) retainedFor(filter string) []connector.Message {
 // what the broker has for it, closed. A failing subscription delivers
 // nothing.
 func (b *Broker) Subscribe(_ context.Context, filters []string) (<-chan connector.Message, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	if b.failing[subscribing] {
 		nothing := make(chan connector.Message)
 		close(nothing)
@@ -134,6 +143,8 @@ func (b *Broker) Subscribe(_ context.Context, filters []string) (<-chan connecto
 
 // CreateClient adds c, refusing a username the broker has.
 func (b *Broker) CreateClient(_ context.Context, c connector.BrokerClient) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	if b.failing[creating] {
 		return ErrUnavailable
 	}
@@ -148,6 +159,8 @@ func (b *Broker) CreateClient(_ context.Context, c connector.BrokerClient) error
 // DeleteClient removes the client named username and closes its
 // connections.
 func (b *Broker) DeleteClient(_ context.Context, username string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	if b.failing[deleting] {
 		return ErrUnavailable
 	}
@@ -166,6 +179,8 @@ func (b *Broker) DeleteClient(_ context.Context, username string) error {
 // Inject delivers a message on topic as if a client had published it,
 // without its client's topics limiting it.
 func (b *Broker) Inject(topic string, payload []byte) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	b.route(connector.Message{Topic: topic, Payload: slices.Clone(payload)})
 }
 
@@ -210,7 +225,11 @@ func (b *Broker) RetainedDecoded(topic string) any {
 
 // Connected reports whether the application's connection is up, which it
 // is until Disconnect.
-func (b *Broker) Connected() bool { return !b.lost }
+func (b *Broker) Connected() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return !b.lost
+}
 
 // Disconnect makes Connected report false, as when the application loses
 // its connection to the broker.
@@ -268,6 +287,8 @@ type Connection struct {
 // Publish sends a message as the controller. The broker drops, without a
 // word, one the client's topics do not allow, as the real broker does.
 func (c *Connection) Publish(topic string, payload []byte, retained bool) error {
+	c.broker.mu.Lock()
+	defer c.broker.mu.Unlock()
 	if !c.open {
 		return ErrDisconnected
 	}
@@ -280,6 +301,8 @@ func (c *Connection) Publish(topic string, payload []byte, retained bool) error 
 // Subscribe subscribes the controller to filter, which its client's topics
 // must allow, and delivers what the broker retains for it.
 func (c *Connection) Subscribe(filter string) error {
+	c.broker.mu.Lock()
+	defer c.broker.mu.Unlock()
 	if !c.open {
 		return ErrDisconnected
 	}
@@ -294,21 +317,29 @@ func (c *Connection) Subscribe(filter string) error {
 // Received is every message the broker delivered to the controller, in
 // order.
 func (c *Connection) Received() []connector.Message {
+	c.broker.mu.Lock()
+	defer c.broker.mu.Unlock()
 	return slices.Clone(c.received)
 }
 
 // Connected reports whether the connection is open.
 func (c *Connection) Connected() bool {
+	c.broker.mu.Lock()
+	defer c.broker.mu.Unlock()
 	return c.open
 }
 
 // Close disconnects cleanly, so the broker does not publish the last will.
 func (c *Connection) Close() {
+	c.broker.mu.Lock()
+	defer c.broker.mu.Unlock()
 	c.open = false
 }
 
 // Drop loses the connection, so the broker publishes the last will.
 func (c *Connection) Drop() {
+	c.broker.mu.Lock()
+	defer c.broker.mu.Unlock()
 	c.open = false
 	if c.will != nil {
 		c.broker.route(*c.will)
@@ -361,4 +392,26 @@ func Decoded(payload []byte) any {
 		return nil
 	}
 	return v
+}
+
+// awaitLimit is how long Await waits.
+const awaitLimit = 2 * time.Second
+
+// Await waits until the application has published on topic while it
+// runs, and reports whether it did within two seconds.
+func (b *Broker) Await(topic string) bool {
+	deadline := time.Now().Add(awaitLimit)
+	for time.Now().Before(deadline) {
+		if b.hasPublished(topic) {
+			return true
+		}
+		time.Sleep(time.Millisecond)
+	}
+	return false
+}
+
+func (b *Broker) hasPublished(topic string) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return slices.ContainsFunc(b.Published, func(m connector.Message) bool { return m.Topic == topic })
 }

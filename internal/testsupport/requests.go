@@ -12,6 +12,8 @@ import (
 
 // CreateRequest stores r with the next id.
 func (s *Store) CreateRequest(_ context.Context, r connector.StoredRequest) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(requestsAggregate, requestWrites); err != nil {
 		return 0, err
 	}
@@ -28,6 +30,8 @@ func (s *Store) CreateRequest(_ context.Context, r connector.StoredRequest) (int
 
 // Request returns the request with id.
 func (s *Store) Request(_ context.Context, id int64) (connector.StoredRequest, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.usable(requestsAggregate); err != nil {
 		return connector.StoredRequest{}, false, err
 	}
@@ -39,14 +43,23 @@ func (s *Store) Request(_ context.Context, id int64) (connector.StoredRequest, b
 }
 
 // UserRequests returns the requests of the user with userID, newest first.
-func (s *Store) UserRequests(ctx context.Context, userID int64) ([]connector.StoredRequest, error) {
-	mine, _, err := s.Requests(ctx, connector.RequestQuery{UserID: userID, Limit: len(s.requests)})
+func (s *Store) UserRequests(_ context.Context, userID int64) ([]connector.StoredRequest, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	mine, _, err := s.requestsOf(connector.RequestQuery{UserID: userID, Limit: len(s.requests)})
 	return mine, err
 }
 
 // Requests returns the page of requests q selects, newest first, and how
 // many it selects in all.
 func (s *Store) Requests(_ context.Context, q connector.RequestQuery) ([]connector.StoredRequest, int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.requestsOf(q)
+}
+
+// requestsOf is Requests, for a caller holding the lock.
+func (s *Store) requestsOf(q connector.RequestQuery) ([]connector.StoredRequest, int, error) {
 	if err := s.usable(requestsAggregate); err != nil {
 		return nil, 0, err
 	}
@@ -83,6 +96,8 @@ func (s *Store) returnedRequest(r connector.StoredRequest) connector.StoredReque
 // UpdateRequest stores r's title, body, and update time over the request
 // with r.ID.
 func (s *Store) UpdateRequest(_ context.Context, r connector.StoredRequest) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(requestsAggregate, requestWrites); err != nil {
 		return false, err
 	}
@@ -96,6 +111,8 @@ func (s *Store) UpdateRequest(_ context.Context, r connector.StoredRequest) (boo
 
 // SetRequestReply stores reply as the answer to the request with id.
 func (s *Store) SetRequestReply(_ context.Context, id int64, reply string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(requestsAggregate, requestWrites); err != nil {
 		return false, err
 	}
@@ -109,6 +126,8 @@ func (s *Store) SetRequestReply(_ context.Context, id int64, reply string) (bool
 
 // SetRequestResolved stores at as when the request with id was resolved.
 func (s *Store) SetRequestResolved(_ context.Context, id int64, at *time.Time) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(requestsAggregate, requestWrites); err != nil {
 		return false, err
 	}
@@ -122,6 +141,8 @@ func (s *Store) SetRequestResolved(_ context.Context, id int64, at *time.Time) (
 
 // DeleteRequest removes the request with id.
 func (s *Store) DeleteRequest(_ context.Context, id int64) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writable(requestsAggregate, requestWrites); err != nil {
 		return false, err
 	}
