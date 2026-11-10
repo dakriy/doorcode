@@ -139,6 +139,17 @@ func (s Service) Door(ctx context.Context, id int64) (connector.StoredDoor, erro
 	return check.Lookup(ctx, id, s.Store.Door, ErrNoDoor)
 }
 
+// ControlledBy returns the door whose controller has hardware id
+// hardwareID, deleted or not, and whether there is one.
+func (s Service) ControlledBy(ctx context.Context, hardwareID string) (connector.StoredDoor, bool, error) {
+	id, found, err := s.Store.HardwareDoor(ctx, hardwareID)
+	if !found {
+		// A lookup that fails finds nothing, so err comes back here too.
+		return connector.StoredDoor{}, false, err
+	}
+	return s.Store.Door(ctx, id)
+}
+
 // Create creates a door from f.
 func (s Service) Create(ctx context.Context, f Fields) (connector.StoredDoor, error) {
 	d, err := s.checkDoor(ctx, 0, f)

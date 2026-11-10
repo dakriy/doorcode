@@ -77,11 +77,22 @@ type Plan struct {
 
 // Plan returns where every door stands with its firmware.
 func (s Service) Plan(ctx context.Context) (Plan, error) {
-	all, err := s.Store.Firmwares(ctx)
+	doors, err := s.Store.Doors(ctx)
 	if err != nil {
 		return Plan{}, err
 	}
-	doors, err := s.Store.Doors(ctx)
+	return s.planOf(ctx, doors)
+}
+
+// PlanOf returns every firmware and where d alone stands with it, so a
+// door's page or its firmware in the API does not read every door.
+func (s Service) PlanOf(ctx context.Context, d connector.StoredDoor) (Plan, error) {
+	return s.planOf(ctx, []connector.StoredDoor{d})
+}
+
+// planOf returns every firmware and where each of doors stands with it.
+func (s Service) planOf(ctx context.Context, doors []connector.StoredDoor) (Plan, error) {
+	all, err := s.Store.Firmwares(ctx)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -138,15 +149,15 @@ func status(df DoorFirmware) string {
 
 // Door returns where the door whose id is id stands with its firmware.
 func (s Service) Door(ctx context.Context, id int64) (DoorFirmware, error) {
-	if _, err := s.Doors.Door(ctx, id); err != nil {
-		return DoorFirmware{}, err
-	}
-	plan, err := s.Plan(ctx)
+	d, err := s.Doors.Door(ctx, id)
 	if err != nil {
 		return DoorFirmware{}, err
 	}
-	i := slices.IndexFunc(plan.Doors, func(df DoorFirmware) bool { return df.Door.ID == id })
-	return plan.Doors[i], nil
+	plan, err := s.PlanOf(ctx, d)
+	if err != nil {
+		return DoorFirmware{}, err
+	}
+	return plan.Doors[0], nil
 }
 
 // Rollout does what the rollout makes due: an update that has taken

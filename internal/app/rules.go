@@ -8,6 +8,7 @@ import (
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/openapi"
 	"github.com/dakriy/doorcode/internal/rule"
+	"github.com/dakriy/doorcode/internal/telemetry"
 )
 
 type ruleView struct {
@@ -91,6 +92,40 @@ func (a *App) names(ctx context.Context) (names, error) {
 	if err != nil {
 		return names{}, err
 	}
+	return a.withGroups(ctx, c)
+}
+
+// doorNames is the names d's pages and its entrants need: every group,
+// schedule, and zone, and of the doors only the one d's controller hops
+// through in the mesh, so showing one door does not read every door.
+func (a *App) doorNames(ctx context.Context, d connector.StoredDoor) (names, error) {
+	c, err := a.schedulesAndZones(ctx)
+	if err != nil {
+		return names{}, err
+	}
+	c.doors, err = a.meshParent(ctx, d)
+	if err != nil {
+		return names{}, err
+	}
+	return a.withGroups(ctx, c)
+}
+
+// meshParent is the door whose controller d's controller says it hops
+// through in the mesh, when a door has it.
+func (a *App) meshParent(ctx context.Context, d connector.StoredDoor) ([]connector.StoredDoor, error) {
+	if d.Controller == nil {
+		return nil, nil
+	}
+	parent, found, err := a.doors.ControlledBy(ctx, telemetry.MeshOf(*d.Controller).Parent)
+	if !found {
+		// A lookup that fails finds nothing, so err comes back here too.
+		return nil, err
+	}
+	return []connector.StoredDoor{parent}, nil
+}
+
+// withGroups is c with every group.
+func (a *App) withGroups(ctx context.Context, c catalog) (names, error) {
 	groups, err := a.directory.Groups(ctx)
 	return names{catalog: c, groups: groups}, err
 }
@@ -229,7 +264,7 @@ func (a *App) listEntrants(w http.ResponseWriter, r *http.Request, _ auth.User) 
 		a.internalError(w, r, err)
 		return
 	}
-	n, err := a.names(r.Context())
+	n, err := a.doorNames(r.Context(), d)
 	if err != nil {
 		a.internalError(w, r, err)
 		return

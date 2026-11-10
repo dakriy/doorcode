@@ -355,7 +355,7 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 		return
 	}
 	zone := current.Zone
-	n, err := a.names(r.Context())
+	n, err := a.doorNames(r.Context(), d.StoredDoor)
 	if err != nil {
 		a.pageError(w, r, err)
 		return

@@ -236,3 +236,20 @@ func TestADoorPageChartsItsMeshOverTheRangeChosen(t *testing.T) {
 		})
 	}
 }
+
+func TestADoorPageReadsOnlyTheDoorsItNames(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	a, b := pushSite(t, f)
+	f.BrokerStub.Inject("doorcode/doors/1/telemetry", reportOf(map[string]any{"mesh_layer": 2, "mesh_parent": "B2", "mesh_children": 1}))
+	run(t, a)
+	b.Get("/")
+	before := f.StoreStub.DoorsCalls()
+
+	page := testsupport.ParsePage(b.Get("/admin/doors/1").Body)
+
+	got := []any{page.Details["Mesh parent"], f.StoreStub.DoorsCalls()}
+	if diff := cmp.Diff([]any{"Dock", before}, got); diff != "" {
+		t.Errorf("mesh parent, reads of every door (-want +got):\n%s", diff)
+	}
+}

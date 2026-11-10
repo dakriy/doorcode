@@ -447,13 +447,14 @@ func TestTelemetryPagesAndTheAPIFailWhenTheStoreDoes(t *testing.T) {
 		fail   func(f *testsupport.Factory)
 		target string
 	}{
-		"a door page's reports": {func(f *testsupport.Factory) { f.StoreStub.FailTelemetry() }, "/admin/doors/1"},
-		"a door page's rollups": {func(f *testsupport.Factory) { f.StoreStub.FailTelemetry() }, "/admin/doors/1?range=30d"},
-		"the reports API":       {func(f *testsupport.Factory) { f.StoreStub.FailTelemetry() }, "/api/v1/doors/1/telemetry"},
-		"the rollups API":       {func(f *testsupport.Factory) { f.StoreStub.FailTelemetry() }, "/api/v1/doors/1/telemetry/hourly"},
-		"the state API":         {func(f *testsupport.Factory) { f.StoreStub.FailDoors() }, "/api/v1/doors/1/state"},
-		"the mesh page":         {func(f *testsupport.Factory) { f.StoreStub.FailDoors() }, "/admin/mesh"},
-		"the mesh API":          {func(f *testsupport.Factory) { f.StoreStub.FailDoors() }, "/api/v1/mesh"},
+		"a door page's reports":     {func(f *testsupport.Factory) { f.StoreStub.FailTelemetry() }, "/admin/doors/1"},
+		"a door page's rollups":     {func(f *testsupport.Factory) { f.StoreStub.FailTelemetry() }, "/admin/doors/1?range=30d"},
+		"a door page's mesh parent": {func(f *testsupport.Factory) { f.StoreStub.FailControllerReads() }, "/admin/doors/1"},
+		"the reports API":           {func(f *testsupport.Factory) { f.StoreStub.FailTelemetry() }, "/api/v1/doors/1/telemetry"},
+		"the rollups API":           {func(f *testsupport.Factory) { f.StoreStub.FailTelemetry() }, "/api/v1/doors/1/telemetry/hourly"},
+		"the state API":             {func(f *testsupport.Factory) { f.StoreStub.FailDoors() }, "/api/v1/doors/1/state"},
+		"the mesh page":             {func(f *testsupport.Factory) { f.StoreStub.FailDoors() }, "/admin/mesh"},
+		"the mesh API":              {func(f *testsupport.Factory) { f.StoreStub.FailDoors() }, "/api/v1/mesh"},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

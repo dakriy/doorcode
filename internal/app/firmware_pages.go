@@ -400,11 +400,11 @@ func (a *App) firmwareCard(ctx context.Context, viewer auth.User, d connector.St
 	if d.Controller == nil || !viewer.Has(auth.RoleManageFirmware) {
 		return nil, nil
 	}
-	plan, err := a.firmware.Plan(ctx)
+	plan, err := a.firmware.PlanOf(ctx, d)
 	if err != nil {
 		return nil, err
 	}
-	df := plan.Doors[slices.IndexFunc(plan.Doors, func(df firmware.DoorFirmware) bool { return df.Door.ID == d.ID })]
+	df := plan.Doors[0]
 	none := "Follow the default (" + versionText(plan.Default(), "none") + ")"
 	card := &doorFirmwareCard{
 		Running: firmwareText(d.Controller.FirmwareVersion), Target: versionText(df.Target, "None"), Status: statusLabels[df.Status],

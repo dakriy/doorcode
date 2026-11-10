@@ -151,7 +151,7 @@ func (a *App) doorCalendarPage(w http.ResponseWriter, r *http.Request, viewer au
 	if a.unloaded(w, r, viewer, err, door.ErrNoDoor, noDoorHere) {
 		return
 	}
-	n, err := a.names(r.Context())
+	n, err := a.doorNames(r.Context(), d)
 	if err != nil {
 		a.pageError(w, r, err)
 		return

@@ -127,8 +127,8 @@ func (a *App) catalog(ctx context.Context) (catalog, error) {
 	return catalog{schedules: c.schedules, zones: c.zones, doors: doors}, err
 }
 
-// schedulesAndZones is the catalog without its doors: enough to show one
-// door as the API does, without reading every door.
+// schedulesAndZones is the catalog without its doors: enough to show
+// doors as the API does, without reading every door.
 func (a *App) schedulesAndZones(ctx context.Context) (catalog, error) {
 	schedules, err := a.schedules.Schedules(ctx)
 	if err != nil {
@@ -230,7 +230,7 @@ func (a *App) listDoors(w http.ResponseWriter, r *http.Request, _ auth.User) {
 		a.internalError(w, r, err)
 		return
 	}
-	c, err := a.catalog(r.Context())
+	c, err := a.schedulesAndZones(r.Context())
 	if err != nil {
 		a.internalError(w, r, err)
 		return
