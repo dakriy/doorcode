@@ -292,6 +292,8 @@ func (s Service) checkClosed(ctx context.Context, doorID int64, held connector.S
 		return nil
 	}
 	since := *held.OpenedAt
+	// The opening began in an open span when the timeline holds the door
+	// open at the instant it opened, the shortest range from since.
 	spanned, err := s.openDuring(ctx, doorID, since, since.Add(time.Nanosecond))
 	if err != nil || spanned {
 		return err

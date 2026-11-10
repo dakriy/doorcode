@@ -8,23 +8,11 @@ import (
 	"github.com/dakriy/doorcode/internal/testsupport"
 )
 
-// closed is the door event Lobby's controller publishes when the door
-// closes, saying it was open for openMS milliseconds unless openMS is
-// negative.
-func closed(openMS int) []byte {
-	m := map[string]any{"v": 1, "event": "closed"}
-	if openMS >= 0 {
-		m["open_ms"] = openMS
-	}
-	return testsupport.CBOR(m)
-}
-
 // closes has Lobby's controller say the door closed after openMS
-// milliseconds, saying nothing of how long when openMS is negative, and
-// the server handle it.
+// milliseconds, and the server handle it.
 func (k *keypad) closes(openMS int) {
 	k.t.Helper()
-	k.publish("doorcode/doors/1/event", closed(openMS))
+	k.publish("doorcode/doors/1/event", testsupport.CBOR(map[string]any{"v": 1, "event": "closed", "open_ms": openMS}))
 }
 
 func TestADoorClosingIsLoggedWithHowLongItWasOpen(t *testing.T) {
@@ -33,12 +21,12 @@ func TestADoorClosingIsLoggedWithHowLongItWasOpen(t *testing.T) {
 	byReport := func(k *keypad) { k.report(map[string]any{"door_open": true}) }
 	cases := map[string]struct {
 		open, close func(k *keypad)
-		want        float64
+		want        int
 	}{
 		"a closed event saying how long":  {byEvent, func(k *keypad) { k.closes(18500) }, 18500},
-		"a closed event saying nothing":   {byEvent, func(k *keypad) { k.closes(-1) }, 20000},
+		"a closed event saying nothing":   {byEvent, func(k *keypad) { k.says("closed") }, 20000},
 		"a report of the door closed":     {byEvent, func(k *keypad) { k.report(nil) }, 20000},
-		"opened by a report, then closed": {byReport, func(k *keypad) { k.closes(-1) }, 20000},
+		"opened by a report, then closed": {byReport, func(k *keypad) { k.says("closed") }, 20000},
 		"opened and closed by reports":    {byReport, func(k *keypad) { k.report(nil) }, 20000},
 	}
 	for name, c := range cases {
@@ -51,7 +39,7 @@ func TestADoorClosingIsLoggedWithHowLongItWasOpen(t *testing.T) {
 			c.close(k)
 
 			want := testsupport.JSON(`{"id":1,"at":"2026-01-05T09:00:20Z","door":{"id":1,"name":"Lobby"},"type":"door","outcome":"info",` +
-				`"reason":"closed","open_ms":` + testsupport.Itoa(int(c.want)) + `}`)
+				`"reason":"closed","open_ms":` + testsupport.Itoa(c.want) + `}`)
 			if diff := cmp.Diff([]any{want, "closed"}, []any{k.lastEvent(), k.state("/door")}); diff != "" {
 				t.Errorf("event, door (-want +got):\n%s", diff)
 			}
@@ -65,13 +53,13 @@ func TestADoorClosingIsLoggedOnlyWhenTheServerHadItOpen(t *testing.T) {
 		arrange func(k *keypad)
 		want    []any
 	}{
-		"a closed event of a door never open":      {func(k *keypad) { k.closes(-1) }, []any{}},
+		"a closed event of a door never open":      {func(k *keypad) { k.says("closed") }, []any{}},
 		"a closed event saying how long, not open": {func(k *keypad) { k.closes(4000) }, []any{}},
 		"a report of a door never open":            {func(k *keypad) { k.report(nil) }, []any{}},
 		"a second closed event": {func(k *keypad) {
 			k.opens(true)
-			k.closes(-1)
-			k.closes(-1)
+			k.says("closed")
+			k.says("closed")
 		}, []any{"closed"}},
 		"a second report of the door closed": {func(k *keypad) {
 			k.opens(true)
@@ -135,14 +123,15 @@ func TestADoorClosingIsNotLoggedForAnOpeningThatBeganWhileItsTimelineHeldItOpen(
 func TestAClosingThatCannotBeHandledIsLoggedAndIgnored(t *testing.T) {
 	t.Parallel()
 	event, telemetry := "doorcode/doors/1/event", "doorcode/doors/1/telemetry"
+	closed := testsupport.CBOR(map[string]any{"v": 1, "event": "closed"})
 	cases := map[string]struct {
 		topic   string
 		payload []byte
 		fail    func(f *testsupport.Factory)
 	}{
-		"a closed event when settings cannot be read":  {event, closed(-1), func(f *testsupport.Factory) { f.StoreStub.FailSettings() }},
-		"a closed event when schedules cannot be read": {event, closed(-1), func(f *testsupport.Factory) { f.StoreStub.FailSchedules() }},
-		"a closed event that cannot be logged":         {event, closed(-1), func(f *testsupport.Factory) { f.StoreStub.FailEventWrites() }},
+		"a closed event when settings cannot be read":  {event, closed, func(f *testsupport.Factory) { f.StoreStub.FailSettings() }},
+		"a closed event when schedules cannot be read": {event, closed, func(f *testsupport.Factory) { f.StoreStub.FailSchedules() }},
+		"a closed event that cannot be logged":         {event, closed, func(f *testsupport.Factory) { f.StoreStub.FailEventWrites() }},
 		"a report of the door closed that cannot be logged": {
 			telemetry, reportOf(nil), func(f *testsupport.Factory) { f.StoreStub.FailEventWrites() },
 		},
