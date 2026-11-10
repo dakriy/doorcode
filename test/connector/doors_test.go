@@ -102,6 +102,36 @@ func TestStoreListsDoorsByNameIgnoringCase(t *testing.T) {
 	}
 }
 
+func TestStoreListsTheDoorsThatAreNotDeletedByName(t *testing.T) {
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			ctx := context.Background()
+			store := migrated(t, impl)
+			mustCreateDoor(t, store, plainDoor("lobby"))
+			cellar := mustCreateDoor(t, store, plainDoor("Cellar"))
+			mustCreateDoor(t, store, plainDoor("Dock"))
+			at := time.Date(2026, 2, 1, 12, 0, 0, 0, time.UTC)
+			if _, err := store.SetDoorDeleted(ctx, cellar, &at); err != nil {
+				t.Fatal(err)
+			}
+
+			current, err := store.CurrentDoors(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			var got []any
+			for _, d := range current {
+				got = append(got, []any{d.ID, d.Name})
+			}
+			want := []any{[]any{int64(3), "Dock"}, []any{int64(1), "lobby"}}
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Errorf("doors that are not deleted (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestStoreUpdatesADoorReplacingItsZones(t *testing.T) {
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {

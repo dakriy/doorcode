@@ -102,6 +102,11 @@ func (s Service) Doors(ctx context.Context) ([]connector.StoredDoor, error) {
 	return s.Store.Doors(ctx)
 }
 
+// CurrentDoors returns the doors that are not deleted, in name order.
+func (s Service) CurrentDoors(ctx context.Context) ([]connector.StoredDoor, error) {
+	return s.Store.CurrentDoors(ctx)
+}
+
 // Find returns the page of doors q selects.
 func (s Service) Find(ctx context.Context, q Query) (Page, error) {
 	all, err := s.Store.Doors(ctx)

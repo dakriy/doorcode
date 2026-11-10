@@ -79,14 +79,26 @@ func (s *Store) linkZones(doorID int64, zoneIDs []int64) {
 
 // Doors returns every door in name order.
 func (s *Store) Doors(_ context.Context) ([]connector.StoredDoor, error) {
+	return s.doorsWhere(func(connector.StoredDoor) bool { return true }), nil
+}
+
+// CurrentDoors returns the doors that are not deleted in name order.
+func (s *Store) CurrentDoors(_ context.Context) ([]connector.StoredDoor, error) {
+	return s.doorsWhere(func(d connector.StoredDoor) bool { return d.DeletedAt == nil }), nil
+}
+
+// doorsWhere returns the doors keep holds for in name order.
+func (s *Store) doorsWhere(keep func(connector.StoredDoor) bool) []connector.StoredDoor {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	doors := []connector.StoredDoor{}
 	for _, d := range s.doors {
-		doors = append(doors, s.doorOut(d))
+		if keep(d) {
+			doors = append(doors, s.doorOut(d))
+		}
 	}
 	byName(doors, func(d connector.StoredDoor) string { return d.Name }, func(d connector.StoredDoor) int64 { return d.ID })
-	return doors, nil
+	return doors
 }
 
 // Door returns the door whose id is id.

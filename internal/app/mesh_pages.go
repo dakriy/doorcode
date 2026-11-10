@@ -86,7 +86,7 @@ type meshRow struct {
 }
 
 func (a *App) meshPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	doors, err := a.doors.Doors(r.Context())
+	doors, err := a.doors.CurrentDoors(r.Context())
 	if err != nil {
 		a.pageError(w, r, err)
 		return

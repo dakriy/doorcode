@@ -68,7 +68,7 @@ func (s Service) Public(ctx context.Context, u connector.StoredUser, zone *time.
 // UserAccess returns each door that is not deleted which u reaches, in
 // name order, with u's access there from from up to to, read in zone.
 func (s Service) UserAccess(ctx context.Context, u connector.StoredUser, zone *time.Location, from, to time.Time) ([]Access, error) {
-	return s.doorsWhere(ctx, u, zone, from, to, func(_ Site, a Access) bool { return a.Door.DeletedAt == nil && a.Reached })
+	return s.doorsWhere(ctx, u, zone, from, to, func(_ Site, a Access) bool { return a.Reached })
 }
 
 // DoorAccess is u's access at d from from up to to, read in zone.
@@ -81,9 +81,9 @@ func (s Service) DoorAccess(ctx context.Context, u connector.StoredUser, d conne
 }
 
 // doorsWhere is u's access from from up to to, read in zone, at each door
-// whose access keep holds with the site as it is.
+// that is not deleted whose access keep holds with the site as it is.
 func (s Service) doorsWhere(ctx context.Context, u connector.StoredUser, zone *time.Location, from, to time.Time, keep func(Site, Access) bool) ([]Access, error) {
-	doors, err := s.Store.Doors(ctx)
+	doors, err := s.Store.CurrentDoors(ctx)
 	if err != nil {
 		return nil, err
 	}

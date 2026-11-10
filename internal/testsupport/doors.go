@@ -35,17 +35,32 @@ func (s *Store) Doors(context.Context) ([]connector.StoredDoor, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.doorsCalls++
+	return s.doorsWhere(func(connector.StoredDoor) bool { return true })
+}
+
+// CurrentDoors returns the doors that are not deleted in name order.
+func (s *Store) CurrentDoors(context.Context) ([]connector.StoredDoor, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.doorsWhere(func(d connector.StoredDoor) bool { return d.DeletedAt == nil })
+}
+
+// doorsWhere returns the doors keep holds for in name order. The caller
+// holds s.mu.
+func (s *Store) doorsWhere(keep func(connector.StoredDoor) bool) ([]connector.StoredDoor, error) {
 	if err := s.usable(doorsAggregate); err != nil {
 		return nil, err
 	}
-	all := []connector.StoredDoor{}
+	kept := []connector.StoredDoor{}
 	for _, d := range s.doors {
-		all = append(all, s.cloneDoor(d))
+		if keep(d) {
+			kept = append(kept, s.cloneDoor(d))
+		}
 	}
-	slices.SortFunc(all, func(a, b connector.StoredDoor) int {
+	slices.SortFunc(kept, func(a, b connector.StoredDoor) int {
 		return cmp.Or(strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)), cmp.Compare(a.ID, b.ID))
 	})
-	return all, nil
+	return kept, nil
 }
 
 // DoorsCalls is how many times Doors was called, so a test can show an

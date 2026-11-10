@@ -29,7 +29,7 @@ type Subject struct {
 // doors in a zone in open mode during it; for an override, its door; for
 // a zone, its doors. An id that names nothing affects no door.
 func (s Service) Affected(ctx context.Context, subject Subject) ([]int64, error) {
-	doors, err := s.Store.Doors(ctx)
+	doors, err := s.Store.CurrentDoors(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (s Service) Affected(ctx context.Context, subject Subject) ([]int64, error)
 	}
 	ids := []int64{}
 	for _, d := range doors {
-		if d.DeletedAt == nil && (d.ID == overridden || dependsOn(subject, d, zones)) {
+		if d.ID == overridden || dependsOn(subject, d, zones) {
 			ids = append(ids, d.ID)
 		}
 	}

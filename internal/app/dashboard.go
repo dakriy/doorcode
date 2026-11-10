@@ -298,7 +298,7 @@ func counted(n int, err error) (*int, error) {
 // doorAlarms counts the doors that are not deleted and are open now, and
 // those that are unresponsive, as the door list's badges say.
 func (a *App) doorAlarms(ctx context.Context) (*int, *int, error) {
-	doors, err := a.doors.Doors(ctx)
+	doors, err := a.doors.CurrentDoors(ctx)
 	open, unresponsive := 0, 0
 	for _, d := range doors {
 		if !door.Enrolled(d) {

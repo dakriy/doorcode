@@ -43,7 +43,7 @@ func (a *App) meshRoutes() []route {
 }
 
 func (a *App) getMesh(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	doors, err := a.doors.Doors(r.Context())
+	doors, err := a.doors.CurrentDoors(r.Context())
 	if err != nil {
 		a.internalError(w, r, err)
 		return

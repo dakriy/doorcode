@@ -16,6 +16,7 @@ import (
 // Store is what the dashboard's figures are read from.
 type Store interface {
 	Doors(ctx context.Context) ([]connector.StoredDoor, error)
+	CurrentDoors(ctx context.Context) ([]connector.StoredDoor, error)
 	EventStats(ctx context.Context, q connector.EventRange) (connector.StoredEventStats, error)
 	Trends(ctx context.Context, q connector.TrendQuery) ([]connector.StoredTrend, error)
 	FirmwareVersions(ctx context.Context) ([]connector.StoredVersionCount, error)
@@ -255,7 +256,7 @@ func (s Service) Health(ctx context.Context, r Range, now time.Time, zone *time.
 	if err != nil {
 		return Health{}, err
 	}
-	doors, err := s.Store.Doors(ctx)
+	doors, err := s.Store.CurrentDoors(ctx)
 	if err != nil {
 		return Health{}, err
 	}

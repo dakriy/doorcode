@@ -509,6 +509,9 @@ type DoorsStore interface {
 	// Doors returns every door, deleted ones included, ordered by name
 	// compared byte by byte after lowercasing and then by id.
 	Doors(ctx context.Context) ([]StoredDoor, error)
+	// CurrentDoors returns the doors that are not deleted, ordered as
+	// Doors orders them.
+	CurrentDoors(ctx context.Context) ([]StoredDoor, error)
 	// Door returns the door whose id is id, and whether there is one.
 	Door(ctx context.Context, id int64) (StoredDoor, bool, error)
 	// HardwareDoor returns the id of the door whose controller has

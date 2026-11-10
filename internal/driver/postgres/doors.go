@@ -53,9 +53,23 @@ func (d scannedDoor) door() connector.StoredDoor {
 	return d.StoredDoor
 }
 
+// doorsOrder orders doors by name compared byte by byte after
+// lowercasing, then by id.
+const doorsOrder = ` order by lower(doors.name) collate "C", doors.id`
+
 // Doors returns every door in name order.
 func (s *Store) Doors(ctx context.Context) ([]connector.StoredDoor, error) {
-	rows, err := s.pool.Query(ctx, `select `+doorColumns+` from `+doorTables+` order by lower(doors.name) collate "C", doors.id`)
+	return s.doorsQuery(ctx, `select `+doorColumns+` from `+doorTables+doorsOrder)
+}
+
+// CurrentDoors returns the doors without a deletion time in name order.
+func (s *Store) CurrentDoors(ctx context.Context) ([]connector.StoredDoor, error) {
+	return s.doorsQuery(ctx, `select `+doorColumns+` from `+doorTables+` where doors.deleted_at is null`+doorsOrder)
+}
+
+// doorsQuery returns the doors query selects.
+func (s *Store) doorsQuery(ctx context.Context, query string) ([]connector.StoredDoor, error) {
+	rows, err := s.pool.Query(ctx, query)
 	if err != nil {
 		return nil, err
 	}

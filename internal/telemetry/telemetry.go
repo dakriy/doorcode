@@ -363,7 +363,7 @@ func (s Service) Sweep(ctx context.Context, current settings.Current, defaults s
 // watch logs the doors held open and marks the controllers that have gone
 // unresponsive, as current says.
 func (s Service) watch(ctx context.Context, current settings.Current, defaults settings.DoorDefaults) error {
-	doors, err := s.Store.Doors(ctx)
+	doors, err := s.Store.CurrentDoors(ctx)
 	if err != nil {
 		return err
 	}

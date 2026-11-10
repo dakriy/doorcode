@@ -157,12 +157,12 @@ func (s Service) each(ctx context.Context, ids []int64, send sender) error {
 	return errors.Join(errs...)
 }
 
-// doors returns the doors whose ids are among ids, or every door when ids
-// is nil. Given ids, it reads only those doors, so a door connecting does
+// doors returns the doors whose ids are among ids, or every door that is
+// not deleted when ids is nil. Given ids, it reads only those doors, so a door connecting does
 // not read every door.
 func (s Service) doors(ctx context.Context, ids []int64) ([]connector.StoredDoor, error) {
 	if ids == nil {
-		return s.Store.Doors(ctx)
+		return s.Store.CurrentDoors(ctx)
 	}
 	doors := []connector.StoredDoor{}
 	for _, id := range ids {

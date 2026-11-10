@@ -209,7 +209,7 @@ func (s Service) Reachable(ctx context.Context, groups []connector.UserGroup) ([
 	out := []DoorAccess{}
 	for _, d := range doors {
 		reaching := ReachingFrom(d, groups, rules)
-		if d.DeletedAt == nil && len(reaching) > 0 {
+		if len(reaching) > 0 {
 			out = append(out, DoorAccess{Door: d, Rules: reaching})
 		}
 	}
@@ -229,8 +229,10 @@ func ReachingFrom(d connector.StoredDoor, groups []connector.UserGroup, rules []
 	return out
 }
 
+// doorsAndRules returns the doors that are not deleted and every access
+// rule.
 func (s Service) doorsAndRules(ctx context.Context) ([]connector.StoredDoor, []connector.StoredRule, error) {
-	doors, err := s.Store.Doors(ctx)
+	doors, err := s.Store.CurrentDoors(ctx)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -424,6 +424,24 @@ func TestApprovingAControllerAsAnotherDoorReadsOnlyTheDoorsItChanges(t *testing.
 	}
 }
 
+func TestApprovingAControllerAsAnotherDoorThroughTheAPIReadsOnlyTheDoorsItChanges(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	a, b, _, _ := enrolledDoor(t, f)
+	createDoor(t, b, `{"name":"Dock"}`)
+	announce(t, f, "A1")
+	run(t, a)
+	before := f.StoreStub.DoorsCalls()
+
+	approved := b.PostJSON("/api/v1/enrollments/A1/approve", `{"door_id":2}`)
+
+	got := []any{approved.Status, testsupport.JSONAt(approved.Body, "/id"), testsupport.JSONAt(approved.Body, "/name"),
+		testsupport.JSONAt(approved.Body, "/controller/hardware_id"), f.StoreStub.DoorsCalls()}
+	if diff := cmp.Diff([]any{200, 2.0, "Dock", "A1", before}, got); diff != "" {
+		t.Errorf("status, door id, name, controller, reads of every door (-want +got):\n%s", diff)
+	}
+}
+
 func TestApprovingAControllerAsAnotherDoorReplacesThatDoorsController(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
