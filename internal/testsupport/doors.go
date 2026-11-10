@@ -71,6 +71,21 @@ func (s *Store) Door(_ context.Context, id int64) (connector.StoredDoor, bool, e
 	return s.cloneDoor(*held), true, nil
 }
 
+// HardwareDoor returns the id of the door whose controller has hardwareID.
+func (s *Store) HardwareDoor(_ context.Context, hardwareID string) (int64, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.writable(doorsAggregate, controllerReads); err != nil {
+		return 0, false, err
+	}
+	for _, d := range s.doors {
+		if d.Controller != nil && d.Controller.HardwareID == hardwareID {
+			return d.ID, true, nil
+		}
+	}
+	return 0, false, nil
+}
+
 // CreateDoor stores d with the next id, without a primary picture.
 func (s *Store) CreateDoor(_ context.Context, d connector.StoredDoor) (int64, error) {
 	s.mu.Lock()
@@ -545,6 +560,12 @@ func (s *Store) FailPrimaryPictures() {
 // ErrUnavailable, while doors can still be changed otherwise.
 func (s *Store) FailControllerWrites() {
 	s.failing[controllerWrites] = true
+}
+
+// FailControllerReads makes HardwareDoor report ErrUnavailable, while
+// doors can still be read otherwise.
+func (s *Store) FailControllerReads() {
+	s.failing[controllerReads] = true
 }
 
 // FailZones makes the zone methods report ErrUnavailable.

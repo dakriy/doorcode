@@ -407,6 +407,23 @@ func TestApprovingAControllerAsAnotherDoorTakesItOffTheDoorItWas(t *testing.T) {
 	}
 }
 
+func TestApprovingAControllerAsAnotherDoorReadsOnlyTheDoorsItChanges(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	a, b, _, _ := enrolledDoor(t, f)
+	createDoor(t, b, `{"name":"Dock"}`)
+	announce(t, f, "A1")
+	run(t, a)
+	before := f.StoreStub.DoorsCalls()
+
+	approved := b.Post("/admin/enrollments/A1/door", "door_id", "2")
+
+	got := []any{approved.Status, f.StoreStub.DoorsCalls()}
+	if diff := cmp.Diff([]any{303, before}, got); diff != "" {
+		t.Errorf("status, reads of every door (-want +got):\n%s", diff)
+	}
+}
+
 func TestApprovingAControllerAsAnotherDoorReplacesThatDoorsController(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
@@ -445,6 +462,7 @@ func TestApprovalFails(t *testing.T) {
 	t.Parallel()
 	cases := map[string]func(f *testsupport.Factory){
 		"when doors cannot be read":                  func(f *testsupport.Factory) { f.StoreStub.FailDoors() },
+		"when controllers cannot be read":            func(f *testsupport.Factory) { f.StoreStub.FailControllerReads() },
 		"when credentials cannot be read":            func(f *testsupport.Factory) { f.StoreStub.FailCredentials() },
 		"when the broker refuses the client":         func(f *testsupport.Factory) { f.BrokerStub.FailCreating() },
 		"when the credentials cannot be stored":      func(f *testsupport.Factory) { f.StoreStub.FailCredentialWrites() },
@@ -498,6 +516,21 @@ func TestApprovalFailsWhenTheOldDoorCannotLoseItsController(t *testing.T) {
 
 	if diff := cmp.Diff([]any{500, "A1"}, []any{got.Status, testsupport.JSONString(b.Get("/api/v1/doors/1").Body, "/controller/hardware_id")}); diff != "" {
 		t.Errorf("status, first door's controller (-want +got):\n%s", diff)
+	}
+}
+
+func TestFailedApprovalAsTheDoorTheControllerIsLeavesItTheController(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	a, b, _, _ := enrolledDoor(t, f)
+	announce(t, f, "A1")
+	run(t, a)
+	f.BrokerStub.FailCreating()
+
+	got := b.PostJSON("/api/v1/enrollments/A1/approve", `{"door_id":1}`)
+
+	if diff := cmp.Diff([]any{500, "A1"}, []any{got.Status, testsupport.JSONString(b.Get("/api/v1/doors/1").Body, "/controller/hardware_id")}); diff != "" {
+		t.Errorf("status, door's controller (-want +got):\n%s", diff)
 	}
 }
 

@@ -300,22 +300,23 @@ func (s Service) Approve(ctx context.Context, e Enrollment, doorID int64) error 
 // with hardware id hwid: the door must exist and not be deleted, its
 // credentials stop working, and a door the controller was loses it.
 func (s Service) vacate(ctx context.Context, hwid string, doorID int64) error {
-	doors, err := s.Store.Doors(ctx)
+	d, found, err := s.Store.Door(ctx, doorID)
 	if err != nil {
 		return err
 	}
-	i := slices.IndexFunc(doors, func(d connector.StoredDoor) bool { return d.ID == doorID })
-	if i < 0 {
+	if !found {
 		return door.ErrNoDoor
 	}
-	if doors[i].DeletedAt != nil {
+	if d.DeletedAt != nil {
 		return ErrDeleted
 	}
-	for _, d := range doors {
-		if d.ID != doorID && d.Controller != nil && d.Controller.HardwareID == hwid {
-			if err := s.detach(ctx, d.ID); err != nil {
-				return err
-			}
+	was, found, err := s.Store.HardwareDoor(ctx, hwid)
+	if err != nil {
+		return err
+	}
+	if found && was != doorID {
+		if err := s.detach(ctx, was); err != nil {
+			return err
 		}
 	}
 	return s.revokeDoor(ctx, doorID)

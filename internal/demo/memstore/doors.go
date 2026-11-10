@@ -100,6 +100,18 @@ func (s *Store) Door(_ context.Context, id int64) (connector.StoredDoor, bool, e
 	return s.doorOut(d), true, nil
 }
 
+// HardwareDoor returns the id of the door whose controller has hardwareID.
+func (s *Store) HardwareDoor(_ context.Context, hardwareID string) (int64, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, d := range s.doors {
+		if d.Controller != nil && d.Controller.HardwareID == hardwareID {
+			return d.ID, true, nil
+		}
+	}
+	return 0, false, nil
+}
+
 // CreateDoor stores d and returns its id.
 func (s *Store) CreateDoor(_ context.Context, d connector.StoredDoor) (int64, error) {
 	s.mu.Lock()

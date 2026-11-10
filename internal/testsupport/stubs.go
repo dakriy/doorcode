@@ -178,6 +178,7 @@ type Store struct {
 	nextSched    int64
 	doors        []connector.StoredDoor
 	nextDoor     int64
+	doorsCalls   int
 	pictures     []storedPicture
 	nextPicture  int64
 	zones        []connector.StoredZone
@@ -199,7 +200,6 @@ type Store struct {
 	migrateErr   error
 	pingErr      error
 	failing      map[aggregate]bool
-	doorsCalls   int
 }
 
 type aggregate int
@@ -228,6 +228,7 @@ const (
 	credentialsAggregate
 	credentialWrites
 	controllerWrites
+	controllerReads
 	eventsAggregate
 	eventWrites
 	eventReads

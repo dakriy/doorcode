@@ -89,6 +89,24 @@ func TestStoreKeepsADoorsControllerWhenTheDoorIsUpdated(t *testing.T) {
 	}
 }
 
+func TestStoreFindsTheDoorWithAHardwareID(t *testing.T) {
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			store := migrated(t, impl)
+			mustCreateDoor(t, store, plainDoor("Lobby"))
+			dock := mustCreateDoor(t, store, plainDoor("Dock"))
+			mustSetController(t, store, dock, controllerOf("A1"))
+
+			id, found, err := store.HardwareDoor(context.Background(), "A1")
+			_, foundOther, otherErr := store.HardwareDoor(context.Background(), "B2")
+
+			if diff := cmp.Diff([]any{dock, true, nil, false, nil}, []any{id, found, err, foundOther, otherErr}); diff != "" {
+				t.Errorf("A1's door, found, error, B2 found, error (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestStoreRefusesAHardwareIDAnotherDoorHas(t *testing.T) {
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {

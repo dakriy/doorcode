@@ -74,6 +74,13 @@ func (s *Store) Door(ctx context.Context, id int64) (connector.StoredDoor, bool,
 	return found(d.door(), err)
 }
 
+// HardwareDoor returns the id of the door whose controller has hardwareID.
+func (s *Store) HardwareDoor(ctx context.Context, hardwareID string) (int64, bool, error) {
+	var id int64
+	err := s.pool.QueryRow(ctx, `select door_id from door_controllers where hardware_id = $1`, hardwareID).Scan(&id)
+	return found(id, err)
+}
+
 // SetController stores c as the controller of the door with id, or removes
 // its controller when c is nil.
 func (s *Store) SetController(ctx context.Context, id int64, c *connector.StoredController) (bool, error) {
