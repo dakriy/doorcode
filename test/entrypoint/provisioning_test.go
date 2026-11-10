@@ -258,7 +258,7 @@ func TestADoorsPageWarnsWhileNoProvisioningFileCanBeMadeForIt(t *testing.T) {
 	}{
 		"without a host, over TLS without a certificate": {`{}`, [][]string{{host, "", "", hostNote}, {ca, "", "", brokerNote}}},
 		"with a host, without TLS": {`{"broker_host":"mqtt.example.com","broker_tls":"false"}`,
-			[][]string{{host, "", "", "mqtt.example.com"}, {ca, "", "", ""}}},
+			[][]string{{host, "", "", "mqtt.example.com Overridden"}, {ca, "", "", ""}}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

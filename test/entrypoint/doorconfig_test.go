@@ -284,9 +284,9 @@ func TestARefusedDoorSettingSaysWhatItTakes(t *testing.T) {
 
 // configTable is the configuration table of the page of a door that
 // follows the site's defaults, but for the overrides and the values in
-// effect changed names, by field; the broker's host warns while it is
-// empty, and its certificate while it is missing though the door connects
-// over TLS.
+// effect changed names, by field, each marked overridden; the broker's
+// host warns while it is empty, and its certificate while it is missing
+// though the door connects over TLS.
 func configTable(changed map[string][2]string) [][]string {
 	rows := [][]string{{"Setting", "Site default", "This door", "In effect"}}
 	tls := ""
@@ -352,7 +352,7 @@ func configTable(changed map[string][2]string) [][]string {
 	} {
 		effective := f.value
 		if c, ok := changed[f.name]; ok {
-			effective = c[1]
+			effective = c[1] + " Overridden"
 		}
 		if f.name == "broker_tls" {
 			tls = effective
@@ -426,6 +426,133 @@ func TestSavingTheConfigurationOfADoorThatIsNotThereIsNotFound(t *testing.T) {
 
 	if diff := cmp.Diff(404, got.Status); diff != "" {
 		t.Errorf("status (-want +got):\n%s", diff)
+	}
+}
+
+// threeOverrides overrides three of a door's settings, a secret among
+// them.
+const threeOverrides = `{"overrides":{"strike_pulse_ms":"500","log_level":"debug","wifi_password":"hunter2 now"}}`
+
+// countingThree is nav with the Configuration tab counting three
+// overrides.
+func countingThree(nav []string) []string {
+	out := []string{}
+	for _, item := range nav {
+		switch item {
+		case "Configuration":
+			item = "Configuration 3 overridden"
+		case "Configuration (current)":
+			item = "Configuration 3 overridden (current)"
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+func TestADoorsPageCountsTheSettingsItOverrides(t *testing.T) {
+	t.Parallel()
+	cases := map[string]struct {
+		overrides, tab string
+		want           []any
+	}{
+		"none": {`{"overrides":{}}`, "configuration",
+			[]any{doorNav("Configuration", true), []string{"Follows the site defaults", hostNote, brokerNote}}},
+		"three": {threeOverrides, "configuration",
+			[]any{countingThree(doorNav("Configuration", true)), []string{"3 of 29 settings overridden", hostNote, brokerNote}}},
+		"three, from another tab": {threeOverrides, "details",
+			[]any{countingThree(doorNav("Details", true)), []string{picturesNote,
+				"Never in open mode: none of its zones has an open-mode schedule. Open-mode schedules are set on each zone's page.",
+				"There are no zones yet. Create one on the zones page."}}},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			_, b, _, _ := enrolledDoor(t, testsupport.NewFactory())
+			send(t, b, "PUT", "/api/v1/doors/1/config", c.overrides, 200)
+
+			page := doorPage(t, b, "/admin/doors/1?tab="+c.tab)
+
+			if diff := cmp.Diff(c.want, []any{page.Nav, page.Notes}); diff != "" {
+				t.Errorf("navigation, notes (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestADoorsPageMarksEachSettingItOverrides(t *testing.T) {
+	t.Parallel()
+	_, b, _, _ := enrolledDoor(t, testsupport.NewFactory())
+	send(t, b, "PUT", "/api/v1/doors/1/config", threeOverrides, 200)
+
+	rows := doorPage(t, b, "/admin/doors/1?tab=configuration").Tables["Configuration"]
+
+	want := [][]string{{"500 Overridden"}, {"******** Overridden"}, {"300"}}
+	got := [][]string{rows[strikePulseRow][3:], rows[wifiPasswordRow][3:], rows[connectTimeoutRow][3:]}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("in effect of strike pulse, Wi-Fi password, connect timeout (-want +got):\n%s", diff)
+	}
+}
+
+func TestUsingTheSiteDefaultsFromADoorsPageRemovesEveryOverrideAndSendsTheConfiguration(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	_, b, _, _ := enrolledDoor(t, f)
+	send(t, b, "PUT", "/api/v1/doors/1/config", threeOverrides, 200)
+	asked := testsupport.Confirmations(b.Get("/admin/doors/1?tab=configuration").Body)["/admin/doors/1/config/defaults"]
+
+	got := b.Post("/admin/doors/1/config/defaults")
+	page := pageOf(b.Get(got.Location))
+
+	want := []any{"Use site defaults: Return Lobby to the site defaults? Every setting overridden here is removed, secrets included, and its controller is sent the new configuration.",
+		303, "/admin/doors/1?tab=configuration",
+		[]string{"The door follows the site defaults again, and its configuration has been sent to its controller."},
+		map[string]any{}, configWith(nil)}
+	if diff := cmp.Diff(want, []any{asked, got.Status, got.Location, page.Messages,
+		testsupport.JSONAt(b.Get("/api/v1/doors/1/config").Body, "/overrides"), f.BrokerStub.RetainedDecoded(doorTopic("1", "config"))}); diff != "" {
+		t.Errorf("question, status, location, messages, overrides, configuration sent (-want +got):\n%s", diff)
+	}
+}
+
+func TestUsingTheSiteDefaultsNeedsTheManageDoorsRoleAndADoor(t *testing.T) {
+	t.Parallel()
+	cases := map[string]struct {
+		roles, target string
+		status        int
+	}{
+		"a door commander":         {`["door-commander"]`, "/admin/doors/1/config/defaults", 403},
+		"a door that is not there": {"", "/admin/doors/9/config/defaults", 404},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			f := testsupport.NewFactory()
+			_, b, _, _ := enrolledDoor(t, f)
+			send(t, b, "PUT", "/api/v1/doors/1/config", threeOverrides, 200)
+			if c.roles != "" {
+				holdingOnly(t, f, b, c.roles)
+			}
+			b.Get("/")
+
+			got := b.Post(c.target)
+
+			if diff := cmp.Diff([]any{c.status, "500"}, []any{got.Status, storedOverride(t, f, 1, "strike_pulse_ms")}); diff != "" {
+				t.Errorf("status, strike pulse stored (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestAnEmptyObjectOfOverridesReturnsADoorToTheSiteDefaults(t *testing.T) {
+	t.Parallel()
+	b := signedInAdmin(t, testsupport.NewFactory())
+	createDoor(t, b, frontDoor)
+	send(t, b, "PUT", "/api/v1/doors/1/config", threeOverrides, 200)
+
+	got := b.PutJSON("/api/v1/doors/1/config", `{"overrides":{}}`)
+
+	want := testsupport.Response{Status: 200, ContentType: jsonType, Body: `{"effective":` + defaultConfigJSON + `,"overrides":{}}` + "\n"}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("response (-want +got):\n%s", diff)
 	}
 }
 

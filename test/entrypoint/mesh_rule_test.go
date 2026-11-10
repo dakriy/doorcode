@@ -174,7 +174,7 @@ func TestADoorWhoseMeshIsLeftOpenIsSentItOff(t *testing.T) {
 
 	send(t, b, "PUT", "/api/v1/settings/door_mesh_password", `{"clear":true}`, 200)
 
-	want := []any{true, false, false, false, []string{meshLabel, "false", "", "true " + meshWarning(noMeshPassword)}}
+	want := []any{true, false, false, false, []string{meshLabel, "false", "", "true Overridden " + meshWarning(noMeshPassword)}}
 	got := []any{on, sentConfig(f, "1", "mesh_enabled"), testsupport.JSONAt(b.Get("/api/v1/doors/1/config").Body, "/effective/mesh_enabled"),
 		testsupport.JSONAt(b.Get("/api/v1/doors/1/provisioning").Body, "/door_config/mesh_enabled"),
 		doorPage(t, b, "/admin/doors/1?tab=configuration").Tables["Configuration"][meshRow]}

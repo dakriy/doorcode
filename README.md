@@ -242,7 +242,9 @@ single sign-on and identity claims parts while `oidc_enabled` is off.
 Door configuration defaults are settings named `door_` followed by the field
 name (so `DOORCODE_DOOR_STRIKE_PULSE_MS` sets the strike pulse of every door
 that does not override it). A door's page overrides any of them for that
-door, and doors receive a change at once. Both pages say under each field
+door, and doors receive a change at once; it marks each setting the door
+overrides, counts them, and offers Use site defaults to remove them all.
+Both pages say under each field
 what it does and what values it takes, the fields in six groups under a
 heading each, in the order of the table below: Keypad and strike, Server,
 Broker, Wi-Fi, Mesh, and Firmware. `docs/controller.md` section 9 has the

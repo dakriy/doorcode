@@ -50,7 +50,7 @@ type doorConfigBody struct {
 }
 
 type doorConfigRequest struct {
-	Overrides map[string]string `json:"overrides" doc:"The door's own values, each keyed by the name of a field of the effective configuration; the site's defaults apply to the fields left out. They replace the overrides the door had. A secret given as ******** keeps the value the door has for it."`
+	Overrides map[string]string `json:"overrides" doc:"The door's own values, each keyed by the name of a field of the effective configuration; the site's defaults apply to the fields left out. They replace the overrides the door had, so an empty object returns the door to the site's defaults. A secret given as ******** keeps the value the door has for it."`
 }
 
 func (a *App) doorConfigRoutes() []route {
@@ -59,6 +59,7 @@ func (a *App) doorConfigRoutes() []route {
 	ok := openapi.Response{Status: http.StatusOK, Description: "The door's configuration.", Body: doorConfigBody{}}
 	return []route{
 		pageRoute(http.MethodPost, "/admin/doors/{id}/config", doors, a.configureDoorFromForm),
+		pageRoute(http.MethodPost, "/admin/doors/{id}/config/defaults", doors, a.defaultDoorConfigFromForm),
 		apiRoute(http.MethodGet, "/doors/{id}/config", doors, a.getDoorConfig, apiDoc{
 			id: "getDoorConfig", summary: "Read a door's configuration", tag: "doors", params: params,
 			responses: []openapi.Response{ok, noDoor},
@@ -160,6 +161,17 @@ func configRows(d connector.StoredDoor, defaults settings.DoorDefaults, entered 
 	return rows
 }
 
+// overriddenRows is how many of rows the door has its own value for.
+func overriddenRows(rows []configRow) int {
+	count := 0
+	for _, row := range rows {
+		if row.Set {
+			count++
+		}
+	}
+	return count
+}
+
 // readDoorConfig reads the overrides the configuration form posts for a
 // door whose overrides are stored: each field given a value, trimmed
 // unless it is a secret, and each secret the door has that is left blank
@@ -198,4 +210,15 @@ func (a *App) configureDoorFromForm(w http.ResponseWriter, r *http.Request, view
 		return
 	}
 	a.changed(w, r, err, doorTabPath(d.ID, doorConfiguration), "door-config-saved")
+}
+
+// defaultDoorConfigFromForm removes every override of the door the path
+// names, so it follows the site's defaults, and sends it its configuration.
+func (a *App) defaultDoorConfigFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
+	d, ok := a.pageDoor(w, r, viewer)
+	if !ok {
+		return
+	}
+	_, err := a.configureDoor(r.Context(), d.ID, map[string]string{})
+	a.changed(w, r, err, doorTabPath(d.ID, doorConfiguration), "door-config-defaults")
 }

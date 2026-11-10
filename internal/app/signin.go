@@ -56,6 +56,7 @@ var flashes = map[string]string{
 	"door-firmware-saved":    "The door's firmware has been saved. The rollout sends it in the next update window.",
 	"update-sent":            "The update has been sent. The door installs it, restarts, and connects again with the new version.",
 	"door-config-saved":      "The door's configuration has been saved and sent to its controller.",
+	"door-config-defaults":   "The door follows the site defaults again, and its configuration has been sent to its controller.",
 	"settings-saved":         "The settings have been saved. Doors receive changed configuration defaults right away.",
 	"sign-in-image-saved":    "The sign-in page shows the new picture.",
 	"sign-in-image-removed":  "The sign-in page shows no picture.",

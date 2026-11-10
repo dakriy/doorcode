@@ -286,8 +286,10 @@ type doorContent struct {
 	// and Credentials the credentials its controllers were issued.
 	Controller  *controllerRow
 	Credentials []credentialRow
-	// Config is each field of the door's configuration.
-	Config []configRow
+	// Config is each field of the door's configuration, and Overridden
+	// how many of them the door has its own value for.
+	Config     []configRow
+	Overridden int
 	// Alert is a refusal to show above everything else.
 	Alert          string
 	MaxPictureMB   int
@@ -395,15 +397,17 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 	}
 	tabs := doorTabsFor(viewer, d.StoredDoor)
 	tab = tabNamed(tabs, tab.Slug)
+	rows := configRows(d.StoredDoor, defaults, form.Config)
+	overridden := overriddenRows(rows)
 	content := doorContent{
-		Tab: tab.Slug, Tabs: stripOf("Door tabs", doorPath(d.ID), tabs, tab), Here: doorHere(r, d.ID, tab),
+		Tab: tab.Slug, Tabs: stripOf("Door tabs", doorPath(d.ID), tabs, tab).counting(doorConfiguration, overridden, "overridden"), Here: doorHere(r, d.ID, tab),
 		Manage: viewer.Has(auth.RoleManageDoors), Opens: holds(viewer, opensDoors), Provisions: viewer.Has(auth.RoleManageFirmware), Back: doorPageBack(viewer),
 		Events: events, StrikeMS: config.StrikePulseMS, State: state, Firmware: card,
 		Door: d.StoredDoor, Row: n.rowOfDoor(d.StoredDoor), Form: form, Alert: alert,
 		Entrants: []entrantRow{}, Overrides: []overrideRow{},
 		Zones:      zoneChoices(n.zones, form.ZoneIDs),
 		Controller: rowOfController(d.Controller), Credentials: credentialRows(creds, zone),
-		Config:       configRows(d.StoredDoor, defaults, form.Config),
+		Config: rows, Overridden: overridden,
 		MaxPictureMB: picture.Megabytes(), MaxPictureSide: picture.MaxSide, PortalPictures: current.PortalDoorPictures,
 	}
 	for i, p := range d.pictures {

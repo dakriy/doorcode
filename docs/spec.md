@@ -390,7 +390,15 @@ reboot buttons, and recent events), Access (who can enter, and the overrides
 with a new one), Controller (the controller, its credentials with rotate and
 revoke, and its firmware with update now),
 Configuration (the door's overrides of the site's defaults, once a
-controller is enrolled), and Details (name, location, notes, and whether the
+controller is enrolled: each row the door overrides, a secret included,
+has an Overridden badge beside its value in effect, which is shaded as the
+door's own; the card's heading says how many settings are overridden, "3
+of 29 settings overridden", or that the door follows the site defaults;
+the tab in the strip shows the count as a badge while it is above zero;
+and while any override exists a Use site defaults button, after asking,
+removes every override, secrets included, sends the door its new
+configuration, and comes back to the tab saying so, as
+`PUT /api/v1/doors/{id}/config` with `{"overrides": {}}` does), and Details (name, location, notes, and whether the
 portal shows it, the zones and the open mode they give it, pictures, and deleting
 the door); the tab is in the address (`/admin/doors/{id}?tab=` `overview`,
 `access`, `controller`, `configuration`, or `details`; none, an unknown one,

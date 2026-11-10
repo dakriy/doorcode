@@ -240,7 +240,7 @@ func TestOpenAPIDerivesBodySchemasFromTheWireTypes(t *testing.T) {
 				"description": "Every setting, in display order."}}},
 		{"type": "object", "required": ["overrides"], "properties": {
 			"overrides": {"type": "object", "additionalProperties": {"type": "string"},
-				"description": "The door's own values, each keyed by the name of a field of the effective configuration; the site's defaults apply to the fields left out. They replace the overrides the door had. A secret given as ******** keeps the value the door has for it."}}}
+				"description": "The door's own values, each keyed by the name of a field of the effective configuration; the site's defaults apply to the fields left out. They replace the overrides the door had, so an empty object returns the door to the site's defaults. A secret given as ******** keeps the value the door has for it."}}}
 	]`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("schemas (-want +got):\n%s", diff)

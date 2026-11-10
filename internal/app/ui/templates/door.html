@@ -298,11 +298,22 @@
 {{end}}
 {{else if eq $c.Tab "configuration"}}
 {{$errors := $c.Form.Errors}}
-<form method="post" action="/admin/doors/{{$d.ID}}/config" novalidate hx-disabled-elt="find button" aria-labelledby="config-heading" class="mt-6 overflow-hidden {{template "card-class"}}">
-  <div class="px-6 pt-6">
-    <h2 id="config-heading" class="text-sm font-semibold">Configuration</h2>
-    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">The controller runs with the site's defaults from the settings, except where a value is given here. Leave a field empty to follow the default. Saving sends the configuration to the controller.</p>
+<section aria-labelledby="config-heading" class="mt-6 overflow-hidden {{template "card-class"}}">
+  <div class="flex flex-col gap-4 px-6 pt-6 sm:flex-row sm:items-start sm:justify-between">
+    <div class="min-w-0">
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <h2 id="config-heading" class="text-sm font-semibold">Configuration</h2>
+        <p role="note" class="text-xs font-medium {{if $c.Overridden}}text-brand-700 dark:text-brand-300{{else}}text-zinc-500 dark:text-zinc-400{{end}}">{{if $c.Overridden}}{{$c.Overridden}} of {{len $c.Config}} settings overridden{{else}}Follows the site defaults{{end}}</p>
+      </div>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">The controller runs with the site's defaults from the settings, except where a value is given here. Leave a field empty to follow the default. Saving sends the configuration to the controller.</p>
+    </div>
+    {{if $c.Overridden}}
+    <form method="post" action="/admin/doors/{{$d.ID}}/config/defaults" hx-confirm="Return {{$d.Name}} to the site defaults? Every setting overridden here is removed, secrets included, and its controller is sent the new configuration." hx-disabled-elt="find button" class="shrink-0">
+      <button type="submit" class="{{template "danger-class"}} py-2">Use site defaults</button>
+    </form>
+    {{end}}
   </div>
+  <form method="post" action="/admin/doors/{{$d.ID}}/config" novalidate hx-disabled-elt="find button">
   <div class="mt-5 overflow-x-auto">
     <table aria-label="Configuration" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
       <thead class="{{template "table-head-class"}}">
@@ -330,7 +341,8 @@
             {{end}}
             {{if $error}}<p id="{{.Name}}-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$error}}</p>{{end}}
           </td>
-          <td class="px-6 py-3 align-top font-mono text-xs whitespace-nowrap"><span class="block max-w-48 truncate">{{.Effective}}</span>
+          <td class="px-6 py-3 align-top font-mono text-xs whitespace-nowrap{{if .Set}} bg-brand-50 font-semibold text-brand-800 dark:bg-brand-950/40 dark:text-brand-200{{end}}"><span class="block max-w-48 truncate">{{.Effective}}</span>
+            {{if .Set}}<span class="mt-1.5 inline-flex font-sans">{{template "badge" "Overridden"}}</span>{{end}}
             {{with .Warning}}<p role="note" class="mt-2 max-w-64 font-sans text-xs whitespace-normal text-amber-700 dark:text-amber-300">{{.}}</p>{{end}}
           </td>
         </tr>
@@ -341,7 +353,8 @@
   <div class="flex justify-end border-t border-zinc-200 px-6 py-4 dark:border-zinc-800">
     <button type="submit" class="{{template "primary-class"}}">Save configuration</button>
   </div>
-</form>
+  </form>
+</section>
 {{else if eq $c.Tab "details"}}
 <div class="mt-6 grid gap-8 lg:grid-cols-3">
   <div class="space-y-8 lg:col-span-2">

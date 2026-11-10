@@ -10,8 +10,10 @@ import (
 
 // Rows of the configuration table of a door's page, counting its head
 // and the headings of the groups before them:
-// the Wi-Fi password and how long new firmware may take to connect.
+// the strike pulse, the Wi-Fi password, and how long new firmware may take
+// to connect.
 const (
+	strikePulseRow    = 2
 	wifiPasswordRow   = 25
 	connectTimeoutRow = 34
 )
@@ -114,7 +116,7 @@ func TestADoorsPageMasksItsSecretAndOffersToClearIt(t *testing.T) {
 
 	page := doorPage(t, b, "/admin/doors/1?tab=configuration")
 
-	want := []any{[]string{"Wi-Fi password " + "The Wi-Fi network's password. It is stored encrypted and sent to nobody but the door. A password of up to 63 bytes.", "", "Clear", "********"}, ""}
+	want := []any{[]string{"Wi-Fi password " + "The Wi-Fi network's password. It is stored encrypted and sent to nobody but the door. A password of up to 63 bytes.", "", "Clear", "******** Overridden"}, ""}
 	if diff := cmp.Diff(want, []any{page.Tables["Configuration"][wifiPasswordRow], page.Values["wifi_password"]}); diff != "" {
 		t.Errorf("row, input (-want +got):\n%s", diff)
 	}
@@ -232,8 +234,8 @@ func TestADoorsPageWarnsWhenItsNewFirmwareMayRevertAfterTheUpdateTimeout(t *test
 		override string
 		want     []string
 	}{
-		"as long as the update timeout":  {"1200", []string{label, "300", "", "1200"}},
-		"longer than the update timeout": {"1201", []string{label, "300", "", "1201 " + revertWarning("20", "1200")}},
+		"as long as the update timeout":  {"1200", []string{label, "300", "", "1200 Overridden"}},
+		"longer than the update timeout": {"1201", []string{label, "300", "", "1201 Overridden " + revertWarning("20", "1200")}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
