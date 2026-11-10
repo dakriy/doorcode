@@ -600,7 +600,13 @@ From these the server derives:
     within `strike_pulse_ms` + `reply_timeout_ms` before it (no allowed
     check or keypad command, no `open` command from the administration,
     no open span), so send `opened` as soon as the sensor sees it;
-- **held open:** open for `held_open_s` or longer.
+- **held open:** open for `held_open_s` or longer while it should be
+  locked. Time in an open span of the door's timeline (open mode or an open
+  override) does not count: the count starts when the door opened or when
+  the latest open span ended, whichever is later, so a door propped open
+  through open mode is not held open there, and one still open when the
+  span ends is held open `held_open_s` after its end. A locked override is
+  not an open span. One event per stretch.
 - **closed:** whenever the door goes from open to closed in the server's
   state, by a `closed` event or by a report with `door_open` false, one
   event saying how long it was open: `open_ms` when the message carries

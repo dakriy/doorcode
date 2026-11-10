@@ -97,6 +97,12 @@ func pastEvents(rng *rand.Rand, start, now time.Time) []connector.StoredEvent {
 		}
 		events = append(events, occasional(rng, day)...)
 	}
+	// An open override holds the workshop open for its delivery, so it is
+	// not held open from then on.
+	deliveryStart, _ := delivery(now)
+	events = slices.DeleteFunc(events, func(e connector.StoredEvent) bool {
+		return e.DoorID == workshop && e.Reason == event.HeldOpen && !e.At.Before(deliveryStart)
+	})
 	events = append(events, closings(rng, events)...)
 	events = append(events, pastUpdates(now)...)
 	events = append(events, pastStarts(now)...)

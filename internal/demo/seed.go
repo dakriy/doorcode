@@ -443,16 +443,24 @@ func setCode(admin client, id int, code string, site *Site) error {
 	return admin.call(http.MethodPut, fmt.Sprintf("/api/v1/users/%d/code", id), map[string]string{"code": code}, nil)
 }
 
+// delivery is when the workshop is open for a delivery around now: from
+// the hour before the current one to three hours after it.
+func delivery(now time.Time) (time.Time, time.Time) {
+	hour := now.UTC().Truncate(time.Hour)
+	return hour.Add(-time.Hour), hour.Add(3 * time.Hour)
+}
+
 // seedOverrides opens the workshop for a delivery around now and locks
 // the staff entrance for maintenance tomorrow morning.
 func seedOverrides(admin client, now time.Time, _ *Site) error {
 	hour := now.UTC().Truncate(time.Hour)
 	tomorrow := hour.Truncate(24*time.Hour).AddDate(0, 0, 1)
+	deliveryStart, deliveryEnd := delivery(now)
 	overrides := []struct {
 		door int64
 		body map[string]any
 	}{
-		{workshop, map[string]any{"kind": "open", "start": hour.Add(-time.Hour).Format(time.RFC3339), "end": hour.Add(3 * time.Hour).Format(time.RFC3339),
+		{workshop, map[string]any{"kind": "open", "start": deliveryStart.Format(time.RFC3339), "end": deliveryEnd.Format(time.RFC3339),
 			"reason": "Delivery of the new lathe."}},
 		{staffEntrance, map[string]any{"kind": "locked", "start": tomorrow.Add(6 * time.Hour).Format(time.RFC3339), "end": tomorrow.Add(8 * time.Hour).Format(time.RFC3339),
 			"reason": "Floor maintenance in the courtyard."}},

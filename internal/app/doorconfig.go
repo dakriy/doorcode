@@ -19,7 +19,7 @@ type doorConfigView struct {
 	MaxCodeLength          int    `json:"max_code_length" doc:"The most digits the keypad sends as a code."`
 	ReplyTimeoutMS         int    `json:"reply_timeout_ms" doc:"How long the door waits for the server's answer to a code, in milliseconds."`
 	TelemetryIntervalS     int    `json:"telemetry_interval_s" doc:"How often the door reports its telemetry, in seconds."`
-	HeldOpenS              int    `json:"held_open_s" doc:"How long the door may stay open before it is logged as held open, in seconds."`
+	HeldOpenS              int    `json:"held_open_s" doc:"How long the door may stay open, when it should be locked, before it is logged as held open, in seconds."`
 	TimelineRefreshHours   int    `json:"timeline_refresh_hours" doc:"How often the server sends the door its timeline when nothing changed it, in hours."`
 	CredentialRotationDays int    `json:"credential_rotation_days" doc:"How many days the door's broker credentials work before the server issues new ones."`
 	RateLimitPerMinute     int    `json:"rate_limit_per_minute" doc:"How many codes a minute the server checks for the door."`

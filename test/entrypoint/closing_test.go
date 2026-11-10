@@ -92,7 +92,7 @@ func TestADoorClosingIsNotLoggedForAnOpeningThatBeganWhileItsTimelineHeldItOpen(
 		"an open override in force":                {func(k *keypad) { createOverride(k.t, k.b, "1", openNow) }, closeEvent, []any{}},
 		"an open override in force, then a report": {func(k *keypad) { createOverride(k.t, k.b, "1", openNow) }, func(k *keypad) { k.report(nil) }, []any{}},
 		"open mode": {func(k *keypad) {
-			send(k.t, k.b, "PUT", "/api/v1/zones/1", `{"name":"North","door_ids":[1],"open_schedule_ids":[2]}`, 200)
+			k.inOpenMode()
 		}, closeEvent, []any{}},
 		"an open override that ended before it opened": {func(k *keypad) {
 			createOverride(k.t, k.b, "1", `{"kind":"open","start":"2026-01-05T08:00:00Z","end":"2026-01-05T09:59:59Z"}`)

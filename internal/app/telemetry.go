@@ -36,7 +36,7 @@ type doorStateView struct {
 	Online          bool           `json:"online" doc:"True while the controller is connected to the broker."`
 	Door            string         `json:"door" doc:"open or closed, as the controller last said; unknown until it has."`
 	OpenedAt        *time.Time     `json:"opened_at,omitempty" doc:"When the door opened; absent unless it is open."`
-	HeldOpen        bool           `json:"held_open" doc:"True when the door has been open longer than its configuration allows since it opened."`
+	HeldOpen        bool           `json:"held_open" doc:"True when the door has been open longer than its configuration allows while it should be locked: since it opened or since the latest open span ended, whichever is later. False while an open span holds it open."`
 	Unresponsive    bool           `json:"unresponsive" doc:"True when the server has not heard from the controller for the unresponsive_minutes setting."`
 	FirmwareVersion string         `json:"firmware_version" doc:"The firmware version the controller last reported; may be empty."`
 	LastSeenAt      *time.Time     `json:"last_seen_at,omitempty" doc:"When the server last heard from the controller; absent until a controller enrolls."`

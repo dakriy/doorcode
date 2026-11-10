@@ -342,18 +342,18 @@ func alarm(at time.Time, doorID int64, reason, detail string) connector.StoredEv
 }
 
 // Sweep does what time makes due: a door open longer than its held-open
-// time, by defaults and its own overrides, is logged as held open, a
-// controller not heard from for as long as current says is marked
-// unresponsive, the reports of every hour that has ended are rolled up,
-// and reports and rollups older than current keeps them are removed. A
-// part that fails does not stop the others.
+// time, by defaults and its own overrides, while it should be locked is
+// logged as held open, a controller not heard from for as long as current
+// says is marked unresponsive, the reports of every hour that has ended
+// are rolled up, and reports and rollups older than current keeps them
+// are removed. A part that fails does not stop the others.
 func (s Service) Sweep(ctx context.Context, current settings.Current, defaults settings.DoorDefaults) error {
-	return errors.Join(s.watch(ctx, current.UnresponsiveAfter, defaults), s.rollUp(ctx), s.purge(ctx, current))
+	return errors.Join(s.watch(ctx, current, defaults), s.rollUp(ctx), s.purge(ctx, current))
 }
 
 // watch logs the doors held open and marks the controllers that have gone
-// unresponsive after unresponsiveAfter.
-func (s Service) watch(ctx context.Context, unresponsiveAfter time.Duration, defaults settings.DoorDefaults) error {
+// unresponsive, as current says.
+func (s Service) watch(ctx context.Context, current settings.Current, defaults settings.DoorDefaults) error {
 	doors, err := s.Store.Doors(ctx)
 	if err != nil {
 		return err
@@ -367,32 +367,74 @@ func (s Service) watch(ctx context.Context, unresponsiveAfter time.Duration, def
 		if err != nil {
 			return err
 		}
-		if err := s.watchDoor(ctx, d, config.HeldOpen(), unresponsiveAfter, now); err != nil {
+		if err := s.watchDoor(ctx, d, config.HeldOpen(), current, now); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// watchDoor logs d held open at now when its door has been open for
-// heldOpen, and marks its controller unresponsive when it has not been
-// heard from for unresponsiveAfter while the broker says it is connected;
-// one that is not is shown offline instead.
-func (s Service) watchDoor(ctx context.Context, d connector.StoredDoor, heldOpen, unresponsiveAfter time.Duration, now time.Time) error {
+// watchDoor logs d held open at now as checkHeld says, and marks its
+// controller unresponsive when it has not been heard from for as long as
+// current says while the broker says it is connected; one that is not is
+// shown offline instead.
+func (s Service) watchDoor(ctx context.Context, d connector.StoredDoor, heldOpen time.Duration, current settings.Current, now time.Time) error {
 	held := *d.Controller
-	c := held
-	if c.DoorState == Open && !c.HeldOpen && !now.Before(c.OpenedAt.Add(heldOpen)) {
-		detail := fmt.Sprintf("Open for longer than %g seconds.", heldOpen.Seconds())
-		if _, err := s.Events.Record(ctx, alarm(now, d.ID, event.HeldOpen, detail)); err != nil {
-			return err
-		}
-		c.HeldOpen = true
+	c, err := s.checkHeld(ctx, d.ID, held, heldOpen, current.Zone, now)
+	if err != nil {
+		return err
 	}
-	if c.Online && !now.Before(c.LastSeenAt.Add(unresponsiveAfter)) {
+	if c.Online && !now.Before(c.LastSeenAt.Add(current.UnresponsiveAfter)) {
 		c.Unresponsive = true
 	}
 	if c == held {
 		return nil
 	}
 	return s.save(ctx, d.ID, held, c)
+}
+
+// checkHeld is c, the controller of the door whose id is doorID, with its
+// door held open at now or not. Only time it should be locked counts: in
+// an open span of its timeline, in zone, it is not held open, and after
+// one the time counts from the span's end. Once it has been open that
+// long for heldOpen, it is logged as held open, once until a span or a
+// closing starts the count again.
+func (s Service) checkHeld(ctx context.Context, doorID int64, c connector.StoredController, heldOpen time.Duration, zone *time.Location, now time.Time) (connector.StoredController, error) {
+	if c.DoorState != Open {
+		return c, nil
+	}
+	since, err := s.lockedSince(ctx, doorID, *c.OpenedAt, zone, now)
+	if err != nil {
+		return c, err
+	}
+	if since.After(now) {
+		c.HeldOpen = false
+		return c, nil
+	}
+	if c.HeldOpen || now.Before(since.Add(heldOpen)) {
+		return c, nil
+	}
+	detail := fmt.Sprintf("Open for longer than %g seconds.", heldOpen.Seconds())
+	if _, err := s.Events.Record(ctx, alarm(now, doorID, event.HeldOpen, detail)); err != nil {
+		return c, err
+	}
+	c.HeldOpen = true
+	return c, nil
+}
+
+// lockedSince is when the door whose id is doorID, open since openedAt,
+// was last left by an open span of its timeline in zone, or openedAt when
+// none came since; it is after now while a span holds the door open at
+// now.
+func (s Service) lockedSince(ctx context.Context, doorID int64, openedAt time.Time, zone *time.Location, now time.Time) (time.Time, error) {
+	// The timeline runs to just past now, so a span in force at now ends
+	// after it.
+	_, spans, err := s.Doors.Timeline(ctx, doorID, zone, openedAt, now.Add(time.Nanosecond))
+	since := openedAt
+	for _, span := range spans {
+		if span.State == timeline.Open {
+			since = span.End
+		}
+	}
+	return since, err
 }

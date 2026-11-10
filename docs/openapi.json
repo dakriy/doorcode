@@ -10224,7 +10224,7 @@
           },
           "held_open_s": {
             "type": "integer",
-            "description": "How long the door may stay open before it is logged as held open, in seconds."
+            "description": "How long the door may stay open, when it should be locked, before it is logged as held open, in seconds."
           },
           "keepalive_s": {
             "type": "integer",
@@ -10537,7 +10537,7 @@
           },
           "held_open": {
             "type": "boolean",
-            "description": "True when the door has been open longer than its configuration allows since it opened."
+            "description": "True when the door has been open longer than its configuration allows while it should be locked: since it opened or since the latest open span ended, whichever is later. False while an open span holds it open."
           },
           "last_seen_at": {
             "type": "string",

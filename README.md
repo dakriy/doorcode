@@ -253,7 +253,7 @@ full table.
 | Setting | Meaning | Default |
 | --- | --- | --- |
 | `door_strike_pulse_ms` | How long the strike opens, 100 to 60000 ms. | `3000` |
-| `door_held_open_s` | How long a door may stay open before it is logged as held open, 5 to 86400 s. | `60` |
+| `door_held_open_s` | How long a door may stay open, when it should be locked, before it is logged as held open, 5 to 86400 s. | `60` |
 | `door_keypad_idle_clear_ms` | Idle time after which the keypad clears what was typed, 1000 to 600000 ms. | `10000` |
 | `door_min_code_length` | The shortest code the keypad sends, 1 to 16 digits. | `4` |
 | `door_max_code_length` | The longest code the keypad takes, 16 to 64 digits. | `32` |

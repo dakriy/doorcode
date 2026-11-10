@@ -106,7 +106,7 @@ func TestADoorOpenedWithinTheStrikeWindowOfAnUnlockIsNotForced(t *testing.T) {
 			createOverride(k.t, k.b, "1", lockedNow)
 		}, "2026-01-05T10:00:00Z", []any{"forced open"}},
 		"open mode": {func(k *keypad) {
-			send(k.t, k.b, "PUT", "/api/v1/zones/1", `{"name":"North","door_ids":[1],"open_schedule_ids":[2]}`, 200)
+			k.inOpenMode()
 		}, "2026-01-05T10:00:00Z", []any{}},
 		"a longer strike pulse": {func(k *keypad) {
 			createRule(k.t, k.b, staffRule)
@@ -209,7 +209,7 @@ func TestADoorItsControllerSaysOpenedUnlockedIsNotForcedWhateverTheStrikeWindowH
 			k.at("2026-01-05T10:00:00Z")
 		}, []any{}},
 		"open mode": {func(k *keypad) {
-			send(k.t, k.b, "PUT", "/api/v1/zones/1", `{"name":"North","door_ids":[1],"open_schedule_ids":[2]}`, 200)
+			k.inOpenMode()
 			k.at("2026-01-05T10:00:00Z")
 		}, []any{}},
 	}
@@ -461,6 +461,10 @@ func TestThePeriodicWorkLogsWhenItCannotWatchTheDoorsOrKeepTheirTelemetry(t *tes
 			send(k.t, k.b, "POST", "/api/v1/doors/1/open", "", 200)
 			k.says("opened")
 			k.f.StoreStub.FailEventWrites()
+		}, "stub: unavailable"},
+		"when an open door's overrides cannot be read": {func(k *keypad) {
+			k.opens(true)
+			k.f.StoreStub.FailOverrides()
 		}, "stub: unavailable"},
 		"when an unresponsive door cannot be marked": {func(k *keypad) { k.f.StoreStub.FailControllerWrites() }, "stub: unavailable"},
 	}
