@@ -1,7 +1,8 @@
 // Package telemetry follows the doors' state from what their controllers
 // report: their telemetry, kept as history with hourly rollups, the door
 // opening and closing, how long it was open, the alarms that raises (a door
-// forced open or held open), and controllers that have gone unresponsive.
+// forced open or held open), controllers starting, and controllers that
+// have gone unresponsive.
 package telemetry
 
 import (
@@ -123,10 +124,37 @@ func (s Service) doorEvent(ctx context.Context, doorID int64, payload []byte) er
 			return err
 		}
 		c = closed(c)
+	case protocol.EventStarted:
+		if _, err := s.Events.Record(ctx, started(now, d.ID, m.Reason)); err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("%w %q", ErrUnknownEvent, m.Event)
 	}
 	return s.save(ctx, d.ID, held, c)
+}
+
+// startedWhy is, in words, each reason a controller gives for why it
+// started.
+var startedWhy = map[string]string{
+	protocol.StartPowerOn:  "Power on.",
+	protocol.StartSoftware: "A restart its firmware asked for.",
+	protocol.StartPanic:    "Its firmware panicked.",
+	protocol.StartWatchdog: "Its watchdog reset it.",
+	protocol.StartBrownout: "A brownout: its supply voltage dropped too low.",
+	protocol.StartExternal: "Its reset pin.",
+	protocol.StartUnknown:  "It does not know why.",
+}
+
+// started is the controller of the door whose id is doorID starting, at
+// at, for reason, said in words when the server knows it, else as given,
+// and not at all when it is empty.
+func started(at time.Time, doorID int64, reason string) connector.StoredEvent {
+	detail, known := startedWhy[reason]
+	if !known {
+		detail = reason
+	}
+	return connector.StoredEvent{At: at, DoorID: doorID, Type: event.Door, Outcome: event.Info, Reason: event.Started, Detail: detail}
 }
 
 // controllerOf is the door whose id is id and the controller enrolled as

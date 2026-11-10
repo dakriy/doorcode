@@ -336,6 +336,7 @@ func TestAnUnresponsiveDoorIsResponsiveAgainOnItsNextContact(t *testing.T) {
 	cases := map[string]func(k *keypad){
 		"telemetry":    func(k *keypad) { k.report(nil) },
 		"a door event": func(k *keypad) { k.says("closed") },
+		"a start":      func(k *keypad) { k.starts("power_on") },
 		"its online status": func(k *keypad) {
 			k.publish("doorcode/doors/1/online", onlineAs(firstUsername, true))
 		},
@@ -405,6 +406,12 @@ func TestWhatADoorSaysOfItselfThatCannotBeHandledIsLoggedAndIgnored(t *testing.T
 		}, "invalid value for telemetry_retention_days: must be a whole number of days from 1 to 365"},
 		"an opening when schedules cannot be read": {event, opened, func(f *testsupport.Factory) { f.StoreStub.FailSchedules() }, unavailable},
 		"a forced opening that cannot be logged":   {event, opened, func(f *testsupport.Factory) { f.StoreStub.FailEventWrites() }, unavailable},
+		"a start that cannot be logged": {
+			event, testsupport.CBOR(map[string]any{"v": 1, "event": "started"}), func(f *testsupport.Factory) { f.StoreStub.FailEventWrites() }, unavailable,
+		},
+		"a start whose state cannot be stored": {
+			event, testsupport.CBOR(map[string]any{"v": 1, "event": "started"}), func(f *testsupport.Factory) { f.StoreStub.FailControllerWrites() }, unavailable,
+		},
 		"a closing whose state cannot be stored": {
 			event, testsupport.CBOR(map[string]any{"v": 1, "event": "closed"}), func(f *testsupport.Factory) { f.StoreStub.FailControllerWrites() }, unavailable,
 		},

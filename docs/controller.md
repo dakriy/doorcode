@@ -317,6 +317,9 @@ controller                          broker                         server
    notices it; the server publishes both to every enrolled door that is not
    deleted, connected or not.
 3. Publish the online status, retained, with the same username.
+4. The first time it comes online as the door since it started, and only
+   then (never on a plain reconnect), publish a `started` door event
+   (section 12) saying why it started.
 
 When the server reads `online: true` it marks the door online, records that
 this credential is in use, revokes the door's older credentials, ends a
@@ -551,14 +554,38 @@ unresponsive, so `telemetry_interval_s` should stay below that.
 ### Door events
 
 On `doorcode/doors/<id>/event`, when the door sensor changes, **outside open
-mode** only (inside an `open` span the door says nothing and `opens` counts).
+mode** only (inside an `open` span the door says nothing and `opens` counts),
+and once after the controller starts, in open mode too: `started`, the first
+time it comes online as the door since it started (section 7), never on a
+plain reconnect, with neither `unlocked` nor `open_ms`.
 
 | Field | CBOR type | Meaning |
 | --- | --- | --- |
 | `v` | uint | Protocol version, 1. |
-| `event` | text | `opened` (`protocol.EventOpened`) or `closed` (`protocol.EventClosed`). |
+| `event` | text | `opened` (`protocol.EventOpened`), `closed` (`protocol.EventClosed`), or `started` (`protocol.EventStarted`). |
 | `unlocked` | bool | With `opened` only, optional: whether the door was unlocked when the sensor saw it open, that is, the strike was released, or had been locked again for no longer than a short grace period the controller chooses. |
 | `open_ms` | uint | With `closed` only, optional: how many milliseconds the door was open, by the controller's clock. Sent only when the controller saw the opening from its start and it began outside an open span; otherwise left out. |
+| `reason` | text | With `started` only, optional: why the controller started, one of the values below; left out when it cannot tell. |
+
+The `reason` values of `started`, and what the server's event says of each:
+
+| `reason` | Constant | Meaning | Event detail |
+| --- | --- | --- | --- |
+| `power_on` | `StartPowerOn` | Powered on. | Power on. |
+| `software` | `StartSoftware` | A restart the firmware asked for: a reboot command, an update, a revert. | A restart its firmware asked for. |
+| `panic` | `StartPanic` | The firmware panicked. | Its firmware panicked. |
+| `watchdog` | `StartWatchdog` | A watchdog reset it. | Its watchdog reset it. |
+| `brownout` | `StartBrownout` | The supply voltage dropped too low. | A brownout: its supply voltage dropped too low. |
+| `external` | `StartExternal` | The reset pin. | Its reset pin. |
+| `unknown` | `StartUnknown` | The controller cannot tell. | It does not know why. |
+
+A `started` event is recorded as one event at the door: type `door`,
+outcome `info`, reason `started` (so `GET /api/v1/events?reason=started`
+lists the starts), its detail the words above, a value the server does
+not know as given, and nothing when `reason` is left out. It leaves the
+door's open or closed state as it was and, like any message from the
+door, counts as contact. Firmware that predates it never sends it, and
+the server derives nothing in its place.
 
 From these the server derives:
 
@@ -788,8 +815,9 @@ it.
 | `Span` (`Start`, `End`, `State`) | type | `start`, `end`, `state`. | 10 |
 | `Timeline` (`From`, `To`, `Spans`) | message | `from`, `to`, `spans`. | 10 |
 | `Telemetry` (`Signal`, `LatencyMS`, `UptimeS`, `FreeBytes`, `FirmwareVersion`, `Reconnects`, `DoorOpen`, `Opens`, `MeshLayer`, `MeshParent`, `MeshChildren`) | message | `signal`, `latency_ms`, `uptime_s`, `free_bytes`, `firmware_version`, `reconnects`, `door_open`, `opens`, `mesh_layer`, `mesh_parent`, `mesh_children`. | 12 |
-| `EventOpened`, `EventClosed` | constants | `opened`, `closed`. | 12 |
-| `DoorEvent` (`Event`, `Unlocked`, `OpenMS`) | message | `event`, `unlocked` (a `*bool`, nil when left out), `open_ms` (a `*uint64`, nil when left out). | 12 |
+| `EventOpened`, `EventClosed`, `EventStarted` | constants | `opened`, `closed`, `started`. | 12 |
+| `StartPowerOn`, `StartSoftware`, `StartPanic`, `StartWatchdog`, `StartBrownout`, `StartExternal`, `StartUnknown` | constants | `power_on`, `software`, `panic`, `watchdog`, `brownout`, `external`, `unknown`. | 12 |
+| `DoorEvent` (`Event`, `Unlocked`, `OpenMS`, `Reason`) | message | `event`, `unlocked` (a `*bool`, nil when left out), `open_ms` (a `*uint64`, nil when left out), `reason` (empty when left out). | 12 |
 | `ErrVersion` | error | A message of another protocol version. | 4 |
 | `Encode(m)` | function | `m` as CBOR, core deterministic, with `v` set to `Version`. | 4 |
 | `Decode(payload, m)` | function | Reads a payload, refusing anything but a CBOR map of this version. | 4 |

@@ -335,6 +335,28 @@ const (
 	EventOpened = "opened"
 	// EventClosed is the door closing.
 	EventClosed = "closed"
+	// EventStarted is the controller coming online as the door for the
+	// first time since it started.
+	EventStarted = "started"
+)
+
+// The reasons a controller gives with EventStarted for why it started.
+const (
+	// StartPowerOn is the controller powered on.
+	StartPowerOn = "power_on"
+	// StartSoftware is a restart its firmware asked for, such as for a
+	// reboot command, an update, or a revert.
+	StartSoftware = "software"
+	// StartPanic is its firmware panicking.
+	StartPanic = "panic"
+	// StartWatchdog is its watchdog resetting it.
+	StartWatchdog = "watchdog"
+	// StartBrownout is its supply voltage dropping too low.
+	StartBrownout = "brownout"
+	// StartExternal is its reset pin.
+	StartExternal = "external"
+	// StartUnknown is the controller not knowing why it started.
+	StartUnknown = "unknown"
 )
 
 // DoorEvent is what a door publishes on its event topic when something
@@ -342,13 +364,17 @@ const (
 // time it opens and closes. With EventOpened, Unlocked says whether the
 // door was unlocked when it opened, and with EventClosed, OpenMS how many
 // milliseconds it was open by the controller's clock, sent only when the
-// controller saw the opening from its start outside an open span;
-// controllers that predate them leave them out.
+// controller saw the opening from its start outside an open span. A
+// controller says EventStarted once, the first time it comes online as
+// the door after it started, with Reason saying why it started, such as
+// StartPowerOn, when it knows. Controllers that predate these leave them
+// out.
 type DoorEvent struct {
 	Header
 	Event    string  `cbor:"event"`
 	Unlocked *bool   `cbor:"unlocked,omitempty"`
 	OpenMS   *uint64 `cbor:"open_ms,omitempty"`
+	Reason   string  `cbor:"reason,omitempty"`
 }
 
 // ErrVersion reports a message of another protocol version.

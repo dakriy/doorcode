@@ -28,7 +28,8 @@ var errDropped = errors.New("the broker ended the connection")
 // the enrollment credentials exist. The controllers play until ctx ends.
 func Start(ctx context.Context, h http.Handler, broker *Broker, site Site, log connector.Log) error {
 	for _, d := range append([]SimulatedDoor{site.Waiting}, site.Doors...) {
-		c := &controller{broker: broker, log: log, door: d, codes: site.Codes, enrollment: site.EnrollmentPassword, started: time.Now()}
+		c := &controller{broker: broker, log: log, door: d, codes: site.Codes, enrollment: site.EnrollmentPassword, started: time.Now(),
+			startedBy: protocol.StartPowerOn}
 		go c.run(ctx)
 	}
 	admin, err := signIn(ctx, h, site.AdminEmail, AdminPassword)
@@ -84,6 +85,8 @@ type controller struct {
 	enrollment string
 	creds      protocol.Credentials
 	started    time.Time
+	// startedBy is why it started, until it has said so as its door.
+	startedBy string
 	// connects is how often it connected as its door since it started.
 	connects int
 }
@@ -182,7 +185,8 @@ type door struct {
 	installed  string
 }
 
-// serve connects as the door and serves it until the connection ends.
+// serve connects as the door and serves it until the connection ends,
+// saying it started the first time it comes online since it did.
 func (c *controller) serve(ctx context.Context) error {
 	id := c.creds.DoorID
 	online := protocol.DoorTopic(id, leafOnline)
@@ -203,6 +207,10 @@ func (c *controller) serve(ctx context.Context) error {
 	status := protocol.Online{Online: true, Username: c.creds.Username, FirmwareVersion: c.door.Firmware, Signal: c.door.Signal}
 	conn.Publish(connector.Message{Topic: online, Payload: protocol.Encode(&status), Retained: true})
 	d := &door{conn: conn, config: protocol.DoorConfig{TelemetryIntervalS: 60, StrikePulseMS: 3000}}
+	if c.startedBy != "" {
+		c.say(d, protocol.DoorEvent{Event: protocol.EventStarted, Reason: c.startedBy})
+		c.startedBy = ""
+	}
 	return c.loop(ctx, d)
 }
 
@@ -314,7 +322,7 @@ func (c *controller) command(d *door, payload []byte) bool {
 func (c *controller) restart(d *door) error {
 	d.conn.Drop()
 	c.door.Firmware = d.installed
-	c.started = time.Now()
+	c.started, c.startedBy = time.Now(), protocol.StartSoftware
 	c.connects = 0
 	return nil
 }

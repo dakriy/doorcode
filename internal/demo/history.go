@@ -97,6 +97,7 @@ func pastEvents(rng *rand.Rand, start, now time.Time) []connector.StoredEvent {
 	}
 	events = append(events, closings(rng, events)...)
 	events = append(events, pastUpdates(now)...)
+	events = append(events, pastStarts(now)...)
 	events = slices.DeleteFunc(events, func(e connector.StoredEvent) bool { return !e.At.Before(now) })
 	slices.SortFunc(events, func(a, b connector.StoredEvent) int { return a.At.Compare(b.At) })
 	return events
@@ -244,7 +245,8 @@ func opensOf(events []connector.StoredEvent) map[slot]int {
 }
 
 // pastUpdates is the firmware updates the doors installed before, each
-// sent shortly after 02:00 and done minutes later.
+// sent shortly after 02:00 and done minutes later, when the controller
+// came back on the new version after restarting into it.
 func pastUpdates(now time.Time) []connector.StoredEvent {
 	var out []connector.StoredEvent
 	for _, p := range profiles {
@@ -255,7 +257,27 @@ func pastUpdates(now time.Time) []connector.StoredEvent {
 		detail := "Version " + p.after + "."
 		out = append(out,
 			connector.StoredEvent{At: sent, DoorID: p.door, Type: event.Update, Outcome: event.Info, Reason: event.UpdateSent, Detail: detail},
+			started(sent.Add(4*time.Minute), p.door, "A restart its firmware asked for."),
 			connector.StoredEvent{At: sent.Add(5 * time.Minute), DoorID: p.door, Type: event.Update, Outcome: event.Info, Reason: event.UpdateSucceeded, Detail: detail})
 	}
 	return out
+}
+
+// pastStarts is the controllers starting when power came back after an
+// outage.
+func pastStarts(now time.Time) []connector.StoredEvent {
+	var out []connector.StoredEvent
+	for _, p := range profiles {
+		if p.outageHours == 0 {
+			continue
+		}
+		_, back := p.outage(now)
+		out = append(out, started(back.Add(-time.Minute), p.door, "Power on."))
+	}
+	return out
+}
+
+// started is the controller of door starting at at, why saying why.
+func started(at time.Time, door int64, why string) connector.StoredEvent {
+	return connector.StoredEvent{At: at, DoorID: door, Type: event.Door, Outcome: event.Info, Reason: event.Started, Detail: why}
 }

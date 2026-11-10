@@ -75,12 +75,19 @@ func (p profile) controller() SimulatedDoor {
 	}
 }
 
+// outage is when p's controller went quiet in the past and when it came
+// back, as seen from now; they are the same when it never did.
+func (p profile) outage(now time.Time) (time.Time, time.Time) {
+	from := now.UTC().Truncate(24*time.Hour).AddDate(0, 0, -p.outageDaysAgo).Add(time.Duration(p.outageHour) * time.Hour)
+	return from, from.Add(time.Duration(p.outageHours) * time.Hour)
+}
+
 // report is what p's controller would have reported at at, opens being
 // how often its door opened since its report before, and whether it
 // reported at all.
 func (p profile) report(rng *rand.Rand, now, at time.Time, opens int) (connector.StoredTelemetry, bool) {
-	outage := now.UTC().Truncate(24*time.Hour).AddDate(0, 0, -p.outageDaysAgo).Add(time.Duration(p.outageHour) * time.Hour)
-	if p.outageHours > 0 && !at.Before(outage) && at.Before(outage.Add(time.Duration(p.outageHours)*time.Hour)) {
+	outage, back := p.outage(now)
+	if p.outageHours > 0 && !at.Before(outage) && at.Before(back) {
 		return connector.StoredTelemetry{}, false
 	}
 	version := p.after
