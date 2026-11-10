@@ -145,7 +145,7 @@ func TestEachStepOfTheDecisionChainDecidesInItsOrder(t *testing.T) {
 			createOverride(k.t, k.b, "1", lockedNow)
 		}, "999999", denied, checked("1", "denied", "locked", "")},
 		"a locked override wins over open mode": {func(k *keypad) {
-			send(k.t, k.b, "PUT", "/api/v1/zones/1", `{"name":"North","door_ids":[1],"open_schedule_ids":[2]}`, 200)
+			k.inOpenMode()
 			createOverride(k.t, k.b, "1", lockedNow)
 		}, "999999", denied, checked("1", "denied", "locked", "")},
 		"an open override lets an unknown code in": {func(k *keypad) {
