@@ -64,6 +64,11 @@ lowercased), first name, last name, display name, optional local password,
 door code (stored as a salted hash, globally unique), expires at, soft-delete
 timestamp, groups.
 
+Door codes are hashed with argon2id at fixed parameters (2048 KiB, one
+iteration, one lane) and one site-wide salt, both stored the first time a
+code is hashed; the password hashing cost does not apply to them. A site
+that already stored other parameters keeps them.
+
 Codes are digits only.
 
 - Self-service code = the user id with leading zeros stripped, followed by 4

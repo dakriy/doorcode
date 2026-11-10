@@ -397,6 +397,45 @@ func TestDoorCodesStayUniqueWhenTheHashingCostChanges(t *testing.T) {
 	}
 }
 
+func TestDoorCodesAreHashedAtFixedParametersWhateverThePasswordHashingCost(t *testing.T) {
+	t.Parallel()
+	cases := map[string]string{"the suite's cost": "", "the default cost": "19456", "the highest cost": "1048576"}
+	for name, memory := range cases {
+		t.Run(name, func(t *testing.T) {
+			f := testsupport.NewFactory()
+			b := signedInAdmin(t, f)
+			if memory != "" {
+				delete(f.EnvStub, "DOORCODE_PASSWORD_HASH_MEMORY_KIB")
+				send(t, b, "PUT", "/api/v1/settings/password_hash_memory_kib", `{"value":"`+memory+`"}`, 200)
+			}
+
+			send(t, b, "PUT", "/api/v1/users/1/code", `{"code":"654321"}`, 204)
+
+			want := []string{"$argon2id$v=19$m=2048,t=1,p=1$QkNERUZHSElKS0xNTk9QUQ", f.StoreStub.HashCode("654321")}
+			got := []string{f.StoreStub.StoredCodeHashing(), f.StoreStub.StoredCodeHash(adminEmail)}
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Errorf("code hashing parameters and stored hash (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestASiteKeepsTheCodeHashingParametersItAlreadyHas(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	b := signedInAdmin(t, f)
+	old := "$argon2id$v=19$m=64,t=2,p=1$c2FsdHNhbHRzYWx0c2FsdA"
+	f.StoreStub.SeedCodeHashing(old)
+
+	send(t, b, "PUT", "/api/v1/users/1/code", `{"code":"654321"}`, 204)
+
+	want := []string{old, f.StoreStub.HashCode("654321")}
+	got := []string{f.StoreStub.StoredCodeHashing(), f.StoreStub.StoredCodeHash(adminEmail)}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("code hashing parameters and stored hash (-want +got):\n%s", diff)
+	}
+}
+
 func TestRemovingADoorCode(t *testing.T) {
 	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
@@ -486,7 +525,6 @@ func TestUserStoreFailureAnswersWithARequestID(t *testing.T) {
 		"set code":                              {fail: (*testsupport.Store).FailUsers, method: "PUT", target: "/api/v1/users/1/code", body: `{"code":"123456"}`, id: "5253545556575859"},
 		"set code, storing it":                  {fail: (*testsupport.Store).FailUserWrites, method: "PUT", target: "/api/v1/users/1/code", body: `{"code":"123456"}`, id: "5253545556575859"},
 		"set code, fixing how codes are hashed": {fail: (*testsupport.Store).FailSettingWrites, method: "PUT", target: "/api/v1/users/1/code", body: `{"code":"123456"}`, id: "5253545556575859"},
-		"set code without settings":             {fail: (*testsupport.Store).FailSettings, method: "PUT", target: "/api/v1/users/1/code", body: `{"code":"123456"}`},
 		"clear code":                            {fail: (*testsupport.Store).FailUsers, method: "DELETE", target: "/api/v1/users/1/code"},
 		"list tokens":                           {fail: (*testsupport.Store).FailTokens, method: "GET", target: "/api/v1/users/1/tokens"},
 	}

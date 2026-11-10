@@ -480,6 +480,12 @@ func (s *Store) SeedCodeHashing(parameters string) {
 	s.codeParams = parameters
 }
 
+// StoredCodeHashing is the site's door code hashing parameters the store
+// holds, empty until a code is first hashed.
+func (s *Store) StoredCodeHashing() string {
+	return s.codeParams
+}
+
 // ExpireUser makes the user with email expire at an RFC 3339 time.
 func (s *Store) ExpireUser(email, at string) {
 	expires := mustTime(at)

@@ -25,7 +25,9 @@ the engineering contract is [AGENTS.md](AGENTS.md).
   entered through a form and shown on calendars. Every door's timeline of
   open and locked time is pushed to it, so a disconnected door keeps
   following it.
-- **Codes.** Stored only as salted hashes, never on doors. Administrators set
+- **Codes.** Stored only as salted hashes, never on doors, at a fixed cost
+  far below a password's (argon2id, 2 MiB, one pass) so code checks stay
+  fast; the password hashing setting does not apply. Administrators set
   codes of 6 to 20 digits; people choose their own as their user id followed
   by 4 to 8 digits. A per-door rate limit protects against guessing.
 - **Doors.** Enrollment over MQTT with administrator approval, per-door

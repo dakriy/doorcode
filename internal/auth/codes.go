@@ -5,21 +5,26 @@ import (
 	"fmt"
 )
 
+// Door codes are hashed with argon2id at fixed parameters of their own,
+// far cheaper than a password's, since every code check at a keypad costs
+// one hash. They do not follow the password hashing setting.
+const (
+	codeHashMemoryKiB   = 2048
+	codeHashIterations  = 1
+	codeHashParallelism = 1
+)
+
 // CodeHash is the hash a door code is stored and looked up by. Every code
 // is hashed with argon2id under the same site-wide parameters and salt, so
 // equal codes have equal hashes: that keeps codes unique and lets a keypad
 // entry be found by its hash. The parameters are fixed the first time a
-// code is hashed, at the password hashing memory cost then in effect, so
-// changing that setting later does not change any code's hash.
+// code is hashed, so a site that hashed codes under other parameters keeps
+// them.
 func (s Service) CodeHash(ctx context.Context, code string) (string, error) {
-	current, err := s.Settings.Current(ctx)
-	if err != nil {
-		return "", err
-	}
 	candidate := hashParams{
-		memory:      current.PasswordHashMemoryKiB,
-		iterations:  hashIterations,
-		parallelism: hashParallelism,
+		memory:      codeHashMemoryKiB,
+		iterations:  codeHashIterations,
+		parallelism: codeHashParallelism,
 		salt:        s.Entropy.Bytes(saltBytes),
 	}
 	stored, err := s.Store.CodeHashing(ctx, candidate.prefix())
