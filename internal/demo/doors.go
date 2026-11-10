@@ -227,11 +227,11 @@ func (c *controller) loop(ctx context.Context, d *door) error {
 			c.press(d)
 			keypad.Reset(between(40*time.Second, 150*time.Second))
 		case <-forced.C:
-			c.swing(d, 8*time.Second)
+			c.swing(d, 8*time.Second, false)
 			forced.Reset(between(2*time.Hour, 8*time.Hour))
 		case <-timerC(d.closing):
 			d.closing, d.open = nil, false
-			c.say(d, protocol.EventClosed)
+			c.say(d, protocol.DoorEvent{Event: protocol.EventClosed})
 		case <-timerC(d.installing):
 			return c.restart(d)
 		}
@@ -269,7 +269,7 @@ func (c *controller) receive(d *door, m connector.Message) bool {
 	case protocol.LeafReply:
 		var reply protocol.Reply
 		if protocol.Decode(m.Payload, &reply) == nil && reply.Allow {
-			c.swing(d, between(3*time.Second, 9*time.Second))
+			c.swing(d, between(3*time.Second, 9*time.Second), true)
 		}
 	case protocol.LeafCommand:
 		return c.command(d, m.Payload)
@@ -288,7 +288,7 @@ func (c *controller) command(d *door, payload []byte) bool {
 	switch cmd.Command {
 	case protocol.CommandOpen:
 		c.ack(d, cmd.ID)
-		c.swing(d, between(4*time.Second, 10*time.Second))
+		c.swing(d, between(4*time.Second, 10*time.Second), true)
 	case protocol.CommandCredentials:
 		c.creds.Username, c.creds.Token = cmd.Username, cmd.Token
 		d.conn.Close()
@@ -353,8 +353,9 @@ func (d *door) state(at time.Time) string {
 }
 
 // swing opens the door, unless it is open already, and has it close after
-// open. Now and then someone holds it open far longer.
-func (c *controller) swing(d *door, open time.Duration) {
+// open, saying whether it was unlocked when it opened. Now and then
+// someone holds it open far longer.
+func (c *controller) swing(d *door, open time.Duration, unlocked bool) {
 	if d.open {
 		return
 	}
@@ -364,12 +365,12 @@ func (c *controller) swing(d *door, open time.Duration) {
 	d.open = true
 	d.opens++
 	d.closing = time.NewTimer(open)
-	c.say(d, protocol.EventOpened)
+	c.say(d, protocol.DoorEvent{Event: protocol.EventOpened, Unlocked: &unlocked})
 }
 
 // say tells the server what happened to the door.
-func (c *controller) say(d *door, what string) {
-	c.publish(d, protocol.LeafEvent, &protocol.DoorEvent{Event: what})
+func (c *controller) say(d *door, what protocol.DoorEvent) {
+	c.publish(d, protocol.LeafEvent, &what)
 }
 
 // report publishes the controller's telemetry.

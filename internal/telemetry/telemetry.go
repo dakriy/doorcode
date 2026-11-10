@@ -96,8 +96,8 @@ func (s Service) report(ctx context.Context, doorID int64, payload []byte) error
 }
 
 // doorEvent handles what the controller of the door whose id is doorID
-// says happened to the door. A door that opens when nothing unlocked it
-// is logged as forced open.
+// says happened to the door. A door that opens locked is logged as
+// forced open.
 func (s Service) doorEvent(ctx context.Context, doorID int64, payload []byte) error {
 	var m protocol.DoorEvent
 	if err := protocol.Decode(payload, &m); err != nil {
@@ -111,7 +111,7 @@ func (s Service) doorEvent(ctx context.Context, doorID int64, payload []byte) er
 	c := heard(held, now)
 	switch m.Event {
 	case protocol.EventOpened:
-		if err := s.checkForced(ctx, d, held, now); err != nil {
+		if err := s.checkForced(ctx, d, held, m.Unlocked, now); err != nil {
 			return err
 		}
 		c = opened(c, now)
@@ -207,11 +207,18 @@ func MeshOf(c connector.StoredController) Mesh {
 }
 
 // checkForced logs d as forced open at now, unless its door, whose
-// controller was held, was open already or something unlocked it within
-// its strike window before now.
-func (s Service) checkForced(ctx context.Context, d connector.StoredDoor, held connector.StoredController, now time.Time) error {
+// controller was held, was open already or was unlocked when it opened:
+// as its controller said when it said, else when something unlocked it
+// within its strike window before now.
+func (s Service) checkForced(ctx context.Context, d connector.StoredDoor, held connector.StoredController, said *bool, now time.Time) error {
 	if held.DoorState == Open {
 		return nil
+	}
+	if said != nil {
+		if *said {
+			return nil
+		}
+		return s.forced(ctx, d.ID, now, "Its controller says it was locked when it opened.")
 	}
 	defaults, err := s.Settings.DoorDefaults(ctx)
 	if err != nil {
@@ -226,8 +233,13 @@ func (s Service) checkForced(ctx context.Context, d connector.StoredDoor, held c
 	if err != nil || unlocked {
 		return err
 	}
-	detail := fmt.Sprintf("Nothing unlocked it in the %g seconds before it opened.", window.Seconds())
-	_, err = s.Events.Record(ctx, alarm(now, d.ID, event.ForcedOpen, detail))
+	return s.forced(ctx, d.ID, now, fmt.Sprintf("Nothing unlocked it in the %g seconds before it opened.", window.Seconds()))
+}
+
+// forced logs the door whose id is doorID as forced open at now, with
+// detail.
+func (s Service) forced(ctx context.Context, doorID int64, now time.Time, detail string) error {
+	_, err := s.Events.Record(ctx, alarm(now, doorID, event.ForcedOpen, detail))
 	return err
 }
 

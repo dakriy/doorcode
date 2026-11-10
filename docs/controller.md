@@ -557,13 +557,17 @@ mode** only (inside an `open` span the door says nothing and `opens` counts).
 | --- | --- | --- |
 | `v` | uint | Protocol version, 1. |
 | `event` | text | `opened` (`protocol.EventOpened`) or `closed` (`protocol.EventClosed`). |
+| `unlocked` | bool | With `opened` only, optional: whether the door was unlocked when the sensor saw it open, that is, the strike was released, or had been locked again for no longer than a short grace period the controller chooses. |
 
 From these the server derives:
 
-- **forced open:** `opened` when nothing let anyone in within
-  `strike_pulse_ms` + `reply_timeout_ms` before it (no allowed check or
-  keypad command, no `open` command from the administration, no open
-  span), so send `opened` as soon as the sensor sees it;
+- **forced open:** `opened` when the door was not open already and
+  - with `unlocked`, it is false; the controller's word decides, whatever
+    the server last let in;
+  - without `unlocked` (firmware that predates it), nothing let anyone in
+    within `strike_pulse_ms` + `reply_timeout_ms` before it (no allowed
+    check or keypad command, no `open` command from the administration,
+    no open span), so send `opened` as soon as the sensor sees it;
 - **held open:** open for `held_open_s` or longer.
 
 `door_open` in each telemetry report also sets the state, so a missed event
@@ -778,7 +782,7 @@ it.
 | `Timeline` (`From`, `To`, `Spans`) | message | `from`, `to`, `spans`. | 10 |
 | `Telemetry` (`Signal`, `LatencyMS`, `UptimeS`, `FreeBytes`, `FirmwareVersion`, `Reconnects`, `DoorOpen`, `Opens`, `MeshLayer`, `MeshParent`, `MeshChildren`) | message | `signal`, `latency_ms`, `uptime_s`, `free_bytes`, `firmware_version`, `reconnects`, `door_open`, `opens`, `mesh_layer`, `mesh_parent`, `mesh_children`. | 12 |
 | `EventOpened`, `EventClosed` | constants | `opened`, `closed`. | 12 |
-| `DoorEvent` (`Event`) | message | `event`. | 12 |
+| `DoorEvent` (`Event`, `Unlocked`) | message | `event`, `unlocked` (a `*bool`, nil when left out). | 12 |
 | `ErrVersion` | error | A message of another protocol version. | 4 |
 | `Encode(m)` | function | `m` as CBOR, core deterministic, with `v` set to `Version`. | 4 |
 | `Decode(payload, m)` | function | Reads a payload, refusing anything but a CBOR map of this version. | 4 |

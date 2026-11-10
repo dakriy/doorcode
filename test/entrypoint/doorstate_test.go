@@ -33,6 +33,13 @@ func (k *keypad) says(what string) {
 	k.publish("doorcode/doors/1/event", testsupport.CBOR(map[string]any{"v": 1, "event": what}))
 }
 
+// opens has Lobby's controller say the door opened, unlocked or not, and
+// the server handle it.
+func (k *keypad) opens(unlocked bool) {
+	k.t.Helper()
+	k.publish("doorcode/doors/1/event", testsupport.CBOR(map[string]any{"v": 1, "event": "opened", "unlocked": unlocked}))
+}
+
 // publish has Lobby's controller publish payload on topic, and the server
 // handle it.
 func (k *keypad) publish(topic string, payload []byte) {
@@ -147,6 +154,86 @@ func TestADoorClosedAndOpenedAgainIsForcedAgain(t *testing.T) {
 	k.says("opened")
 
 	if diff := cmp.Diff([]any{"forced open", "forced open"}, k.reasons()); diff != "" {
+		t.Errorf("reasons (-want +got):\n%s", diff)
+	}
+}
+
+func TestADoorItsControllerSaysOpenedLockedIsForcedWhateverUnlockedIt(t *testing.T) {
+	t.Parallel()
+	staffRule := `{"group_id":2,"schedule_id":2,"zone_ids":[1]}`
+	cases := map[string]struct {
+		unlock func(k *keypad)
+		opened string
+		want   []any
+	}{
+		"nothing": {func(*keypad) {}, "2026-01-05T09:00:00Z", []any{"forced open"}},
+		"a code allowed": {func(k *keypad) {
+			createRule(k.t, k.b, staffRule)
+			k.press("111111")
+		}, "2026-01-05T09:00:01Z", []any{"forced open", "access rule"}},
+		"an opening from the UI": {func(k *keypad) {
+			send(k.t, k.b, "POST", "/api/v1/doors/1/open", "", 200)
+		}, "2026-01-05T09:00:01Z", []any{"forced open", "admin UI"}},
+		"an open override in force": {func(k *keypad) {
+			createOverride(k.t, k.b, "1", openNow)
+		}, "2026-01-05T10:00:00Z", []any{"forced open"}},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			k := keypadSite(t, testsupport.NewFactory())
+			c.unlock(k)
+			k.at(c.opened)
+
+			k.opens(false)
+
+			got := []any{k.state("/door"), k.reasons(), testsupport.JSONAt(send(t, k.b, "GET", "/api/v1/events", "", 200).Body, "/events/0/detail")}
+			want := []any{"open", c.want, "Its controller says it was locked when it opened."}
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Errorf("door, reasons, detail (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestADoorItsControllerSaysOpenedUnlockedIsNotForcedWhateverTheStrikeWindowHolds(t *testing.T) {
+	t.Parallel()
+	cases := map[string]struct {
+		before func(k *keypad)
+		want   []any
+	}{
+		"nothing":       {func(*keypad) {}, []any{}},
+		"a code denied": {func(k *keypad) { k.press("111111") }, []any{"no rule"}},
+		"a locked override in force": {func(k *keypad) {
+			createOverride(k.t, k.b, "1", lockedNow)
+			k.at("2026-01-05T10:00:00Z")
+		}, []any{}},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			k := keypadSite(t, testsupport.NewFactory())
+			c.before(k)
+
+			k.opens(true)
+
+			got := []any{k.state("/door"), k.reasons()}
+			if diff := cmp.Diff([]any{"open", c.want}, got); diff != "" {
+				t.Errorf("door, reasons (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestADoorItsControllerSaysOpenedLockedWhileOpenIsNotForcedAgain(t *testing.T) {
+	t.Parallel()
+	k := keypadSite(t, testsupport.NewFactory())
+	k.opens(false)
+	k.at("2026-01-05T09:00:20Z")
+
+	k.opens(false)
+
+	if diff := cmp.Diff([]any{"forced open"}, k.reasons()); diff != "" {
 		t.Errorf("reasons (-want +got):\n%s", diff)
 	}
 }
