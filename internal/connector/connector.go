@@ -719,12 +719,11 @@ type OverridesStore interface {
 // access rule that decided, nil when none did. RequestID is the id the
 // door gave the code check, empty for other events, and Detail says more
 // in words. OpenMS is how many milliseconds the door was open, nil but for
-// a door closing after an opening the server timed. StartReason is why a
-// door's controller said it started, as it said it, empty for every other
-// event and for a start it gave no reason for. DoorName and UserName
-// are the door's name and the user's display name, which the store fills
-// when it returns an event (UserName empty without a user) and ignores
-// when it stores one.
+// a door closing. StartReason is why a door's controller said it started,
+// as it said it, empty for every other event and for a start it gave no
+// reason for. DoorName and UserName are the door's name and the user's
+// display name, which the store fills when it returns an event (UserName
+// empty without a user) and ignores when it stores one.
 type StoredEvent struct {
 	ID          int64
 	At          time.Time
