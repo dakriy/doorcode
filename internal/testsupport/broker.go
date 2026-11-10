@@ -394,20 +394,13 @@ func Decoded(payload []byte) any {
 	return v
 }
 
-// awaitLimit is how long Await waits.
-const awaitLimit = 2 * time.Second
-
 // Await waits until the application has published on topic while it
-// runs, and reports whether it did within two seconds.
-func (b *Broker) Await(topic string) bool {
-	deadline := time.Now().Add(awaitLimit)
-	for time.Now().Before(deadline) {
-		if b.hasPublished(topic) {
-			return true
-		}
+// runs, or two seconds have passed.
+func (b *Broker) Await(topic string) {
+	deadline := time.Now().Add(2 * time.Second)
+	for !b.hasPublished(topic) && time.Now().Before(deadline) {
 		time.Sleep(time.Millisecond)
 	}
-	return false
 }
 
 func (b *Broker) hasPublished(topic string) bool {

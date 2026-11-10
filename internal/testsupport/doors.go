@@ -543,34 +543,23 @@ func (s *Store) FailZoneWrites() {
 	s.failing[zoneWrites] = true
 }
 
-// Hold is a slow lookup of a door: the store answers it once Release is
-// called.
-type Hold struct {
-	release chan struct{}
-}
-
-// Release lets the held lookup be answered.
-func (h *Hold) Release() {
-	close(h.release)
-}
-
 // HoldDoor makes the next lookup of the door whose id is id wait until the
-// Hold it returns is released, while every other lookup is answered.
-func (s *Store) HoldDoor(id int64) *Hold {
+// function it returns is called, while every other lookup is answered.
+func (s *Store) HoldDoor(id int64) (release func()) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	h := &Hold{release: make(chan struct{})}
-	s.holds[id] = h
-	return h
+	held := make(chan struct{})
+	s.holds[id] = held
+	return func() { close(held) }
 }
 
 // waitFor waits while the door whose id is id is held, ending the hold.
 func (s *Store) waitFor(id int64) {
 	s.mu.Lock()
-	h := s.holds[id]
+	held, holding := s.holds[id]
 	delete(s.holds, id)
 	s.mu.Unlock()
-	if h != nil {
-		<-h.release
+	if holding {
+		<-held
 	}
 }

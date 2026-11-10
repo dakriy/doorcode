@@ -162,7 +162,7 @@ func entry(level, msg string, fields []connector.Field) LogEntry {
 // it before the application runs and reads it after.
 type Store struct {
 	mu           sync.Mutex
-	holds        map[int64]*Hold
+	holds        map[int64]chan struct{}
 	migrated     bool
 	settings     map[string]connector.StoredSetting
 	users        []connector.StoredUser
@@ -246,7 +246,7 @@ func NewStore() *Store {
 		settings: map[string]connector.StoredSetting{},
 		sessions: map[string]connector.StoredSession{},
 		failing:  map[aggregate]bool{},
-		holds:    map[int64]*Hold{},
+		holds:    map[int64]chan struct{}{},
 	}
 }
 

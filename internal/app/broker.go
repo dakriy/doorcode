@@ -33,6 +33,11 @@ const lanes = 4
 
 // laneDepth is how many messages wait for a lane before Run waits for it
 // too: enough for a burst at a door without holding up the other doors.
+// A lane that falls further behind does hold up every lane, since Run
+// stops taking messages from the broker connection, which keeps them
+// until it does. The rate limit refuses a door's excess checks before
+// their hash, so a lane falls that far behind only when the server is
+// behind on its doors overall, where a bigger queue would only hold more.
 const laneDepth = 64
 
 // enrollmentPasswordBytes is how much entropy a generated enrollment

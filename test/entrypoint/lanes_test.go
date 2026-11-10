@@ -45,18 +45,17 @@ func TestACheckAtAnotherDoorIsAnsweredWhileOneDoorsCheckIsInProgress(t *testing.
 	f := testsupport.NewFactory()
 	a, _ := pushSite(t, f)
 	sent := len(f.BrokerStub.Published)
-	held := f.StoreStub.HoldDoor(1)
+	release := f.StoreStub.HoldDoor(1)
 	f.BrokerStub.Inject(doorTopic("1", "check"), checkAs("lobby"))
 	f.BrokerStub.Inject(doorTopic("2", "check"), checkAs("dock"))
 
-	var dockFirst bool
 	runWhile(t, a, func() {
-		dockFirst = f.BrokerStub.Await(doorTopic("2", "reply"))
-		held.Release()
+		f.BrokerStub.Await(doorTopic("2", "reply"))
+		release()
 	})
 
-	want := []any{true, [][]any{{doorTopic("2", "reply"), "dock"}, {doorTopic("1", "reply"), "lobby"}}}
-	if diff := cmp.Diff(want, []any{dockFirst, answered(f, sent)}); diff != "" {
+	want := [][]any{{doorTopic("2", "reply"), "dock"}, {doorTopic("1", "reply"), "lobby"}}
+	if diff := cmp.Diff(want, answered(f, sent)); diff != "" {
 		t.Errorf("Dock answered while Lobby's check waited, answers (-want +got):\n%s", diff)
 	}
 }
@@ -66,7 +65,7 @@ func TestADoorsMessagesAreHandledInTheOrderItSentThemWhileOneWaits(t *testing.T)
 	f := testsupport.NewFactory()
 	a, _ := pushSite(t, f)
 	sent := len(f.BrokerStub.Published)
-	held := f.StoreStub.HoldDoor(1)
+	release := f.StoreStub.HoldDoor(1)
 	for _, id := range []string{"r1", "r2", "r3"} {
 		f.BrokerStub.Inject(doorTopic("1", "check"), checkAs(id))
 	}
@@ -74,7 +73,7 @@ func TestADoorsMessagesAreHandledInTheOrderItSentThemWhileOneWaits(t *testing.T)
 
 	runWhile(t, a, func() {
 		f.BrokerStub.Await(doorTopic("2", "reply"))
-		held.Release()
+		release()
 	})
 
 	want := [][]any{
