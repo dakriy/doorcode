@@ -475,9 +475,12 @@ func (a *App) deleteDoorFromForm(w http.ResponseWriter, r *http.Request, viewer 
 	}
 }
 
+// restoreDoorFromForm restores the door and goes back to the tab of its
+// page the form was sent from.
 func (a *App) restoreDoorFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	if d, ok := a.pageDoor(w, r, viewer); ok {
-		a.changed(w, r, a.doors.Restore(r.Context(), d.ID), doorTabPath(d.ID, doorController), "door-restored")
+		tab := tabNamed(doorTabsFor(viewer, d.StoredDoor), r.PostFormValue("tab"))
+		a.changed(w, r, a.doors.Restore(r.Context(), d.ID), doorTabPath(d.ID, tab), "door-restored")
 	}
 }
 

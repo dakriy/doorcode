@@ -404,8 +404,8 @@ func TestOpeningADoorThatIsOfflineFromItsPageReopensTheOverview(t *testing.T) {
 	}
 }
 
-// The navigation's count of waiting requests reloads too, from wherever
-// the page was answered; only the door's own live parts are compared.
+// The navigation's count of waiting requests reloads from the requests
+// page, whichever page holds it.
 func TestADoorPagesLivePartsReloadFromTheTabTheyAreOn(t *testing.T) {
 	t.Parallel()
 	cases := map[string]struct {
@@ -413,28 +413,24 @@ func TestADoorPagesLivePartsReloadFromTheTabTheyAreOn(t *testing.T) {
 		want map[string]string
 	}{
 		"the overview": {func(b *testsupport.Browser) testsupport.Response { return b.Get("/admin/doors/1") },
-			map[string]string{"state-live": "/admin/doors/1?tab=overview"}},
+			map[string]string{"state-live": "/admin/doors/1?tab=overview", "waiting-requests": "/admin/requests"}},
 		"a range of the overview": {func(b *testsupport.Browser) testsupport.Response {
 			return b.Get("/admin/doors/1?range=7+d&tab=overview")
 		},
-			map[string]string{"state-live": "/admin/doors/1?tab=overview&range=7+d"}},
+			map[string]string{"state-live": "/admin/doors/1?tab=overview&range=7+d", "waiting-requests": "/admin/requests"}},
 		"the controller": {func(b *testsupport.Browser) testsupport.Response { return b.Get("/admin/doors/1?tab=controller") },
-			map[string]string{"controller-live": "/admin/doors/1?tab=controller", "firmware-live": "/admin/doors/1?tab=controller"}},
+			map[string]string{"controller-live": "/admin/doors/1?tab=controller", "firmware-live": "/admin/doors/1?tab=controller", "waiting-requests": "/admin/requests"}},
 		"a refused firmware": {func(b *testsupport.Browser) testsupport.Response {
 			return b.Post("/admin/doors/1/firmware", "firmware_id", "9")
-		}, map[string]string{"controller-live": "/admin/doors/1?tab=controller", "firmware-live": "/admin/doors/1?tab=controller"}},
+		}, map[string]string{"controller-live": "/admin/doors/1?tab=controller", "firmware-live": "/admin/doors/1?tab=controller", "waiting-requests": "/admin/requests"}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			_, b, _, _ := enrolledDoor(t, testsupport.NewFactory())
 
-			reloads := testsupport.ParsePage(c.send(b).Body).Reloads
+			got := testsupport.ParsePage(c.send(b).Body).Reloads
 
-			got := map[string]string{}
-			for id := range c.want {
-				got[id] = reloads[id]
-			}
 			if diff := cmp.Diff(c.want, got); diff != "" {
 				t.Errorf("reloads (-want +got):\n%s", diff)
 			}
@@ -653,14 +649,50 @@ func TestDeletingAndRestoringADoorFromItsPage(t *testing.T) {
 
 	deleted := b.Post("/admin/doors/1/delete")
 	whileDeleted := pageOf(b.Get(deleted.Location))
-	restored := b.Post("/admin/doors/1/restore")
+	controller := pageOf(b.Get("/admin/doors/1?tab=controller"))
+	restored := b.Post("/admin/doors/1/restore", "tab", controller.Values["tab"])
 	afterwards := pageOf(b.Get(restored.Location))
 
 	want := []any{"/admin/doors/1?tab=details", []string{"The door has been deleted. Its history stays, and you can restore it."},
-		[]string{picturesNote, neverOpenNote, "There are no zones yet. Create one on the zones page."},
+		[]string{deletedDoorNote, picturesNote, neverOpenNote, "There are no zones yet. Create one on the zones page."},
 		"/admin/doors/1?tab=controller", []string{"The door has been restored."}, []string{notEnrolledNote}}
 	if diff := cmp.Diff(want, []any{deleted.Location, whileDeleted.Messages, whileDeleted.Notes, restored.Location, afterwards.Messages, afterwards.Notes}); diff != "" {
 		t.Errorf("delete, restore (-want +got):\n%s", diff)
+	}
+}
+
+// deletedDoorNote is what a deleted door's page says above its tabs.
+const deletedDoorNote = "Deleted on 5 Jan 2026. The door is listed only under deleted doors; its history stays."
+
+func TestADeletedDoorOffersRestoringOnEveryTabAndGoesBackToIt(t *testing.T) {
+	t.Parallel()
+	for _, tab := range []string{"overview", "access", "controller", "configuration", "details"} {
+		t.Run(tab, func(t *testing.T) {
+			t.Parallel()
+			_, b, _, _ := enrolledDoor(t, testsupport.NewFactory())
+			b.Post("/admin/doors/1/delete")
+
+			page := pageOf(b.Get("/admin/doors/1?tab=" + tab))
+			restored := b.Post("/admin/doors/1/restore", "tab", page.Values["tab"])
+
+			want := []any{deletedDoorNote, "/admin/doors/1?tab=" + tab}
+			if diff := cmp.Diff(want, []any{page.Notes[0], restored.Location}); diff != "" {
+				t.Errorf("note, restored to (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestRestoringADoorFromATabNotShownGoesBackToTheOverview(t *testing.T) {
+	t.Parallel()
+	b := signedInAdmin(t, testsupport.NewFactory())
+	createDoor(t, b, frontDoor)
+	b.Post("/admin/doors/1/delete")
+
+	got := b.Post("/admin/doors/1/restore", "tab", "configuration")
+
+	if diff := cmp.Diff("/admin/doors/1?tab=overview", got.Location); diff != "" {
+		t.Errorf("restored to (-want +got):\n%s", diff)
 	}
 }
 

@@ -18,6 +18,15 @@
     {{if $c.Opens}}<a href="/admin/doors/{{$d.ID}}/calendar" hx-boost="false" class="shrink-0 {{template "secondary-class"}}">{{template "calendar-icon"}}View timeline</a>{{end}}
   </div>
 </div>
+{{if $c.Manage}}{{with $d.DeletedAt}}
+<div class="mt-6 flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200">
+  <p role="note">Deleted on {{date $.Zone .}}. The door is listed only under deleted doors; its history stays.</p>
+  <form method="post" action="/admin/doors/{{$d.ID}}/restore">
+    <input type="hidden" name="tab" value="{{$c.Tab}}">
+    <button type="submit" class="{{template "secondary-class"}} bg-white py-1.5 dark:bg-zinc-900">Restore door</button>
+  </form>
+</div>
+{{end}}{{end}}
 {{template "tab-strip" $c.Tabs}}
 
 {{with $c.Alert}}<div class="mt-6">{{template "alert" .}}</div>{{end}}
@@ -202,14 +211,7 @@
   </div>
 </section>
 {{else if eq $c.Tab "controller"}}
-{{if $c.Manage}}{{with $d.DeletedAt}}
-<div class="mt-6 flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200">
-  <p>Deleted on {{date $.Zone .}}. The door is listed only under deleted doors; its history stays.</p>
-  <form method="post" action="/admin/doors/{{$d.ID}}/restore">
-    <button type="submit" class="{{template "secondary-class"}} bg-white py-1.5 dark:bg-zinc-900">Restore door</button>
-  </form>
-</div>
-{{end}}
+{{if $c.Manage}}
 <div id="controller-live" hx-get="{{$c.Here}}" hx-trigger="live-doors from:body" hx-select="#controller-live" hx-swap="outerHTML">
 {{with $c.Controller}}
 <section aria-labelledby="controller-heading" class="mt-6 overflow-hidden {{template "card-class"}}">

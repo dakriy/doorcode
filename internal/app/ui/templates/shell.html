@@ -136,10 +136,10 @@
 {{define "navlink-class"}}flex items-center justify-between gap-2 rounded-md px-3 py-1.5 text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 aria-[current=page]:bg-brand-50 aria-[current=page]:text-brand-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:aria-[current=page]:bg-brand-950 dark:aria-[current=page]:text-brand-300{{end}}
 
 {{/* The link to the access requests, with how many wait for an answer,
-     which reloads itself when the live stream says requests changed.
-     Given the page data. */}}
+     which reloads itself from the requests page when the live stream says
+     requests changed. Given the page data. */}}
 {{define "requests-navlink"}}{{$n := navlink "/admin/requests" "Requests" .Path}}
-<a href="{{$n.Href}}"{{if $n.Current}} aria-current="page"{{end}} class="{{template "navlink-class"}}">{{$n.Label}}<span id="waiting-requests" hx-get="{{.URI}}" hx-select="#waiting-requests" hx-swap="outerHTML" hx-trigger="live-requests from:body">{{with .Waiting}}<span class="inline-flex min-w-5 justify-center rounded-full bg-amber-500 px-1.5 py-0.5 text-[0.6875rem] leading-none font-semibold text-white tabular-nums dark:bg-amber-400 dark:text-zinc-950">{{.}}<span class="sr-only"> waiting</span></span>{{end}}</span></a>
+<a href="{{$n.Href}}"{{if $n.Current}} aria-current="page"{{end}} class="{{template "navlink-class"}}">{{$n.Label}}<span id="waiting-requests" hx-get="{{$n.Href}}" hx-select="#waiting-requests" hx-swap="outerHTML" hx-trigger="live-requests from:body">{{with .Waiting}}<span class="inline-flex min-w-5 justify-center rounded-full bg-amber-500 px-1.5 py-0.5 text-[0.6875rem] leading-none font-semibold text-white tabular-nums dark:bg-amber-400 dark:text-zinc-950">{{.}}<span class="sr-only"> waiting</span></span>{{end}}</span></a>
 {{end}}
 
 {{define "viewer-menu"}}

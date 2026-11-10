@@ -382,11 +382,13 @@ its password to the log with instructions to change it.
 
 Pages: dashboard, doors (list, pending enrollments, detail, timeline
 calendar; a door's page keeps its picture, name, badges, provisioning file,
-and timeline link in the header above tabs like the settings page's:
+and timeline link in the header above tabs like the settings page's, and a
+deleted door's banner with its Restore door button between the header and
+the tabs, so it shows on every tab and restoring goes back to the tab open:
 Overview (live state with its badges, charts, and alarms, the open and
 reboot buttons, and recent events), Access (who can enter, and the overrides
 with a new one), Controller (the controller, its credentials with rotate and
-revoke, its firmware with update now, and restoring a deleted door),
+revoke, and its firmware with update now),
 Configuration (the door's overrides of the site's defaults, once a
 controller is enrolled), and Details (name, location, notes, and whether the
 portal shows it, the zones and the open mode they give it, pictures, and deleting
@@ -432,7 +434,8 @@ row at phone width.
 
 Lists are searchable, filterable, server-paginated, and update live over
 Server-Sent Events where state changes without a page action (door status,
-enrollments, dashboard). Every select or list of checkboxes of something that
+enrollments, dashboard, and the navigation's count of access requests
+waiting, which reloads from the requests page whatever page shows it). Every select or list of checkboxes of something that
 may be long (doors, zones, schedules, firmware) narrows its options as you
 type, from the keyboard as well, and stays a plain select or list of
 checkboxes without script. Users, of whom a site may have thousands, are never
