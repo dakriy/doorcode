@@ -39,6 +39,9 @@
 {{/* A row of a table that starts a group of the rows after it, naming the group. */}}
 {{define "group-heading-class"}}bg-zinc-50 px-6 pt-4 pb-2 text-left text-xs font-semibold tracking-wide text-brand-700 uppercase dark:bg-zinc-900/60 dark:text-brand-300{{end}}
 
+{{/* A count beside a link's name, such as how many items wait behind it. */}}
+{{define "count-class"}}inline-flex min-w-5 justify-center rounded-full bg-brand-600 px-1.5 py-0.5 text-xs/4 font-semibold text-white tabular-nums dark:bg-brand-500{{end}}
+
 {{define "link-class"}}font-medium text-brand-700 hover:text-brand-500 dark:text-brand-300 dark:hover:text-brand-200{{end}}
 
 {{define "alert"}}{{if .}}
@@ -542,10 +545,10 @@ the form with the id group-form, wherever on the page they sit. */}}
 {{end}}
 
 {{define "tab-strip"}}
-{{/* The tabs of a page, given a tabStrip. A tab with a count shows it as a badge, as the door list counts pending enrollments. Each tab is a plain link, so a tab works without script and its address can be shared; at phone width the row scrolls rather than wraps. */}}
+{{/* The tabs of a page, given a tabStrip. A tab with a count shows it beside its name. Each tab is a plain link, so a tab works without script and its address can be shared; at phone width the row scrolls rather than wraps. */}}
 <nav aria-label="{{.Label}}" class="-mx-4 mt-6 overflow-x-auto px-4 sm:mx-0 sm:px-0">
   <div class="flex min-w-max gap-6 border-b border-zinc-200 dark:border-zinc-800">
-    {{range .Links}}<a href="{{.Href}}"{{if .Current}} aria-current="page"{{end}} class="-mb-px border-b-2 border-transparent px-1 pb-3 text-sm font-medium whitespace-nowrap text-zinc-500 transition hover:border-zinc-300 hover:text-zinc-800 aria-[current=page]:border-brand-600 aria-[current=page]:text-brand-700 dark:text-zinc-400 dark:hover:border-zinc-600 dark:hover:text-zinc-200 dark:aria-[current=page]:border-brand-400 dark:aria-[current=page]:text-brand-300">{{.Name}}{{if .Count}} <span class="ml-1 inline-flex min-w-5 justify-center rounded-full bg-brand-600 px-1.5 py-0.5 text-xs/4 font-semibold text-white tabular-nums dark:bg-brand-500">{{.Count}}<span class="sr-only"> {{.Counted}}</span></span>{{end}}</a>{{end}}
+    {{range .Links}}<a href="{{.Href}}"{{if .Current}} aria-current="page"{{end}} class="-mb-px border-b-2 border-transparent px-1 pb-3 text-sm font-medium whitespace-nowrap text-zinc-500 transition hover:border-zinc-300 hover:text-zinc-800 aria-[current=page]:border-brand-600 aria-[current=page]:text-brand-700 dark:text-zinc-400 dark:hover:border-zinc-600 dark:hover:text-zinc-200 dark:aria-[current=page]:border-brand-400 dark:aria-[current=page]:text-brand-300">{{.Name}}{{if .Count}} <span class="ml-1 {{template "count-class"}}">{{.Count}}<span class="sr-only"> {{.Counted}}</span></span>{{end}}</a>{{end}}
   </div>
 </nav>
 {{end}}
