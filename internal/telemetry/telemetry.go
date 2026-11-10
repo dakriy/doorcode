@@ -125,7 +125,7 @@ func (s Service) doorEvent(ctx context.Context, doorID int64, payload []byte) er
 		}
 		c = closed(c)
 	case protocol.EventStarted:
-		if _, err := s.Events.Record(ctx, started(now, d.ID, m.Reason)); err != nil {
+		if _, err := s.Events.Record(ctx, Started(now, d.ID, m.Reason)); err != nil {
 			return err
 		}
 	default:
@@ -146,10 +146,10 @@ var startedWhy = map[string]string{
 	protocol.StartUnknown:  "It does not know why.",
 }
 
-// started is the controller of the door whose id is doorID starting, at
-// at, for reason, said in words when the server knows it, else as given,
-// and not at all when it is empty.
-func started(at time.Time, doorID int64, reason string) connector.StoredEvent {
+// Started is the event of the controller of the door whose id is doorID
+// starting, at at, for reason, said in words when the server knows it,
+// else as given, and not at all when it is empty.
+func Started(at time.Time, doorID int64, reason string) connector.StoredEvent {
 	detail, known := startedWhy[reason]
 	if !known {
 		detail = reason

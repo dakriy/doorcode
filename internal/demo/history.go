@@ -9,6 +9,8 @@ import (
 
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/event"
+	"github.com/dakriy/doorcode/internal/protocol"
+	"github.com/dakriy/doorcode/internal/telemetry"
 )
 
 // historyDays is how far back the demo's history goes.
@@ -257,7 +259,7 @@ func pastUpdates(now time.Time) []connector.StoredEvent {
 		detail := "Version " + p.after + "."
 		out = append(out,
 			connector.StoredEvent{At: sent, DoorID: p.door, Type: event.Update, Outcome: event.Info, Reason: event.UpdateSent, Detail: detail},
-			started(sent.Add(4*time.Minute), p.door, "A restart its firmware asked for."),
+			telemetry.Started(sent.Add(4*time.Minute), p.door, protocol.StartSoftware),
 			connector.StoredEvent{At: sent.Add(5 * time.Minute), DoorID: p.door, Type: event.Update, Outcome: event.Info, Reason: event.UpdateSucceeded, Detail: detail})
 	}
 	return out
@@ -272,12 +274,7 @@ func pastStarts(now time.Time) []connector.StoredEvent {
 			continue
 		}
 		_, back := p.outage(now)
-		out = append(out, started(back.Add(-time.Minute), p.door, "Power on."))
+		out = append(out, telemetry.Started(back.Add(-time.Minute), p.door, protocol.StartPowerOn))
 	}
 	return out
-}
-
-// started is the controller of door starting at at, why saying why.
-func started(at time.Time, door int64, why string) connector.StoredEvent {
-	return connector.StoredEvent{At: at, DoorID: door, Type: event.Door, Outcome: event.Info, Reason: event.Started, Detail: why}
 }
