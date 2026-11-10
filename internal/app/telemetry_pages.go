@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -73,6 +74,16 @@ type rangeLink struct {
 	Current bool
 }
 
+// rangeKey is the query parameter naming the chart range a door's page
+// shows.
+const rangeKey = "range"
+
+// withRange is the address of the door page at path, which names its tab,
+// showing the chart range named name.
+func withRange(path, name string) string {
+	return path + "&" + rangeKey + "=" + url.QueryEscape(name)
+}
+
 // chosenRange is the chart range named name, the default when none is.
 func chosenRange(name string) chartRange {
 	for _, c := range chartRanges {
@@ -91,9 +102,9 @@ func (a *App) stateOf(r *http.Request, viewer auth.User, c catalog, d connector.
 		return nil, nil
 	}
 	view := c.rowOfState(*d.Controller, zone)
-	chosen := chosenRange(r.URL.Query().Get("range"))
+	chosen := chosenRange(r.URL.Query().Get(rangeKey))
 	for _, cr := range chartRanges {
-		view.Ranges = append(view.Ranges, rangeLink{Label: cr.Label, Href: doorTabPath(d.ID, doorOverview) + "&range=" + cr.Name, Current: cr == chosen})
+		view.Ranges = append(view.Ranges, rangeLink{Label: cr.Label, Href: withRange(doorTabPath(d.ID, doorOverview), cr.Name), Current: cr == chosen})
 	}
 	to := a.clock.Now()
 	from := to.Add(-time.Duration(chosen.Hours) * time.Hour)

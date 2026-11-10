@@ -425,8 +425,8 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 // chart range r asks for, if any.
 func doorHere(r *http.Request, id int64, tab settings.Tab) string {
 	here := doorTabPath(id, tab)
-	if chart := r.URL.Query().Get("range"); chart != "" {
-		here += "&range=" + url.QueryEscape(chart)
+	if chart := r.URL.Query().Get(rangeKey); chart != "" {
+		return withRange(here, chart)
 	}
 	return here
 }
