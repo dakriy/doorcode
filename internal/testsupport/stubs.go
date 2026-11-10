@@ -199,6 +199,7 @@ type Store struct {
 	migrateErr   error
 	pingErr      error
 	failing      map[aggregate]bool
+	doorsCalls   int
 }
 
 type aggregate int
@@ -240,6 +241,7 @@ const (
 	requestsAggregate
 	requestWrites
 	emailLookups
+	doorLookups
 )
 
 // NewStore returns an empty, unmigrated stub store.

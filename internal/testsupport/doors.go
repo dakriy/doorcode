@@ -34,6 +34,7 @@ type storedPicture struct {
 func (s *Store) Doors(context.Context) ([]connector.StoredDoor, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.doorsCalls++
 	if err := s.usable(doorsAggregate); err != nil {
 		return nil, err
 	}
@@ -47,12 +48,20 @@ func (s *Store) Doors(context.Context) ([]connector.StoredDoor, error) {
 	return all, nil
 }
 
+// DoorsCalls is how many times Doors was called, so a test can show an
+// action reads only the doors it needs rather than every door.
+func (s *Store) DoorsCalls() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.doorsCalls
+}
+
 // Door returns the door with id.
 func (s *Store) Door(_ context.Context, id int64) (connector.StoredDoor, bool, error) {
 	s.waitFor(id)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if err := s.usable(doorsAggregate); err != nil {
+	if err := s.writable(doorsAggregate, doorLookups); err != nil {
 		return connector.StoredDoor{}, false, err
 	}
 	held := s.doorByID(id)
@@ -512,6 +521,12 @@ func (s *Store) cloneZone(z connector.StoredZone) connector.StoredZone {
 // FailDoors makes the door and picture methods report ErrUnavailable.
 func (s *Store) FailDoors() {
 	s.failing[doorsAggregate] = true
+}
+
+// FailDoorLookups makes Door report ErrUnavailable, while every door can
+// still be read with Doors.
+func (s *Store) FailDoorLookups() {
+	s.failing[doorLookups] = true
 }
 
 // FailDoorWrites makes the methods that change doors and pictures report

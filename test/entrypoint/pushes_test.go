@@ -152,7 +152,7 @@ func TestAChangeSendsNewTimelinesToTheDoorsWhoseTimelinesDependOnIt(t *testing.T
 		"changing a door's zones":                     {"PUT", "/api/v1/doors/1", `{"name":"Lobby","zone_ids":[1,3]}`, 200, []string{"1"}},
 		"giving a zone open mode":                     {"PUT", "/api/v1/zones/2", `{"name":"Annex","door_ids":[2,4],"open_schedule_ids":[2]}`, 200, []string{"2", "4"}},
 		"taking a door out of an open-mode zone":      {"PUT", "/api/v1/zones/3", `{"name":"Nightly","door_ids":[5],"open_schedule_ids":[3]}`, 200, []string{"4"}},
-		"creating a zone with open mode":              {"POST", "/api/v1/zones", `{"name":"Porch","door_ids":[1,3],"open_schedule_ids":[1]}`, 201, []string{"3", "1"}},
+		"creating a zone with open mode":              {"POST", "/api/v1/zones", `{"name":"Porch","door_ids":[1,3],"open_schedule_ids":[1]}`, 201, []string{"1", "3"}},
 		"deleting an open-mode zone":                  {"DELETE", "/api/v1/zones/3", "", 204, []string{"4"}},
 	}
 	for name, c := range cases {
@@ -192,6 +192,43 @@ func TestChangingADoorsConfigurationSendsItItsConfiguration(t *testing.T) {
 		f.BrokerStub.RetainedDecoded(doorTopic("1", "config"))}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("configurations sent, Dock's, Lobby's (-want +got):\n%s", diff)
+	}
+}
+
+func TestADoorThatReconnectsIsSentItsConfigurationAndTimelineWithoutReadingEveryDoor(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	a, b := brokerSite(t, f)
+	furnishDoorSite(t, b)
+	createDoor(t, b, `{"name":"Lobby","zone_ids":[1]}`)
+	createDoor(t, b, `{"name":"Dock","zone_ids":[1]}`)
+	conn, creds := enrollWith(t, f, a, b, "B2", "2")
+	sent, reads := len(f.BrokerStub.Published), f.StoreStub.DoorsCalls()
+
+	if err := conn.Publish(doorTopic("2", "online"), onlineAs(creds.username, true), true); err != nil {
+		t.Fatal(err)
+	}
+	run(t, a)
+
+	want := []any{topicsOf("config", "2"), topicsOf("timeline", "2"), reads}
+	got := []any{f.BrokerStub.Topics(sent, "config"), f.BrokerStub.Topics(sent, "timeline"), f.StoreStub.DoorsCalls()}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("configurations sent, timelines sent, reads of every door (-want +got):\n%s", diff)
+	}
+}
+
+func TestChangingADoorsConfigurationSendsItWithoutReadingEveryDoor(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	_, b := pushSite(t, f)
+	sent, reads := len(f.BrokerStub.Published), f.StoreStub.DoorsCalls()
+
+	send(t, b, "PUT", "/api/v1/doors/3/config", `{"overrides":{"log_level":"debug"}}`, 200)
+
+	want := []any{topicsOf("config", "3"), reads}
+	got := []any{f.BrokerStub.Topics(sent, "config"), f.StoreStub.DoorsCalls()}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("configurations sent, reads of every door (-want +got):\n%s", diff)
 	}
 }
 
@@ -372,6 +409,8 @@ func TestAChangeStandsAndIsLoggedWhenDoorsCannotBeSentIt(t *testing.T) {
 			createSchedule(t, b, `{"name":"Nights","windows":[{"days":["mon"],"start":"22:00","end":"06:00"}]}`)
 			f.StoreStub.FailDoors()
 		}, "PUT", "/api/v1/schedules/2", `{"name":"Nights","windows":[{"days":["tue"],"start":"22:00","end":"06:00"}]}`, 200},
+		"its door cannot be looked up": {func(f *testsupport.Factory, _ *testsupport.Browser) { f.StoreStub.FailDoorLookups() },
+			"POST", "/api/v1/zones", `{"name":"Porch","door_ids":[1]}`, 201},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

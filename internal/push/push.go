@@ -9,10 +9,10 @@ package push
 import (
 	"context"
 	"errors"
-	"slices"
 	"sync"
 	"time"
 
+	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/protocol"
@@ -121,9 +121,10 @@ func (s Service) Refresh(ctx context.Context) error {
 }
 
 // each sends every door whose id is among ids, or every door when ids is
-// nil, what send sends it, carrying on past a door it cannot send to.
+// nil, what send sends it, carrying on past a door it cannot send to. It
+// sends only to a door a controller is enrolled as that is not deleted.
 func (s Service) each(ctx context.Context, ids []int64, send sender) error {
-	doors, err := s.Store.Doors(ctx)
+	doors, err := s.doors(ctx, ids)
 	if err != nil {
 		return err
 	}
@@ -145,7 +146,7 @@ func (s Service) each(ctx context.Context, ids []int64, send sender) error {
 	}
 	var errs []error
 	for _, d := range doors {
-		if !chosen(d, ids) {
+		if !door.Enrolled(d) {
 			continue
 		}
 		config, err := defaults.For(d.Config)
@@ -157,10 +158,24 @@ func (s Service) each(ctx context.Context, ids []int64, send sender) error {
 	return errors.Join(errs...)
 }
 
-// chosen reports whether each sends to d: a door a controller is
-// enrolled as that is not deleted, among ids unless ids is nil.
-func chosen(d connector.StoredDoor, ids []int64) bool {
-	return door.Enrolled(d) && (ids == nil || slices.Contains(ids, d.ID))
+// doors returns the doors whose ids are among ids, or every door when ids
+// is nil. Given ids, it reads only those doors, each once, so a door
+// connecting does not read every door.
+func (s Service) doors(ctx context.Context, ids []int64) ([]connector.StoredDoor, error) {
+	if ids == nil {
+		return s.Store.Doors(ctx)
+	}
+	doors := []connector.StoredDoor{}
+	for _, id := range check.Distinct(ids) {
+		d, found, err := s.Store.Door(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if found {
+			doors = append(doors, d)
+		}
+	}
+	return doors, nil
 }
 
 func sendConfig(s Service, ctx context.Context, t target) error {
