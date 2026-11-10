@@ -380,7 +380,7 @@ func TestUserMaySetTheCodeTheyAlreadyHave(t *testing.T) {
 	}
 }
 
-func TestDoorCodesStayUniqueWhenTheHashingCostChanges(t *testing.T) {
+func TestDoorCodesStayUniqueWhenThePasswordHashingCostChanges(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	b := signedInAdmin(t, f)
@@ -399,15 +399,13 @@ func TestDoorCodesStayUniqueWhenTheHashingCostChanges(t *testing.T) {
 
 func TestDoorCodesAreHashedAtFixedParametersWhateverThePasswordHashingCost(t *testing.T) {
 	t.Parallel()
-	cases := map[string]string{"the suite's cost": "", "the default cost": "19456", "the highest cost": "1048576"}
+	cases := map[string]string{"the lowest cost": "8", "the default cost": "19456", "the highest cost": "1048576"}
 	for name, memory := range cases {
 		t.Run(name, func(t *testing.T) {
 			f := testsupport.NewFactory()
 			b := signedInAdmin(t, f)
-			if memory != "" {
-				delete(f.EnvStub, "DOORCODE_PASSWORD_HASH_MEMORY_KIB")
-				send(t, b, "PUT", "/api/v1/settings/password_hash_memory_kib", `{"value":"`+memory+`"}`, 200)
-			}
+			delete(f.EnvStub, "DOORCODE_PASSWORD_HASH_MEMORY_KIB")
+			send(t, b, "PUT", "/api/v1/settings/password_hash_memory_kib", `{"value":"`+memory+`"}`, 200)
 
 			send(t, b, "PUT", "/api/v1/users/1/code", `{"code":"654321"}`, 204)
 
