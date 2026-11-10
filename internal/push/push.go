@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/protocol"
@@ -159,14 +158,14 @@ func (s Service) each(ctx context.Context, ids []int64, send sender) error {
 }
 
 // doors returns the doors whose ids are among ids, or every door when ids
-// is nil. Given ids, it reads only those doors, each once, so a door
-// connecting does not read every door.
+// is nil. Given ids, it reads only those doors, so a door connecting does
+// not read every door.
 func (s Service) doors(ctx context.Context, ids []int64) ([]connector.StoredDoor, error) {
 	if ids == nil {
 		return s.Store.Doors(ctx)
 	}
 	doors := []connector.StoredDoor{}
-	for _, id := range check.Distinct(ids) {
+	for _, id := range ids {
 		d, found, err := s.Store.Door(ctx, id)
 		if err != nil {
 			return nil, err
