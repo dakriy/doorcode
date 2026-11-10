@@ -370,6 +370,14 @@ implementation. In short:
    `doorcode/doors/<id>/ack` with the command's `id`, a `result` (`failed`
    when it could not be carried out), and a `detail`.
 
+Deleting a door deletes its broker accounts, which disconnects its
+controller, and takes the controller off the door; a code check that still
+arrives for it is not answered. The controller's next connection as the
+door is refused as not authorized, so it enrolls again from step 1 and
+shows as pending, to be approved as another door or, once the door is
+restored, as the same one. Restoring a door does not bring its controller
+back.
+
 ## Firmware rollout
 
 Holders of manage-firmware upload images with a version (letters, digits,

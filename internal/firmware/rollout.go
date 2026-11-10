@@ -75,8 +75,20 @@ type Plan struct {
 	Doors    []DoorFirmware
 }
 
-// Plan returns where every door stands with its firmware.
+// Plan returns where every door that is not deleted stands with its
+// firmware; a deleted door takes no part in the rollout.
 func (s Service) Plan(ctx context.Context) (Plan, error) {
+	doors, err := s.Store.CurrentDoors(ctx)
+	if err != nil {
+		return Plan{}, err
+	}
+	return s.planOf(ctx, doors)
+}
+
+// PlanWithDeleted is Plan with the deleted doors as well. A deleted door
+// keeps the firmware it runs instead of the default, which stays in use,
+// so this is the plan that says whether firmware can be deleted.
+func (s Service) PlanWithDeleted(ctx context.Context) (Plan, error) {
 	doors, err := s.Store.Doors(ctx)
 	if err != nil {
 		return Plan{}, err

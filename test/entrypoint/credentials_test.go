@@ -159,6 +159,23 @@ func TestCredentialsRotateOnTheirOwnOnceTheIntervalPasses(t *testing.T) {
 	}
 }
 
+func TestPeriodicWorkReadsOnlyTheDoorsThatAreNotDeleted(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	a, b, _, _ := enrolledDoor(t, f)
+	createDoor(t, b, `{"name":"Dock"}`)
+	send(t, b, "DELETE", "/api/v1/doors/2", "", 204)
+	before := f.StoreStub.DoorsCalls()
+	f.ClockStub.Set("2026-02-04T09:00:00Z")
+
+	run(t, a)
+
+	got := []any{statuses(t, signIn(t, f, a.Handler()), "1"), f.StoreStub.DoorsCalls()}
+	if diff := cmp.Diff([]any{[]string{"in-use", "issued"}, before}, got); diff != "" {
+		t.Errorf("statuses, reads of every door (-want +got):\n%s", diff)
+	}
+}
+
 func TestRotationIntervalComesFromTheSettings(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()

@@ -173,6 +173,14 @@ door has not yet connected with its newest credential, rotation issues
 nothing more: the periodic rotation waits, and rotating from the door page
 or the API is refused. Revocation from the door page disconnects the door.
 
+Deleting a door first revokes every credential it has, deleting its broker
+accounts, which disconnects its controller, and takes the controller off
+the door; if the broker refuses, the door is not deleted. The controller
+then enrolls again and waits, pending, to be approved, as another door or
+as this one once it is restored. Restoring the door does not bring the
+controller back. A code check that still arrives for a deleted door is
+logged and not answered.
+
 ### Pictures
 
 A door has any number of pictures, uploaded from the door page or the API.

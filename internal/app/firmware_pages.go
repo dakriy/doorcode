@@ -339,7 +339,9 @@ func (a *App) showFirmwareVersion(w http.ResponseWriter, r *http.Request, status
 	if a.unloaded(w, r, viewer, err, firmware.ErrNoFirmware, noFirmwareHere) {
 		return
 	}
-	plan, err := a.firmware.Plan(r.Context())
+	// A deleted door keeps its firmware in use; concerns leaves it out of
+	// the table.
+	plan, err := a.firmware.PlanWithDeleted(r.Context())
 	if err != nil {
 		a.pageError(w, r, err)
 		return

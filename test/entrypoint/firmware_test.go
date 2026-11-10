@@ -740,6 +740,22 @@ func TestFirmwareInUseCannotBeDeleted(t *testing.T) {
 	}
 }
 
+func TestFirmwareADeletedDoorRunsCannotBeDeleted(t *testing.T) {
+	t.Parallel()
+	fl := fleetSite(t, testsupport.NewFactory())
+	uploadFirmware(t, fl.b, "1.6.0")
+	send(t, fl.b, "PUT", "/api/v1/doors/3/firmware", `{"firmware_id":2}`, 200)
+	send(t, fl.b, "DELETE", "/api/v1/doors/3", "", 204)
+
+	got := []any{send(t, fl.b, "DELETE", "/api/v1/firmware/2", "", 409).Body, pageOf(fl.browser().Get("/admin/firmware/2")).Notes}
+
+	refusal := "these doors run this version instead of the default: Attic; choose other firmware for them first"
+	want := []any{`{"error":"` + refusal + `"}` + "\n", []string{"These doors run this version instead of the default: Attic; choose other firmware for them first."}}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("refusal, page notes (-want +got):\n%s", diff)
+	}
+}
+
 func TestFirmwareNoDoorRunsCanBeDeleted(t *testing.T) {
 	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())

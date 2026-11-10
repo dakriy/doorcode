@@ -320,17 +320,65 @@ func TestAfterARestartEveryEnrolledDoorIsSentItsTimeline(t *testing.T) {
 	}
 }
 
-func TestDeletingADoorRevokesItsCredentialsAndDisconnectsIt(t *testing.T) {
+func TestDeletingADoorRevokesItsCredentialsAndDeletesItsBrokerClient(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	_, b, conn, creds := enrolledDoor(t, f)
 
 	send(t, b, "DELETE", "/api/v1/doors/1", "", 204)
 
-	want := []any{[]string{"revoked"}, false, []bool{false}, false}
-	got := []any{statuses(t, b, "1"), conn.Connected(), connects(f, creds), testsupport.JSONAt(b.Get("/api/v1/doors/1").Body, "/controller/online")}
+	want := []any{[]string{"revoked"}, false, []bool{false}, []string{enrollUser}}
+	got := []any{statuses(t, b, "1"), conn.Connected(), connects(f, creds), f.BrokerStub.Usernames()}
 	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("credentials, connected, connects again, online (-want +got):\n%s", diff)
+		t.Errorf("credentials, connected, connects again, broker clients (-want +got):\n%s", diff)
+	}
+}
+
+func TestDeletingADoorTakesItsControllerOffItEvenOnceRestored(t *testing.T) {
+	t.Parallel()
+	_, b, _, _ := enrolledDoor(t, testsupport.NewFactory())
+
+	send(t, b, "DELETE", "/api/v1/doors/1", "", 204)
+	deleted := pageOf(b.Get("/admin/doors/1?tab=controller")).Notes
+	send(t, b, "POST", "/api/v1/doors/1/restore", "", 204)
+	restored := pageOf(b.Get("/admin/doors/1?tab=controller")).Notes
+
+	want := []any{[]string{deletedDoorNote, notEnrolledNote}, []string{notEnrolledNote}}
+	if diff := cmp.Diff(want, []any{deleted, restored}); diff != "" {
+		t.Errorf("controller tab notes, deleted, restored (-want +got):\n%s", diff)
+	}
+}
+
+func TestADeletedDoorsControllerEnrollsAgainAndCanBeApprovedAsAnotherDoor(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	a, b, _, _ := enrolledDoor(t, f)
+	createDoor(t, b, `{"name":"Dock"}`)
+	send(t, b, "DELETE", "/api/v1/doors/1", "", 204)
+
+	conn, creds := enrollWith(t, f, a, b, "A1", "2")
+
+	got := []any{creds.door, conn.Connected(), testsupport.JSONAt(b.Get("/api/v1/doors/2").Body, "/controller/online")}
+	if diff := cmp.Diff([]any{"2", true, true}, got); diff != "" {
+		t.Errorf("door, connected, online (-want +got):\n%s", diff)
+	}
+}
+
+func TestACheckForADeletedDoorIsIgnoredAndLogged(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	k := keypadSite(t, f)
+	createRule(t, k.b, `{"group_id":2,"schedule_id":2,"zone_ids":[1]}`)
+	send(t, k.b, "DELETE", "/api/v1/doors/1", "", 204)
+	logged := len(f.LogStub.Entries)
+
+	f.BrokerStub.Inject("doorcode/doors/1/check", testsupport.CBOR(map[string]any{"v": 1, "request_id": "r1", "digits": "111111"}))
+	run(t, k.a)
+
+	want := []testsupport.LogEntry{{Level: "error", Message: "ignored a broker message",
+		Fields: map[string]string{"topic": "doorcode/doors/1/check", "error": "the door is deleted"}}}
+	if diff := cmp.Diff(want, logsSince(f, logged)); diff != "" {
+		t.Errorf("log (-want +got):\n%s", diff)
 	}
 }
 
@@ -346,7 +394,7 @@ func TestDeletingADoorFromItsPageRevokesItsCredentials(t *testing.T) {
 	}
 }
 
-func TestDeletingADoorFailsWhenItsCredentialsCannotBeRevoked(t *testing.T) {
+func TestDeletingADoorFailsAndKeepsItWhenItsCredentialsCannotBeRevoked(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	_, b, _, _ := enrolledDoor(t, f)
@@ -354,8 +402,9 @@ func TestDeletingADoorFailsWhenItsCredentialsCannotBeRevoked(t *testing.T) {
 
 	got := b.Delete("/api/v1/doors/1")
 
-	if diff := cmp.Diff(500, got.Status); diff != "" {
-		t.Errorf("status (-want +got):\n%s", diff)
+	want := []any{500, []any{[]any{"Lobby"}, 1.0}}
+	if diff := cmp.Diff(want, []any{got.Status, doorNames(t, b, "")}); diff != "" {
+		t.Errorf("status, current doors (-want +got):\n%s", diff)
 	}
 }
 

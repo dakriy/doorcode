@@ -446,13 +446,16 @@ func (s Service) Revoke(ctx context.Context, id int64) error {
 	return s.setController(ctx, id, &c)
 }
 
-// Delete deletes the door whose id is id and stops its credentials
-// working, which disconnects its controller.
+// Delete deletes the door whose id is id after stopping its credentials
+// working, which disconnects its controller, and taking the controller
+// off it, so the controller enrolls again and waits to be approved. A
+// door is deleted only once nothing can connect as it, so a deleted door
+// holds no live credentials.
 func (s Service) Delete(ctx context.Context, id int64) error {
-	if err := s.Doors.Delete(ctx, id); err != nil {
+	if err := s.detach(ctx, id); err != nil {
 		return err
 	}
-	return s.Revoke(ctx, id)
+	return s.Doors.Delete(ctx, id)
 }
 
 // Sweep does what time makes due: a door whose newest credentials were
@@ -485,9 +488,10 @@ func (s Service) Sweep(ctx context.Context, defaults settings.DoorDefaults) erro
 }
 
 // rotationIntervals is how long each door's credentials work before it
-// gets new ones, by door id, by defaults and the door's own overrides.
+// gets new ones, by door id, by defaults and the door's own overrides. A
+// deleted door holds no live credentials, so it needs none.
 func (s Service) rotationIntervals(ctx context.Context, defaults settings.DoorDefaults) (map[int64]time.Duration, error) {
-	doors, err := s.Store.Doors(ctx)
+	doors, err := s.Store.CurrentDoors(ctx)
 	if err != nil {
 		return nil, err
 	}

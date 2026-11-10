@@ -157,9 +157,9 @@ func (s Service) Get(ctx context.Context, id int64) (connector.StoredFirmware, e
 }
 
 // Delete removes the firmware whose id is id, unless it is the default or
-// a door runs it instead.
+// a door, deleted or not, runs it instead.
 func (s Service) Delete(ctx context.Context, id int64) error {
-	plan, err := s.Plan(ctx)
+	plan, err := s.PlanWithDeleted(ctx)
 	if err != nil {
 		return err
 	}

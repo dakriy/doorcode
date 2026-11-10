@@ -20,6 +20,9 @@ import (
 // keypadReason is the reason of an override a keypad command makes.
 const keypadReason = "Keypad command"
 
+// errDeletedDoor reports a code check for a deleted door.
+var errDeletedDoor = errors.New("the door is deleted")
+
 // checkCode answers the code check the door whose id is doorID published
 // with what the decision chain decides, carrying out a keypad command it
 // allows, and logs it as an event. An answer that cannot be sent is
@@ -32,6 +35,12 @@ func (a *App) checkCode(ctx context.Context, doorID int64, payload []byte) error
 	d, err := a.doors.Door(ctx, doorID)
 	if err != nil {
 		return err
+	}
+	// Only a door's own controller can publish its checks, and deleting
+	// the door stopped its credentials working, so a check for a deleted
+	// door was sent before then and is not answered.
+	if d.DeletedAt != nil {
+		return errDeletedDoor
 	}
 	config, _, err := a.effectiveConfig(ctx, d)
 	if err != nil {

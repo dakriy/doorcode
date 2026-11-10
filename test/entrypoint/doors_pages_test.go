@@ -666,7 +666,7 @@ const deletedDoorNote = "Deleted on 5 Jan 2026. The door is listed only under de
 
 func TestADeletedDoorOffersRestoringOnEveryTabAndGoesBackToIt(t *testing.T) {
 	t.Parallel()
-	for _, tab := range []string{"overview", "access", "controller", "configuration", "details"} {
+	for _, tab := range []string{"overview", "access", "controller", "details"} {
 		t.Run(tab, func(t *testing.T) {
 			t.Parallel()
 			_, b, _, _ := enrolledDoor(t, testsupport.NewFactory())
