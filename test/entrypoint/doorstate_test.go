@@ -208,6 +208,10 @@ func TestADoorItsControllerSaysOpenedUnlockedIsNotForcedWhateverTheStrikeWindowH
 			createOverride(k.t, k.b, "1", lockedNow)
 			k.at("2026-01-05T10:00:00Z")
 		}, []any{}},
+		"open mode": {func(k *keypad) {
+			send(k.t, k.b, "PUT", "/api/v1/zones/1", `{"name":"North","door_ids":[1],"open_schedule_ids":[2]}`, 200)
+			k.at("2026-01-05T10:00:00Z")
+		}, []any{}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

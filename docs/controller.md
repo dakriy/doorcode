@@ -433,7 +433,7 @@ At any instant the door is in one of three states:
 
 | State | When | Online | Offline |
 | --- | --- | --- | --- |
-| **open** (open mode) | Inside an `open` span. | Any keypress releases the strike for `strike_pulse_ms`. Nothing is sent to the server for it; count it in telemetry's `opens`. | The same. |
+| **open** (open mode) | Inside an `open` span. | Any keypress releases the strike for `strike_pulse_ms`. No check is sent to the server for it; count the opening in telemetry's `opens`, and send door events as the sensor changes (section 12). | Any keypress releases the strike for `strike_pulse_ms`. |
 | **locked** | Inside a `locked` span. | Send entries to the server as usual: a door commander can still enter, and keypad commands still work; the server denies everyone else. | Deny every entry. |
 | **normal** | Anywhere else within `from` to `to`. | Send each entry and follow the reply (section 11). | Deny every entry. |
 
@@ -553,10 +553,14 @@ unresponsive, so `telemetry_interval_s` should stay below that.
 
 ### Door events
 
-On `doorcode/doors/<id>/event`, when the door sensor changes, **outside open
-mode** only (inside an `open` span the door says nothing and `opens` counts),
-and once after the controller starts, in open mode too: `started`, the first
-time it comes online as the door since it started (section 7), never on a
+On `doorcode/doors/<id>/event`, when the door sensor changes, in open mode
+too: `opened` and `closed`, so the server shows the door's state at once.
+Inside an `open` span the strike is released, so `opened` says `unlocked`
+true, and `closed` leaves out `open_ms` for an opening that began there,
+as for any other. Firmware that predates this says nothing inside an
+`open` span; the server learns the state from its next report. And once
+after the controller starts, in open mode too: `started`, the first time
+it comes online as the door since it started (section 7), never on a
 plain reconnect, with neither `unlocked` nor `open_ms`.
 
 | Field | CBOR type | Meaning |

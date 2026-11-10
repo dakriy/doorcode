@@ -239,7 +239,7 @@ func (c *controller) loop(ctx context.Context, d *door) error {
 			c.press(d)
 			keypad.Reset(between(40*time.Second, 150*time.Second))
 		case <-forced.C:
-			c.swing(d, 8*time.Second, false)
+			c.swing(d, 8*time.Second, d.state(time.Now()) == "open")
 			forced.Reset(between(2*time.Hour, 8*time.Hour))
 		case <-timerC(d.closing):
 			d.closing, d.open = nil, false
@@ -337,12 +337,12 @@ func (c *controller) ack(d *door, id string) {
 	c.publish(d, protocol.LeafAck, &protocol.Ack{ID: id, Result: "done"})
 }
 
-// press is someone at the keypad: in open mode the door just opens;
-// otherwise the controller asks the server about a code, mostly one
-// somebody has.
+// press is someone at the keypad: in open mode the door just opens,
+// unlocked; otherwise the controller asks the server about a code, mostly
+// one somebody has.
 func (c *controller) press(d *door) {
 	if d.state(time.Now()) == "open" {
-		d.opens++
+		c.swing(d, between(3*time.Second, 9*time.Second), true)
 		return
 	}
 	digits := fmt.Sprintf("%06d", rand.IntN(1000000))
