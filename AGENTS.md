@@ -218,6 +218,22 @@ Slow connector test prerequisites (record each new one here when the first slow 
 - **Postgres.** A disposable local PostgreSQL 18 whose URL is in `DOORCODE_TEST_DATABASE_URL`. `docker compose up -d --wait` starts one from `docker-compose.yml` (user, password, and database `doorcode`); then `export DOORCODE_TEST_DATABASE_URL='postgres://doorcode:doorcode@localhost:5432/doorcode?sslmode=disable'`. Set `DOORCODE_POSTGRES_PORT` (and `DOORCODE_MQTT_PORT`) before `docker compose up` when the host ports are taken, and use that port in the URL. Each test creates and drops its own schema, so the database may be shared. Without the variable the slow Store tests fail; they are never skipped.
 - **Mosquitto.** A disposable local Mosquitto 2 with the dynamic-security plugin, whose URL with its administrator's credentials is in `DOORCODE_TEST_BROKER_URL`. `docker compose up -d --wait` starts one from `docker-compose.yml`: `deploy/mosquitto/entrypoint.sh` creates the plugin's configuration on a new volume with the administrator `DOORCODE_BROKER_ADMIN_USERNAME` and `DOORCODE_BROKER_ADMIN_PASSWORD` (both `doorcode` by default) and lets it publish to `doorcode/#`; then `export DOORCODE_TEST_BROKER_URL='mqtt://doorcode:doorcode@localhost:1883'` (with `DOORCODE_MQTT_PORT` in place of 1883 when set). Each test uses topics and usernames of its own and deletes its clients, so the broker may be shared. Without the variable the slow Broker tests fail; they are never skipped. The production server connects with the same kind of URL in `DOORCODE_BROKER_URL`.
 
+## Commit messages
+
+A subject line in the imperative mood ("Add", "Show", "Split", "Fix"), capitalized, with no prefix or scope tag and no trailing period, at most 60 characters where possible and never over 72. It names the change; the detail goes in the body.
+
+Every commit that is not trivial has a body after a blank line: plain prose wrapped at 72 columns saying why the change was needed and what it does, meaning what an operator or user would notice and any design choice or tradeoff that isn't obvious. Use a `- ` list when a commit does several separate things. A trivial commit, such as a rebuilt stylesheet, a regenerated file, or a typo fix, gets only the subject. Merge commits keep git's subject (`Merge branch 'name'`) and add a body only to say what the merge brings in when the branch name doesn't.
+
+```
+Mark overridden settings and add Use site defaults
+
+A door's Configuration tab now marks each setting that overrides the
+site default and counts the overrides in its heading and on the tab.
+The new Use site defaults button removes every override at once and
+sends the door its configuration, so an operator can undo per-door
+drift without clearing fields one by one.
+```
+
 ## Complexity caps
 
 - Metrics: cyclomatic (gocyclo) and cognitive (gocognit), both reporting strictly above the cap
