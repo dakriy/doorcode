@@ -46,9 +46,7 @@ func TestTheSiteMeshIsRefusedWhileItWouldBeOnWithoutANetworkNameOrPassword(t *te
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			b := signedInAdmin(t, testsupport.NewFactory())
-			for i := 0; i < len(c.before); i += 2 {
-				send(t, b, "PUT", "/api/v1/settings/"+c.before[i], `{"value":`+c.before[i+1]+`}`, 200)
-			}
+			putSettings(t, b, c.before)
 			kept := testsupport.JSONAt(b.Get("/api/v1/settings/"+c.key).Body, "/value")
 
 			got := b.PutJSON("/api/v1/settings/"+c.key, c.body)
@@ -58,6 +56,15 @@ func TestTheSiteMeshIsRefusedWhileItWouldBeOnWithoutANetworkNameOrPassword(t *te
 				t.Errorf("response, value kept (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+// putSettings stores settings, each key followed by its JSON value, in
+// order through the API.
+func putSettings(t *testing.T, b *testsupport.Browser, settings []string) {
+	t.Helper()
+	for i := 0; i < len(settings); i += 2 {
+		send(t, b, "PUT", "/api/v1/settings/"+settings[i], `{"value":`+settings[i+1]+`}`, 200)
 	}
 }
 
@@ -130,9 +137,7 @@ func TestADoorsMeshIsCheckedAgainstTheConfigurationItRunsWith(t *testing.T) {
 			t.Parallel()
 			b := signedInAdmin(t, testsupport.NewFactory())
 			createDoor(t, b, frontDoor)
-			for i := 0; i < len(c.site); i += 2 {
-				send(t, b, "PUT", "/api/v1/settings/"+c.site[i], `{"value":`+c.site[i+1]+`}`, 200)
-			}
+			putSettings(t, b, c.site)
 
 			got := b.PutJSON("/api/v1/doors/1/config", `{"overrides":`+c.overrides+`}`)
 

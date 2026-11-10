@@ -116,6 +116,12 @@ func MeshWarning(enabled, ssid, password string) string {
 	return meshWarning(meshProblems(enabled == Yes, ssid, password, ""))
 }
 
+// meshProblemsOf is meshProblems of the mesh whose fields have the
+// values value gives by field name, a yes-no's as a setting holds it.
+func meshProblemsOf(value func(name string) string, prefix string) check.List {
+	return meshProblems(value(MeshEnabledField) == Yes, value(meshSSIDField), value(meshPasswordField), prefix)
+}
+
 // meshWarning is what a page warns of a mesh that found leaves open: that
 // controllers are sent it off, and why; empty when found is.
 func meshWarning(found check.List) string {
@@ -607,12 +613,10 @@ func (d DoorDefaults) MeshWarning(overrides map[string]string) string {
 // A secret is masked, which is as long as a password must be: a stored
 // password is never shorter.
 func (d DoorDefaults) meshProblems(overrides map[string]string) check.List {
-	var shown []string
-	for _, name := range meshFields {
+	return meshProblemsOf(func(name string) string {
 		f, _ := doorField(name)
-		shown = append(shown, d.Shown(overrides, f))
-	}
-	return meshProblems(shown[0] == Yes, shown[1], shown[2], "")
+		return d.Shown(overrides, f)
+	}, "")
 }
 
 // siteMeshProblems is what leaves the site's mesh open with changed,
@@ -627,15 +631,12 @@ func siteMeshProblems(held, changed map[string]string) check.List {
 	if !touched {
 		return nil
 	}
-	var values []string
-	for _, name := range meshFields {
-		value, has := changed[doorPrefix+name]
-		if !has {
-			value = held[doorPrefix+name]
+	return meshProblemsOf(func(name string) string {
+		if value, has := changed[doorPrefix+name]; has {
+			return value
 		}
-		values = append(values, value)
-	}
-	return meshProblems(values[0] == Yes, values[1], values[2], doorPrefix)
+		return held[doorPrefix+name]
+	}, doorPrefix)
 }
 
 // BrokerWarning is what a page warns of a door with overrides that would
