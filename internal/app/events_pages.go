@@ -15,6 +15,7 @@ import (
 	"github.com/dakriy/doorcode/internal/date"
 	"github.com/dakriy/doorcode/internal/directory"
 	"github.com/dakriy/doorcode/internal/event"
+	"github.com/dakriy/doorcode/internal/protocol"
 )
 
 // recentEvents is how many events a door's or a user's page shows.
@@ -132,6 +133,9 @@ type eventsContent struct {
 	Types    []selectOption
 	Outcomes []selectOption
 	Reasons  []selectOption
+	// StartReasons is why a controller started, as the start reason
+	// filter offers it.
+	StartReasons []selectOption
 	// User is the user the events are filtered by, though they are
 	// deleted or nobody has their id; nil when they are not.
 	User *nameRef
@@ -199,7 +203,7 @@ func (f eventFilters) link(page int) string {
 	}
 	for name, value := range map[string]string{
 		"door": idText(f.DoorID), "user": idText(f.UserID), "type": f.Type, "outcome": f.Outcome, "reason": f.Reason,
-		"from": f.FromDate, "to": f.ToDate,
+		"start_reason": f.StartReason, "from": f.FromDate, "to": f.ToDate,
 	} {
 		if value != "" {
 			values.Set(name, value)
@@ -262,9 +266,30 @@ func (a *App) eventsPage(w http.ResponseWriter, r *http.Request, viewer auth.Use
 	content.Types = optionsOf(event.Types, func(t string) string { return typeLabels[t] }, f.Type)
 	content.Outcomes = optionsOf(event.Outcomes, sentence, f.Outcome)
 	content.Reasons = optionsOf(event.Reasons, sentence, f.Reason)
+	content.StartReasons = startReasonOptions(f.StartReason)
 	content.Empty = emptyEvents(content.Filtered, found.Total)
 	content.pager = pagerOf(f.Page, eventsPerPage, len(found.Events), found.Total, f.link)
 	a.render(w, r, http.StatusOK, eventsTemplate, "Events", &viewer, content)
+}
+
+// startLabels names each reason a controller gives for why it started on
+// pages.
+var startLabels = map[string]string{
+	protocol.StartPowerOn: "Power on", protocol.StartSoftware: "Software restart", protocol.StartPanic: "Panic",
+	protocol.StartWatchdog: "Watchdog", protocol.StartBrownout: "Brownout", protocol.StartExternal: "Reset pin",
+	protocol.StartUnknown: "Unknown",
+}
+
+// startReasonOptions is every reason a controller gives for why it
+// started as the start reason filter offers it, with chosen selected;
+// a chosen value the server does not know is offered too, as given, so
+// filtering again keeps it.
+func startReasonOptions(chosen string) []selectOption {
+	out := optionsOf(protocol.StartReasons, func(r string) string { return startLabels[r] }, chosen)
+	if !oneOf(chosen, protocol.StartReasons) {
+		out = append(out, selectOption{Value: chosen, Label: chosen, Selected: true})
+	}
+	return out
 }
 
 // doorOptions is every door as the door filter offers it, with the door

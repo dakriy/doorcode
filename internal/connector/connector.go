@@ -719,41 +719,45 @@ type OverridesStore interface {
 // access rule that decided, nil when none did. RequestID is the id the
 // door gave the code check, empty for other events, and Detail says more
 // in words. OpenMS is how many milliseconds the door was open, nil but for
-// a door closing after an opening the server timed. DoorName and UserName
+// a door closing after an opening the server timed. StartReason is why a
+// door's controller said it started, as it said it, empty for every other
+// event and for a start it gave no reason for. DoorName and UserName
 // are the door's name and the user's display name, which the store fills
 // when it returns an event (UserName empty without a user) and ignores
 // when it stores one.
 type StoredEvent struct {
-	ID        int64
-	At        time.Time
-	DoorID    int64
-	DoorName  string
-	Type      string
-	Outcome   string
-	Reason    string
-	UserID    *int64
-	UserName  string
-	RuleID    *int64
-	RequestID string
-	Detail    string
-	OpenMS    *int64
+	ID          int64
+	At          time.Time
+	DoorID      int64
+	DoorName    string
+	Type        string
+	Outcome     string
+	Reason      string
+	UserID      *int64
+	UserName    string
+	RuleID      *int64
+	RequestID   string
+	Detail      string
+	OpenMS      *int64
+	StartReason string
 }
 
 // EventQuery selects a page of events. A zero DoorID or UserID, and an
-// empty Type, Outcome, or Reason, keeps every event; otherwise an event is
-// kept when it has that value. A nil From or To leaves the range open on
-// that side; otherwise an event is kept when it is at or after From and
-// before To. The page skips Offset events and holds at most Limit.
+// empty Type, Outcome, Reason, or StartReason, keeps every event;
+// otherwise an event is kept when it has that value. A nil From or To
+// leaves the range open on that side; otherwise an event is kept when it
+// is at or after From and before To. The page skips Offset events and holds at most Limit.
 type EventQuery struct {
-	DoorID  int64
-	UserID  int64
-	Type    string
-	Outcome string
-	Reason  string
-	From    *time.Time
-	To      *time.Time
-	Offset  int
-	Limit   int
+	DoorID      int64
+	UserID      int64
+	Type        string
+	Outcome     string
+	Reason      string
+	StartReason string
+	From        *time.Time
+	To          *time.Time
+	Offset      int
+	Limit       int
 }
 
 // StoredRequest is an access request as the store holds it: what the user

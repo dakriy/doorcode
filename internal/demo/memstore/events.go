@@ -40,16 +40,19 @@ func keeps(q connector.EventQuery, e connector.StoredEvent) bool {
 		return false
 	case q.UserID != 0 && !user:
 		return false
-	case q.Type != "" && e.Type != q.Type:
+	case !named(q.Type, e.Type) || !named(q.Outcome, e.Outcome):
 		return false
-	case q.Outcome != "" && e.Outcome != q.Outcome:
-		return false
-	case q.Reason != "" && e.Reason != q.Reason:
+	case !named(q.Reason, e.Reason) || !named(q.StartReason, e.StartReason):
 		return false
 	case q.From != nil && e.At.Before(*q.From):
 		return false
 	}
 	return q.To == nil || e.At.Before(*q.To)
+}
+
+// named reports whether a query's want, empty for any, keeps got.
+func named(want, got string) bool {
+	return want == "" || want == got
 }
 
 // eventOut is a copy of e with its door's name and its user's display

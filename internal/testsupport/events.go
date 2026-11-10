@@ -54,9 +54,14 @@ func selects(q connector.EventQuery, e connector.StoredEvent) bool {
 		user = *e.UserID
 	}
 	return (q.DoorID == 0 || q.DoorID == e.DoorID) && (q.UserID == 0 || q.UserID == user) &&
-		(q.Type == "" || q.Type == e.Type) && (q.Outcome == "" || q.Outcome == e.Outcome) &&
-		(q.Reason == "" || q.Reason == e.Reason) &&
+		keptBy(q.Type, e.Type) && keptBy(q.Outcome, e.Outcome) &&
+		keptBy(q.Reason, e.Reason) && keptBy(q.StartReason, e.StartReason) &&
 		(q.From == nil || !e.At.Before(*q.From)) && (q.To == nil || e.At.Before(*q.To))
+}
+
+// keptBy reports whether a query's want, empty for any, keeps got.
+func keptBy(want, got string) bool {
+	return want == "" || want == got
 }
 
 // namedEvent is e with its door's name and its user's display name.

@@ -359,6 +359,10 @@ const (
 	StartUnknown = "unknown"
 )
 
+// StartReasons is every reason a controller gives for why it started, in
+// the order pages list them.
+var StartReasons = []string{StartPowerOn, StartSoftware, StartPanic, StartWatchdog, StartBrownout, StartExternal, StartUnknown}
+
 // DoorEvent is what a door publishes on its event topic when something
 // happens to it, such as EventOpened. A door says each time it opens and
 // closes, in open mode too; controllers that predate that say nothing in

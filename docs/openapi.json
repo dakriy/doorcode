@@ -3884,6 +3884,16 @@
             "example": "no rule"
           },
           {
+            "name": "start_reason",
+            "in": "query",
+            "required": false,
+            "description": "Keeps the controller starts that gave this start_reason, such as panic; any value is taken as given.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "panic"
+          },
+          {
             "name": "from",
             "in": "query",
             "required": false,
@@ -10913,6 +10923,10 @@
           "rule_id": {
             "type": "integer",
             "description": "The access rule that let the user in; absent unless one did."
+          },
+          "start_reason": {
+            "type": "string",
+            "description": "Why the door's controller said it started, as it said it: power_on, software, panic, watchdog, brownout, external, unknown, or a value the server does not know; absent unless the event is a controller starting that said why, and for starts recorded before the server kept it."
           },
           "type": {
             "type": "string",

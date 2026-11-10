@@ -586,7 +586,12 @@ The `reason` values of `started`, and what the server's event says of each:
 A `started` event is recorded as one event at the door: type `door`,
 outcome `info`, reason `started` (so `GET /api/v1/events?reason=started`
 lists the starts), its detail the words above, a value the server does
-not know as given, and nothing when `reason` is left out. It leaves the
+not know as given, and nothing when `reason` is left out. The server
+also keeps `reason` as given, as the event's `start_reason`, which
+`GET /api/v1/events?start_reason=panic` and the events page's Why it
+started filter narrow the starts by, a value the server does not know
+included; a start without `reason`, and one recorded before the server
+kept it, matches no such filter. It leaves the
 door's open or closed state as it was and, like any message from the
 door, counts as contact. Firmware that predates it never sends it, and
 the server derives nothing in its place.

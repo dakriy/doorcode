@@ -147,14 +147,15 @@ var startedWhy = map[string]string{
 }
 
 // Started is the event of the controller of the door whose id is doorID
-// starting, at at, for reason, said in words when the server knows it,
-// else as given, and not at all when it is empty.
+// starting, at at, for reason, which it keeps as given; its detail says
+// the reason in words when the server knows it, else as given, and
+// nothing when it is empty.
 func Started(at time.Time, doorID int64, reason string) connector.StoredEvent {
 	detail, known := startedWhy[reason]
 	if !known {
 		detail = reason
 	}
-	return connector.StoredEvent{At: at, DoorID: doorID, Type: event.Door, Outcome: event.Info, Reason: event.Started, Detail: detail}
+	return connector.StoredEvent{At: at, DoorID: doorID, Type: event.Door, Outcome: event.Info, Reason: event.Started, Detail: detail, StartReason: reason}
 }
 
 // controllerOf is the door whose id is id and the controller enrolled as

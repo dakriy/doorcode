@@ -144,3 +144,28 @@ func TestStoreKeepsHowLongADoorWasOpen(t *testing.T) {
 		})
 	}
 }
+
+func TestStoreKeepsWhyAControllerStartedAndFiltersByIt(t *testing.T) {
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			store := eventWorld(t, impl)
+			for i, why := range []string{"panic", "watchdog", "", "panic"} {
+				if _, err := store.AddEvent(context.Background(), connector.StoredEvent{
+					At: eventsStart.Add(time.Duration(5+i) * time.Hour), DoorID: 1, Type: "door", Outcome: "info", Reason: "started", StartReason: why,
+				}); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			got, total, err := store.Events(context.Background(), connector.EventQuery{StartReason: "panic", Limit: 10})
+
+			want := []any{[]connector.StoredEvent{
+				{ID: 8, At: eventsStart.Add(8 * time.Hour), DoorID: 1, DoorName: "Lobby", Type: "door", Outcome: "info", Reason: "started", StartReason: "panic"},
+				{ID: 5, At: eventsStart.Add(5 * time.Hour), DoorID: 1, DoorName: "Lobby", Type: "door", Outcome: "info", Reason: "started", StartReason: "panic"},
+			}, 2, nil}
+			if diff := cmp.Diff(want, []any{got, total, err}); diff != "" {
+				t.Errorf("events, total, error (-want +got):\n%s", diff)
+			}
+		})
+	}
+}

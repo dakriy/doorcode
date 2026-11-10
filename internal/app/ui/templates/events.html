@@ -41,6 +41,13 @@
       </select>
     </div>
     <div>
+      <label for="start_reason" class="block text-xs font-medium text-zinc-600 dark:text-zinc-400">Why it started</label>
+      <select id="start_reason" name="start_reason" class="mt-1 {{template "input-base"}}">
+        <option value="">Every start reason</option>
+        {{range $c.StartReasons}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
+      </select>
+    </div>
+    <div>
       <label for="from" class="block text-xs font-medium text-zinc-600 dark:text-zinc-400">From</label>
       <input id="from" name="from" type="date" value="{{$f.FromDate}}" class="mt-1 {{template "input-base"}}">
     </div>
