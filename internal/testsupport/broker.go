@@ -19,9 +19,6 @@ var (
 	// ErrRefused is what the stub broker answers a connection with
 	// credentials it does not accept.
 	ErrRefused = errors.New("stub: not authorized")
-	// ErrNoSuchClient is what the stub broker reports for deleting a
-	// client it does not have, as the dynamic-security plugin does.
-	ErrNoSuchClient = errors.New("stub: client not found")
 	// ErrDenied is what the stub broker answers a subscription the
 	// client's topics do not allow.
 	ErrDenied = errors.New("stub: subscription denied")
@@ -165,7 +162,7 @@ func (b *Broker) DeleteClient(_ context.Context, username string) error {
 		return ErrUnavailable
 	}
 	if _, ok := b.clients[username]; !ok {
-		return ErrNoSuchClient
+		return connector.ErrNoClient
 	}
 	delete(b.clients, username)
 	for _, c := range b.conns {

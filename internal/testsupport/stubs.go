@@ -611,6 +611,13 @@ func (s *Store) Fail() {
 	s.FailRequests()
 }
 
+// Recover makes every method a Fail method made fail work again.
+func (s *Store) Recover() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	clear(s.failing)
+}
+
 // FailSettings makes the settings methods report ErrUnavailable.
 func (s *Store) FailSettings() {
 	s.failing[settingsAggregate] = true

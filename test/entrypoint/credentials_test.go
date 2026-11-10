@@ -221,6 +221,22 @@ func TestRevokingDisconnectsTheDoorAndStopsItsCredentialsWorking(t *testing.T) {
 	}
 }
 
+func TestRevokingAgainAfterRevokingCouldNotBeStoredRevokesTheCredentials(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	_, b, _, _ := enrolledDoor(t, f)
+	f.StoreStub.FailCredentialWrites()
+	send(t, b, "POST", "/api/v1/doors/1/credentials/revoke", "", 500)
+	f.StoreStub.Recover()
+
+	send(t, b, "POST", "/api/v1/doors/1/credentials/revoke", "", 204)
+
+	got := []any{statuses(t, b, "1"), f.BrokerStub.Usernames()}
+	if diff := cmp.Diff([]any{[]string{"revoked"}, []string{enrollUser}}, got); diff != "" {
+		t.Errorf("statuses, clients (-want +got):\n%s", diff)
+	}
+}
+
 func TestRevokingAfterARotationRevokesOnlyWhatStillWorks(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()

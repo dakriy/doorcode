@@ -216,13 +216,16 @@ func (s Service) used(ctx context.Context, creds []connector.StoredCredential, i
 	return s.revoke(ctx, creds[:i])
 }
 
-// revoke stops every live credential among creds working.
+// revoke stops every live credential among creds working. A credential
+// whose client the broker no longer has, as after a revoke whose store
+// write failed, has only its revoking left to store.
 func (s Service) revoke(ctx context.Context, creds []connector.StoredCredential) error {
 	for _, c := range creds {
 		if c.RevokedAt != nil {
 			continue
 		}
-		if err := s.Broker.DeleteClient(ctx, c.Username); err != nil {
+		err := s.Broker.DeleteClient(ctx, c.Username)
+		if err != nil && !errors.Is(err, connector.ErrNoClient) {
 			return err
 		}
 		if _, err := s.Store.RevokeCredential(ctx, c.ID, s.Clock.Now()); err != nil {

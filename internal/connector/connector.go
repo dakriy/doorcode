@@ -4,6 +4,7 @@ package connector
 
 import (
 	"context"
+	"errors"
 	"net/netip"
 	"time"
 )
@@ -1022,6 +1023,10 @@ type BrokerClient struct {
 	Subscribe []string
 }
 
+// ErrNoClient is what Broker.DeleteClient reports for a username the
+// broker does not have.
+var ErrNoClient = errors.New("the broker has no such client")
+
 // Broker is the MQTT broker the door controllers connect to. The
 // application connects to it as a client allowed everything, and manages
 // the clients the controllers connect as.
@@ -1037,7 +1042,7 @@ type Broker interface {
 	// username the broker has already.
 	CreateClient(ctx context.Context, c BrokerClient) error
 	// DeleteClient removes the client named username, disconnecting it.
-	// It refuses a username the broker does not have.
+	// It refuses a username the broker does not have with ErrNoClient.
 	DeleteClient(ctx context.Context, username string) error
 	// Connected reports whether the application's connection to the
 	// broker is up.

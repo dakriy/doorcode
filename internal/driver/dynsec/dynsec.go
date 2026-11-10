@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"strconv"
 	"sync"
@@ -265,14 +266,27 @@ func (r response) answers(id string) bool {
 	return len(r.Responses) > 0 && r.Responses[0].CorrelationData == id
 }
 
+// known is the plugin's errors that have a connector error of their own.
+var known = map[string]error{
+	"deleteClient: Client not found": connector.ErrNoClient,
+}
+
 func (r response) errors() error {
 	var errs []error
 	for _, answer := range r.Responses {
 		if answer.Error != "" {
-			errs = append(errs, errors.New(answer.Command+": "+answer.Error))
+			errs = append(errs, plugin(answer.Command+": "+answer.Error))
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// plugin is the error the plugin answered with as text.
+func plugin(text string) error {
+	if err, ok := known[text]; ok {
+		return fmt.Errorf("%w (%s)", err, text)
+	}
+	return errors.New(text)
 }
 
 // inbox hands messages on in the order they arrived without making the

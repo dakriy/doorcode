@@ -4,6 +4,7 @@ package connector_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -214,13 +215,33 @@ func TestBrokerDisconnectsADeletedClientAndRefusesItAfter(t *testing.T) {
 	}
 }
 
-func TestBrokerRefusesToDeleteAClientItDoesNotHave(t *testing.T) {
+func TestBrokerRefusesToDeleteAClientItDoesNotHaveWithErrNoClient(t *testing.T) {
 	for _, impl := range brokerImpls {
 		t.Run(impl.name, func(t *testing.T) {
 			s := impl.open(t)
 
-			if err := s.app.DeleteClient(context.Background(), "test-"+unique()); err == nil {
-				t.Error("the broker deleted a client it does not have")
+			err := s.app.DeleteClient(context.Background(), "test-"+unique())
+
+			if diff := cmp.Diff(true, errors.Is(err, connector.ErrNoClient)); diff != "" {
+				t.Errorf("no client (-want +got):\n%s\nerror: %v", diff, err)
+			}
+		})
+	}
+}
+
+func TestBrokerRefusesToDeleteAClientAgainWithErrNoClient(t *testing.T) {
+	for _, impl := range brokerImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			s := impl.open(t)
+			username, _ := doorClient(t, s)
+			if err := s.app.DeleteClient(context.Background(), username); err != nil {
+				t.Fatal(err)
+			}
+
+			err := s.app.DeleteClient(context.Background(), username)
+
+			if diff := cmp.Diff(true, errors.Is(err, connector.ErrNoClient)); diff != "" {
+				t.Errorf("no client (-want +got):\n%s\nerror: %v", diff, err)
 			}
 		})
 	}

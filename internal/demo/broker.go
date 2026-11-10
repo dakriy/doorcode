@@ -139,7 +139,7 @@ func (b *Broker) DeleteClient(_ context.Context, username string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if _, ok := b.clients[username]; !ok {
-		return errors.New("the broker has no client named " + username)
+		return connector.ErrNoClient
 	}
 	delete(b.clients, username)
 	for _, c := range slices.Clone(b.conns) {
