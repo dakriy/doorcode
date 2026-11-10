@@ -207,19 +207,25 @@ func MeshOf(c connector.StoredController) Mesh {
 }
 
 // checkForced logs d as forced open at now, unless its door, whose
-// controller was held, was open already or was unlocked when it opened:
-// as its controller said when it said, else when something unlocked it
-// within its strike window before now.
+// controller was held, was open already or was unlocked when it opened.
+// Whether it was unlocked is what its controller said, when it said
+// anything, else what checkWindow finds.
 func (s Service) checkForced(ctx context.Context, d connector.StoredDoor, held connector.StoredController, said *bool, now time.Time) error {
 	if held.DoorState == Open {
 		return nil
 	}
-	if said != nil {
-		if *said {
-			return nil
-		}
-		return s.forced(ctx, d.ID, now, "Its controller says it was locked when it opened.")
+	if said == nil {
+		return s.checkWindow(ctx, d, now)
 	}
+	if *said {
+		return nil
+	}
+	return s.forced(ctx, d.ID, now, "Its controller says it was locked when it opened.")
+}
+
+// checkWindow logs d as forced open at now unless something unlocked it
+// within its strike window before now.
+func (s Service) checkWindow(ctx context.Context, d connector.StoredDoor, now time.Time) error {
 	defaults, err := s.Settings.DoorDefaults(ctx)
 	if err != nil {
 		return err
