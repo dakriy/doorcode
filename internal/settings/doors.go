@@ -56,6 +56,75 @@ const NoBrokerHost = "door_broker_host is empty: a controller needs an address t
 // certificate to verify it against.
 const UnverifiedBroker = "Controllers connect to the broker over TLS, but door_broker_ca_pem gives no CA certificate: a controller could not verify the broker, so no provisioning file can be made."
 
+// MeshEnabledField names the field of whether a door may join or form a
+// mesh, and KeyMeshEnabled, KeyMeshSSID, and KeyMeshPassword are the keys
+// of the defaults of it and of the mesh's network name and password.
+const (
+	MeshEnabledField  = "mesh_enabled"
+	meshSSIDField     = "mesh_ssid"
+	meshPasswordField = "mesh_password"
+	KeyMeshEnabled    = "door_mesh_enabled"
+	KeyMeshSSID       = "door_mesh_ssid"
+	KeyMeshPassword   = "door_mesh_password"
+)
+
+// meshFields is the fields a mesh that is on needs set: whether it is on,
+// its network name, and its password.
+var meshFields = []string{MeshEnabledField, meshSSIDField, meshPasswordField}
+
+// minMeshPassword is the fewest characters a mesh password has; Mask is
+// as long, so a masked password counts as one.
+const minMeshPassword = 8
+
+// Why a mesh that is on is left open.
+const (
+	noMeshSSID        = "with the mesh on, no network name leaves the mesh soft-AP open"
+	shortMeshPassword = "with the mesh on, a password of fewer than 8 characters, or none, leaves the mesh soft-AP open"
+)
+
+// meshProblems is what leaves a mesh open while enabled is true, with ssid
+// as its network name and password as its password, each as a problem
+// with the field named prefix and the field's name: no network name, and
+// a password shorter than minMeshPassword. It is empty while the mesh is
+// off.
+func meshProblems(enabled bool, ssid, password, prefix string) check.List {
+	if !enabled {
+		return nil
+	}
+	var found check.List
+	found.Add(prefix+meshSSIDField, check.Required(ssid, noMeshSSID))
+	if len(password) < minMeshPassword {
+		found.Add(prefix+meshPasswordField, shortMeshPassword)
+	}
+	return found
+}
+
+// asSentences is found with each message a sentence, as a field error.
+func asSentences(found check.List) check.List {
+	var out check.List
+	for _, p := range found {
+		out.Add(p.Field, sentence(p.Message))
+	}
+	return out
+}
+
+// MeshWarning is what a page warns of controllers whose mesh is on when
+// enabled, the value of a mesh setting, is true, with ssid as its network
+// name and password, perhaps masked, as its password: that they are sent
+// the mesh off, and why; empty when the mesh is off or set.
+func MeshWarning(enabled, ssid, password string) string {
+	return meshWarning(meshProblems(enabled == Yes, ssid, password, ""))
+}
+
+// meshWarning is what a page warns of a mesh that found leaves open: that
+// controllers are sent it off, and why; empty when found is.
+func meshWarning(found check.List) string {
+	if len(found) == 0 {
+		return ""
+	}
+	return "Controllers are sent mesh_enabled false: " + found[0].Message + "."
+}
+
 // DoorConfig is the configuration a door runs with. Durations are whole
 // numbers of the unit their name ends in.
 type DoorConfig struct {
@@ -228,10 +297,10 @@ var DoorFields = []DoorField{
 		"60", 5, 600, "seconds", func(c *DoorConfig) *int { return &c.ReconnectMaxS }),
 	yesNoField("mesh_enabled", "Mesh", "Whether the door may join or form a Wi-Fi mesh with other doors when its own access point's signal is poor.",
 		"false", func(c *DoorConfig) *bool { return &c.MeshEnabled }),
-	textField("mesh_ssid", "Mesh network", "The mesh network's name, the same at every door of the site.",
+	textField("mesh_ssid", "Mesh network", "The mesh network's name, the same at every door of the site. It is needed while the mesh is on, which would otherwise leave the mesh's soft-AP open.",
 		"a network name of up to 32 bytes, or nothing", 0, 32, func(c *DoorConfig) *string { return &c.MeshSSID }),
 	secret(textField("mesh_password", "Mesh password",
-		"The mesh network's password, the same at every door of the site. It is stored encrypted and sent to nobody but the doors.",
+		"The mesh network's password, the same at every door of the site. It is needed while the mesh is on, which would otherwise leave the mesh's soft-AP open. It is stored encrypted and sent to nobody but the doors.",
 		"a password of 8 to 63 bytes, or nothing", 8, 63, func(c *DoorConfig) *string { return &c.MeshPassword })),
 	signalField("mesh_min_router_rssi", "Mesh below",
 		"When the strongest access point a door with the mesh on can see is weaker than this, the door joins the mesh through a neighboring door instead.",
@@ -441,7 +510,7 @@ func (s Service) DoorDefaults(ctx context.Context) (DoorDefaults, error) {
 // For is the configuration of a door with overrides, each keyed by the
 // name of the field it overrides and a secret's encrypted as SealOverrides
 // stores it: the override of each field that has one, the default of the
-// others.
+// others, with the mesh off when it is on but would be left open.
 func (d DoorDefaults) For(overrides map[string]string) (DoorConfig, error) {
 	var c DoorConfig
 	for _, f := range DoorFields {
@@ -452,6 +521,9 @@ func (d DoorDefaults) For(overrides map[string]string) (DoorConfig, error) {
 		if err != nil {
 			return DoorConfig{}, fmt.Errorf("%w for %s: %w", ErrInvalid, doorPrefix+f.Name, err)
 		}
+	}
+	if len(meshProblems(c.MeshEnabled, c.MeshSSID, c.MeshPassword, "")) > 0 {
+		c.MeshEnabled = false
 	}
 	return c, nil
 }
@@ -524,6 +596,48 @@ func HostWarning(host string) string {
 	return NoBrokerHost
 }
 
+// MeshWarning is what a page warns of a door with overrides whose mesh is
+// on but would be left open; empty when it is off or set.
+func (d DoorDefaults) MeshWarning(overrides map[string]string) string {
+	return meshWarning(d.meshProblems(overrides))
+}
+
+// meshProblems is what leaves the mesh of a door with overrides, sealed as
+// SealOverrides makes them, open, each a problem with the field's name.
+// A secret is masked, which is as long as a password must be: a stored
+// password is never shorter.
+func (d DoorDefaults) meshProblems(overrides map[string]string) check.List {
+	var shown []string
+	for _, name := range meshFields {
+		f, _ := doorField(name)
+		shown = append(shown, d.Shown(overrides, f))
+	}
+	return meshProblems(shown[0] == Yes, shown[1], shown[2], "")
+}
+
+// siteMeshProblems is what leaves the site's mesh open with changed,
+// values keyed by setting key, in place of held, every setting's value by
+// key with a secret's masked, each a problem with the key; empty when
+// changed sets none of the mesh's fields.
+func siteMeshProblems(held, changed map[string]string) check.List {
+	touched := slices.ContainsFunc(meshFields, func(name string) bool {
+		_, has := changed[doorPrefix+name]
+		return has
+	})
+	if !touched {
+		return nil
+	}
+	var values []string
+	for _, name := range meshFields {
+		value, has := changed[doorPrefix+name]
+		if !has {
+			value = held[doorPrefix+name]
+		}
+		values = append(values, value)
+	}
+	return meshProblems(values[0] == Yes, values[1], values[2], doorPrefix)
+}
+
 // BrokerWarning is what a page warns of a door with overrides that would
 // connect over TLS with no certificate to verify the broker against; empty
 // when it would not.
@@ -567,9 +681,10 @@ func ShownOverrides(overrides map[string]string) map[string]string {
 // by the name of the field it overrides, as the store keeps them, a
 // secret's encrypted; a secret given as Mask keeps its value among stored,
 // the door's overrides now. It reports what is wrong with given: a name no
-// field has, a value the field does not take, or Mask for a secret the
-// door has none of.
-func (s Service) SealOverrides(given, stored map[string]string) (map[string]string, error) {
+// field has, a value the field does not take, Mask for a secret the door
+// has none of, or a mesh that is on, in the configuration given makes with
+// the site's defaults, without a network name or password.
+func (s Service) SealOverrides(ctx context.Context, given, stored map[string]string) (map[string]string, error) {
 	var found check.List
 	for _, name := range slices.Sorted(maps.Keys(given)) {
 		found.Add(name, overrideProblem(name, given[name], stored))
@@ -590,6 +705,13 @@ func (s Service) SealOverrides(given, stored map[string]string) (map[string]stri
 		default:
 			sealed[name] = value
 		}
+	}
+	defaults, err := s.DoorDefaults(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := asSentences(defaults.meshProblems(sealed)).Err(); err != nil {
+		return nil, err
 	}
 	return sealed, nil
 }

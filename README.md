@@ -269,9 +269,9 @@ the full table.
 | `door_wifi_roam_rssi` | Below this signal, -100 to 0 dBm, a door moves to an access point of its network at least 8 dB stronger. | `-70` |
 | `door_keepalive_s` | The doors' MQTT keep-alive, 10 to 300 s; a door shows offline after one and a half of these without a packet. | `30` |
 | `door_reconnect_max_s` | The longest pause between a door's attempts to connect again, 5 to 600 s. | `60` |
-| `door_mesh_enabled` | `true` lets doors join or form a Wi-Fi mesh when their own signal is poor. | `false` |
-| `door_mesh_ssid` | The mesh network's name, up to 32 bytes. | empty |
-| `door_mesh_password` | The mesh network's password, empty or 8 to 63 bytes. Secret: stored encrypted and shown masked. | empty |
+| `door_mesh_enabled` | `true` lets doors join or form a Wi-Fi mesh when their own signal is poor. Refused, as a default and as a door's override, while the mesh would have no network name or password, which would leave its soft-AP open; a door whose configuration still has that (its override on, the site's password cleared later) is sent the mesh off, and its page and the settings page warn of it. | `false` |
+| `door_mesh_ssid` | The mesh network's name, up to 32 bytes; needed while the mesh is on. | empty |
+| `door_mesh_password` | The mesh network's password, empty or 8 to 63 bytes; needed while the mesh is on. Secret: stored encrypted and shown masked. | empty |
 | `door_mesh_min_router_rssi` | Below this signal, -100 to 0 dBm, a door with the mesh enabled joins it through a neighbor. | `-75` |
 | `door_mesh_max_layer` | The most hops a door may be from its access point in the mesh, 1 to 10. | `4` |
 | `door_update_connect_timeout_s` | How long a door on new firmware tries to connect before it goes back to its old image, 60 to 1800 s. The settings page and a door's page warn when it is longer than `update_timeout_minutes`. | `300` |
@@ -312,7 +312,9 @@ implementation. In short:
    meant for that door, or from `GET /api/v1/firmware/provisioning` and
    `GET /api/v1/doors/<id>/provisioning` with an API token. It carries
    secrets in the clear, and is refused while `door_broker_host` is empty
-   or `door_broker_tls` is on with no `door_broker_ca_pem`.
+   or `door_broker_tls` is on with no `door_broker_ca_pem`. A mesh left
+   on with no network name or password is not refused: the file turns it
+   off, as the configuration a door is sent does.
 1. **Enroll.** Connect to the broker with the shared enrollment credentials
    (`enrollment_username`, `enrollment_password`) and the controller's
    hardware id as the MQTT client id, with a last will of `online: false`

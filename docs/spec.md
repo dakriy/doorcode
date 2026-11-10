@@ -196,6 +196,16 @@ field's label a sentence saying what it does, then the values it takes.
 The Wi-Fi and mesh passwords are secrets: stored
 encrypted as defaults and as a door's overrides, shown masked in the UI and
 the API, and sent in the clear only in the door's configuration message.
+The mesh is never stored on without a network name and a password of at
+least 8 characters, which would leave its soft-AP open: the settings form
+and `PUT /api/v1/settings/{key}` refuse a mesh value that leaves the site's
+defaults so (the API on the key it sets, the form on the network name or
+password), and a door's form and `PUT /api/v1/doors/{id}/config` refuse
+overrides that leave the door's configuration so, its overrides over the
+defaults. A door whose configuration is left so anyway, say its override
+turns the mesh on and the site's password is cleared later, or the
+environment sets it, is sent `mesh_enabled` false, in its provisioning file
+too, and the settings page and its page warn of it on the mesh field.
 The settings page and a door's page warn when new firmware may take longer
 to connect than the update timeout gives it, when doors would be given no
 broker host, and when they would connect to the broker over TLS with no CA
@@ -285,7 +295,9 @@ page or the API with the site's defaults, or from a door's page or the API
 with that door's configuration, its overrides applied. It is refused while
 the broker host is empty, since a controller would have no address to
 reach the broker, and while the broker is reached over TLS with no CA
-certificate, since a controller could not verify the broker. Its layout is in
+certificate, since a controller could not verify the broker. A mesh left
+on with no network name or password is not refused: the file carries
+`mesh_enabled` false, as the configuration message does. Its layout is in
 [controller.md](controller.md).
 
 ## 9. MQTT protocol

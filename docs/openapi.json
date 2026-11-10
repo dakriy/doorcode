@@ -1037,7 +1037,7 @@
             }
           },
           "400": {
-            "description": "The body is not a JSON object with an object of overrides, or an override names no field or has a value the field does not take; the error says which.",
+            "description": "The body is not a JSON object with an object of overrides, or an override names no field or has a value the field does not take, or the overrides leave the mesh on without a network name or password; the error says which.",
             "content": {
               "application/json": {
                 "schema": {

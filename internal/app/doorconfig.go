@@ -68,7 +68,7 @@ func (a *App) doorConfigRoutes() []route {
 			request: doorConfigRequest{Overrides: map[string]string{"strike_pulse_ms": "5000", "log_level": "debug"}},
 			responses: []openapi.Response{
 				{Status: http.StatusOK, Description: "The door's configuration, which is on its way to its controller.", Body: doorConfigBody{}},
-				{Status: http.StatusBadRequest, Description: "The body is not a JSON object with an object of overrides, or an override names no field or has a value the field does not take; the error says which.", Body: errorBody{}},
+				{Status: http.StatusBadRequest, Description: "The body is not a JSON object with an object of overrides, or an override names no field or has a value the field does not take, or the overrides leave the mesh on without a network name or password; the error says which.", Body: errorBody{}},
 				noDoor,
 			},
 		}),
@@ -147,6 +147,8 @@ func configRows(d connector.StoredDoor, defaults settings.DoorDefaults, entered 
 			row.Warning = defaults.HostWarning(d.Config)
 		case settings.BrokerCAField:
 			row.Warning = defaults.BrokerWarning(d.Config)
+		case settings.MeshEnabledField:
+			row.Warning = defaults.MeshWarning(d.Config)
 		}
 		rows = append(rows, row)
 	}

@@ -129,7 +129,10 @@ controller would have no address to reach it, or has `tls` true and no
 certificate, since the controller could not verify the broker: it answers
 409 with an error naming `door_broker_host` or `door_broker_ca_pem`, or
 both. The settings page, the firmware page, and a door's page warn of each
-state.
+state. A mesh left open (section 9, `mesh_enabled`) is no reason to
+refuse: the file's `door_config` carries `mesh_enabled` false then, as the
+configuration message does, and the settings page and a door's page warn
+of it.
 
 The controller stores the broker, its certificate, the Wi-Fi network, and
 the enrollment credentials as its provisioning, and runs with `door_config`
@@ -383,9 +386,9 @@ below for a field it lacks.
 | `wifi_roam_rssi` | int | dBm | -100 to 0 | -70 | Controller: when the signal to the current access point is below this, scan and move to an access point of the same network that is at least 8 dB stronger, if there is one. |
 | `keepalive_s` | uint | s | 10 to 300 | 30 | Controller: the MQTT keep-alive interval, how often the door lets the broker know it is still there, from the next connection on. The server shows the door offline once one and a half of these pass without a packet. |
 | `reconnect_max_s` | uint | s | 5 to 600 | 60 | Controller: the longest pause between attempts to connect again; back off 1, 2, 4 seconds and so on up to this. |
-| `mesh_enabled` | bool | | | `false` | Controller: whether it may join or form a Wi-Fi mesh with other controllers when its own access point's signal is poor. |
-| `mesh_ssid` | text | bytes | up to 32 | empty | Controller: the mesh network's name, the same at every controller of the site. |
-| `mesh_password` | text | bytes | empty, or 8 to 63 | empty | Controller: the mesh network's password, the same at every controller of the site. Stored encrypted and sent only to the doors, like `wifi_password`. |
+| `mesh_enabled` | bool | | | `false` | Controller: whether it may join or form a Wi-Fi mesh with other controllers when its own access point's signal is poor. Never true with an empty `mesh_ssid` or a `mesh_password` shorter than 8 bytes, which would leave the mesh soft-AP open: the server refuses to store such a default or override, and sends `false` while a door's configuration still has it (say a door's override turns the mesh on and the site's password is cleared later). |
+| `mesh_ssid` | text | bytes | up to 32 | empty | Controller: the mesh network's name, the same at every controller of the site. Not empty while `mesh_enabled` is true. |
+| `mesh_password` | text | bytes | empty, or 8 to 63 | empty | Controller: the mesh network's password, the same at every controller of the site. Not empty while `mesh_enabled` is true. Stored encrypted and sent only to the doors, like `wifi_password`. |
 | `mesh_min_router_rssi` | int | dBm | -100 to 0 | -75 | Controller: when the strongest access point it can see is below this and `mesh_enabled` is true, join the mesh through a neighboring controller instead. |
 | `mesh_max_layer` | uint | hops | 1 to 10 | 4 | Controller: how many hops from the access point it may sit in the mesh. |
 | `update_connect_timeout_s` | uint | s | 60 to 1800 | 300 | Controller: after installing firmware, go back to the previous image if it has not connected as its door within this long (section 15). Keep it within the server's `update_timeout_minutes`, after which the server counts the update failed; the server's pages warn when it is longer. |

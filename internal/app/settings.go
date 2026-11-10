@@ -262,13 +262,14 @@ func (a *App) showSettings(w http.ResponseWriter, r *http.Request, status int, v
 
 // sectionsOf is the settings of all, listed section by section, that tab
 // shows, as the settings page's sections, each input holding entered or
-// the setting's value where entered has none, and each section on as what
-// its toggle holds says.
+// the setting's value where entered has none or the setting is a secret,
+// which a page never shows again, and each section on as what its toggle
+// holds says.
 func (a *App) sectionsOf(all []settings.Setting, tab settings.Tab, entered map[string]string) []settingSection {
 	held := map[string]string{}
 	for _, s := range all {
 		value, given := entered[s.Key]
-		if !given {
+		if !given || s.Secret {
 			value = s.Value
 		}
 		held[s.Key] = value
@@ -295,6 +296,8 @@ func (a *App) sectionsOf(all []settings.Setting, tab settings.Tab, entered map[s
 			row.Warning = settings.HostWarning(row.Entered)
 		case settings.KeyBrokerCA:
 			row.Warning = settings.BrokerWarning(held[settings.KeyBrokerTLS], row.Entered)
+		case settings.KeyMeshEnabled:
+			row.Warning = settings.MeshWarning(row.Entered, held[settings.KeyMeshSSID], held[settings.KeyMeshPassword])
 		}
 		sections[last].Rows = append(sections[last].Rows, row)
 	}

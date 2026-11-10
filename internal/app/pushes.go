@@ -120,7 +120,7 @@ func (a *App) configureDoor(ctx context.Context, id int64, overrides map[string]
 	if err != nil {
 		return connector.StoredDoor{}, err
 	}
-	sealed, err := a.settings.SealOverrides(overrides, d.Config)
+	sealed, err := a.settings.SealOverrides(ctx, overrides, d.Config)
 	if err != nil {
 		return connector.StoredDoor{}, err
 	}

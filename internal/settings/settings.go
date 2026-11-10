@@ -874,7 +874,8 @@ func (s Service) Clear(ctx context.Context, key string) (Setting, error) {
 }
 
 // put stores value for the setting named key, even an empty value for a
-// secret when clearing, and returns the result.
+// secret when clearing, and returns the result. It refuses a mesh field's
+// value that leaves the site's mesh on but open.
 func (s Service) put(ctx context.Context, key, value string, clearing bool) (Setting, error) {
 	def, err := lookup(key)
 	if err != nil {
@@ -890,12 +891,29 @@ func (s Service) put(ctx context.Context, key, value string, clearing bool) (Set
 	if err := def.validate.refusal(s, value); err != nil {
 		return Setting{}, fmt.Errorf("%w for %s: %w", ErrInvalid, key, err)
 	}
+	if err := s.meshRefusal(ctx, def.key, value); err != nil {
+		return Setting{}, err
+	}
 	// Postgres keeps microseconds, so the value echoed is the value read back.
 	row := connector.StoredSetting{Value: s.storable(def, value), UpdatedAt: s.Clock.Now().Truncate(time.Microsecond)}
 	if err := s.Store.PutSetting(ctx, def.key, row.Value, row.UpdatedAt); err != nil {
 		return Setting{}, err
 	}
 	return fromStore(def, row), nil
+}
+
+// meshRefusal is why storing value for the setting named key leaves the
+// site's mesh on but open, or why the settings it is checked against
+// cannot be read; nil when it does neither.
+func (s Service) meshRefusal(ctx context.Context, key, value string) error {
+	all, err := s.List(ctx)
+	if err != nil {
+		return err
+	}
+	if open := siteMeshProblems(valuesOf(all), map[string]string{key: value}); len(open) > 0 {
+		return fmt.Errorf("%w for %s: %s", ErrInvalid, key, open[0].Message)
+	}
+	return nil
 }
 
 // UpdateAll stores each of values, keyed by setting key, that differs from
@@ -905,7 +923,8 @@ func (s Service) put(ctx context.Context, key, value string, clearing bool) (Set
 // refusal as the problem with its key. It passes over values for keys no
 // setting has and for settings the environment provides, which a form
 // does not offer. An empty value for a secret setting leaves it as it is,
-// unless the secret is cleared.
+// unless the secret is cleared. A mesh the values leave on but open is
+// refused on the mesh's network name or password.
 func (s Service) UpdateAll(ctx context.Context, values map[string]string, cleared []string) ([]string, error) {
 	all, err := s.List(ctx)
 	if err != nil {
@@ -924,6 +943,9 @@ func (s Service) UpdateAll(ctx context.Context, values map[string]string, cleare
 		stored[def.key] = value
 	}
 	if err := found.Err(); err != nil {
+		return nil, err
+	}
+	if err := asSentences(siteMeshProblems(valuesOf(all), stored)).Err(); err != nil {
 		return nil, err
 	}
 	now := s.Clock.Now()

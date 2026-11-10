@@ -51,9 +51,10 @@
             <td class="min-w-64 px-6 py-3 align-top">
               {{if .ReadOnly}}<span id="{{$id}}" class="font-mono text-xs break-all">{{.Value}}</span>
               <p role="note" class="mt-1 text-xs text-amber-700 dark:text-amber-300">Set by <span class="font-mono">{{.EnvVar}}</span> in the environment; change it there.</p>
-              {{else if .Secret}}
-              <input id="{{$id}}" name="{{.Key}}" type="password" value="" autocomplete="new-password" placeholder="{{if .Value}}Set; leave blank to keep it{{else}}Not set{{end}}" class="{{template "input-base"}} font-mono">
+              {{else if .Secret}}{{$error := index $c.Errors .Key}}
+              <input id="{{$id}}" name="{{.Key}}" type="password" value="" autocomplete="new-password" placeholder="{{if .Value}}Set; leave blank to keep it{{else}}Not set{{end}}"{{if $error}} aria-invalid="true" aria-describedby="{{$id}}-error"{{end}} class="{{template "input-base"}} font-mono">
               {{if .Value}}<label class="mt-2 inline-flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400"><input type="checkbox" name="clear" value="{{.Key}}" class="size-4 rounded border-zinc-300 accent-brand-600 dark:border-zinc-700">Clear</label>{{end}}
+              {{if $error}}<p id="{{$id}}-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$error}}</p>{{end}}
               {{else}}{{$error := index $c.Errors .Key}}{{$kind := .Input.Kind}}
               {{if eq $kind "yes-no"}}
               {{/* An unticked box sends nothing, so the hidden no after it is what the form sends; a ticked box comes first and wins. */}}
