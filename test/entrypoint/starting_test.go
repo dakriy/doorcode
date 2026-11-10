@@ -170,6 +170,18 @@ func TestTheEventsPageFiltersByWhyAControllerStarted(t *testing.T) {
 	}
 }
 
+func TestTheEventsPageOffersEveryStartReasonWhenNoneIsChosen(t *testing.T) {
+	t.Parallel()
+	k := startedSite(t)
+	k.b.Get("/")
+
+	got := testsupport.ParsePage(k.b.Get("/admin/events").Body).Options["start_reason"]
+
+	if diff := cmp.Diff(startReasons(""), got); diff != "" {
+		t.Errorf("start reasons (-want +got):\n%s", diff)
+	}
+}
+
 func TestTheEventsPageOffersAStartReasonItDoesNotKnowAsGiven(t *testing.T) {
 	t.Parallel()
 	k := startedSite(t)

@@ -746,7 +746,8 @@ type StoredEvent struct {
 // empty Type, Outcome, Reason, or StartReason, keeps every event;
 // otherwise an event is kept when it has that value. A nil From or To
 // leaves the range open on that side; otherwise an event is kept when it
-// is at or after From and before To. The page skips Offset events and holds at most Limit.
+// is at or after From and before To. The page skips Offset events and
+// holds at most Limit.
 type EventQuery struct {
 	DoorID      int64
 	UserID      int64
