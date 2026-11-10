@@ -230,6 +230,7 @@ const (
 	eventsAggregate
 	eventWrites
 	eventReads
+	alarmWrites
 	telemetryAggregate
 	telemetryWrites
 	sampleReads

@@ -416,7 +416,7 @@ func TestWhatADoorSaysOfItselfThatCannotBeHandledIsLoggedAndIgnored(t *testing.T
 			f.StoreStub.SeedSetting("telemetry_retention_days", "0", testsupport.DefaultNow)
 		}, "invalid value for telemetry_retention_days: must be a whole number of days from 1 to 365"},
 		"an opening when schedules cannot be read": {event, opened, func(f *testsupport.Factory) { f.StoreStub.FailSchedules() }, unavailable},
-		"a forced opening that cannot be logged":   {event, opened, func(f *testsupport.Factory) { f.StoreStub.FailEventWrites() }, unavailable},
+		"a forced opening that cannot be logged":   {event, opened, func(f *testsupport.Factory) { f.StoreStub.FailAlarmWrites() }, unavailable},
 		"a start that cannot be logged": {
 			event, testsupport.CBOR(map[string]any{"v": 1, "event": "started"}), func(f *testsupport.Factory) { f.StoreStub.FailEventWrites() }, unavailable,
 		},

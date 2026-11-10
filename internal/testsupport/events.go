@@ -15,6 +15,9 @@ func (s *Store) AddEvent(_ context.Context, e connector.StoredEvent) (int64, err
 	if err := s.writable(eventsAggregate, eventWrites); err != nil {
 		return 0, err
 	}
+	if e.Type == "alarm" && s.failing[alarmWrites] {
+		return 0, ErrUnavailable
+	}
 	if s.doorByID(e.DoorID) == nil || (e.UserID != nil && s.userByID(*e.UserID) == nil) {
 		return 0, ErrNoSuchReference
 	}
@@ -101,4 +104,10 @@ func (s *Store) FailEventWrites() {
 // works.
 func (s *Store) FailEventReads() {
 	s.failing[eventReads] = true
+}
+
+// FailAlarmWrites makes AddEvent report ErrUnavailable for an alarm, while
+// it still stores every other event.
+func (s *Store) FailAlarmWrites() {
+	s.failing[alarmWrites] = true
 }

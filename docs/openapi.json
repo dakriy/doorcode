@@ -10910,7 +10910,7 @@
           },
           "outcome": {
             "type": "string",
-            "description": "allowed or denied, alert for an alarm or a failed firmware update, or info for a firmware update sent or done, a door closing, or a controller starting."
+            "description": "allowed or denied, alert for an alarm or a failed firmware update, or info for a firmware update sent or done, a door opening or closing, or a controller starting."
           },
           "reason": {
             "type": "string",
