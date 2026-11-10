@@ -112,6 +112,18 @@ func (s *Store) HardwareDoor(_ context.Context, hardwareID string) (int64, bool,
 	return 0, false, nil
 }
 
+// DoorNamed returns the door whose name is name ignoring case.
+func (s *Store) DoorNamed(_ context.Context, name string) (connector.StoredDoor, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, d := range s.doors {
+		if strings.EqualFold(d.Name, name) {
+			return s.doorOut(d), true, nil
+		}
+	}
+	return connector.StoredDoor{}, false, nil
+}
+
 // CreateDoor stores d and returns its id.
 func (s *Store) CreateDoor(_ context.Context, d connector.StoredDoor) (int64, error) {
 	s.mu.Lock()

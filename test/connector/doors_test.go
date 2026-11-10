@@ -149,6 +149,31 @@ func TestStoreDeletesAndRestoresADoor(t *testing.T) {
 	}
 }
 
+func TestStoreFindsADoorByNameIgnoringCaseDeletedOrNot(t *testing.T) {
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			ctx := context.Background()
+			store := migrated(t, impl)
+			mustCreateDoor(t, store, plainDoor("Lobby"))
+			dock := mustCreateDoor(t, store, plainDoor("Dock"))
+			at := time.Date(2026, 2, 1, 12, 0, 0, 0, time.UTC)
+			if _, err := store.SetDoorDeleted(ctx, dock, &at); err != nil {
+				t.Fatal(err)
+			}
+
+			lobby, lobbyFound, lobbyErr := store.DoorNamed(ctx, "LOBBY")
+			deleted, deletedFound, deletedErr := store.DoorNamed(ctx, "dock")
+			_, missingFound, missingErr := store.DoorNamed(ctx, "Cellar")
+
+			want := []any{int64(1), "Lobby", true, nil, int64(2), &at, true, nil, false, nil}
+			got := []any{lobby.ID, lobby.Name, lobbyFound, lobbyErr, deleted.ID, deleted.DeletedAt, deletedFound, deletedErr, missingFound, missingErr}
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Errorf("by name, deleted, missing (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestStoreReportsADoorThatIsNotThere(t *testing.T) {
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {

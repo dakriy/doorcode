@@ -136,11 +136,7 @@ func (s Service) Door(ctx context.Context, id int64) (connector.StoredDoor, erro
 
 // Create creates a door from f.
 func (s Service) Create(ctx context.Context, f Fields) (connector.StoredDoor, error) {
-	all, err := s.Store.Doors(ctx)
-	if err != nil {
-		return connector.StoredDoor{}, err
-	}
-	d, err := s.checkDoor(ctx, all, 0, f)
+	d, err := s.checkDoor(ctx, 0, f)
 	if err != nil {
 		return connector.StoredDoor{}, err
 	}
@@ -154,14 +150,10 @@ func (s Service) Create(ctx context.Context, f Fields) (connector.StoredDoor, er
 
 // Update replaces what f describes of the door whose id is id.
 func (s Service) Update(ctx context.Context, id int64, f Fields) (connector.StoredDoor, error) {
-	all, err := s.Store.Doors(ctx)
-	if err != nil {
+	if _, err := s.Door(ctx, id); err != nil {
 		return connector.StoredDoor{}, err
 	}
-	if !slices.ContainsFunc(all, func(d connector.StoredDoor) bool { return d.ID == id }) {
-		return connector.StoredDoor{}, ErrNoDoor
-	}
-	d, err := s.checkDoor(ctx, all, id, f)
+	d, err := s.checkDoor(ctx, id, f)
 	if err != nil {
 		return connector.StoredDoor{}, err
 	}
@@ -195,10 +187,9 @@ func (s Service) Restore(ctx context.Context, id int64) error {
 	return err
 }
 
-// checkDoor returns f as a door to store, or the problems with it. all is
-// every door; id is the one f describes, zero for a new one, whose own
-// name is no conflict.
-func (s Service) checkDoor(ctx context.Context, all []connector.StoredDoor, id int64, f Fields) (connector.StoredDoor, error) {
+// checkDoor returns f as a door to store, or the problems with it. id is
+// the door f describes, zero for a new one, whose own name is no conflict.
+func (s Service) checkDoor(ctx context.Context, id int64, f Fields) (connector.StoredDoor, error) {
 	zones, err := s.Store.Zones(ctx)
 	if err != nil {
 		return connector.StoredDoor{}, err
@@ -207,24 +198,29 @@ func (s Service) checkDoor(ctx context.Context, all []connector.StoredDoor, id i
 		Name: strings.TrimSpace(f.Name), Location: strings.TrimSpace(f.Location), Notes: strings.TrimSpace(f.Notes),
 		Public: f.Public, ZoneIDs: check.Distinct(f.ZoneIDs),
 	}
+	nameIssue, err := s.doorNameProblem(ctx, id, d.Name)
+	if err != nil {
+		return connector.StoredDoor{}, err
+	}
 	var found check.List
-	found.Add("name", doorNameProblem(all, id, d.Name))
+	found.Add("name", nameIssue)
 	found.Add("location", check.TooLong(d.Location, maxLocationLength, check.LongText))
 	found.Add("notes", check.TooLong(d.Notes, maxNotesLength, check.LongText))
 	found.Add("zone_ids", check.Unknown(d.ZoneIDs, zones, zoneID, "No zone has id %d."))
 	return d, found.Err()
 }
 
-func doorNameProblem(all []connector.StoredDoor, id int64, name string) string {
+// doorNameProblem is the problem with name as the name of the door whose
+// id is id. Names differing only in case are the same name.
+func (s Service) doorNameProblem(ctx context.Context, id int64, name string) (string, error) {
 	if problem := nameProblem(name); problem != "" {
-		return problem
+		return problem, nil
 	}
-	for _, other := range all {
-		if other.ID != id && strings.EqualFold(other.Name, name) {
-			return takenBy(other)
-		}
+	other, taken, err := s.Store.DoorNamed(ctx, name)
+	if err != nil || !taken || other.ID == id {
+		return "", err
 	}
-	return ""
+	return takenBy(other), nil
 }
 
 // takenBy is the problem with a name other already has.

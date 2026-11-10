@@ -81,6 +81,13 @@ func (s *Store) HardwareDoor(ctx context.Context, hardwareID string) (int64, boo
 	return found(id, err)
 }
 
+// DoorNamed returns the door whose lowercased name is name lowercased.
+func (s *Store) DoorNamed(ctx context.Context, name string) (connector.StoredDoor, bool, error) {
+	var d scannedDoor
+	err := s.pool.QueryRow(ctx, `select `+doorColumns+` from `+doorTables+` where lower(doors.name) = lower($1)`, name).Scan(doorFields(&d)...)
+	return found(d.door(), err)
+}
+
 // SetController stores c as the controller of the door with id, or removes
 // its controller when c is nil.
 func (s *Store) SetController(ctx context.Context, id int64, c *connector.StoredController) (bool, error) {

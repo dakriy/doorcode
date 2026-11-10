@@ -153,6 +153,33 @@ func TestDoorKeepsItsOwnNameButNotADeletedDoorsName(t *testing.T) {
 	}
 }
 
+func TestCreatingAndUpdatingADoorReadOnlyTheDoorsTheyName(t *testing.T) {
+	t.Parallel()
+	cases := map[string]func(b *testsupport.Browser) testsupport.Response{
+		"create": func(b *testsupport.Browser) testsupport.Response {
+			return b.PostJSON("/api/v1/doors", `{"name":"Lobby"}`)
+		},
+		"update": func(b *testsupport.Browser) testsupport.Response {
+			return b.PutJSON("/api/v1/doors/1", `{"name":"Lobby"}`)
+		},
+	}
+	for name, request := range cases {
+		t.Run(name, func(t *testing.T) {
+			f := testsupport.NewFactory()
+			b := signedInAdmin(t, f)
+			createDoor(t, b, frontDoor)
+			before := f.StoreStub.DoorsCalls()
+
+			got := request(b)
+
+			want := []any{"Lobby", before}
+			if diff := cmp.Diff(want, []any{testsupport.JSONAt(got.Body, "/name"), f.StoreStub.DoorsCalls()}); diff != "" {
+				t.Errorf("door's name, reads of every door (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestChangingADoorThatIsNotThereIsRefused(t *testing.T) {
 	t.Parallel()
 	cases := map[string]func(b *testsupport.Browser) testsupport.Response{

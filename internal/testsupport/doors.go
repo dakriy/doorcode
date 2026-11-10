@@ -86,6 +86,21 @@ func (s *Store) HardwareDoor(_ context.Context, hardwareID string) (int64, bool,
 	return 0, false, nil
 }
 
+// DoorNamed returns the door whose name is name ignoring case.
+func (s *Store) DoorNamed(_ context.Context, name string) (connector.StoredDoor, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.usable(doorsAggregate); err != nil {
+		return connector.StoredDoor{}, false, err
+	}
+	for _, d := range s.doors {
+		if strings.EqualFold(d.Name, name) {
+			return s.cloneDoor(d), true, nil
+		}
+	}
+	return connector.StoredDoor{}, false, nil
+}
+
 // CreateDoor stores d with the next id, without a primary picture.
 func (s *Store) CreateDoor(_ context.Context, d connector.StoredDoor) (int64, error) {
 	s.mu.Lock()

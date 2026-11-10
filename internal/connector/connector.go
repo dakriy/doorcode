@@ -514,6 +514,10 @@ type DoorsStore interface {
 	// HardwareDoor returns the id of the door whose controller has
 	// hardware id hardwareID, and whether there is one.
 	HardwareDoor(ctx context.Context, hardwareID string) (int64, bool, error)
+	// DoorNamed returns the door, deleted or not, whose name is name when
+	// both are lowercased, and whether there is one. Names are unique so
+	// compared, so there is at most one.
+	DoorNamed(ctx context.Context, name string) (StoredDoor, bool, error)
 	// CreateDoor stores d, ignoring d.ID, and returns the id it was given.
 	CreateDoor(ctx context.Context, d StoredDoor) (int64, error)
 	// UpdateDoor stores d's name, location, notes, public flag, and zones

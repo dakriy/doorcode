@@ -119,16 +119,23 @@ type catalog struct {
 }
 
 func (a *App) catalog(ctx context.Context) (catalog, error) {
+	c, err := a.schedulesAndZones(ctx)
+	if err != nil {
+		return catalog{}, err
+	}
+	doors, err := a.doors.Doors(ctx)
+	return catalog{schedules: c.schedules, zones: c.zones, doors: doors}, err
+}
+
+// schedulesAndZones is the catalog without its doors: enough to show one
+// door as the API does, without reading every door.
+func (a *App) schedulesAndZones(ctx context.Context) (catalog, error) {
 	schedules, err := a.schedules.Schedules(ctx)
 	if err != nil {
 		return catalog{}, err
 	}
 	zones, err := a.doors.Zones(ctx)
-	if err != nil {
-		return catalog{}, err
-	}
-	doors, err := a.doors.Doors(ctx)
-	return catalog{schedules: schedules, zones: zones, doors: doors}, err
+	return catalog{schedules: schedules, zones: zones}, err
 }
 
 // openSchedules names the schedules during which d is in open mode
@@ -188,7 +195,7 @@ func (a *App) writeDoor(w http.ResponseWriter, r *http.Request, status int, d co
 		a.doorError(w, r, err)
 		return
 	}
-	c, err := a.catalog(r.Context())
+	c, err := a.schedulesAndZones(r.Context())
 	if err != nil {
 		a.internalError(w, r, err)
 		return
