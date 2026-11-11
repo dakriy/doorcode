@@ -7,11 +7,12 @@ import (
 	"sync"
 
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/protocol"
 )
 
 // Kind is what an event is counted by: the door it happened at, its
 // type, outcome, and reason, and the reason a controller gave for
-// starting, empty for any other event.
+// starting, as boundedStartReason keeps it, empty for any other event.
 type Kind struct {
 	DoorID      int64
 	Type        string
@@ -43,7 +44,20 @@ func NewCounts() *Counts {
 func (c *Counts) add(e connector.StoredEvent) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.n[Kind{DoorID: e.DoorID, Type: e.Type, Outcome: e.Outcome, Reason: e.Reason, StartReason: e.StartReason}]++
+	c.n[Kind{DoorID: e.DoorID, Type: e.Type, Outcome: e.Outcome, Reason: e.Reason, StartReason: boundedStartReason(e.StartReason)}]++
+}
+
+// otherStartReason is what every start reason the server does not know
+// is counted as, so no controller can grow the counts without limit.
+const otherStartReason = "other"
+
+// boundedStartReason is reason when it is empty or one the server
+// knows, else otherStartReason.
+func boundedStartReason(reason string) string {
+	if reason == "" || slices.Contains(protocol.StartReasons, reason) {
+		return reason
+	}
+	return otherStartReason
 }
 
 // Forget drops the counts of the door whose id is doorID, which is gone

@@ -680,7 +680,9 @@ also keeps `reason` as given, as the event's `start_reason`, which
 `GET /api/v1/events?start_reason=panic` and the events page's Why it
 started filter narrow the starts by, a value the server does not know
 included; a start without `reason`, and one recorded before the server
-kept it, matches no such filter. It leaves the
+kept it, matches no such filter. The `doorcode_events_total` metric
+counts a value the server does not know as `start_reason="other"`. It
+leaves the
 door's open or closed state as it was and, like any message from the
 door, counts as contact. Firmware that predates it never sends it, and
 the server derives nothing in its place.

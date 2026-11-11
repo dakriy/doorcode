@@ -160,7 +160,7 @@ func firmwareUpdates(doors []firmware.DoorFirmware) exposition.Family {
 // of doors it names, which still has series once deleted.
 func eventCounts(counts []event.Count, doors []firmware.DoorFirmware) exposition.Family {
 	f := exposition.Family{
-		Name: "doorcode_events_total", Help: "The events recorded since the server started, by door, type, outcome, reason, and the reason a controller gave for starting.", Type: exposition.Counter,
+		Name: "doorcode_events_total", Help: "The events recorded since the server started, by door, type, outcome, reason, and the reason a controller gave for starting, or other for one the server does not know.", Type: exposition.Counter,
 	}
 	byID := map[int64]connector.StoredDoor{}
 	for _, df := range doors {

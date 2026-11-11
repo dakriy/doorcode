@@ -652,8 +652,10 @@ The event labels take the events page's values: `type` is `check`,
 `configuration reverted`, `opened`, `closed`, `started`, `update sent`,
 `update succeeded`, `update failed`. `start_reason` is set only on a
 controller's start (`type="door"`, `reason="started"`), as the controller
-gave it (`power_on`, `software`, `panic`, `watchdog`, `brownout`,
-`external`, `unknown`), and empty otherwise. `route` is the route pattern
+gave it when the server knows it (`power_on`, `software`, `panic`,
+`watchdog`, `brownout`, `external`, `unknown`), as `other` for any other
+value, so firmware cannot grow the series without limit (the event log
+keeps the value as given), and empty otherwise. `route` is the route pattern
 that matched, such as `/api/v1/doors/{id}`, or `unmatched` for a request no
 route matched; `method` is the request's method, or `other` for one HTTP
 does not define.

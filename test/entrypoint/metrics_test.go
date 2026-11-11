@@ -58,7 +58,7 @@ var metricFamilies = [][3]string{
 	{"doorcode_door_tcp_drops_total", "The TCP segments the door's controller dropped since it started.", "counter"},
 	{"doorcode_door_wifi_drops_total", "How often the door's controller lost its Wi-Fi access point since it started.", "counter"},
 	{"doorcode_door_roams_total", "How often the door's controller moved to another access point by its own choice since it started.", "counter"},
-	{"doorcode_events_total", "The events recorded since the server started, by door, type, outcome, reason, and the reason a controller gave for starting.", "counter"},
+	{"doorcode_events_total", "The events recorded since the server started, by door, type, outcome, reason, and the reason a controller gave for starting, or other for one the server does not know.", "counter"},
 	{"doorcode_pending_enrollments", "Controllers waiting to be approved as doors.", "gauge"},
 	{"doorcode_open_requests", "Access requests waiting for an answer.", "gauge"},
 	{"doorcode_firmware_updates", "Doors taking part in the firmware rollout, by their state in it: pending, updating, failed, or done.", "gauge"},
@@ -435,6 +435,24 @@ func TestAScrapeCountsTheChecksAlarmsAndStartsAtADoor(t *testing.T) {
 		`doorcode_events_total{door="Lobby",door_id="1",type="check",outcome="denied",reason="no rule",start_reason=""} 2`,
 		`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="opened",start_reason=""} 1`,
 		`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="started",start_reason="panic"} 1`,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("samples (-want +got):\n%s", diff)
+	}
+}
+
+func TestAScrapeCountsStartReasonsItDoesNotKnowAsOther(t *testing.T) {
+	t.Parallel()
+	k := keypadSite(t, testsupport.NewFactory())
+	k.starts("watchdog")
+	k.starts("cosmic_ray")
+	k.starts("solar_flare")
+
+	got := eventsScrape(t, k.a, k.b)
+
+	want := []string{
+		`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="started",start_reason="other"} 2`,
+		`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="started",start_reason="watchdog"} 1`,
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("samples (-want +got):\n%s", diff)
