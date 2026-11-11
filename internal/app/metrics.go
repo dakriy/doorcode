@@ -157,16 +157,22 @@ func firmwareUpdates(doors []firmware.DoorFirmware) exposition.Family {
 }
 
 // eventCounts is the count of each kind of event in counts, at the door
-// of doors it names, which still has series once deleted.
+// of doors it names, which still has series once deleted, and 0 for each
+// kind of alarm and controller start not yet counted at a door of doors
+// that is not deleted and has a controller.
 func eventCounts(counts []event.Count, doors []firmware.DoorFirmware) exposition.Family {
 	f := exposition.Family{
 		Name: "doorcode_events_total", Help: "The events recorded since the server started, by door, type, outcome, reason, and the reason a controller gave for starting, or other for one the server does not know.", Type: exposition.Counter,
 	}
 	byID := map[int64]connector.StoredDoor{}
+	var enrolled []int64
 	for _, df := range doors {
 		byID[df.Door.ID] = df.Door
+		if door.Enrolled(df.Door) {
+			enrolled = append(enrolled, df.Door.ID)
+		}
 	}
-	for _, c := range counts {
+	for _, c := range event.Seeded(counts, enrolled) {
 		labels := append(doorLabels(byID[c.DoorID]),
 			exposition.Label{Name: "type", Value: c.Type}, exposition.Label{Name: "outcome", Value: c.Outcome},
 			exposition.Label{Name: "reason", Value: c.Reason}, exposition.Label{Name: "start_reason", Value: c.StartReason})

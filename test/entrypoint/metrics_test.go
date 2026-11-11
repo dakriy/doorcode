@@ -98,6 +98,27 @@ doorcode_firmware_updates{state="failed"} 0
 doorcode_firmware_updates{state="done"} 0
 `
 
+// zeroAlarms is the alarm counts of door, whose id is id, before its
+// first alarm: one for each reason, at 0.
+func zeroAlarms(door, id string) []string {
+	out := []string{}
+	for _, reason := range []string{"configuration reverted", "forced open", "held open"} {
+		out = append(out, `doorcode_events_total{door="`+door+`",door_id="`+id+`",type="alarm",outcome="alert",reason="`+reason+`",start_reason=""} 0`)
+	}
+	return out
+}
+
+// zeroStarts is the controller start counts of door, whose id is id,
+// before its controller's first start: one for each start reason,
+// none and other included, at 0.
+func zeroStarts(door, id string) []string {
+	out := []string{}
+	for _, reason := range []string{"", "brownout", "external", "other", "panic", "power_on", "software", "unknown", "watchdog"} {
+		out = append(out, `doorcode_events_total{door="`+door+`",door_id="`+id+`",type="door",outcome="info",reason="started",start_reason="`+reason+`"} 0`)
+	}
+	return out
+}
+
 func TestTheMetricsNeedATokenWhoseUserHoldsViewMetrics(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
@@ -153,6 +174,8 @@ func TestAScrapeShowsADoorsStateItsLatestReportAndItsTotals(t *testing.T) {
 		`doorcode_door_tcp_drops_total{door="Lobby",door_id="1"} 4`,
 		`doorcode_door_wifi_drops_total{door="Lobby",door_id="1"} 5`,
 		`doorcode_door_roams_total{door="Lobby",door_id="1"} 1`,
+	}
+	want = append(append(append(want, zeroAlarms("Lobby", "1")...), zeroStarts("Lobby", "1")...), []string{
 		`doorcode_pending_enrollments 0`,
 		`doorcode_open_requests 0`,
 		`doorcode_firmware_updates{state="pending"} 0`,
@@ -161,7 +184,7 @@ func TestAScrapeShowsADoorsStateItsLatestReportAndItsTotals(t *testing.T) {
 		`doorcode_firmware_updates{state="done"} 0`,
 		`doorcode_broker_connected 1`,
 		`doorcode_store_up 1`,
-	}
+	}...)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("samples (-want +got):\n%s", diff)
 	}
@@ -195,6 +218,8 @@ func TestAnOfflineDoorKeepsItsStateAndTotalsButNotWhatItLastReported(t *testing.
 		`doorcode_door_tcp_drops_total{door="Lobby",door_id="1"} 4`,
 		`doorcode_door_wifi_drops_total{door="Lobby",door_id="1"} 5`,
 		`doorcode_door_roams_total{door="Lobby",door_id="1"} 1`,
+	}
+	want = append(append(append(want, zeroAlarms("Lobby", "1")...), zeroStarts("Lobby", "1")...), []string{
 		`doorcode_pending_enrollments 0`,
 		`doorcode_open_requests 0`,
 		`doorcode_firmware_updates{state="pending"} 0`,
@@ -203,7 +228,7 @@ func TestAnOfflineDoorKeepsItsStateAndTotalsButNotWhatItLastReported(t *testing.
 		`doorcode_firmware_updates{state="done"} 0`,
 		`doorcode_broker_connected 1`,
 		`doorcode_store_up 1`,
-	}
+	}...)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("samples (-want +got):\n%s", diff)
 	}
@@ -417,6 +442,62 @@ func eventsScrape(t *testing.T, a *app.App, b *testsupport.Browser) []string {
 	return testsupport.Samples(scrapeAs(t, a.Handler(), b), "doorcode_events_total")
 }
 
+// countedEvents is the event counts a scrape of a with a new token of
+// b's user shows that are not 0.
+func countedEvents(t *testing.T, a *app.App, b *testsupport.Browser) []string {
+	t.Helper()
+	out := []string{}
+	for _, sample := range eventsScrape(t, a, b) {
+		if sample[len(sample)-2:] != " 0" {
+			out = append(out, sample)
+		}
+	}
+	return out
+}
+
+func TestANewlyEnrolledDoorShowsEachAlarmAndStartAtZero(t *testing.T) {
+	t.Parallel()
+	k := keypadSite(t, testsupport.NewFactory())
+
+	got := eventsScrape(t, k.a, k.b)
+
+	want := append(zeroAlarms("Lobby", "1"), zeroStarts("Lobby", "1")...)
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("samples (-want +got):\n%s", diff)
+	}
+}
+
+func TestAnAlarmOrStartCountsUpFromItsZeroSeries(t *testing.T) {
+	t.Parallel()
+	k := keypadSite(t, testsupport.NewFactory())
+	k.opens(false)
+	k.starts("")
+	k.starts("cosmic_ray")
+	k.starts("watchdog")
+	k.starts("watchdog")
+
+	got := eventsScrape(t, k.a, k.b)
+
+	want := []string{
+		`doorcode_events_total{door="Lobby",door_id="1",type="alarm",outcome="alert",reason="configuration reverted",start_reason=""} 0`,
+		`doorcode_events_total{door="Lobby",door_id="1",type="alarm",outcome="alert",reason="forced open",start_reason=""} 1`,
+		`doorcode_events_total{door="Lobby",door_id="1",type="alarm",outcome="alert",reason="held open",start_reason=""} 0`,
+		`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="opened",start_reason=""} 1`,
+		`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="started",start_reason=""} 1`,
+		`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="started",start_reason="brownout"} 0`,
+		`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="started",start_reason="external"} 0`,
+		`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="started",start_reason="other"} 1`,
+		`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="started",start_reason="panic"} 0`,
+		`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="started",start_reason="power_on"} 0`,
+		`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="started",start_reason="software"} 0`,
+		`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="started",start_reason="unknown"} 0`,
+		`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="started",start_reason="watchdog"} 2`,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("samples (-want +got):\n%s", diff)
+	}
+}
+
 func TestAScrapeCountsTheChecksAlarmsAndStartsAtADoor(t *testing.T) {
 	t.Parallel()
 	k := keypadSite(t, testsupport.NewFactory())
@@ -427,7 +508,7 @@ func TestAScrapeCountsTheChecksAlarmsAndStartsAtADoor(t *testing.T) {
 	k.starts("panic")
 	k.opens(false)
 
-	got := eventsScrape(t, k.a, k.b)
+	got := countedEvents(t, k.a, k.b)
 
 	want := []string{
 		`doorcode_events_total{door="Lobby",door_id="1",type="alarm",outcome="alert",reason="forced open",start_reason=""} 1`,
@@ -448,7 +529,7 @@ func TestAScrapeCountsStartReasonsItDoesNotKnowAsOther(t *testing.T) {
 	k.starts("cosmic_ray")
 	k.starts("solar_flare")
 
-	got := eventsScrape(t, k.a, k.b)
+	got := countedEvents(t, k.a, k.b)
 
 	want := []string{
 		`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="started",start_reason="other"} 2`,
@@ -466,7 +547,7 @@ func TestAScrapeCountsTheFirmwareUpdatesSentAndHowTheyEnded(t *testing.T) {
 	fl.reconnects(1, "1.5.0")
 	fl.acks(2, "failed", "flash error")
 
-	got := eventsScrape(t, fl.a, fl.b)
+	got := countedEvents(t, fl.a, fl.b)
 
 	want := []string{
 		`doorcode_events_total{door="Lobby",door_id="1",type="update",outcome="info",reason="update sent",start_reason=""} 1`,
@@ -490,7 +571,8 @@ func TestADoorsEventCountsCarryItsCurrentNameAndStayOnceItIsDeleted(t *testing.T
 	got := [][]string{renamed, eventsScrape(t, k.a, k.b)}
 
 	count := `doorcode_events_total{door="Foyer",door_id="1",type="check",outcome="denied",reason="no rule",start_reason=""} 1`
-	if diff := cmp.Diff([][]string{{count}, {count}}, got); diff != "" {
+	renamedWant := append(append(zeroAlarms("Foyer", "1"), count), zeroStarts("Foyer", "1")...)
+	if diff := cmp.Diff([][]string{renamedWant, {count}}, got); diff != "" {
 		t.Errorf("renamed, then deleted (-want +got):\n%s", diff)
 	}
 }
@@ -504,7 +586,7 @@ func TestANewlyStartedServerCountsEventsFromZero(t *testing.T) {
 	k.a = restarted
 	k.press("999999")
 
-	got := eventsScrape(t, restarted, k.b)
+	got := countedEvents(t, restarted, k.b)
 
 	want := []string{`doorcode_events_total{door="Lobby",door_id="1",type="check",outcome="denied",reason="no rule",start_reason=""} 1`}
 	if diff := cmp.Diff(want, got); diff != "" {
@@ -523,7 +605,7 @@ func TestEventsRecordedInEveryLaneAtOnceAreAllCounted(t *testing.T) {
 	}
 	run(t, a)
 
-	got := eventsScrape(t, a, b)
+	got := countedEvents(t, a, b)
 
 	want := []string{
 		`doorcode_events_total{door="Lobby",door_id="1",type="check",outcome="denied",reason="no rule",start_reason=""} 8`,

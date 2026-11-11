@@ -77,10 +77,55 @@ func (c *Counts) All() []Count {
 		out = append(out, Count{Kind: k, N: n})
 	}
 	c.mu.Unlock()
-	slices.SortFunc(out, func(a, b Count) int {
+	sortCounts(out)
+	return out
+}
+
+// sortCounts sorts counts by door id, then type, outcome, reason, and
+// start reason.
+func sortCounts(counts []Count) {
+	slices.SortFunc(counts, func(a, b Count) int {
 		return cmp.Or(
 			cmp.Compare(a.DoorID, b.DoorID), cmp.Compare(a.Type, b.Type), cmp.Compare(a.Outcome, b.Outcome),
 			cmp.Compare(a.Reason, b.Reason), cmp.Compare(a.StartReason, b.StartReason))
 	})
+}
+
+// startReasons is every start reason a controller's start is counted
+// under: none, for a controller that did not say, each one the server
+// knows, and otherStartReason.
+var startReasons = slices.Concat([]string{""}, protocol.StartReasons, []string{otherStartReason})
+
+// Seeded is counts, in the order All gives, with a count of 0 added for
+// every kind an alarm or a controller's start at a door whose id is in
+// doorIDs is counted as and counts has none of, so those series show
+// before their first event and the first one counts up from there.
+func Seeded(counts []Count, doorIDs []int64) []Count {
+	counted := map[Kind]bool{}
+	for _, c := range counts {
+		counted[c.Kind] = true
+	}
+	out := slices.Clone(counts)
+	for _, id := range doorIDs {
+		for _, k := range seededKinds(id) {
+			if !counted[k] {
+				out = append(out, Count{Kind: k})
+			}
+		}
+	}
+	sortCounts(out)
+	return out
+}
+
+// seededKinds is every kind an alarm or a controller's start at the door
+// whose id is doorID is counted as.
+func seededKinds(doorID int64) []Kind {
+	var out []Kind
+	for _, reason := range AlarmReasons {
+		out = append(out, Kind{DoorID: doorID, Type: Alarm, Outcome: Alert, Reason: reason})
+	}
+	for _, reason := range startReasons {
+		out = append(out, Kind{DoorID: doorID, Type: Door, Outcome: Info, Reason: Started, StartReason: reason})
+	}
 	return out
 }

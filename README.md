@@ -227,10 +227,13 @@ What a scrape holds:
   report totals at all.
 - `doorcode_events_total` and the HTTP request counters are kept in
   memory and start from zero when the server starts; Prometheus treats
-  the drop as a counter reset. A series of `doorcode_events_total`
-  appears with the first event of its kind, so `increase()` misses that
-  first event; the example rules that alert on a single event also catch
-  a series that has just appeared.
+  the drop as a counter reset. Every door that is not deleted and has a
+  controller always shows a `doorcode_events_total` series, at 0 until
+  its first event, for each alarm reason and for a controller start with
+  each `start_reason` (empty and `other` included), so `increase()` sees
+  the first alarm or crash and the example rules use it alone. Every
+  other kind of event appears with its first event, which `increase()`
+  misses.
 - The per-door `_total` counters are the totals since the controller
   started that its latest report gave, so they reset when the controller
   restarts.

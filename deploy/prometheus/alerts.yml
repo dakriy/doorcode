@@ -1,13 +1,12 @@
 # Example alert rules for doorcode's /metrics. Thresholds and durations
 # are starting points; tune them to the site.
 #
-# doorcode_events_total counts in memory from when the server starts,
-# and a series appears only with the first event of its kind. increase()
-# cannot see that first event, so the rules that must catch a single
-# event also fire on a series that is present now but was not 15 minutes
-# ago, provided Prometheus was already scraping the server then (the
-# up{job="doorcode"} term), so a newly started Prometheus does not alert
-# on every series at once.
+# doorcode_events_total counts in memory from when the server starts.
+# Every door that is not deleted and has a controller always shows a
+# series, at 0 until its first event, for each alarm reason and for a
+# controller start with each start_reason, so increase() sees the first
+# alarm or crash. Every other kind of event, such as a denied check,
+# appears with its first event, which increase() does not see.
 
 groups:
   - name: doorcode-server
@@ -68,18 +67,7 @@ groups:
           description: Door {{ $labels.door }} (id {{ $labels.door_id }}) has been open longer than its door_held_open_s while it should be locked.
 
       - alert: DoorcodeDoorForcedOpen
-        expr: |
-          (
-            sum by (door, door_id) (increase(doorcode_events_total{type="alarm",reason="forced open"}[15m])) > 0
-          )
-          or
-          (
-            sum by (door, door_id) (
-              doorcode_events_total{type="alarm",reason="forced open"}
-              unless doorcode_events_total{type="alarm",reason="forced open"} offset 15m
-            )
-            and on() count(up{job="doorcode"} offset 15m)
-          )
+        expr: sum by (door, door_id) (increase(doorcode_events_total{type="alarm",reason="forced open"}[15m])) > 0
         labels:
           severity: critical
         annotations:
@@ -104,18 +92,7 @@ groups:
           description: Replies to code checks from door {{ $labels.door }} (id {{ $labels.door_id }}) never reached its controller in the last hour, so people at the door were not let in.
 
       - alert: DoorcodeControllerCrashed
-        expr: |
-          (
-            sum by (door, door_id, start_reason) (increase(doorcode_events_total{type="door",reason="started",start_reason=~"panic|watchdog"}[15m])) > 0
-          )
-          or
-          (
-            sum by (door, door_id, start_reason) (
-              doorcode_events_total{type="door",reason="started",start_reason=~"panic|watchdog"}
-              unless doorcode_events_total{type="door",reason="started",start_reason=~"panic|watchdog"} offset 15m
-            )
-            and on() count(up{job="doorcode"} offset 15m)
-          )
+        expr: sum by (door, door_id, start_reason) (increase(doorcode_events_total{type="door",reason="started",start_reason=~"panic|watchdog"}[15m])) > 0
         labels:
           severity: warning
         annotations:

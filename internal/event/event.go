@@ -9,6 +9,7 @@ package event
 
 import (
 	"context"
+	"slices"
 
 	"github.com/dakriy/doorcode/internal/connector"
 )
@@ -116,6 +117,9 @@ const (
 	ConfigReverted = "configuration reverted"
 )
 
+// AlarmReasons is every reason of an alarm, in the order pages list them.
+var AlarmReasons = []string{ForcedOpen, HeldOpen, ConfigReverted}
+
 // Opened is the reason of a door opening after it was not open.
 const Opened = "opened"
 
@@ -141,12 +145,15 @@ const (
 )
 
 // Reasons is every reason, in the order pages list them.
-var Reasons = []string{
-	AccessRule, OpenMode, OpenOverride, Commander, Commanded,
-	NoRule, Locked, Expired, RateLimited, NotCommander, BadCommand, CommandFailed, Unreachable,
-	KeypadOpen, KeypadLocked, KeypadCancel, RebootSent, FromUI, ForcedOpen, HeldOpen, ConfigReverted, Opened, Closed, Started,
-	UpdateSent, UpdateSucceeded, UpdateFailed,
-}
+var Reasons = slices.Concat(
+	[]string{
+		AccessRule, OpenMode, OpenOverride, Commander, Commanded,
+		NoRule, Locked, Expired, RateLimited, NotCommander, BadCommand, CommandFailed, Unreachable,
+		KeypadOpen, KeypadLocked, KeypadCancel, RebootSent, FromUI,
+	},
+	AlarmReasons,
+	[]string{Opened, Closed, Started, UpdateSent, UpdateSucceeded, UpdateFailed},
+)
 
 // Service records and finds events, and counts those it recorded.
 type Service struct {

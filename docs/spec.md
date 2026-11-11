@@ -597,9 +597,16 @@ started, as its latest report gave them, so they reset when it restarts.
 
 `doorcode_events_total` is counted in memory as each event is recorded,
 never by reading the events table at scrape time, so it and the HTTP
-request counters start from zero when the server starts. A series appears
-with the first event of its kind. A deleted door's event series stay,
-under its name, until the door is deleted for good.
+request counters start from zero when the server starts. Every door that
+is not deleted and has a controller always shows a series, at 0 until its
+first event, for each alarm reason (`forced open`, `held open`,
+`configuration reverted`) and for a controller start with each
+`start_reason` (each one the server knows, `other`, and empty, for a
+controller that did not say), under exactly the labels that event is
+counted under, so `increase()` sees the first one. Every other kind of
+event appears with its first event. A deleted door's event series stay,
+under its name, until the door is deleted for good; its zero series go
+when it is deleted.
 
 When the store fails one of the scrape's reads, the scrape still answers
 200, logs the error, leaves out the samples that read gives (the doors
