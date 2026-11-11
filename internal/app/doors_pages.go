@@ -156,7 +156,7 @@ func (a *App) doorsPage(w http.ResponseWriter, r *http.Request, viewer auth.User
 	content := doorsContent{
 		Search: q.Search, Deleted: q.Deleted, Zones: zoneOptions(c.zones, q.ZoneID), Rows: []doorRow{}, Empty: emptyDoors(q, found.Total),
 		pager:   pagerOf(q.Page, doorsPerPage, len(found.Doors), found.Total, link),
-		Pending: len(a.controllers.Pending.List()), Manage: viewer.Has(auth.RoleManageDoors),
+		Pending: a.pendingEnrollments(), Manage: viewer.Has(auth.RoleManageDoors),
 	}
 	for _, d := range found.Doors {
 		content.Rows = append(content.Rows, c.rowOfDoor(d))

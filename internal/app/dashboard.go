@@ -280,13 +280,18 @@ func (a *App) liveCounts(ctx context.Context, viewer auth.User) (liveCounts, err
 		counts.DoorsOpen, counts.UnresponsiveDoors, err = a.doorAlarms(ctx)
 	}
 	if err == nil && holds(viewer, enrollsDoors) {
-		waiting := len(a.controllers.Pending.List())
+		waiting := a.pendingEnrollments()
 		counts.PendingEnrollments = &waiting
 	}
 	if err == nil && holds(viewer, runsFirmware) {
 		counts.PendingUpdates, err = a.pendingUpdates(ctx)
 	}
 	return counts, err
+}
+
+// pendingEnrollments counts the controllers waiting to be approved.
+func (a *App) pendingEnrollments() int {
+	return len(a.controllers.Pending.List())
 }
 
 // counted is n, which err may say could not be counted.

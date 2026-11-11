@@ -44,18 +44,28 @@ var metricFamilies = [][3]string{
 	{"doorcode_door_tcp_drops_total", "The TCP segments the door's controller dropped since it started.", "counter"},
 	{"doorcode_door_wifi_drops_total", "How often the door's controller lost its Wi-Fi access point since it started.", "counter"},
 	{"doorcode_door_roams_total", "How often the door's controller moved to another access point by its own choice since it started.", "counter"},
+	{"doorcode_pending_enrollments", "Controllers waiting to be approved as doors.", "gauge"},
+	{"doorcode_open_requests", "Access requests waiting for an answer.", "gauge"},
+	{"doorcode_firmware_updates", "Doors taking part in the firmware rollout, by their state in it: pending, updating, failed, or done.", "gauge"},
 	{"doorcode_broker_connected", "1 while the server is connected to the broker, else 0.", "gauge"},
 	{"doorcode_store_up", "1 when the store answered the scrape's reads, else 0.", "gauge"},
 }
 
-// doorlessScrape is the whole of a scrape that shows no door: every
-// family's HELP and TYPE, and the broker and store gauges saying broker
-// and store.
+// doorlessScrape is the whole of a scrape of a site with no door,
+// enrollment, or request: every family's HELP and TYPE, nothing waiting,
+// no firmware update in any state unless the store failed, and the broker
+// and store gauges saying broker and store.
 func doorlessScrape(broker, store string) testsupport.Response {
 	body := ""
 	for _, f := range metricFamilies {
 		body += "# HELP " + f[0] + " " + f[1] + "\n# TYPE " + f[0] + " " + f[2] + "\n"
 		switch f[0] {
+		case "doorcode_pending_enrollments", "doorcode_open_requests":
+			body += f[0] + " 0\n"
+		case "doorcode_firmware_updates":
+			if store == "1" {
+				body += noUpdates
+			}
 		case "doorcode_broker_connected":
 			body += f[0] + " " + broker + "\n"
 		case "doorcode_store_up":
@@ -64,6 +74,14 @@ func doorlessScrape(broker, store string) testsupport.Response {
 	}
 	return testsupport.Response{Status: 200, ContentType: metricsType, Body: body}
 }
+
+// noUpdates is the firmware update samples of a site where no door takes
+// part in the rollout.
+const noUpdates = `doorcode_firmware_updates{state="pending"} 0
+doorcode_firmware_updates{state="updating"} 0
+doorcode_firmware_updates{state="failed"} 0
+doorcode_firmware_updates{state="done"} 0
+`
 
 func TestTheMetricsNeedATokenWhoseUserHoldsViewMetrics(t *testing.T) {
 	t.Parallel()
@@ -120,6 +138,12 @@ func TestAScrapeShowsADoorsStateItsLatestReportAndItsTotals(t *testing.T) {
 		`doorcode_door_tcp_drops_total{door="Lobby",door_id="1"} 4`,
 		`doorcode_door_wifi_drops_total{door="Lobby",door_id="1"} 5`,
 		`doorcode_door_roams_total{door="Lobby",door_id="1"} 1`,
+		`doorcode_pending_enrollments 0`,
+		`doorcode_open_requests 0`,
+		`doorcode_firmware_updates{state="pending"} 0`,
+		`doorcode_firmware_updates{state="updating"} 0`,
+		`doorcode_firmware_updates{state="failed"} 0`,
+		`doorcode_firmware_updates{state="done"} 0`,
 		`doorcode_broker_connected 1`,
 		`doorcode_store_up 1`,
 	}
@@ -156,6 +180,12 @@ func TestAnOfflineDoorKeepsItsStateAndTotalsButNotWhatItLastReported(t *testing.
 		`doorcode_door_tcp_drops_total{door="Lobby",door_id="1"} 4`,
 		`doorcode_door_wifi_drops_total{door="Lobby",door_id="1"} 5`,
 		`doorcode_door_roams_total{door="Lobby",door_id="1"} 1`,
+		`doorcode_pending_enrollments 0`,
+		`doorcode_open_requests 0`,
+		`doorcode_firmware_updates{state="pending"} 0`,
+		`doorcode_firmware_updates{state="updating"} 0`,
+		`doorcode_firmware_updates{state="failed"} 0`,
+		`doorcode_firmware_updates{state="done"} 0`,
 		`doorcode_broker_connected 1`,
 		`doorcode_store_up 1`,
 	}
@@ -269,5 +299,97 @@ func TestAScrapeSaysWhenTheBrokerIsNotConnected(t *testing.T) {
 
 	if diff := cmp.Diff(doorlessScrape("0", "1"), got); diff != "" {
 		t.Errorf("scrape (-want +got):\n%s", diff)
+	}
+}
+
+func TestAScrapeCountsTheEnrollmentsAndRequestsWaiting(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	a, b := brokerSite(t, f)
+	c := tokenClient(a.Handler(), createToken(t, b, `{"name":"prometheus"}`))
+	waitingNow := func() []string {
+		body := send(t, c, "GET", "/metrics", "", 200).Body
+		return append(testsupport.Samples(body, "doorcode_pending_enrollments"), testsupport.Samples(body, "doorcode_open_requests")...)
+	}
+	before := waitingNow()
+	createDoor(t, b, `{"name":"Lobby"}`)
+	announce(t, f, "A1")
+	announce(t, f, "B2")
+	run(t, a)
+	send(t, b, "POST", "/api/v1/me/requests", labAccess, 201)
+	waited := waitingNow()
+	send(t, b, "POST", "/api/v1/enrollments/A1/approve", `{"door_id":1}`, 200)
+	send(t, b, "POST", "/api/v1/requests/1/resolve", "", 200)
+
+	got := [][]string{before, waited, waitingNow()}
+
+	want := [][]string{
+		{`doorcode_pending_enrollments 0`, `doorcode_open_requests 0`},
+		{`doorcode_pending_enrollments 2`, `doorcode_open_requests 1`},
+		{`doorcode_pending_enrollments 1`, `doorcode_open_requests 0`},
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("before, while two controllers and a request wait, after approving one and resolving it (-want +got):\n%s", diff)
+	}
+}
+
+func TestAScrapeCountsTheDoorsInTheRolloutByState(t *testing.T) {
+	t.Parallel()
+	fl := fleetSite(t, testsupport.NewFactory())
+	updates := func() []string {
+		return testsupport.Samples(send(t, fl.b, "GET", "/metrics", "", 200).Body, "doorcode_firmware_updates")
+	}
+	before := updates()
+	fl.at("2026-01-06T02:00:00Z")
+	sent := updates()
+	fl.reconnects(1, "1.5.0")
+	fl.acks(2, "failed", "flash error")
+
+	got := [][]string{before, sent, updates()}
+
+	want := [][]string{
+		{
+			`doorcode_firmware_updates{state="pending"} 3`, `doorcode_firmware_updates{state="updating"} 0`,
+			`doorcode_firmware_updates{state="failed"} 0`, `doorcode_firmware_updates{state="done"} 0`,
+		},
+		{
+			`doorcode_firmware_updates{state="pending"} 1`, `doorcode_firmware_updates{state="updating"} 2`,
+			`doorcode_firmware_updates{state="failed"} 0`, `doorcode_firmware_updates{state="done"} 0`,
+		},
+		{
+			`doorcode_firmware_updates{state="pending"} 1`, `doorcode_firmware_updates{state="updating"} 0`,
+			`doorcode_firmware_updates{state="failed"} 1`, `doorcode_firmware_updates{state="done"} 1`,
+		},
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("before the window, once it opens, after one door updates and one fails (-want +got):\n%s", diff)
+	}
+}
+
+func TestWhenTheRequestsCannotBeReadAScrapeSaysSoWithoutTheirCountAndLogsIt(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	h, secret := adminWithToken(t, f, `{"name":"prometheus"}`)
+	f.StoreStub.FailRequests()
+
+	body := tokenClient(h, secret).Get("/metrics").Body
+	got := []any{
+		testsupport.Samples(body, "doorcode_"),
+		testsupport.Samples(body, "# TYPE doorcode_open_requests"),
+		lastLog(f),
+	}
+
+	want := []any{
+		[]string{
+			`doorcode_pending_enrollments 0`,
+			`doorcode_firmware_updates{state="pending"} 0`, `doorcode_firmware_updates{state="updating"} 0`,
+			`doorcode_firmware_updates{state="failed"} 0`, `doorcode_firmware_updates{state="done"} 0`,
+			`doorcode_broker_connected 1`, `doorcode_store_up 0`,
+		},
+		[]string{"# TYPE doorcode_open_requests gauge"},
+		testsupport.LogEntry{Level: "error", Message: "could not read the access requests for metrics", Fields: map[string]string{"error": "stub: unavailable"}},
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("samples, the family's type, log (-want +got):\n%s", diff)
 	}
 }
