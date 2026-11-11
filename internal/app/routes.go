@@ -20,6 +20,9 @@ type route struct {
 	access access
 	handle viewerHandler
 	doc    *apiDoc
+	// scrape marks a route machines call with an API token, guarded as an
+	// API operation is but outside the JSON API and its document.
+	scrape bool
 }
 
 // apiDoc is what the OpenAPI document says about an operation beyond its
@@ -41,6 +44,10 @@ func pageRoute(method, path string, need access, handle viewerHandler) route {
 	return route{method: method, path: path, access: need, handle: handle}
 }
 
+func scrapeRoute(method, path string, need access, handle viewerHandler) route {
+	return route{method: method, path: path, access: need, handle: handle, scrape: true}
+}
+
 func apiRoute(method, path string, need access, handle viewerHandler, doc apiDoc) route {
 	return route{method: method, path: path, access: need, handle: handle, doc: &doc}
 }
@@ -54,6 +61,7 @@ func (a *App) routes() []route {
 	table := []route{
 		pageRoute(http.MethodGet, "/healthz", anyone, healthz),
 		pageRoute(http.MethodGet, "/readyz", anyone, a.readyz),
+		scrapeRoute(http.MethodGet, "/metrics", holding(auth.RoleViewMetrics), a.metrics),
 		pageRoute(http.MethodGet, "/favicon", anyone, a.favicon),
 		pageRoute(http.MethodGet, "/sign-in", anyone, a.signInPage),
 		pageRoute(http.MethodPost, "/sign-in", anyone, a.signIn),
@@ -134,7 +142,7 @@ func (a *App) guard(rt route) http.HandlerFunc {
 	if rt.access.public {
 		return unguarded(rt.handle)
 	}
-	if rt.isAPI() {
+	if rt.isAPI() || rt.scrape {
 		return a.api(rt.access, rt.handle)
 	}
 	return a.page(rt.access, rt.handle)

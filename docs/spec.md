@@ -115,6 +115,8 @@ Roles, each with the one-line description the group form shows beside it
   mode follow.
 - `manage-firmware`: upload controller firmware and roll it out to doors.
 - `view-logs`: read every door's events.
+- `view-metrics`: scrape the site's metrics at `/metrics` with an API
+  token, as Prometheus does.
 - `door-commander`: get in at any door at any time, even while it is
   locked, and open doors remotely.
 

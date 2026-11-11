@@ -159,6 +159,12 @@ func status(df DoorFirmware) string {
 	return Pending
 }
 
+// Behind reports whether df takes part in the rollout and does not run
+// its target yet.
+func (df DoorFirmware) Behind() bool {
+	return df.Status != "" && df.Status != Done
+}
+
 // Door returns where the door whose id is id stands with its firmware.
 func (s Service) Door(ctx context.Context, id int64) (DoorFirmware, error) {
 	d, err := s.Doors.Door(ctx, id)

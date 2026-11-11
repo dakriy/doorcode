@@ -1,0 +1,273 @@
+package entrypoint_test
+
+import (
+	"testing"
+
+	"github.com/google/go-cmp/cmp"
+
+	"github.com/dakriy/doorcode/internal/testsupport"
+)
+
+const metricsType = "text/plain; version=0.0.4; charset=utf-8"
+
+// scrapeAs scrapes the metrics of h with a new token of b's user and
+// returns the body.
+func scrapeAs(t *testing.T, h testsupport.Handler, b *testsupport.Browser) string {
+	t.Helper()
+	return send(t, tokenClient(h, createToken(t, b, `{"name":"prometheus"}`)), "GET", "/metrics", "", 200).Body
+}
+
+// metricFamilies are every family a scrape shows, in order: name, help,
+// and type.
+var metricFamilies = [][3]string{
+	{"doorcode_door_online", "1 while the door's controller is connected to the broker, else 0.", "gauge"},
+	{"doorcode_door_unresponsive", "1 while the door's controller is connected but has not been heard from for the unresponsive_minutes setting, else 0.", "gauge"},
+	{"doorcode_door_last_seen_timestamp_seconds", "When the server last heard from the door's controller, in Unix seconds.", "gauge"},
+	{"doorcode_door_open", "1 while the door is open, as its controller last said, else 0.", "gauge"},
+	{"doorcode_door_held_open", "1 while the door has been open longer than its held_open_s while it should be locked, else 0.", "gauge"},
+	{"doorcode_door_config_mismatch", "1 while the door's controller runs a configuration other than the one it was last sent, else 0.", "gauge"},
+	{"doorcode_door_update_pending", "1 while the door takes part in the firmware rollout and does not run its target yet, else 0.", "gauge"},
+	{"doorcode_door_firmware_info", "The firmware version the door's controller runs, in its version label; always 1.", "gauge"},
+	{"doorcode_door_signal_dbm", "The Wi-Fi signal strength the door's controller last reported, in dBm.", "gauge"},
+	{"doorcode_door_latency_seconds", "The round trip to the server the door's controller last reported, in seconds.", "gauge"},
+	{"doorcode_door_free_bytes", "The free memory the door's controller last reported, in bytes.", "gauge"},
+	{"doorcode_door_uptime_seconds", "How long the door's controller had run when it last reported, in seconds.", "gauge"},
+	{"doorcode_door_mesh_layer", "The mesh layer the door's controller last reported, 0 when it reaches the access point itself.", "gauge"},
+	{"doorcode_door_mesh_children", "How many controllers hopped through the door's controller when it last reported.", "gauge"},
+	{"doorcode_door_wifi_channel", "The Wi-Fi channel of the access point the door's controller last reported, 0 with no link.", "gauge"},
+	{"doorcode_door_opens_total", "How often the door was opened since its controller started.", "counter"},
+	{"doorcode_door_reconnects_total", "How often the door's controller connected to the broker again since it started.", "counter"},
+	{"doorcode_door_checks_sent_total", "The code checks the door's controller sent since it started.", "counter"},
+	{"doorcode_door_checks_lost_total", "The code checks whose reply never reached the door's controller since it started.", "counter"},
+	{"doorcode_door_tcp_segments_total", "The TCP segments the door's controller sent for the first time since it started.", "counter"},
+	{"doorcode_door_tcp_retransmits_total", "The TCP segments the door's controller sent again since it started.", "counter"},
+	{"doorcode_door_tcp_drops_total", "The TCP segments the door's controller dropped since it started.", "counter"},
+	{"doorcode_door_wifi_drops_total", "How often the door's controller lost its Wi-Fi access point since it started.", "counter"},
+	{"doorcode_door_roams_total", "How often the door's controller moved to another access point by its own choice since it started.", "counter"},
+	{"doorcode_broker_connected", "1 while the server is connected to the broker, else 0.", "gauge"},
+	{"doorcode_store_up", "1 when the store answered the scrape's reads, else 0.", "gauge"},
+}
+
+// doorlessScrape is the whole of a scrape that shows no door: every
+// family's HELP and TYPE, and the broker and store gauges saying broker
+// and store.
+func doorlessScrape(broker, store string) testsupport.Response {
+	body := ""
+	for _, f := range metricFamilies {
+		body += "# HELP " + f[0] + " " + f[1] + "\n# TYPE " + f[0] + " " + f[2] + "\n"
+		switch f[0] {
+		case "doorcode_broker_connected":
+			body += f[0] + " " + broker + "\n"
+		case "doorcode_store_up":
+			body += f[0] + " " + store + "\n"
+		}
+	}
+	return testsupport.Response{Status: 200, ContentType: metricsType, Body: body}
+}
+
+func TestTheMetricsNeedATokenWhoseUserHoldsViewMetrics(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	h, admin := adminSession(t, f)
+	createUser(t, admin, ann)
+	annClient := userToken(t, h, admin, "2")
+	refusedWithoutToken := testsupport.Get(h, "/metrics")
+	refusedWithoutRole := annClient.Get("/metrics")
+	createGroup(t, admin, `{"slug":"monitoring","name":"Monitoring","roles":["view-metrics"]}`)
+	join(t, admin, "2", "2")
+
+	got := []testsupport.Response{refusedWithoutToken, refusedWithoutRole, annClient.Get("/metrics")}
+
+	want := []testsupport.Response{
+		apiError(401, "a valid API token is required"),
+		apiError(403, "the view-metrics role is required"),
+		doorlessScrape("1", "1"),
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("without a token, without the role, holding it (-want +got):\n%s", diff)
+	}
+}
+
+func TestAScrapeShowsADoorsStateItsLatestReportAndItsTotals(t *testing.T) {
+	t.Parallel()
+	k := keypadSite(t, testsupport.NewFactory())
+	k.report(with(totals(3, 7, 40, 2, 900, 12, 4, 5, 1), map[string]any{"mesh_layer": 2, "mesh_children": 1, "channel": 6}))
+
+	got := testsupport.Samples(scrapeAs(t, k.a.Handler(), k.b), "doorcode_")
+
+	want := []string{
+		`doorcode_door_online{door="Lobby",door_id="1"} 1`,
+		`doorcode_door_unresponsive{door="Lobby",door_id="1"} 0`,
+		`doorcode_door_last_seen_timestamp_seconds{door="Lobby",door_id="1"} 1767603600`,
+		`doorcode_door_open{door="Lobby",door_id="1"} 0`,
+		`doorcode_door_held_open{door="Lobby",door_id="1"} 0`,
+		`doorcode_door_config_mismatch{door="Lobby",door_id="1"} 0`,
+		`doorcode_door_update_pending{door="Lobby",door_id="1"} 0`,
+		`doorcode_door_firmware_info{door="Lobby",door_id="1",version="1.4.3"} 1`,
+		`doorcode_door_signal_dbm{door="Lobby",door_id="1"} -61`,
+		`doorcode_door_latency_seconds{door="Lobby",door_id="1"} 0.04`,
+		`doorcode_door_free_bytes{door="Lobby",door_id="1"} 120832`,
+		`doorcode_door_uptime_seconds{door="Lobby",door_id="1"} 3720`,
+		`doorcode_door_mesh_layer{door="Lobby",door_id="1"} 2`,
+		`doorcode_door_mesh_children{door="Lobby",door_id="1"} 1`,
+		`doorcode_door_wifi_channel{door="Lobby",door_id="1"} 6`,
+		`doorcode_door_opens_total{door="Lobby",door_id="1"} 7`,
+		`doorcode_door_reconnects_total{door="Lobby",door_id="1"} 3`,
+		`doorcode_door_checks_sent_total{door="Lobby",door_id="1"} 40`,
+		`doorcode_door_checks_lost_total{door="Lobby",door_id="1"} 2`,
+		`doorcode_door_tcp_segments_total{door="Lobby",door_id="1"} 900`,
+		`doorcode_door_tcp_retransmits_total{door="Lobby",door_id="1"} 12`,
+		`doorcode_door_tcp_drops_total{door="Lobby",door_id="1"} 4`,
+		`doorcode_door_wifi_drops_total{door="Lobby",door_id="1"} 5`,
+		`doorcode_door_roams_total{door="Lobby",door_id="1"} 1`,
+		`doorcode_broker_connected 1`,
+		`doorcode_store_up 1`,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("samples (-want +got):\n%s", diff)
+	}
+}
+
+func TestAnOfflineDoorKeepsItsStateAndTotalsButNotWhatItLastReported(t *testing.T) {
+	t.Parallel()
+	k := keypadSite(t, testsupport.NewFactory())
+	k.report(totals(3, 7, 40, 2, 900, 12, 4, 5, 1))
+	k.at("2026-01-05T09:05:00Z")
+	k.conn.Drop()
+	run(t, k.a)
+
+	got := testsupport.Samples(scrapeAs(t, k.a.Handler(), k.b), "doorcode_")
+
+	want := []string{
+		`doorcode_door_online{door="Lobby",door_id="1"} 0`,
+		`doorcode_door_unresponsive{door="Lobby",door_id="1"} 0`,
+		`doorcode_door_last_seen_timestamp_seconds{door="Lobby",door_id="1"} 1767603900`,
+		`doorcode_door_open{door="Lobby",door_id="1"} 0`,
+		`doorcode_door_held_open{door="Lobby",door_id="1"} 0`,
+		`doorcode_door_config_mismatch{door="Lobby",door_id="1"} 0`,
+		`doorcode_door_update_pending{door="Lobby",door_id="1"} 0`,
+		`doorcode_door_firmware_info{door="Lobby",door_id="1",version="1.4.3"} 1`,
+		`doorcode_door_opens_total{door="Lobby",door_id="1"} 7`,
+		`doorcode_door_reconnects_total{door="Lobby",door_id="1"} 3`,
+		`doorcode_door_checks_sent_total{door="Lobby",door_id="1"} 40`,
+		`doorcode_door_checks_lost_total{door="Lobby",door_id="1"} 2`,
+		`doorcode_door_tcp_segments_total{door="Lobby",door_id="1"} 900`,
+		`doorcode_door_tcp_retransmits_total{door="Lobby",door_id="1"} 12`,
+		`doorcode_door_tcp_drops_total{door="Lobby",door_id="1"} 4`,
+		`doorcode_door_wifi_drops_total{door="Lobby",door_id="1"} 5`,
+		`doorcode_door_roams_total{door="Lobby",door_id="1"} 1`,
+		`doorcode_broker_connected 1`,
+		`doorcode_store_up 1`,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("samples (-want +got):\n%s", diff)
+	}
+}
+
+func TestADoorsGaugesShowItOpenHeldOpenUnresponsiveAndRunningAnotherConfiguration(t *testing.T) {
+	t.Parallel()
+	k := keypadSite(t, testsupport.NewFactory())
+	k.givesUp("2026-01-05T09:01:00Z", k.sentDigest())
+	k.at("2026-01-05T09:02:00Z")
+	k.opens(false)
+	k.sweepAt("2026-01-05T09:08:00Z")
+
+	got := testsupport.Samples(scrapeAs(t, k.a.Handler(), k.b), "doorcode_door_")
+
+	want := []string{
+		`doorcode_door_online{door="Lobby",door_id="1"} 1`,
+		`doorcode_door_unresponsive{door="Lobby",door_id="1"} 1`,
+		`doorcode_door_last_seen_timestamp_seconds{door="Lobby",door_id="1"} 1767603720`,
+		`doorcode_door_open{door="Lobby",door_id="1"} 1`,
+		`doorcode_door_held_open{door="Lobby",door_id="1"} 1`,
+		`doorcode_door_config_mismatch{door="Lobby",door_id="1"} 1`,
+		`doorcode_door_update_pending{door="Lobby",door_id="1"} 0`,
+		`doorcode_door_firmware_info{door="Lobby",door_id="1",version="1.4.3"} 1`,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("samples (-want +got):\n%s", diff)
+	}
+}
+
+func TestADoorBehindItsTargetFirmwareShowsAnUpdatePending(t *testing.T) {
+	t.Parallel()
+	fl := fleetSite(t, testsupport.NewFactory())
+	fl.reconnects(2, "1.5.0")
+
+	got := testsupport.Samples(send(t, fl.b, "GET", "/metrics", "", 200).Body, "doorcode_door_update_pending")
+
+	want := []string{
+		`doorcode_door_update_pending{door="Lobby",door_id="1"} 1`,
+		`doorcode_door_update_pending{door="Dock",door_id="2"} 0`,
+		`doorcode_door_update_pending{door="Attic",door_id="3"} 1`,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("samples (-want +got):\n%s", diff)
+	}
+}
+
+func TestOnlyDoorsThatAreNotDeletedAndHaveAControllerHaveSeries(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	a, b := brokerSite(t, f)
+	for _, name := range []string{"Lobby", "Cellar", "Attic", "Dock"} {
+		createDoor(t, b, `{"name":"`+name+`"}`)
+	}
+	for _, enrolled := range [][2]string{{"A1", "1"}, {"C3", "3"}, {"D4", "4"}} {
+		enroll(t, f, a, b, enrolled[0], enrolled[1])
+	}
+	send(t, b, "DELETE", "/api/v1/doors/4", "", 204)
+
+	got := testsupport.Samples(scrapeAs(t, a.Handler(), b), "doorcode_door_online")
+
+	want := []string{
+		`doorcode_door_online{door="Lobby",door_id="1"} 1`,
+		`doorcode_door_online{door="Attic",door_id="3"} 1`,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("samples (-want +got):\n%s", diff)
+	}
+}
+
+func TestADoorsNameIsEscapedInItsLabel(t *testing.T) {
+	t.Parallel()
+	k := keypadSite(t, testsupport.NewFactory())
+	send(t, k.b, "PUT", "/api/v1/doors/1", `{"name":"Lobby \"North\" \\ Wing\nEast"}`, 200)
+
+	got := testsupport.Samples(scrapeAs(t, k.a.Handler(), k.b), "doorcode_door_online")
+
+	want := []string{`doorcode_door_online{door="Lobby \"North\" \\ Wing\nEast",door_id="1"} 1`}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("samples (-want +got):\n%s", diff)
+	}
+}
+
+func TestWhenTheStoreFailsAScrapeSaysSoWithoutDoorsAndLogsIt(t *testing.T) {
+	t.Parallel()
+	k := keypadSite(t, testsupport.NewFactory())
+	c := tokenClient(k.a.Handler(), createToken(t, k.b, `{"name":"prometheus"}`))
+	k.f.StoreStub.FailDoors()
+
+	got := []any{c.Get("/metrics"), lastLog(k.f)}
+
+	want := []any{
+		doorlessScrape("1", "0"),
+		testsupport.LogEntry{Level: "error", Message: "could not read the doors for metrics", Fields: map[string]string{"error": "stub: unavailable"}},
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("scrape, log (-want +got):\n%s", diff)
+	}
+}
+
+func TestAScrapeSaysWhenTheBrokerIsNotConnected(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	h, secret := adminWithToken(t, f, `{"name":"prometheus"}`)
+	f.BrokerStub.Disconnect()
+
+	got := tokenClient(h, secret).Get("/metrics")
+
+	if diff := cmp.Diff(doorlessScrape("0", "1"), got); diff != "" {
+		t.Errorf("scrape (-want +got):\n%s", diff)
+	}
+}

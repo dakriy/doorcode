@@ -26,13 +26,14 @@ const (
 	RoleManageSchedules = "manage-schedules"
 	RoleManageFirmware  = "manage-firmware"
 	RoleViewLogs        = "view-logs"
+	RoleViewMetrics     = "view-metrics"
 	RoleDoorCommander   = "door-commander"
 )
 
 // Roles is every role, in the order pages list them.
 var Roles = []string{
 	RoleAdmin, RoleManageUsers, RoleManageDoors, RoleManageGroups,
-	RoleManageSchedules, RoleManageFirmware, RoleViewLogs, RoleDoorCommander,
+	RoleManageSchedules, RoleManageFirmware, RoleViewLogs, RoleViewMetrics, RoleDoorCommander,
 }
 
 // RoleDescriptions says in one line what each role lets its holders do.
@@ -44,6 +45,7 @@ var RoleDescriptions = map[string]string{
 	RoleManageSchedules: "Add and change the schedules access rules and open mode follow.",
 	RoleManageFirmware:  "Upload controller firmware and roll it out to doors.",
 	RoleViewLogs:        "Read every door's events.",
+	RoleViewMetrics:     "Scrape the site's metrics at /metrics with an API token, as Prometheus does.",
 	RoleDoorCommander:   "Get in at any door at any time, even while it is locked, and open doors remotely.",
 }
 

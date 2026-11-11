@@ -31,6 +31,7 @@ var roleRows = []string{
 	"manage-schedules Add and change the schedules access rules and open mode follow.",
 	"manage-firmware Upload controller firmware and roll it out to doors.",
 	"view-logs Read every door's events.",
+	"view-metrics Scrape the site's metrics at /metrics with an API token, as Prometheus does.",
 	"door-commander Get in at any door at any time, even while it is locked, and open doors remotely.",
 }
 

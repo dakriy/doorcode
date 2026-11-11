@@ -9,7 +9,6 @@ import (
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/date"
 	"github.com/dakriy/doorcode/internal/door"
-	"github.com/dakriy/doorcode/internal/firmware"
 	"github.com/dakriy/doorcode/internal/openapi"
 	"github.com/dakriy/doorcode/internal/stats"
 	"github.com/dakriy/doorcode/internal/telemetry"
@@ -321,7 +320,7 @@ func (a *App) pendingUpdates(ctx context.Context) (*int, error) {
 	plan, err := a.firmware.Plan(ctx)
 	pending := 0
 	for _, d := range plan.Doors {
-		if d.Status != "" && d.Status != firmware.Done {
+		if d.Behind() {
 			pending++
 		}
 	}

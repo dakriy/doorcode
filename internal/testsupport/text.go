@@ -25,3 +25,15 @@ func Itoa(n int) string {
 func Upper(s string) string {
 	return strings.ToUpper(s)
 }
+
+// Samples is the sample lines of a metrics scrape's body that start with
+// prefix, in order, leaving out the HELP and TYPE comments.
+func Samples(body, prefix string) []string {
+	out := []string{}
+	for _, line := range strings.Split(body, "\n") {
+		if strings.HasPrefix(line, prefix) {
+			out = append(out, line)
+		}
+	}
+	return out
+}

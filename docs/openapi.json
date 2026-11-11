@@ -11566,7 +11566,7 @@
           },
           "roles": {
             "type": "array",
-            "description": "The roles the group carries: admin, manage-users, manage-doors, manage-groups, manage-schedules, manage-firmware, view-logs, door-commander. The caller must hold each.",
+            "description": "The roles the group carries: admin, manage-users, manage-doors, manage-groups, manage-schedules, manage-firmware, view-logs, view-metrics, door-commander. The caller must hold each.",
             "items": {
               "type": "string"
             }

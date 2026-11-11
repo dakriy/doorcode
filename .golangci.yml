@@ -107,6 +107,16 @@ linters:
           deny:
             - pkg: github.com/fxamacker/cbor
               desc: "CBOR is encoded only in internal/protocol; use protocol.Encode and protocol.Decode"
+        # Metrics are written in the text format by internal/exposition, our
+        # own; no metrics library and its runtime collectors come in.
+        metrics:
+          files:
+            - "$all"
+          deny:
+            - pkg: github.com/prometheus
+              desc: "metrics are written by internal/exposition; add no metrics library"
+            - pkg: go.opentelemetry.io
+              desc: "metrics are written by internal/exposition; add no metrics library"
         # The demo's stand-ins and simulated doors are for the demo binary
         # alone: no production code, application code, or test reaches them.
         demo:
