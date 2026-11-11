@@ -626,14 +626,15 @@ each total less the same total in the report before. When there is no
 report before, when `uptime_s` is lower than in the report before (the
 controller restarted), or when a total is lower than before (its counter
 wrapped or started again), all of that total counts as new. The server
-keeps the reports, with both what they counted and the totals as sent,
-as history and hourly summaries (each hour sums what its reports counted
-and keeps the `mesh_layer`, `mesh_children`,
-`wifi_drop_reason`, `bssid`, and `channel` of its last report), and shows
-the latest; a door whose `mesh_layer` is above 0 is shown meshing, naming
-the door whose controller has the `mesh_parent` hardware id. A connected door the server has heard nothing from (online status,
-telemetry, or event) for `unresponsive_minutes` (default 5) is shown
-unresponsive, so `telemetry_interval_s` should stay below that.
+keeps the reports, with both what they counted and the totals as sent, as
+history and hourly summaries (each hour sums what its reports counted and
+keeps the `mesh_layer`, `mesh_children`, `wifi_drop_reason`, `bssid`, and
+`channel` of its last report), and shows the latest; a door whose
+`mesh_layer` is above 0 is shown meshing, naming the door whose controller
+has the `mesh_parent` hardware id. A connected door the server has heard
+nothing from (online status, telemetry, or event) for
+`unresponsive_minutes` (default 5) is shown unresponsive, so
+`telemetry_interval_s` should stay below that.
 
 ### Door events
 

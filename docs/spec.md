@@ -256,12 +256,11 @@ again. It is logged as a `command` event, `reboot sent`, naming the admin.
 
 ### Telemetry and state
 
-Doors report, at the configured interval: signal strength, round-trip
-latency, uptime, free memory, firmware version, reconnect count, door open or
-closed, the number of opens, each count a total since the controller
-started (the server works out what each report counted since the one
-before, counting a total in full after a restart or when it went down),
-and where the controller
+Doors report, at the configured interval: signal strength, round-trip latency,
+uptime, free memory, firmware version, reconnect count, door open or closed,
+the number of opens, each count a total since the controller started (the
+server works out what each report counted since the one before, counting a
+total in full after a restart or when it went down), and where the controller
 sits in the site's Wi-Fi mesh: its layer (0 when it reaches the building's
 access point itself, 1 when it hops through one other controller, and so
 on), the hardware id of the controller it hops through, and how many

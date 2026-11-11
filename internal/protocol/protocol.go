@@ -312,22 +312,22 @@ type Timeline struct {
 // trip to the server in milliseconds, how long it has run in seconds, its
 // free memory in bytes, its firmware version, how often it has connected
 // to the broker again, whether the door is open, how often it was opened,
-// and where it sits in the
-// site's Wi-Fi mesh: its layer (0 when it reaches the building's access
-// point itself, 1 when it hops through one other controller, and so on),
-// the hardware id of the controller it hops through (empty at layer 0),
-// and how many controllers hop through it. Firmware that knows nothing of
-// the mesh leaves those out, which reads as 0 and empty.
+// and where it sits in the site's Wi-Fi mesh: its layer (0 when it
+// reaches the building's access point itself, 1 when it hops through one
+// other controller, and so on), the hardware id of the controller it hops
+// through (empty at layer 0), and how many controllers hop through it.
+// Firmware that knows nothing of the mesh leaves those out, which reads
+// as 0 and empty.
 //
-// It also says how its links fared: the code checks
-// it sent and those whose reply never came, the TCP segments it sent for
-// the first time, sent again, and dropped, the times its Wi-Fi station
-// lost its access point and moved to another by its own choice, the
-// system's reason code for its latest loss of the access point since it
-// started (ESP-IDF's wifi_err_reason_t, 0 when there was none), and the
-// access point it has joined now: its BSSID, 12 lowercase hex digits, and
-// its channel, empty and 0 with no link. Firmware that does not report
-// these leaves them out, which reads as 0 and empty.
+// It also says how its links fared: the code checks it sent and those
+// whose reply never came, the TCP segments it sent for the first time,
+// sent again, and dropped, the times its Wi-Fi station lost its access
+// point and moved to another by its own choice, the system's reason code
+// for its latest loss of the access point since it started (ESP-IDF's
+// wifi_err_reason_t, 0 when there was none), and the access point it has
+// joined now: its BSSID, 12 lowercase hex digits, and its channel, empty
+// and 0 with no link. Firmware that does not report these leaves them
+// out, which reads as 0 and empty.
 //
 // Every count (Reconnects, Opens, ChecksSent, ChecksLost, TCPSent,
 // TCPRetransmits, TCPDrops, WifiDrops, and Roams) is a total since the

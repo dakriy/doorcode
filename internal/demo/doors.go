@@ -88,10 +88,11 @@ type controller struct {
 	started    time.Time
 	// startedBy is why it started, until it has said so as its door.
 	startedBy string
-	// connects is how often it connected as its door since it started,
-	// and counted what else it counted since then, as it reports them.
+	// connects is how often it connected as its door since it started.
 	connects int
-	counted  connector.StoredCounts
+	// counted is the opens and link counts it reports, each a total since
+	// it started.
+	counted connector.StoredCounts
 }
 
 // run connects until ctx ends, pausing after a connection that failed or
