@@ -31,12 +31,12 @@ func (s Service) rollUp(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return s.Store.PutRollups(ctx, rollups(samples))
+	return s.Store.PutRollups(ctx, Hourly(samples))
 }
 
-// rollups sums up samples, ordered by door and then by time, an hour of
-// a door at a time.
-func rollups(samples []connector.StoredSample) []connector.StoredRollup {
+// Hourly sums up samples, ordered by door and then by time, an hour of a
+// door at a time.
+func Hourly(samples []connector.StoredSample) []connector.StoredRollup {
 	var hours [][]connector.StoredSample
 	for _, sample := range samples {
 		last := len(hours) - 1

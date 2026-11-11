@@ -493,11 +493,15 @@ the form with the id group-form, wherever on the page they sit. */}}
 {{- else}}<span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-600/20 ring-inset dark:bg-amber-950 dark:text-amber-300 dark:ring-amber-400/20"><span class="size-1.5 rounded-full bg-amber-500" aria-hidden="true"></span>Waiting for an answer</span>{{end}}{{end}}
 
 {{/* A line chart drawn from a chartView: a line per series in the
-     page's accent color or its own, its highest and lowest values, and
-     when its range starts and ends. */}}
+     page's accent color or its own, what each line names when it has a
+     legend, its highest and lowest values, and when its range starts
+     and ends. */}}
 {{define "line-chart"}}
 <figure>
   <figcaption class="text-xs font-medium text-zinc-500 dark:text-zinc-400">{{.Label}}</figcaption>
+  {{with .Legend}}<ul aria-label="Lines of {{$.Label}}" class="mt-1 flex flex-wrap gap-x-5 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
+    {{range .}}<li class="inline-flex items-center gap-1.5"><span class="h-0.5 w-4 rounded-full {{.Class}}" aria-hidden="true"></span>{{.Name}}</li>{{end}}
+  </ul>{{end}}
   <svg role="img" aria-label="{{.Label}}" viewBox="0 0 680 150" class="mt-2 w-full text-brand-600 dark:text-brand-400">
     <line x1="0" y1="5" x2="600" y2="5" class="stroke-zinc-200 dark:stroke-zinc-800" stroke-width="1"/>
     <line x1="0" y1="125" x2="600" y2="125" class="stroke-zinc-200 dark:stroke-zinc-800" stroke-width="1"/>

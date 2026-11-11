@@ -37,8 +37,12 @@ type stateView struct {
 	MeshLayer    string
 	MeshParent   string
 	MeshChildren string
-	LastSeen     string
-	LastReport   string
+	// AccessPoint is the Wi-Fi access point the controller is on, and
+	// LastDrop why its station last lost one.
+	AccessPoint string
+	LastDrop    string
+	LastSeen    string
+	LastReport  string
 	// Ranges are the telemetry ranges the charts can show, and Charts the
 	// charts of the one chosen.
 	Ranges []rangeLink
@@ -113,10 +117,10 @@ func (a *App) stateOf(r *http.Request, viewer auth.User, c catalog, d connector.
 		return nil, err
 	}
 	frame := chartFrame{from: from, to: to, zone: zone, over: "over the last " + chosen.Label, during: "in the last " + chosen.Label}
-	view.Charts = []chartView{
+	view.Charts = append([]chartView{
 		frame.chart("Signal", "dBm", s.signal), frame.chart("Latency", "ms", s.latency),
 		frame.chart("Mesh layer", "", s.meshLayer), frame.chart("Mesh children", "", s.meshChildren),
-	}
+	}, frame.linkCharts(s.link)...)
 	view.Alarms, err = a.recent(r.Context(), viewer, connector.EventQuery{DoorID: d.ID, Type: event.Alarm}, zone)
 	return &view, err
 }
@@ -128,7 +132,7 @@ func (c catalog) rowOfState(ctrl connector.StoredController, zone *time.Location
 		Status: doorStatus(&ctrl), Badges: telemetry.Badges(ctrl), Mesh: c.meshBadge(ctrl), Door: notReported,
 		Firmware: firmwareText(ctrl.FirmwareVersion), Signal: signalText(ctrl.Signal), Latency: notReported, Uptime: notReported,
 		Memory: notReported, Reconnects: notReported, MeshLayer: notReported, MeshParent: notReported, MeshChildren: notReported,
-		LastSeen: shownAt(zone, ctrl.LastSeenAt, secondLayout), LastReport: notReported,
+		AccessPoint: notReported, LastDrop: notReported, LastSeen: shownAt(zone, ctrl.LastSeenAt, secondLayout), LastReport: notReported,
 	}
 	switch ctrl.DoorState {
 	case telemetry.Open:
@@ -140,6 +144,7 @@ func (c catalog) rowOfState(ctrl connector.StoredController, zone *time.Location
 		view.Latency, view.Uptime = strconv.Itoa(t.LatencyMS)+" ms", uptimeText(t.UptimeS)
 		view.Memory, view.Reconnects = strconv.FormatInt(t.FreeBytes/1024, 10)+" KiB", strconv.Itoa(t.Reconnects)
 		view.MeshLayer, view.MeshParent, view.MeshChildren = meshLayerText(t.MeshLayer), c.parentText(t.MeshParent), strconv.Itoa(t.MeshChildren)
+		view.AccessPoint, view.LastDrop = accessPointText(t.StoredLink), dropReasonText(t.WifiDropReason)
 		view.LastReport = shownAt(zone, t.At, secondLayout)
 	}
 	return view
@@ -206,14 +211,16 @@ type point struct {
 }
 
 // telemetrySeries is what a door's charts draw: the signal strength, the
-// latency, the mesh layer, and the mesh children its controller reported.
+// latency, the mesh layer, and the mesh children its controller reported,
+// and how its links fared hour by hour.
 type telemetrySeries struct {
 	signal, latency, meshLayer, meshChildren []point
+	link                                     []linkHour
 }
 
 // series is what the controller of the door whose id is doorID reported
 // from from up to to: every report, or each hour's means and the mesh of
-// its last report when hourly says so.
+// its last report when hourly says so; its links hour by hour either way.
 func (a *App) series(ctx context.Context, doorID int64, hourly bool, from, to time.Time) (telemetrySeries, error) {
 	var out telemetrySeries
 	if hourly {
@@ -223,6 +230,7 @@ func (a *App) series(ctx context.Context, doorID int64, hourly bool, from, to ti
 			out.latency = append(out.latency, point{h.Hour, h.Latency.Mean})
 			out.meshLayer = append(out.meshLayer, point{h.Hour, float64(h.MeshLayer)})
 			out.meshChildren = append(out.meshChildren, point{h.Hour, float64(h.MeshChildren)})
+			out.link = append(out.link, linkHour{h.Hour, h.StoredLinkCounts})
 		}
 		return out, err
 	}
@@ -232,6 +240,9 @@ func (a *App) series(ctx context.Context, doorID int64, hourly bool, from, to ti
 		out.latency = append(out.latency, point{s.At, float64(s.LatencyMS)})
 		out.meshLayer = append(out.meshLayer, point{s.At, float64(s.MeshLayer)})
 		out.meshChildren = append(out.meshChildren, point{s.At, float64(s.MeshChildren)})
+	}
+	for _, h := range telemetry.Hourly(samples) {
+		out.link = append(out.link, linkHour{latest(h.Hour, from), h.StoredLinkCounts})
 	}
 	return out, err
 }

@@ -20,12 +20,14 @@ const (
 	plotTop    = 5
 )
 
-// chartView is a chart as a page draws it: what it shows, its lines, the
-// highest and lowest values, when its range starts and ends, and what it
-// says when it has nothing to draw.
+// chartView is a chart as a page draws it: what it shows, its lines and
+// what each names when it has more than one, the highest and lowest
+// values, when its range starts and ends, and what it says when it has
+// nothing to draw.
 type chartView struct {
 	Label  string
 	Lines  []chartLine
+	Legend []legendEntry
 	Top    string
 	Bottom string
 	Start  string

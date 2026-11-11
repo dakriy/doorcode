@@ -69,6 +69,7 @@ func TestADoorPageShowsTheDoorsLiveState(t *testing.T) {
 			"Door": "Open since Mon 5 Jan 2026 09:00:00", "Firmware": "1.4.3", "Signal": "-61 dBm", "Latency": "40 ms",
 			"Uptime": "3 d 2 h", "Free memory": "118 KiB", "Reconnects": "2",
 			"Mesh layer": "0, the access point itself", "Mesh parent": "None", "Mesh children": "0",
+			"Access point": "None reported", "Last Wi-Fi drop": "None reported",
 			"Last seen": "Mon 5 Jan 2026 09:00:30", "Last report": "Mon 5 Jan 2026 09:00:30",
 		},
 		[][]string{{"When", "Alarm", "Details"},
@@ -386,7 +387,7 @@ func TestADoorPageChartsItsSignalAndLatencyOverTheRangeChosen(t *testing.T) {
 	k := reported(t, testsupport.NewFactory())
 	k.at("2026-01-05T12:00:00Z")
 
-	charts := doorPage(t, k.b, "/admin/doors/1?range=6h").Charts
+	page := doorPage(t, k.b, "/admin/doors/1?range=6h")
 
 	want := map[string]testsupport.Chart{
 		"Signal over the last 6 hours": {
@@ -405,6 +406,10 @@ func TestADoorPageChartsItsSignalAndLatencyOverTheRangeChosen(t *testing.T) {
 			Lines:  []string{"316.7,65 366.7,65 408.3,65"},
 			Labels: []string{"0", "0", "Mon 5 Jan 06:00", "Mon 5 Jan 12:00"},
 		},
+	}
+	charts := map[string]testsupport.Chart{}
+	for label := range want {
+		charts[label] = page.Charts[label]
 	}
 	if diff := cmp.Diff(want, charts); diff != "" {
 		t.Errorf("charts (-want +got):\n%s", diff)
