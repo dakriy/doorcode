@@ -1,0 +1,156 @@
+# Example alert rules for doorcode's /metrics. Thresholds and durations
+# are starting points; tune them to the site.
+#
+# doorcode_events_total counts in memory from when the server starts,
+# and a series appears only with the first event of its kind. increase()
+# cannot see that first event, so the rules that must catch a single
+# event also fire on a series that is present now but was not 15 minutes
+# ago, provided Prometheus was already scraping the server then (the
+# up{job="doorcode"} term), so a newly started Prometheus does not alert
+# on every series at once.
+
+groups:
+  - name: doorcode-server
+    rules:
+      - alert: DoorcodeDown
+        expr: up{job="doorcode"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: doorcode does not answer its scrape
+          description: Prometheus could not scrape {{ $labels.instance }} for 2 minutes.
+
+      - alert: DoorcodeBrokerDisconnected
+        expr: doorcode_broker_connected == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: doorcode has lost the broker
+          description: The server has not been connected to the MQTT broker for 2 minutes, so no door can check a code with it.
+
+      - alert: DoorcodeStoreDown
+        expr: doorcode_store_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: doorcode cannot read its database
+          description: The store has failed the scrape's reads for 2 minutes.
+
+  - name: doorcode-doors
+    rules:
+      - alert: DoorcodeDoorOffline
+        expr: doorcode_door_online == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Door {{ $labels.door }} is offline
+          description: The controller of door {{ $labels.door }} (id {{ $labels.door_id }}) has not been connected to the broker for 5 minutes.
+
+      - alert: DoorcodeDoorUnresponsive
+        expr: doorcode_door_unresponsive == 1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Door {{ $labels.door }} is unresponsive
+          description: The controller of door {{ $labels.door }} (id {{ $labels.door_id }}) is connected but silent for longer than the unresponsive_minutes setting.
+
+      - alert: DoorcodeDoorHeldOpen
+        expr: doorcode_door_held_open == 1
+        labels:
+          severity: warning
+        annotations:
+          summary: Door {{ $labels.door }} is held open
+          description: Door {{ $labels.door }} (id {{ $labels.door_id }}) has been open longer than its door_held_open_s while it should be locked.
+
+      - alert: DoorcodeDoorForcedOpen
+        expr: |
+          (
+            sum by (door, door_id) (increase(doorcode_events_total{type="alarm",reason="forced open"}[15m])) > 0
+          )
+          or
+          (
+            sum by (door, door_id) (
+              doorcode_events_total{type="alarm",reason="forced open"}
+              unless doorcode_events_total{type="alarm",reason="forced open"} offset 15m
+            )
+            and on() count(up{job="doorcode"} offset 15m)
+          )
+        labels:
+          severity: critical
+        annotations:
+          summary: Door {{ $labels.door }} was forced open
+          description: Door {{ $labels.door }} (id {{ $labels.door_id }}) opened without being unlocked in the last 15 minutes.
+
+      - alert: DoorcodeDoorWeakSignal
+        expr: doorcode_door_signal_dbm < -80
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: Door {{ $labels.door }} has a weak Wi-Fi signal
+          description: The controller of door {{ $labels.door }} (id {{ $labels.door_id }}) has reported {{ $value }} dBm for 30 minutes.
+
+      - alert: DoorcodeDoorLosingChecks
+        expr: increase(doorcode_door_checks_lost_total[1h]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: Door {{ $labels.door }} is losing code checks
+          description: Replies to code checks from door {{ $labels.door }} (id {{ $labels.door_id }}) never reached its controller in the last hour, so people at the door were not let in.
+
+      - alert: DoorcodeControllerCrashed
+        expr: |
+          (
+            sum by (door, door_id, start_reason) (increase(doorcode_events_total{type="door",reason="started",start_reason=~"panic|watchdog"}[15m])) > 0
+          )
+          or
+          (
+            sum by (door, door_id, start_reason) (
+              doorcode_events_total{type="door",reason="started",start_reason=~"panic|watchdog"}
+              unless doorcode_events_total{type="door",reason="started",start_reason=~"panic|watchdog"} offset 15m
+            )
+            and on() count(up{job="doorcode"} offset 15m)
+          )
+        labels:
+          severity: warning
+        annotations:
+          summary: The controller of door {{ $labels.door }} restarted by {{ $labels.start_reason }}
+          description: The controller of door {{ $labels.door }} (id {{ $labels.door_id }}) came back online after a {{ $labels.start_reason }} restart in the last 15 minutes.
+
+      - alert: DoorcodeDeniedChecksSpike
+        expr: sum by (door, door_id) (increase(doorcode_events_total{type="check",outcome="denied",reason!="rate limited"}[10m])) > 20
+        labels:
+          severity: warning
+        annotations:
+          summary: Many denied code checks at door {{ $labels.door }}
+          description: Door {{ $labels.door }} (id {{ $labels.door_id }}) had about {{ $value }} denied code checks in 10 minutes; someone may be guessing codes.
+
+      - alert: DoorcodeRateLimitedChecks
+        expr: sum by (door, door_id) (increase(doorcode_events_total{type="check",reason="rate limited"}[10m])) > 5
+        labels:
+          severity: warning
+        annotations:
+          summary: Code checks at door {{ $labels.door }} are rate limited
+          description: Door {{ $labels.door }} (id {{ $labels.door_id }}) asked faster than its rate limit about {{ $value }} times in 10 minutes.
+
+      - alert: DoorcodeFirmwareUpdateFailed
+        expr: doorcode_firmware_updates{state="failed"} > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: A firmware update failed
+          description: "{{ $value }} doors failed to install their target firmware; the firmware page names them."
+
+      - alert: DoorcodeConfigMismatch
+        expr: doorcode_door_config_mismatch == 1 and on(door_id) doorcode_door_online == 1
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: Door {{ $labels.door }} does not run its configuration
+          description: The controller of door {{ $labels.door }} (id {{ $labels.door_id }}) has run a configuration other than the one it was last sent for 30 minutes while online.

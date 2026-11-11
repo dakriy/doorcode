@@ -547,6 +547,101 @@ connection whose address is on the trusted proxies setting: IP addresses,
 CIDR ranges, and host names, which the server looks up periodically and which
 trust nobody until looked up.
 
+### Metrics
+
+`GET /metrics` answers a Prometheus scrape in the text exposition format
+0.0.4 (`Content-Type: text/plain; version=0.0.4; charset=utf-8`), written
+by the server itself with no metrics library and no Go runtime or process
+metrics. It needs a personal API token, as a bearer token or the HTTP
+Basic password, whose user holds `view-metrics` (or `admin`): 401 without
+a valid token, 403 without the role. It logs nothing on success, is
+outside the JSON API, and is not in the OpenAPI document. The token
+Prometheus scrapes with is made like any other: an administrator creates
+a user for Prometheus, puts it in a group carrying only `view-metrics`,
+and creates a token for it on the user's page or with `createUserToken`,
+keeping the secret, which is shown once. `deploy/prometheus/` holds an
+example scrape configuration and example alert rules.
+
+Every name starts `doorcode_`, uses base units, and every counter ends
+`_total`. Families and series come in a stable order: the per-door
+families in the table's order, each door in id order, then the rest. Every
+family prints `# HELP` and `# TYPE` even with no series. Nothing is
+labelled by user.
+
+Per-door series carry `door` (the door's name) and `door_id`, for every
+door that is not deleted and has a controller. The gauges read from the
+controller's latest telemetry report (signal, latency, free bytes, uptime,
+mesh layer, mesh children, Wi-Fi channel) are shown only while it is
+online: an offline door has no telemetry gauges, so nothing draws stale
+values, and keeps its online, last-seen, and other state gauges, its
+firmware version, and the totals of its last report. A door whose
+controller has never reported has neither those gauges nor the totals.
+The per-door `_total` counters are the controller's totals since it
+started, as its latest report gave them, so they reset when it restarts.
+
+`doorcode_events_total` is counted in memory as each event is recorded,
+never by reading the events table at scrape time, so it and the HTTP
+request counters start from zero when the server starts. A series appears
+with the first event of its kind. A deleted door's event series stay,
+under its name.
+
+When the store fails one of the scrape's reads, the scrape still answers
+200, logs the error, leaves out the samples that read gives (the doors
+read: every per-door series, `doorcode_events_total`, and
+`doorcode_firmware_updates`; the access requests read:
+`doorcode_open_requests`), and `doorcode_store_up` is 0.
+
+| Metric | Type | Labels | Meaning |
+| --- | --- | --- | --- |
+| `doorcode_door_online` | gauge | `door`, `door_id` | 1 while the door's controller is connected to the broker, else 0. |
+| `doorcode_door_unresponsive` | gauge | `door`, `door_id` | 1 while it is connected but has not been heard from for `unresponsive_minutes`, else 0. |
+| `doorcode_door_last_seen_timestamp_seconds` | gauge | `door`, `door_id` | When the server last heard from it, in Unix seconds. |
+| `doorcode_door_open` | gauge | `door`, `door_id` | 1 while the door is open, as its controller last said, else 0. |
+| `doorcode_door_held_open` | gauge | `door`, `door_id` | 1 while the door is *held open* (section 7), else 0. |
+| `doorcode_door_config_mismatch` | gauge | `door`, `door_id` | 1 while the controller runs a configuration other than the one last sent (older, or given up), else 0. |
+| `doorcode_door_update_pending` | gauge | `door`, `door_id` | 1 while the door takes part in the rollout and does not run its target yet, else 0. |
+| `doorcode_door_firmware_info` | gauge | `door`, `door_id`, `version` | Always 1; `version` is the firmware the controller runs. |
+| `doorcode_door_signal_dbm` | gauge | `door`, `door_id` | Signal strength last reported, in dBm. Online only. |
+| `doorcode_door_latency_seconds` | gauge | `door`, `door_id` | Round trip last reported, in seconds. Online only. |
+| `doorcode_door_free_bytes` | gauge | `door`, `door_id` | Free memory last reported, in bytes. Online only. |
+| `doorcode_door_uptime_seconds` | gauge | `door`, `door_id` | How long the controller had run at its last report, in seconds. Online only. |
+| `doorcode_door_mesh_layer` | gauge | `door`, `door_id` | Mesh layer last reported, 0 at the access point. Online only. |
+| `doorcode_door_mesh_children` | gauge | `door`, `door_id` | Controllers hopping through it at its last report. Online only. |
+| `doorcode_door_wifi_channel` | gauge | `door`, `door_id` | Access point channel last reported, 0 with no link. Online only. |
+| `doorcode_door_opens_total` | counter | `door`, `door_id` | Openings since the controller started. |
+| `doorcode_door_reconnects_total` | counter | `door`, `door_id` | Broker reconnections since it started. |
+| `doorcode_door_checks_sent_total` | counter | `door`, `door_id` | Code checks it sent since it started. |
+| `doorcode_door_checks_lost_total` | counter | `door`, `door_id` | Code checks whose reply never reached it since it started. |
+| `doorcode_door_tcp_segments_total` | counter | `door`, `door_id` | TCP segments sent for the first time since it started. |
+| `doorcode_door_tcp_retransmits_total` | counter | `door`, `door_id` | TCP segments sent again since it started. |
+| `doorcode_door_tcp_drops_total` | counter | `door`, `door_id` | TCP segments dropped since it started. |
+| `doorcode_door_wifi_drops_total` | counter | `door`, `door_id` | Losses of its access point since it started. |
+| `doorcode_door_roams_total` | counter | `door`, `door_id` | Moves to another access point by its own choice since it started. |
+| `doorcode_events_total` | counter | `door`, `door_id`, `type`, `outcome`, `reason`, `start_reason` | Events recorded since the server started. |
+| `doorcode_pending_enrollments` | gauge | none | Controllers waiting to be approved as doors. |
+| `doorcode_open_requests` | gauge | none | Access requests waiting for an answer. |
+| `doorcode_firmware_updates` | gauge | `state` | Doors in the rollout by state, every state listed: `pending`, `updating`, `failed` (its last update to its target failed), `done`. |
+| `doorcode_broker_connected` | gauge | none | 1 while the server is connected to the broker, else 0. |
+| `doorcode_store_up` | gauge | none | 1 when the store answered the scrape's reads, else 0. |
+| `doorcode_http_requests_total` | counter | `method`, `route`, `status` | HTTP requests answered since the server started. |
+| `doorcode_http_request_duration_seconds` | histogram | `method`, `route`, `le` | Time to answer, in seconds, with Prometheus's default buckets, 0.005 to 10. |
+
+The event labels take the events page's values: `type` is `check`,
+`command`, `open`, `alarm`, `door`, or `update`; `outcome` is `allowed`,
+`denied`, `alert`, or `info`; `reason` is one of `access rule`,
+`open mode`, `open override`, `door commander`, `command`, `no rule`,
+`locked`, `expired`, `rate limited`, `not a commander`, `bad command`,
+`command failed`, `unreachable`, `keypad open`, `keypad locked`,
+`keypad cancel`, `reboot sent`, `admin UI`, `forced open`, `held open`,
+`configuration reverted`, `opened`, `closed`, `started`, `update sent`,
+`update succeeded`, `update failed`. `start_reason` is set only on a
+controller's start (`type="door"`, `reason="started"`), as the controller
+gave it (`power_on`, `software`, `panic`, `watchdog`, `brownout`,
+`external`, `unknown`), and empty otherwise. `route` is the route pattern
+that matched, such as `/api/v1/doors/{id}`, or `unmatched` for a request no
+route matched; `method` is the request's method, or `other` for one HTTP
+does not define.
+
 `doorcode-demo` is a second binary that runs the same application over
 seeded in-memory stand-ins with simulated doors, so the UI can be explored
 without Postgres, a broker, or data entry.

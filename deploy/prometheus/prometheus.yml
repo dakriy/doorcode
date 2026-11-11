@@ -1,0 +1,29 @@
+# An example Prometheus configuration that scrapes doorcode's /metrics
+# and loads the example alert rules beside it. Change the target to the
+# address Prometheus reaches the server at, and put the API token of a
+# user holding the view-metrics role in the credentials file. See the
+# Monitoring section of the README for how to make that token.
+
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+rule_files:
+  - alerts.yml
+
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  # The alert rules name this job in their up{job="doorcode"} selectors;
+  # change them together.
+  - job_name: doorcode
+    metrics_path: /metrics
+    scheme: https
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/doorcode-token
+    static_configs:
+      - targets: ["doorcode.example.com"]
