@@ -433,7 +433,7 @@ sent and when it first sent it (sending the same configuration again, as
 on every reconnect, keeps that time). It flags a door whose controller
 does not run it:
 
-- **older configuration:** two telemetry reports in a row, both received
+- **mismatched configuration:** two telemetry reports in a row, both received
   after the configuration was sent, with the controller neither
   restarting nor connecting again between them (the second's `uptime_s`
   no lower and its `reconnects` the same), name another digest. One is
@@ -443,7 +443,7 @@ does not run it:
   nothing until it is online with it. The flag dates from the first of
   the reports, and goes as soon as a report names the configuration last
   sent, names none, or a new configuration is sent.
-- **configuration given up:** the controller said `config_reverted`
+- **reverted configuration:** the controller said `config_reverted`
   naming the configuration last sent, after it was sent. The flag holds,
   whatever the controller reports meanwhile, until a report names the
   configuration last sent or a new configuration is sent; sending the

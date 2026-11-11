@@ -29,8 +29,8 @@ const (
 // The badges door lists show of a door whose controller does not run
 // the configuration last sent.
 const (
-	BadgeOlderConfig    = "Older configuration"
-	BadgeRevertedConfig = "Configuration given up"
+	BadgeMismatchedConfig = "Mismatched configuration"
+	BadgeRevertedConfig   = "Reverted configuration"
 )
 
 // ConfigCheck is how what the controller of a door runs stands against
@@ -52,7 +52,7 @@ func (c ConfigCheck) Mismatched() bool {
 func (c ConfigCheck) Badge() string {
 	switch c.State {
 	case ConfigOlder:
-		return BadgeOlderConfig
+		return BadgeMismatchedConfig
 	case ConfigReverted:
 		return BadgeRevertedConfig
 	}

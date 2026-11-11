@@ -129,7 +129,7 @@ func TestADoorThatGoesOnRunningAnotherConfigurationIsFlaggedSinceItsFirstReportO
 
 	want := []any{
 		[]any{true, false, "2026-01-05T09:01:00Z"},
-		[]any{"Online Older configuration", "Mismatched"},
+		[]any{"Online Mismatched configuration", "Mismatched"},
 		[]string{"Running an older configuration since Mon 5 Jan 2026 09:01:00: the door has not taken up the configuration last sent yet."},
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
@@ -216,7 +216,7 @@ func TestADoorGivingUpTheConfigurationLastSentIsLoggedAndFlaggedAtOnce(t *testin
 		testsupport.JSON(`{"id":1,"at":"2026-01-05T09:05:00Z","door":{"id":1,"name":"Lobby"},"type":"alarm","outcome":"alert",` +
 			`"reason":"configuration reverted","detail":"` + detail + `"}`),
 		[]any{true, true, "2026-01-05T09:05:00Z"},
-		[]any{"Online Configuration given up", "Reverted"},
+		[]any{"Online Reverted configuration", "Reverted"},
 		[]string{"The door gave up the configuration last sent because it could not connect with it; it is running the previous one " +
 			"since Mon 5 Jan 2026 09:05:00. It ignores that configuration if it is sent again. " +
 			"Changing the door's configuration, any change, makes it try again."},
@@ -250,7 +250,7 @@ func TestAGivenUpConfigurationSentAgainUnchangedStaysFlagged(t *testing.T) {
 
 	got := []any{k.configState(), k.configShown()}
 
-	want := []any{[]any{true, true, "2026-01-05T09:05:00Z"}, []any{"Online Configuration given up", "Reverted"}}
+	want := []any{[]any{true, true, "2026-01-05T09:05:00Z"}, []any{"Online Reverted configuration", "Reverted"}}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("state, shown (-want +got):\n%s", diff)
 	}

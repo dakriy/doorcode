@@ -250,7 +250,7 @@ What a scrape holds:
 | `doorcode_door_last_seen_timestamp_seconds` | gauge | `door`, `door_id` | When the server last heard from the controller, in Unix seconds. |
 | `doorcode_door_open` | gauge | `door`, `door_id` | 1 while the door is open, as its controller last said, else 0. |
 | `doorcode_door_held_open` | gauge | `door`, `door_id` | 1 while the door has been open longer than its `door_held_open_s` while it should be locked, else 0. |
-| `doorcode_door_config_mismatch` | gauge | `door`, `door_id` | 1 while the controller runs a configuration other than the one it was last sent (the door list's Older configuration or Configuration given up badge), else 0. |
+| `doorcode_door_config_mismatch` | gauge | `door`, `door_id` | 1 while the controller runs a configuration other than the one it was last sent (the door list's Mismatched configuration or Reverted configuration badge), else 0. |
 | `doorcode_door_update_pending` | gauge | `door`, `door_id` | 1 while the door takes part in the firmware rollout and does not run its target yet, else 0. |
 | `doorcode_door_firmware_info` | gauge | `door`, `door_id`, `version` | Always 1; `version` is the firmware version the controller runs. |
 | `doorcode_door_signal_dbm` | gauge | `door`, `door_id` | Wi-Fi signal strength last reported, in dBm. Online doors only. |
