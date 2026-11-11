@@ -106,18 +106,7 @@
   {{else}}
   <p class="mt-5 rounded-lg border border-dashed border-zinc-300 px-4 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">The site has no logo. It shows the keypad mark instead.</p>
   {{end}}
-  <form method="post" action="/admin/settings/logo" enctype="multipart/form-data" hx-disabled-elt="find button" class="mt-6 border-t border-zinc-200 pt-5 dark:border-zinc-800">
-    {{$error := index $c.Errors "logo"}}
-    <label for="logo" class="block text-sm font-medium">{{if $.Logo}}Replace the logo{{else}}Add a logo{{end}}</label>
-    <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
-      <input id="logo" name="logo" type="file" accept="image/jpeg,image/png,image/gif,image/webp" required
-        {{if $error}}aria-invalid="true" aria-describedby="logo-error"{{end}}
-        class="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-800 hover:file:bg-zinc-200 dark:text-zinc-400 dark:file:bg-zinc-800 dark:file:text-zinc-200 dark:hover:file:bg-zinc-700">
-      <button type="submit" class="shrink-0 {{template "primary-class"}}">Upload</button>
-    </div>
-    {{if $error}}<p id="logo-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$error}}</p>
-    {{else}}<p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">JPEG, PNG, GIF, or WebP, up to {{$c.MaxPictureMB}} MB. Transparent parts stay transparent; use a PNG or WebP with a transparent background. It is turned upright and reduced to {{$c.MaxLogoSide}} pixels on its longest side.</p>{{end}}
-  </form>
+  {{template "image-upload" (imageupload "logo" "logo" $.Logo $c.Errors (printf "JPEG, PNG, GIF, or WebP, up to %d MB. Transparent parts stay transparent; use a PNG or WebP with a transparent background. It is turned upright and reduced to %d pixels on its longest side." $c.MaxPictureMB $c.MaxLogoSide))}}
 </section>
 
 <section aria-labelledby="favicon-heading" class="mt-6 p-6 {{template "card-class"}}">
@@ -133,18 +122,7 @@
   {{else}}
   <p class="mt-5 rounded-lg border border-dashed border-zinc-300 px-4 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">The site has no favicon. Browsers show the logo, or the keypad mark when the site has no logo.</p>
   {{end}}
-  <form method="post" action="/admin/settings/favicon" enctype="multipart/form-data" hx-disabled-elt="find button" class="mt-6 border-t border-zinc-200 pt-5 dark:border-zinc-800">
-    {{$error := index $c.Errors "favicon"}}
-    <label for="favicon" class="block text-sm font-medium">{{if $c.Favicon}}Replace the favicon{{else}}Add a favicon{{end}}</label>
-    <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
-      <input id="favicon" name="favicon" type="file" accept="image/jpeg,image/png,image/gif,image/webp" required
-        {{if $error}}aria-invalid="true" aria-describedby="favicon-error"{{end}}
-        class="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-800 hover:file:bg-zinc-200 dark:text-zinc-400 dark:file:bg-zinc-800 dark:file:text-zinc-200 dark:hover:file:bg-zinc-700">
-      <button type="submit" class="shrink-0 {{template "primary-class"}}">Upload</button>
-    </div>
-    {{if $error}}<p id="favicon-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$error}}</p>
-    {{else}}<p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">JPEG, PNG, GIF, or WebP, up to {{$c.MaxPictureMB}} MB. A square image works best; transparent parts stay transparent. It is turned upright and reduced to {{$c.MaxLogoSide}} pixels on its longest side.</p>{{end}}
-  </form>
+  {{template "image-upload" (imageupload "favicon" "favicon" $c.Favicon $c.Errors (printf "JPEG, PNG, GIF, or WebP, up to %d MB. A square image works best; transparent parts stay transparent. It is turned upright and reduced to %d pixels on its longest side." $c.MaxPictureMB $c.MaxLogoSide))}}
 </section>
 
 <section aria-labelledby="sign-in-image-heading" class="mt-6 p-6 {{template "card-class"}}">
@@ -160,18 +138,7 @@
   {{else}}
   <p class="mt-5 rounded-lg border border-dashed border-zinc-300 px-4 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">The sign-in page shows no picture. It shows the accent color pattern instead.</p>
   {{end}}
-  <form method="post" action="/admin/settings/sign-in-image" enctype="multipart/form-data" hx-disabled-elt="find button" class="mt-6 border-t border-zinc-200 pt-5 dark:border-zinc-800">
-    {{$error := index $c.Errors "sign-in-image"}}
-    <label for="sign-in-image" class="block text-sm font-medium">{{if $c.SignInImage}}Replace the picture{{else}}Add a picture{{end}}</label>
-    <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
-      <input id="sign-in-image" name="sign-in-image" type="file" accept="image/jpeg,image/png,image/gif,image/webp" required
-        {{if $error}}aria-invalid="true" aria-describedby="sign-in-image-error"{{end}}
-        class="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-800 hover:file:bg-zinc-200 dark:text-zinc-400 dark:file:bg-zinc-800 dark:file:text-zinc-200 dark:hover:file:bg-zinc-700">
-      <button type="submit" class="shrink-0 {{template "primary-class"}}">Upload</button>
-    </div>
-    {{if $error}}<p id="sign-in-image-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$error}}</p>
-    {{else}}<p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">JPEG, PNG, GIF, or WebP, up to {{$c.MaxPictureMB}} MB. It is turned upright and reduced to {{$c.MaxPictureSide}} pixels on its longest side.</p>{{end}}
-  </form>
+  {{template "image-upload" (imageupload "sign-in-image" "picture" $c.SignInImage $c.Errors (printf "JPEG, PNG, GIF, or WebP, up to %d MB. It is turned upright and reduced to %d pixels on its longest side." $c.MaxPictureMB $c.MaxPictureSide))}}
 </section>
 {{end}}
 {{template "search-script" .}}

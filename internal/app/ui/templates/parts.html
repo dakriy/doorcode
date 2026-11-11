@@ -531,6 +531,23 @@ the form with the id group-form, wherever on the page they sit. */}}
 </div>
 {{end}}{{end}}
 
+{{/* A settings card's form for uploading its site picture, given an
+     imageUpload: the file input is named after the picture, so a refused
+     upload's problem shows beside it, in place of the hint. */}}
+{{define "image-upload"}}
+<form method="post" action="/admin/settings/{{.Name}}" enctype="multipart/form-data" hx-disabled-elt="find button" class="mt-6 border-t border-zinc-200 pt-5 dark:border-zinc-800">
+  <label for="{{.Name}}" class="block text-sm font-medium">{{if .Shown}}Replace the {{.Noun}}{{else}}Add a {{.Noun}}{{end}}</label>
+  <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
+    <input id="{{.Name}}" name="{{.Name}}" type="file" accept="image/jpeg,image/png,image/gif,image/webp" required
+      {{if .Error}}aria-invalid="true" aria-describedby="{{.Name}}-error"{{end}}
+      class="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-800 hover:file:bg-zinc-200 dark:text-zinc-400 dark:file:bg-zinc-800 dark:file:text-zinc-200 dark:hover:file:bg-zinc-700">
+    <button type="submit" class="shrink-0 {{template "primary-class"}}">Upload</button>
+  </div>
+  {{with .Error}}<p id="{{$.Name}}-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{.}}</p>
+  {{else}}<p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{{.Hint}}</p>{{end}}
+</form>
+{{end}}
+
 {{/* A page's section for deleting what it shows, given a deletionView:
      what deleting does and a button that asks to confirm, or why it
      cannot be deleted. */}}

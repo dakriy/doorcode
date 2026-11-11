@@ -211,6 +211,9 @@ var templateFuncs = template.FuncMap{
 	"pagelinks": func(previous, next, back, forward, inset string) pageLinks {
 		return pageLinks{Previous: previous, Next: next, Back: back, Forward: forward, Inset: inset}
 	},
+	"imageupload": func(name, noun, shown string, errors map[string]string, hint string) imageUpload {
+		return imageUpload{Name: name, Noun: noun, Shown: shown, Error: errors[name], Hint: hint}
+	},
 	"deletion": func(title, about, action, confirm, blocked, class string) deletionView {
 		return deletionView{Title: title, About: about, Action: action, Confirm: confirm, Blocked: blocked, Class: class}
 	},
@@ -243,6 +246,18 @@ type pageLinks struct {
 	Previous, Next string
 	Back, Forward  string
 	Inset          string
+}
+
+// imageUpload is a settings card's form for uploading a site picture:
+// Name is the picture's, which the form posts to and names its file input
+// after; Noun is what the label calls it; Shown is where the picture the
+// site has is served, empty when it has none; Error is the problem with a
+// refused upload, shown in place of Hint.
+type imageUpload struct {
+	Name, Noun string
+	Shown      string
+	Error      string
+	Hint       string
 }
 
 // deletionView is a page's section for deleting what it shows: Title on
