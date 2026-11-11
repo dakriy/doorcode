@@ -10,8 +10,9 @@ import (
 
 // profile is a door's simulated controller and how it reports: its
 // hardware id, its usual signal and latency, the firmware it ran before
-// and after its last update, which it runs now, and the controller it
-// hops through in the mesh, empty when it reaches the access point itself.
+// and after its last update, which it runs now, the controller it hops
+// through in the mesh, empty when it reaches the access point itself, and
+// the Wi-Fi link it has.
 type profile struct {
 	door             int64
 	hardwareID       string
@@ -23,15 +24,59 @@ type profile struct {
 	outageHours      int
 	openModeOpenings int
 	meshParent       string
+	wifi             wifi
 }
 
 // profiles are the controllers of the doors that have one, in door order.
 var profiles = []profile{
-	{mainEntrance, "a4cf12e0b101", -54, 28, "1.4.0", "1.4.1", 10, 0, 0, 0, 3, ""},
-	{staffEntrance, "a4cf12e0b102", -63, 34, "1.4.0", "1.4.1", 10, 16, 14, 1, 0, ""},
-	{serverRoom, "a4cf12e0b103", -71, 41, "1.4.0", "1.4.1", 10, 4, 10, 2, 0, "a4cf12e0b102"},
-	{workshop, "a4cf12e0b104", -58, 30, "1.3.2", "1.4.0", 20, 0, 0, 0, 0, "a4cf12e0b101"},
-	{loadingDock, "a4cf12e0b105", -77, 85, "1.3.2", "1.3.2", 0, 9, 3, 7, 0, "a4cf12e0b103"},
+	{mainEntrance, "a4cf12e0b101", -54, 28, "1.4.0", "1.4.1", 10, 0, 0, 0, 3, "", wifi{"f09fc2a1e001", 1, 0, false}},
+	{staffEntrance, "a4cf12e0b102", -63, 34, "1.4.0", "1.4.1", 10, 16, 14, 1, 0, "", wifi{"f09fc2a1e002", 6, 0, true}},
+	{serverRoom, "a4cf12e0b103", -71, 41, "1.4.0", "1.4.1", 10, 4, 10, 2, 0, "a4cf12e0b102", wifi{"a6cf12e0b102", 6, 15, false}},
+	{workshop, "a4cf12e0b104", -58, 30, "1.3.2", "1.4.0", 20, 0, 0, 0, 0, "a4cf12e0b101", wifi{"a6cf12e0b101", 1, 0, false}},
+	{loadingDock, "a4cf12e0b105", -77, 85, "1.3.2", "1.3.2", 0, 9, 3, 7, 0, "a4cf12e0b103", wifi{"a6cf12e0b103", 6, 200, false}},
+}
+
+// wifi is the access point a simulated controller joins, its bssid and
+// channel (a door in the mesh joins its parent's soft-AP), the reason
+// code its station gives when it loses the access point, 0 for one that
+// never does, and whether it roams between access points now and then.
+type wifi struct {
+	bssid      string
+	channel    int
+	dropReason int
+	roams      bool
+}
+
+// link is the Wi-Fi link w's controller reports.
+func (w wifi) link() connector.StoredLink {
+	return connector.StoredLink{WifiDropReason: w.dropReason, BSSID: w.bssid, Channel: w.channel}
+}
+
+// counts is what a controller on w whose usual signal is signal counts of
+// its links over seconds in which it sent checks code checks, intN
+// drawing its chances: the weaker its signal, the more checks it loses,
+// the more TCP segments it sends again, and the more often it loses the
+// access point.
+func (w wifi) counts(intN func(int) int, signal, seconds, checks int) connector.StoredLinkCounts {
+	weak := max(0, -signal-50)
+	lost := 0
+	for range checks {
+		if intN(400) < weak {
+			lost++
+		}
+	}
+	sent := 2*seconds + intN(seconds+1)
+	c := connector.StoredLinkCounts{
+		ChecksSent: checks, ChecksLost: lost, TCPSent: int64(sent),
+		TCPRetransmits: int64(sent*weak/400 + intN(weak/5+1)), TCPDrops: int64(intN(weak/15 + 1)),
+	}
+	if w.dropReason != 0 && intN(600000) < weak*seconds {
+		c.WifiDrops = 1
+	}
+	if w.roams && intN(100000) < seconds {
+		c.Roams = 1
+	}
+	return c
 }
 
 // meshLayer is how many controllers p's controller hops through to reach
@@ -71,7 +116,7 @@ func profileOf(hardwareID string) profile {
 func (p profile) controller() SimulatedDoor {
 	return SimulatedDoor{
 		HardwareID: p.hardwareID, Firmware: p.after, Signal: p.signal, DoorID: p.door,
-		MeshLayer: p.meshLayer(), MeshParent: p.meshParent, MeshChildren: p.meshChildren(),
+		MeshLayer: p.meshLayer(), MeshParent: p.meshParent, MeshChildren: p.meshChildren(), Wifi: p.wifi,
 	}
 }
 
@@ -99,6 +144,7 @@ func (p profile) report(rng *rand.Rand, now, at time.Time, opens int) (connector
 	if busy {
 		latency += rng.IntN(20)
 	}
+	checks := opens + rng.IntN(2)
 	if openMode(at) {
 		opens += rng.IntN(p.openModeOpenings + 1)
 	}
@@ -106,6 +152,7 @@ func (p profile) report(rng *rand.Rand, now, at time.Time, opens int) (connector
 		At: at, Signal: p.signal + rng.IntN(7) - 3, LatencyMS: latency, UptimeS: int64(at.Sub(at.Truncate(7 * 24 * time.Hour)).Seconds()),
 		FreeBytes: 182000 + rng.Int64N(6000), FirmwareVersion: version, Reconnects: rng.IntN(3), Opens: opens,
 		MeshLayer: p.meshLayer(), MeshParent: p.meshParent, MeshChildren: p.meshChildren(),
+		StoredLinkCounts: p.wifi.counts(rng.IntN, p.signal, int(sampleEvery.Seconds()), checks), StoredLink: p.wifi.link(),
 	}, true
 }
 
@@ -157,12 +204,19 @@ func (p profile) rollup(rng *rand.Rand, now, hour time.Time, opens map[slot]int)
 		}
 		r.Samples++
 		r.Opens += t.Opens
+		r.ChecksSent += t.ChecksSent
+		r.ChecksLost += t.ChecksLost
+		r.TCPSent += t.TCPSent
+		r.TCPRetransmits += t.TCPRetransmits
+		r.TCPDrops += t.TCPDrops
+		r.WifiDrops += t.WifiDrops
+		r.Roams += t.Roams
 		signal.add(int64(t.Signal))
 		latency.add(int64(t.LatencyMS))
 		free.add(t.FreeBytes)
 	}
 	r.Signal, r.Latency, r.FreeBytes = signal.stored(), latency.stored(), free.stored()
-	r.MeshLayer, r.MeshChildren = p.meshLayer(), p.meshChildren()
+	r.MeshLayer, r.MeshChildren, r.StoredLink = p.meshLayer(), p.meshChildren(), p.wifi.link()
 	return r, r.Samples > 0
 }
 

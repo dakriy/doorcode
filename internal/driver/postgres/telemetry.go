@@ -9,29 +9,41 @@ import (
 	"github.com/dakriy/doorcode/internal/connector"
 )
 
+// linkColumns lists the columns of a sample or rollup in the order
+// linkFields reads them.
+const linkColumns = `checks_sent, checks_lost, tcp_sent, tcp_retransmits, tcp_drops, wifi_drops, wifi_drop_reason, roams, bssid, channel`
+
+func linkFields(c *connector.StoredLinkCounts, l *connector.StoredLink) []any {
+	return []any{&c.ChecksSent, &c.ChecksLost, &c.TCPSent, &c.TCPRetransmits, &c.TCPDrops, &c.WifiDrops, &l.WifiDropReason, &c.Roams,
+		&l.BSSID, &l.Channel}
+}
+
 // sampleColumns lists the telemetry_samples columns in the order
 // sampleFields reads them.
 const sampleColumns = `door_id, at, signal, latency_ms, uptime_s, free_bytes, firmware_version, reconnects, door_open, opens,
-	mesh_layer, mesh_parent, mesh_children`
+	mesh_layer, mesh_parent, mesh_children, ` + linkColumns
 
 func sampleFields(s *connector.StoredSample) []any {
-	return []any{&s.DoorID, &s.At, &s.Signal, &s.LatencyMS, &s.UptimeS, &s.FreeBytes, &s.FirmwareVersion, &s.Reconnects, &s.DoorOpen, &s.Opens,
+	fields := []any{&s.DoorID, &s.At, &s.Signal, &s.LatencyMS, &s.UptimeS, &s.FreeBytes, &s.FirmwareVersion, &s.Reconnects, &s.DoorOpen, &s.Opens,
 		&s.MeshLayer, &s.MeshParent, &s.MeshChildren}
+	return append(fields, linkFields(&s.StoredLinkCounts, &s.StoredLink)...)
 }
 
 // rollupColumns lists the telemetry_rollups columns in the order
 // rollupFields reads them.
 const rollupColumns = `door_id, hour, samples, signal_mean, signal_min, signal_max, latency_mean, latency_min, latency_max,
-	free_bytes_mean, free_bytes_min, free_bytes_max, opens, mesh_layer, mesh_children`
+	free_bytes_mean, free_bytes_min, free_bytes_max, opens, mesh_layer, mesh_children, ` + linkColumns
 
 func rollupFields(r *connector.StoredRollup) []any {
-	return []any{&r.DoorID, &r.Hour, &r.Samples, &r.Signal.Mean, &r.Signal.Min, &r.Signal.Max, &r.Latency.Mean, &r.Latency.Min, &r.Latency.Max,
+	fields := []any{&r.DoorID, &r.Hour, &r.Samples, &r.Signal.Mean, &r.Signal.Min, &r.Signal.Max, &r.Latency.Mean, &r.Latency.Min, &r.Latency.Max,
 		&r.FreeBytes.Mean, &r.FreeBytes.Min, &r.FreeBytes.Max, &r.Opens, &r.MeshLayer, &r.MeshChildren}
+	return append(fields, linkFields(&r.StoredLinkCounts, &r.StoredLink)...)
 }
 
 // AddSample inserts sample.
 func (s *Store) AddSample(ctx context.Context, sample connector.StoredSample) error {
-	_, err := s.pool.Exec(ctx, `insert into telemetry_samples (`+sampleColumns+`) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+	_, err := s.pool.Exec(ctx, `insert into telemetry_samples (`+sampleColumns+`) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+		$14, $15, $16, $17, $18, $19, $20, $21, $22, $23)`,
 		sampleFields(&sample)...)
 	return err
 }
@@ -78,13 +90,18 @@ func (s *Store) PutRollups(ctx context.Context, rollups []connector.StoredRollup
 	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		for _, r := range rollups {
 			if _, err := tx.Exec(ctx, `insert into telemetry_rollups (`+rollupColumns+`)
-				values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+				values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+					$16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
 				on conflict (door_id, hour) do update set samples = excluded.samples,
 					signal_mean = excluded.signal_mean, signal_min = excluded.signal_min, signal_max = excluded.signal_max,
 					latency_mean = excluded.latency_mean, latency_min = excluded.latency_min, latency_max = excluded.latency_max,
 					free_bytes_mean = excluded.free_bytes_mean, free_bytes_min = excluded.free_bytes_min,
 					free_bytes_max = excluded.free_bytes_max, opens = excluded.opens,
-					mesh_layer = excluded.mesh_layer, mesh_children = excluded.mesh_children`, rollupFields(&r)...); err != nil {
+					mesh_layer = excluded.mesh_layer, mesh_children = excluded.mesh_children,
+					checks_sent = excluded.checks_sent, checks_lost = excluded.checks_lost, tcp_sent = excluded.tcp_sent,
+					tcp_retransmits = excluded.tcp_retransmits, tcp_drops = excluded.tcp_drops, wifi_drops = excluded.wifi_drops,
+					wifi_drop_reason = excluded.wifi_drop_reason, roams = excluded.roams, bssid = excluded.bssid,
+					channel = excluded.channel`, rollupFields(&r)...); err != nil {
 				return err
 			}
 		}

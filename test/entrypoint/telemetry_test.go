@@ -32,7 +32,8 @@ func TestATelemetryReportBecomesTheDoorsState(t *testing.T) {
 	want := testsupport.JSON(`{"enrolled":true,"online":true,"door":"open","opened_at":"2026-01-05T09:00:30Z","held_open":false,
 		"unresponsive":false,"firmware_version":"1.5.0","last_seen_at":"2026-01-05T09:00:30Z",
 		"telemetry":{"at":"2026-01-05T09:00:30Z","signal":-70,"latency_ms":40,"uptime_s":3720,"free_bytes":120832,
-		"firmware_version":"1.5.0","reconnects":2,"door_open":true,"opens":1,"mesh_layer":0,"mesh_parent":"","mesh_children":0}}`)
+		"firmware_version":"1.5.0","reconnects":2,"door_open":true,"opens":1,"mesh_layer":0,"mesh_parent":"","mesh_children":0,
+		"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"wifi_drop_reason":0,"roams":0,"bssid":"","channel":0}}`)
 	if diff := cmp.Diff(want, k.state("")); diff != "" {
 		t.Errorf("state (-want +got):\n%s", diff)
 	}
@@ -251,7 +252,8 @@ func TestTheTelemetryAPIShowsEachReport(t *testing.T) {
 	got := testsupport.JSONAt(send(t, k.b, "GET", "/api/v1/doors/1/telemetry", "", 200).Body, "/samples/0")
 
 	want := testsupport.JSON(`{"at":"2026-01-05T09:10:00Z","signal":-60,"latency_ms":40,"uptime_s":3720,"free_bytes":100000,
-		"firmware_version":"1.4.3","reconnects":2,"door_open":false,"opens":2,"mesh_layer":0,"mesh_parent":"","mesh_children":0}`)
+		"firmware_version":"1.4.3","reconnects":2,"door_open":false,"opens":2,"mesh_layer":0,"mesh_parent":"","mesh_children":0,
+		"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"wifi_drop_reason":0,"roams":0,"bssid":"","channel":0}`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("report (-want +got):\n%s", diff)
 	}
@@ -268,10 +270,12 @@ func TestThePeriodicWorkRollsUpEachHourThatEndedFromItsReports(t *testing.T) {
 	want := testsupport.JSON(`{"rollups":[
 		{"hour":"2026-01-05T09:00:00Z","samples":2,"signal":{"mean":-65,"min":-70,"max":-60},
 			"latency_ms":{"mean":50,"min":40,"max":60},"free_bytes":{"mean":110000,"min":100000,"max":120000},"opens":5,
-			"mesh_layer":0,"mesh_children":0},
+			"mesh_layer":0,"mesh_children":0,
+			"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"wifi_drop_reason":0,"roams":0,"bssid":"","channel":0},
 		{"hour":"2026-01-05T10:00:00Z","samples":1,"signal":{"mean":-65,"min":-65,"max":-65},
 			"latency_ms":{"mean":50,"min":50,"max":50},"free_bytes":{"mean":110000,"min":110000,"max":110000},"opens":0,
-			"mesh_layer":0,"mesh_children":0}]}`)
+			"mesh_layer":0,"mesh_children":0,
+			"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"wifi_drop_reason":0,"roams":0,"bssid":"","channel":0}]}`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("rollups (-want +got):\n%s", diff)
 	}
@@ -343,7 +347,8 @@ func TestARollupKeepsSummingUpReportsRemovedSince(t *testing.T) {
 
 	want := testsupport.JSON(`{"hour":"2026-01-05T09:00:00Z","samples":2,"signal":{"mean":-65,"min":-70,"max":-60},
 		"latency_ms":{"mean":50,"min":40,"max":60},"free_bytes":{"mean":110000,"min":100000,"max":120000},"opens":5,
-		"mesh_layer":0,"mesh_children":0}`)
+		"mesh_layer":0,"mesh_children":0,
+		"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"wifi_drop_reason":0,"roams":0,"bssid":"","channel":0}`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("first rollup (-want +got):\n%s", diff)
 	}

@@ -362,9 +362,10 @@ type StoredDoorState struct {
 // milliseconds, how long it has run in seconds, its free memory in bytes,
 // its firmware version, how often it connected again since it started,
 // whether the door was open, how often it was opened since its last
-// report, and where it sat in the site's mesh: its layer (0 when it
+// report, where it sat in the site's mesh: its layer (0 when it
 // reached the access point itself), the hardware id of the controller it
-// hopped through, and how many controllers hopped through it.
+// hopped through, and how many controllers hopped through it, how its
+// links fared since its last report, and the Wi-Fi link it had.
 type StoredTelemetry struct {
 	At              time.Time
 	Signal          int
@@ -378,6 +379,33 @@ type StoredTelemetry struct {
 	MeshLayer       int
 	MeshParent      string
 	MeshChildren    int
+	StoredLinkCounts
+	StoredLink
+}
+
+// StoredLinkCounts is how a controller's links fared over a span of time:
+// the code checks it sent and those whose reply never came, the TCP
+// segments it sent for the first time, sent again, and dropped, and the
+// times its Wi-Fi station lost its access point and moved to another by
+// its own choice.
+type StoredLinkCounts struct {
+	ChecksSent     int
+	ChecksLost     int
+	TCPSent        int64
+	TCPRetransmits int64
+	TCPDrops       int64
+	WifiDrops      int
+	Roams          int
+}
+
+// StoredLink is the Wi-Fi link a controller reported: the system's reason
+// code for its latest loss of the access point since it started (0 when
+// there was none), and the BSSID and channel of the access point it had
+// joined, empty and 0 with no link.
+type StoredLink struct {
+	WifiDropReason int
+	BSSID          string
+	Channel        int
 }
 
 // StoredSample is a report of the controller of the door whose id is
@@ -398,7 +426,8 @@ type StoredSpread struct {
 // StoredRollup sums up the Samples reports the controller of the door
 // whose id is DoorID made in the hour that starts at Hour: the spread of
 // their signal strength, latency, and free memory, how often the door
-// was opened in all, and the mesh layer and children of its last report.
+// was opened in all, how its links fared in all, and the mesh layer and
+// children and the Wi-Fi link of its last report.
 type StoredRollup struct {
 	DoorID       int64
 	Hour         time.Time
@@ -409,6 +438,8 @@ type StoredRollup struct {
 	Opens        int
 	MeshLayer    int
 	MeshChildren int
+	StoredLinkCounts
+	StoredLink
 }
 
 // TelemetryStore holds the doors' telemetry history: each report as a

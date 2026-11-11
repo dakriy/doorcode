@@ -314,6 +314,16 @@ type Timeline struct {
 // the hardware id of the controller it hops through (empty at layer 0),
 // and how many controllers hop through it. Firmware that knows nothing of
 // the mesh leaves those out, which reads as 0 and empty.
+//
+// It also says how its links fared since its last report: the code checks
+// it sent and those whose reply never came, the TCP segments it sent for
+// the first time, sent again, and dropped, the times its Wi-Fi station
+// lost its access point and moved to another by its own choice, the
+// system's reason code for its latest loss of the access point since it
+// started (ESP-IDF's wifi_err_reason_t, 0 when there was none), and the
+// access point it has joined now: its BSSID, 12 lowercase hex digits, and
+// its channel, empty and 0 with no link. Firmware that does not report
+// these leaves them out, which reads as 0 and empty.
 type Telemetry struct {
 	Header
 	Signal          int    `cbor:"signal"`
@@ -327,6 +337,16 @@ type Telemetry struct {
 	MeshLayer       int    `cbor:"mesh_layer"`
 	MeshParent      string `cbor:"mesh_parent"`
 	MeshChildren    int    `cbor:"mesh_children"`
+	ChecksSent      int    `cbor:"checks_sent"`
+	ChecksLost      int    `cbor:"checks_lost"`
+	TCPSent         int64  `cbor:"tcp_sent"`
+	TCPRetransmits  int64  `cbor:"tcp_retransmits"`
+	TCPDrops        int64  `cbor:"tcp_drops"`
+	WifiDrops       int    `cbor:"wifi_drops"`
+	WifiDropReason  int    `cbor:"wifi_drop_reason"`
+	Roams           int    `cbor:"roams"`
+	BSSID           string `cbor:"bssid"`
+	Channel         int    `cbor:"channel"`
 }
 
 // The things a door says happened to it.

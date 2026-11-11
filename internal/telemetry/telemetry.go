@@ -82,6 +82,11 @@ func (s Service) report(ctx context.Context, doorID int64, payload []byte) error
 		At: now, Signal: m.Signal, LatencyMS: m.LatencyMS, UptimeS: m.UptimeS, FreeBytes: m.FreeBytes,
 		FirmwareVersion: m.FirmwareVersion, Reconnects: m.Reconnects, DoorOpen: m.DoorOpen, Opens: m.Opens,
 		MeshLayer: m.MeshLayer, MeshParent: m.MeshParent, MeshChildren: m.MeshChildren,
+		StoredLinkCounts: connector.StoredLinkCounts{
+			ChecksSent: m.ChecksSent, ChecksLost: m.ChecksLost, TCPSent: m.TCPSent, TCPRetransmits: m.TCPRetransmits,
+			TCPDrops: m.TCPDrops, WifiDrops: m.WifiDrops, Roams: m.Roams,
+		},
+		StoredLink: connector.StoredLink{WifiDropReason: m.WifiDropReason, BSSID: m.BSSID, Channel: m.Channel},
 	}
 	if err := s.Store.AddSample(ctx, connector.StoredSample{DoorID: d.ID, StoredTelemetry: t}); err != nil {
 		return err

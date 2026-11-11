@@ -174,6 +174,9 @@ type door struct {
 	timeline protocol.Timeline
 	open     bool
 	opens    int
+	// checks is how many code checks the controller sent since its last
+	// report.
+	checks int
 	// openedAt is when the door last opened, and spanned whether its
 	// timeline held it open then, when the controller does not time it.
 	openedAt time.Time
@@ -350,6 +353,7 @@ func (c *controller) press(d *door) {
 		digits = c.codes[rand.IntN(len(c.codes))]
 	}
 	c.publish(d, protocol.LeafCheck, &protocol.Check{RequestID: fmt.Sprintf("%016x", rand.Uint64()), Digits: digits})
+	d.checks++
 }
 
 // state is what d's timeline says the door is at at: "open", "locked",
@@ -399,11 +403,15 @@ func (c *controller) say(d *door, what protocol.DoorEvent) {
 
 // report publishes the controller's telemetry.
 func (c *controller) report(d *door) {
+	counts := c.door.Wifi.counts(rand.IntN, c.door.Signal, max(d.config.TelemetryIntervalS, 5), d.checks)
 	t := protocol.Telemetry{
 		Signal: c.door.Signal + rand.IntN(7) - 3, LatencyMS: 20 + rand.IntN(40), UptimeS: int64(time.Since(c.started).Seconds()),
 		FreeBytes: 182000 + rand.Int64N(6000), FirmwareVersion: c.door.Firmware, Reconnects: c.connects - 1, DoorOpen: d.open, Opens: d.opens,
 		MeshLayer: c.door.MeshLayer, MeshParent: c.door.MeshParent, MeshChildren: c.door.MeshChildren,
+		ChecksSent: counts.ChecksSent, ChecksLost: counts.ChecksLost, TCPSent: counts.TCPSent, TCPRetransmits: counts.TCPRetransmits,
+		TCPDrops: counts.TCPDrops, WifiDrops: counts.WifiDrops, WifiDropReason: c.door.Wifi.dropReason, Roams: counts.Roams,
+		BSSID: c.door.Wifi.bssid, Channel: c.door.Wifi.channel,
 	}
-	d.opens = 0
+	d.opens, d.checks = 0, 0
 	c.publish(d, protocol.LeafTelemetry, &t)
 }

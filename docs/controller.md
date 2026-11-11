@@ -539,13 +539,26 @@ connected, first soon after connecting. Every field is always sent.
 | `mesh_layer` | uint | | Where the controller sits in the site's Wi-Fi mesh: 0 when it is connected straight to the building's access point, 1 when it hops through one other controller, and so on. |
 | `mesh_parent` | text | | The **hardware id** (the MQTT client id it enrolled with, not a door id) of the controller it hops through; empty at layer 0. |
 | `mesh_children` | uint | | How many controllers hop through this one (its direct children in the mesh). |
+| `checks_sent` | uint | | Code checks sent to the server since the last report. |
+| `checks_lost` | uint | | Checks since the last report whose reply did not come in time. A check replaced by a newer one before then is not lost. |
+| `tcp_sent` | uint | segments | TCP segments sent for the first time since the last report: those carrying data or opening or closing a connection, not bare acknowledgements, resets, or segments sent again. 0 on a controller whose network stack keeps no TCP counters. |
+| `tcp_retransmits` | uint | segments | TCP segments sent again since the last report; 0 without TCP counters. |
+| `tcp_drops` | uint | segments | TCP segments dropped since the last report; 0 without TCP counters. |
+| `wifi_drops` | uint | | Times the Wi-Fi station lost its access point since the last report. |
+| `wifi_drop_reason` | uint | | The system's reason code for the latest loss of the access point since the controller started (ESP-IDF `wifi_err_reason_t`); 0 when there was none. |
+| `roams` | uint | | Times the Wi-Fi station moved to another access point by its own choice since the last report. |
+| `bssid` | text | | The access point joined now, 12 lowercase hex digits; empty with no link. |
+| `channel` | uint | | The Wi-Fi channel of the access point joined now; 0 with no link. |
 
 Firmware that predates the mesh fields leaves them out; the server reads a
 missing `mesh_layer` and `mesh_children` as 0 and a missing `mesh_parent`
 as empty, that is, as a controller reaching the access point itself.
+Firmware that predates the link fields (`checks_sent` to `channel`) leaves
+them out, which the server reads as 0 and an empty `bssid`.
 
 The server keeps the reports as history and hourly summaries (each hour
-keeps the `mesh_layer` and `mesh_children` of its last report), and shows
+sums the link counts and keeps the `mesh_layer`, `mesh_children`,
+`wifi_drop_reason`, `bssid`, and `channel` of its last report), and shows
 the latest; a door whose `mesh_layer` is above 0 is shown meshing, naming
 the door whose controller has the `mesh_parent` hardware id. A connected door the server has heard nothing from (online status,
 telemetry, or event) for `unresponsive_minutes` (default 5) is shown
@@ -836,7 +849,7 @@ it.
 | `Config` (`Header`, `DoorConfig`) | message | `v` and the configuration fields in one map. | 9 |
 | `Span` (`Start`, `End`, `State`) | type | `start`, `end`, `state`. | 10 |
 | `Timeline` (`From`, `To`, `Spans`) | message | `from`, `to`, `spans`. | 10 |
-| `Telemetry` (`Signal`, `LatencyMS`, `UptimeS`, `FreeBytes`, `FirmwareVersion`, `Reconnects`, `DoorOpen`, `Opens`, `MeshLayer`, `MeshParent`, `MeshChildren`) | message | `signal`, `latency_ms`, `uptime_s`, `free_bytes`, `firmware_version`, `reconnects`, `door_open`, `opens`, `mesh_layer`, `mesh_parent`, `mesh_children`. | 12 |
+| `Telemetry` (`Signal`, `LatencyMS`, `UptimeS`, `FreeBytes`, `FirmwareVersion`, `Reconnects`, `DoorOpen`, `Opens`, `MeshLayer`, `MeshParent`, `MeshChildren`, `ChecksSent`, `ChecksLost`, `TCPSent`, `TCPRetransmits`, `TCPDrops`, `WifiDrops`, `WifiDropReason`, `Roams`, `BSSID`, `Channel`) | message | `signal`, `latency_ms`, `uptime_s`, `free_bytes`, `firmware_version`, `reconnects`, `door_open`, `opens`, `mesh_layer`, `mesh_parent`, `mesh_children`, `checks_sent`, `checks_lost`, `tcp_sent`, `tcp_retransmits`, `tcp_drops`, `wifi_drops`, `wifi_drop_reason`, `roams`, `bssid`, `channel`. | 12 |
 | `EventOpened`, `EventClosed`, `EventStarted` | constants | `opened`, `closed`, `started`. | 12 |
 | `StartPowerOn`, `StartSoftware`, `StartPanic`, `StartWatchdog`, `StartBrownout`, `StartExternal`, `StartUnknown` | constants | `power_on`, `software`, `panic`, `watchdog`, `brownout`, `external`, `unknown`. | 12 |
 | `DoorEvent` (`Event`, `Unlocked`, `OpenMS`, `Reason`) | message | `event`, `unlocked` (a `*bool`, nil when left out), `open_ms` (a `*uint64`, nil when left out), `reason` (empty when left out). | 12 |

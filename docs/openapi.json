@@ -12219,6 +12219,22 @@
       "RollupView": {
         "type": "object",
         "properties": {
+          "bssid": {
+            "type": "string",
+            "description": "The BSSID of the access point it had joined in its last report of the hour."
+          },
+          "channel": {
+            "type": "integer",
+            "description": "The Wi-Fi channel of that access point in its last report of the hour."
+          },
+          "checks_lost": {
+            "type": "integer",
+            "description": "How many checks it sent in the hour got no reply in time."
+          },
+          "checks_sent": {
+            "type": "integer",
+            "description": "How many code checks the controller sent in the hour."
+          },
           "free_bytes": {
             "$ref": "#/components/schemas/SpreadView",
             "description": "The free memory, in bytes."
@@ -12244,6 +12260,10 @@
             "type": "integer",
             "description": "How often the door was opened in the hour."
           },
+          "roams": {
+            "type": "integer",
+            "description": "How often its Wi-Fi station moved to another access point by its own choice in the hour."
+          },
           "samples": {
             "type": "integer",
             "description": "How many reports the controller made in the hour."
@@ -12251,6 +12271,26 @@
           "signal": {
             "$ref": "#/components/schemas/SpreadView",
             "description": "The signal strength, in dBm."
+          },
+          "tcp_drops": {
+            "type": "integer",
+            "description": "How many TCP segments it dropped in the hour."
+          },
+          "tcp_retransmits": {
+            "type": "integer",
+            "description": "How many TCP segments it sent again in the hour."
+          },
+          "tcp_sent": {
+            "type": "integer",
+            "description": "How many TCP segments it sent for the first time in the hour."
+          },
+          "wifi_drop_reason": {
+            "type": "integer",
+            "description": "The reason code of its latest loss of its access point since it started, in its last report of the hour."
+          },
+          "wifi_drops": {
+            "type": "integer",
+            "description": "How often its Wi-Fi station lost its access point in the hour."
           }
         },
         "required": [
@@ -12261,7 +12301,17 @@
           "free_bytes",
           "opens",
           "mesh_layer",
-          "mesh_children"
+          "mesh_children",
+          "checks_sent",
+          "checks_lost",
+          "tcp_sent",
+          "tcp_retransmits",
+          "tcp_drops",
+          "wifi_drops",
+          "wifi_drop_reason",
+          "roams",
+          "bssid",
+          "channel"
         ]
       },
       "RuleList": {
@@ -12580,6 +12630,22 @@
             "format": "date-time",
             "description": "When the server received the report."
           },
+          "bssid": {
+            "type": "string",
+            "description": "The BSSID of the access point it had joined, 12 lowercase hex digits; empty with no link and from firmware that does not report it."
+          },
+          "channel": {
+            "type": "integer",
+            "description": "The Wi-Fi channel of the access point it had joined; 0 with no link and from firmware that does not report it."
+          },
+          "checks_lost": {
+            "type": "integer",
+            "description": "How many checks since its last report got no reply in time; 0 from firmware that does not report it."
+          },
+          "checks_sent": {
+            "type": "integer",
+            "description": "How many code checks the controller sent to the server since its last report; 0 from firmware that does not report it."
+          },
           "door_open": {
             "type": "boolean",
             "description": "True when the door was open."
@@ -12616,13 +12682,37 @@
             "type": "integer",
             "description": "How often the controller connected to the broker again since it started."
           },
+          "roams": {
+            "type": "integer",
+            "description": "How often its Wi-Fi station moved to another access point by its own choice since its last report; 0 from firmware that does not report it."
+          },
           "signal": {
             "type": "integer",
             "description": "The signal strength, in dBm."
           },
+          "tcp_drops": {
+            "type": "integer",
+            "description": "How many TCP segments it dropped since its last report; 0 from firmware that does not report it or keeps no TCP counters."
+          },
+          "tcp_retransmits": {
+            "type": "integer",
+            "description": "How many TCP segments it sent again since its last report; 0 from firmware that does not report it or keeps no TCP counters."
+          },
+          "tcp_sent": {
+            "type": "integer",
+            "description": "How many TCP segments it sent for the first time since its last report, not counting bare acknowledgements, resets, and segments sent again; 0 from firmware that does not report it or keeps no TCP counters."
+          },
           "uptime_s": {
             "type": "integer",
             "description": "How long the controller has run since it started, in seconds."
+          },
+          "wifi_drop_reason": {
+            "type": "integer",
+            "description": "The reason code (ESP-IDF's wifi_err_reason_t) of its latest loss of its access point since it started; 0 when there was none and from firmware that does not report it."
+          },
+          "wifi_drops": {
+            "type": "integer",
+            "description": "How often its Wi-Fi station lost its access point since its last report; 0 from firmware that does not report it."
           }
         },
         "required": [
@@ -12637,7 +12727,17 @@
           "opens",
           "mesh_layer",
           "mesh_parent",
-          "mesh_children"
+          "mesh_children",
+          "checks_sent",
+          "checks_lost",
+          "tcp_sent",
+          "tcp_retransmits",
+          "tcp_drops",
+          "wifi_drops",
+          "wifi_drop_reason",
+          "roams",
+          "bssid",
+          "channel"
         ]
       },
       "TimelineView": {
