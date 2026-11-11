@@ -102,6 +102,16 @@ func (s *Store) DoorOverrides(ctx context.Context, doorID int64, endsAfter time.
 	return pgx.CollectRows(rows, scanned(overrideFields))
 }
 
+// UserOverrides returns the overrides the user created, by id.
+func (s *Store) UserOverrides(ctx context.Context, userID int64) ([]connector.StoredOverride, error) {
+	rows, err := s.pool.Query(ctx, `select `+overrideColumns+overrideSource+`
+		where overrides.created_by = $1 order by overrides.id`, userID)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, scanned(overrideFields))
+}
+
 // Override returns the override with id.
 func (s *Store) Override(ctx context.Context, id int64) (connector.StoredOverride, bool, error) {
 	var o connector.StoredOverride

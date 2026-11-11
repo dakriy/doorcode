@@ -461,6 +461,21 @@ func (s Service) Delete(ctx context.Context, id int64) error {
 	return s.Doors.Delete(ctx, id)
 }
 
+// Purge removes the door whose id is id for good, deleted or not, with
+// every row that refers to it, after stopping its credentials working,
+// which deletes its broker clients, so nothing can connect as it.
+func (s Service) Purge(ctx context.Context, id int64) error {
+	if _, err := s.Doors.Door(ctx, id); err != nil {
+		return err
+	}
+	if err := s.revokeDoor(ctx, id); err != nil {
+		return err
+	}
+	_, err := s.Store.PurgeDoor(ctx, id)
+	s.Changed()
+	return err
+}
+
 // Sweep does what time makes due: a door whose newest credentials were
 // issued its credential rotation interval ago or longer, by defaults and
 // its own overrides, gets new ones when its controller is connected and

@@ -2,6 +2,7 @@ package event
 
 import (
 	"cmp"
+	"maps"
 	"slices"
 	"sync"
 
@@ -43,6 +44,14 @@ func (c *Counts) add(e connector.StoredEvent) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.n[Kind{DoorID: e.DoorID, Type: e.Type, Outcome: e.Outcome, Reason: e.Reason, StartReason: e.StartReason}]++
+}
+
+// Forget drops the counts of the door whose id is doorID, which is gone
+// for good.
+func (c *Counts) Forget(doorID int64) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	maps.DeleteFunc(c.n, func(k Kind, _ int) bool { return k.DoorID == doorID })
 }
 
 // All is the count of every kind recorded, by door id, then type,

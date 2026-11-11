@@ -82,6 +82,22 @@ New users created through sign-in expire after a configurable period
 (default 5 years). Expired or deleted users are denied everywhere and cannot
 sign in. Deleting a user or a door is a soft delete; its events stay.
 
+The API can instead delete a user or a door for good:
+`DELETE /api/v1/users/{id}?force=true` and
+`DELETE /api/v1/doors/{id}?force=true`, on one that is live or already
+deleted. It is meant for integrations that make temporary users and doors
+for testing. It needs the `admin` role: a caller holding only
+`manage-users` or `manage-doors` is refused with 403 and can still soft
+delete. No page, form, or button offers it. A door goes with its pictures,
+zone memberships, overrides, controller, credentials, events, telemetry
+samples and rollups, firmware update, and event counts in the metrics;
+its broker clients are deleted first, and its name is free again. A user
+goes with their sessions, API tokens, memberships, access requests, and
+every event that names them, at doors that stay too; their email and
+user id are free again. Nobody can delete their own account this way. A
+user who uploaded firmware or created an override is refused with 409
+naming those, which stay and name them, until they are deleted.
+
 ## 4. Groups, roles, zones, and access rules
 
 A group has a slug (unique, URL-safe), a name, a description, members,
@@ -583,7 +599,7 @@ started, as its latest report gave them, so they reset when it restarts.
 never by reading the events table at scrape time, so it and the HTTP
 request counters start from zero when the server starts. A series appears
 with the first event of its kind. A deleted door's event series stay,
-under its name.
+under its name, until the door is deleted for good.
 
 When the store fails one of the scrape's reads, the scrape still answers
 200, logs the error, leaves out the samples that read gives (the doors

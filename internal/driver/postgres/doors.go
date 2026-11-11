@@ -267,6 +267,20 @@ func (s *Store) SetDoorDeleted(ctx context.Context, id int64, at *time.Time) (bo
 	return tag.RowsAffected() == 1, err
 }
 
+// PurgeDoor deletes the door with id and the rows that refer to it; the
+// foreign keys cascade to its zone memberships, rules, overrides,
+// controller, and credentials. Its pictures go first, so the door's
+// primary picture is cleared before the door goes.
+func (s *Store) PurgeDoor(ctx context.Context, id int64) (bool, error) {
+	return s.purge(ctx, id,
+		`delete from events where door_id = $1`,
+		`delete from telemetry_samples where door_id = $1`,
+		`delete from telemetry_rollups where door_id = $1`,
+		`delete from door_updates where door_id = $1`,
+		`delete from door_pictures where door_id = $1`,
+		`delete from doors where id = $1`)
+}
+
 // AddPicture inserts p with its image and thumbnail and returns its id.
 func (s *Store) AddPicture(ctx context.Context, p connector.StoredPicture, image, thumbnail []byte) (int64, error) {
 	var id int64

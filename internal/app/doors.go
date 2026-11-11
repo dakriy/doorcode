@@ -61,6 +61,7 @@ type doorList struct {
 var (
 	doorIDParam     = openapi.Param{Name: "id", In: "path", Description: "The door's id.", Example: int64(1)}
 	noDoor          = openapi.Response{Status: http.StatusNotFound, Description: "No door has this id.", Body: errorBody{}}
+	badForce        = openapi.Response{Status: http.StatusBadRequest, Description: "force is neither true nor false.", Body: errorBody{}}
 	badDoor         = openapi.Response{Status: http.StatusBadRequest, Description: "The body is not a JSON door, or a field is wrong; the error says which.", Body: errorBody{}}
 	doorQueryParams = []openapi.Param{
 		{Name: "q", In: "query", Description: "Keeps doors whose name or location contains this text, ignoring case.", Example: "north"},
@@ -98,15 +99,37 @@ func (a *App) doorRoutes() []route {
 			responses: []openapi.Response{{Status: http.StatusOK, Description: "The door as it is now.", Body: doorView{}}, badDoor, noDoor},
 		}),
 		apiRoute(http.MethodDelete, "/doors/{id}", doors, a.deleteDoor, apiDoc{
-			id: "deleteDoor", summary: "Delete a door", tag: "doors", params: []openapi.Param{doorIDParam},
+			id: "deleteDoor", summary: "Delete a door", tag: "doors", params: []openapi.Param{doorIDParam, forceParam(
+				"true removes the door for good, deleted or not, with everything that refers to it: its pictures, zones, overrides, controller, " +
+					"credentials and broker clients, events, telemetry, and firmware update, so its name is free again. " +
+					"It is meant for integrations that make doors for testing and needs the admin role. " +
+					"false, the default, deletes it so that it can be restored.")},
 			responses: []openapi.Response{
-				{Status: http.StatusNoContent, Description: "The door is deleted; its history stays. Deleting a deleted door changes nothing."}, noDoor,
+				{Status: http.StatusNoContent, Description: "The door is deleted; its history stays. Deleting a deleted door changes nothing. " +
+					"With force, the door and its history are gone."},
+				badForce, forceRefused(auth.RoleManageDoors), noDoor,
 			},
 		}),
 		apiRoute(http.MethodPost, "/doors/{id}/restore", doors, a.restoreDoor, apiDoc{
 			id: "restoreDoor", summary: "Restore a deleted door", tag: "doors", params: []openapi.Param{doorIDParam},
 			responses: []openapi.Response{{Status: http.StatusNoContent, Description: "The door is no longer deleted."}, noDoor},
 		}),
+	}
+}
+
+// forceParam is the force query parameter of a delete, described as
+// description.
+func forceParam(description string) openapi.Param {
+	return openapi.Param{Name: "force", In: "query", Description: description, Example: true}
+}
+
+// forceRefused is the refusal of a delete to a caller without role, or
+// without the admin role when it is forced.
+func forceRefused(role string) openapi.Response {
+	return openapi.Response{
+		Status:      http.StatusForbidden,
+		Description: "The caller does not hold the " + role + " role, or force is true and the caller does not hold the admin role.",
+		Body:        errorBody{},
 	}
 }
 
@@ -280,8 +303,45 @@ func (a *App) doorDone(w http.ResponseWriter, r *http.Request, err error) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (a *App) deleteDoor(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	a.doorDone(w, r, a.controllers.Delete(r.Context(), pathID(r, "id")))
+func (a *App) deleteDoor(w http.ResponseWriter, r *http.Request, caller auth.User) {
+	force, ok := forced(w, r, caller)
+	if !ok {
+		return
+	}
+	remove := a.controllers.Delete
+	if force {
+		remove = a.purgeDoor
+	}
+	a.doorDone(w, r, remove(r.Context(), pathID(r, "id")))
+}
+
+// purgeDoor removes the door whose id is id for good, and its event
+// counts with it.
+func (a *App) purgeDoor(ctx context.Context, id int64) error {
+	if err := a.controllers.Purge(ctx, id); err != nil {
+		return err
+	}
+	a.events.Counts.Forget(id)
+	return nil
+}
+
+// forced reports whether a delete asks with the force query parameter to
+// remove its object for good, after answering with a refusal when the
+// parameter is neither true nor false, or is true from a caller without
+// the admin role.
+func forced(w http.ResponseWriter, r *http.Request, caller auth.User) (force, ok bool) {
+	switch r.URL.Query().Get("force") {
+	case "", "false":
+		return false, true
+	case "true":
+		if !caller.Has(auth.RoleAdmin) {
+			writeError(w, http.StatusForbidden, "the admin role is required to delete for good")
+			return false, false
+		}
+		return true, true
+	}
+	writeError(w, http.StatusBadRequest, "force must be true or false")
+	return false, false
 }
 
 func (a *App) restoreDoor(w http.ResponseWriter, r *http.Request, _ auth.User) {

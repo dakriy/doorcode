@@ -184,6 +184,18 @@ func (s *Store) SetUserDeleted(ctx context.Context, id int64, at *time.Time) (bo
 	return tag.RowsAffected() == 1, err
 }
 
+// PurgeUser deletes the user with id and the rows that refer to them;
+// the foreign keys of firmware and overrides refuse a user they name.
+func (s *Store) PurgeUser(ctx context.Context, id int64) (bool, error) {
+	return s.purge(ctx, id,
+		`delete from events where user_id = $1`,
+		`delete from sessions where user_id = $1`,
+		`delete from api_tokens where user_id = $1`,
+		`delete from memberships where user_id = $1`,
+		`delete from access_requests where user_id = $1`,
+		`delete from users where id = $1`)
+}
+
 // SetCodeHash stores the door code hash of the user with id.
 func (s *Store) SetCodeHash(ctx context.Context, id int64, hash *string) (bool, error) {
 	tag, err := s.pool.Exec(ctx, `update users set code_hash = $2 where id = $1`, id, hash)

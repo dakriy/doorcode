@@ -17,6 +17,8 @@ import (
 type Store interface {
 	connector.UsersStore
 	connector.GroupsStore
+	connector.FirmwareStore
+	connector.OverridesStore
 }
 
 // Service reads and changes users and groups.
@@ -54,6 +56,9 @@ var (
 	// ErrNotHeld reports a change to a group carrying a role the person
 	// making it does not hold.
 	ErrNotHeld = errors.New("you can only change groups whose roles you hold")
+	// ErrInUse reports a user who cannot be removed for good while what
+	// they made stays.
+	ErrInUse = errors.New("the user is named by what they made")
 )
 
 const maxUserIDLength = 64

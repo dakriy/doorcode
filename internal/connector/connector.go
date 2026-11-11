@@ -179,6 +179,12 @@ type UsersStore interface {
 	// SetUserDeleted stores at as the deletion time of the user whose id is
 	// id, nil restoring them, and reports whether there is one.
 	SetUserDeleted(ctx context.Context, id int64, at *time.Time) (bool, error)
+	// PurgeUser removes the user whose id is id for good, deleted or not,
+	// with their sessions, API tokens, memberships, access requests, and
+	// the events that name them, and reports whether there was one. It
+	// refuses a user firmware or an override still names as its uploader
+	// or creator.
+	PurgeUser(ctx context.Context, id int64) (bool, error)
 	// SetCodeHash stores hash as the door code hash of the user whose id is
 	// id, nil removing the code, and reports whether there is one.
 	SetCodeHash(ctx context.Context, id int64, hash *string) (bool, error)
@@ -606,6 +612,12 @@ type DoorsStore interface {
 	// SetDoorDeleted stores at as the deletion time of the door whose id is
 	// id, nil restoring it, and reports whether there is one.
 	SetDoorDeleted(ctx context.Context, id int64, at *time.Time) (bool, error)
+	// PurgeDoor removes the door whose id is id for good, deleted or not,
+	// with every row that refers to it: its pictures, zone memberships,
+	// overrides, controller, credentials, events, telemetry samples and
+	// rollups, and latest firmware update. It reports whether there was
+	// one.
+	PurgeDoor(ctx context.Context, id int64) (bool, error)
 	// SetController stores c as the controller of the door whose id is id,
 	// nil detaching it, and reports whether there is such a door. Hardware
 	// ids are unique: it refuses one another door's controller has.
@@ -789,6 +801,9 @@ type OverridesStore interface {
 	// DoorOverrides returns the overrides of the door whose id is doorID
 	// that end after endsAfter, ordered by start and then by id.
 	DoorOverrides(ctx context.Context, doorID int64, endsAfter time.Time) ([]StoredOverride, error)
+	// UserOverrides returns the overrides the user whose id is userID
+	// created, at every door, ordered by id.
+	UserOverrides(ctx context.Context, userID int64) ([]StoredOverride, error)
 	// Override returns the override whose id is id, and whether there is
 	// one.
 	Override(ctx context.Context, id int64) (StoredOverride, bool, error)

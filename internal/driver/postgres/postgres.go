@@ -215,3 +215,21 @@ func found[T any](value T, err error) (T, bool, error) {
 	}
 	return value, err == nil, err
 }
+
+// purge runs each of statements with id as its one argument in one
+// transaction, the last deleting the row itself, and reports whether that
+// one deleted a row.
+func (s *Store) purge(ctx context.Context, id int64, statements ...string) (bool, error) {
+	var removed bool
+	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		for _, statement := range statements {
+			tag, err := tx.Exec(ctx, statement, id)
+			if err != nil {
+				return err
+			}
+			removed = tag.RowsAffected() == 1
+		}
+		return nil
+	})
+	return removed, err
+}

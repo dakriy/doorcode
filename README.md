@@ -61,7 +61,13 @@ the engineering contract is [AGENTS.md](AGENTS.md).
 - **API.** Everything the UI does is under `/api/v1`, described by an
   OpenAPI 3.1 document at `/api/v1/openapi.json` and browsable at
   `/api-docs`. Personal API tokens are accepted as a bearer token or as the
-  HTTP Basic password.
+  HTTP Basic password. Deleting a user or a door keeps its history and can
+  be undone; `DELETE /api/v1/users/{id}?force=true` and
+  `DELETE /api/v1/doors/{id}?force=true` instead remove it for good with
+  everything that refers to it (its events, telemetry, sessions, tokens,
+  and so on) and free its name, email, or user id. That is meant for
+  integrations that make temporary users and doors for testing, needs the
+  `admin` role, and is offered by no page.
 - **Settings.** Edited in the UI, each overridable by an environment
   variable (and then read-only in the UI). Secret settings are encrypted at
   rest. Light and dark themes follow the browser; the accent color, the
@@ -260,7 +266,7 @@ What a scrape holds:
 | `doorcode_door_tcp_drops_total` | counter | `door`, `door_id` | TCP segments the controller dropped since it started. |
 | `doorcode_door_wifi_drops_total` | counter | `door`, `door_id` | Times the controller lost its Wi-Fi access point since it started. |
 | `doorcode_door_roams_total` | counter | `door`, `door_id` | Times the controller moved to another access point by its own choice since it started. |
-| `doorcode_events_total` | counter | `door`, `door_id`, `type`, `outcome`, `reason`, `start_reason` | Events recorded since the server started, as the events page lists them. A deleted door's series stay. `start_reason` is the reason a controller gave for starting, as it gave it (`power_on`, `software`, `panic`, `watchdog`, `brownout`, `external`, or `unknown` from current firmware), on `type="door"`, `reason="started"`, and empty on every other event. |
+| `doorcode_events_total` | counter | `door`, `door_id`, `type`, `outcome`, `reason`, `start_reason` | Events recorded since the server started, as the events page lists them. A deleted door's series stay until it is deleted for good. `start_reason` is the reason a controller gave for starting, as it gave it (`power_on`, `software`, `panic`, `watchdog`, `brownout`, `external`, or `unknown` from current firmware), on `type="door"`, `reason="started"`, and empty on every other event. |
 | `doorcode_pending_enrollments` | gauge | none | Controllers waiting to be approved as doors. |
 | `doorcode_open_requests` | gauge | none | Access requests waiting for an answer. |
 | `doorcode_firmware_updates` | gauge | `state` | Doors taking part in the firmware rollout by their state in it: `pending`, `updating`, `failed` (the last update to its target failed), or `done`. Every state is listed, 0 when no door is in it. |

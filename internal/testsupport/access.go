@@ -154,6 +154,22 @@ func (s *Store) DoorOverrides(_ context.Context, doorID int64, endsAfter time.Ti
 	return held, nil
 }
 
+// UserOverrides returns the overrides the user created, by id.
+func (s *Store) UserOverrides(_ context.Context, userID int64) ([]connector.StoredOverride, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.usable(overridesAggregate); err != nil {
+		return nil, err
+	}
+	held := []connector.StoredOverride{}
+	for _, o := range s.overrides {
+		if o.CreatedBy == userID {
+			held = append(held, s.named(o))
+		}
+	}
+	return held, nil
+}
+
 // Override returns the override with id.
 func (s *Store) Override(_ context.Context, id int64) (connector.StoredOverride, bool, error) {
 	s.mu.Lock()

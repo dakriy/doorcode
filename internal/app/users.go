@@ -107,11 +107,17 @@ func (a *App) userRoutes() []route {
 			},
 		}),
 		apiRoute(http.MethodDelete, "/users/{id}", users, a.deleteUser, apiDoc{
-			id: "deleteUser", summary: "Delete a user", tag: "users", params: []openapi.Param{userIDParam},
+			id: "deleteUser", summary: "Delete a user", tag: "users", params: []openapi.Param{userIDParam, forceParam(
+				"true removes the user for good, deleted or not, with everything that refers to them: their sessions, API tokens, " +
+					"group memberships, access requests, and the events that name them, so their email and user id are free again. " +
+					"It is meant for integrations that make users for testing and needs the admin role. " +
+					"false, the default, deletes them so that they can be restored.")},
 			responses: []openapi.Response{
-				{Status: http.StatusNoContent, Description: "The user is deleted and refused everywhere; their history stays. Deleting a deleted user changes nothing."},
-				noUser,
-				{Status: http.StatusConflict, Description: "The user is the caller, who cannot delete their own account.", Body: errorBody{}},
+				{Status: http.StatusNoContent, Description: "The user is deleted and refused everywhere; their history stays. Deleting a deleted user changes nothing. " +
+					"With force, the user and their history are gone."},
+				badForce, forceRefused(auth.RoleManageUsers), noUser,
+				{Status: http.StatusConflict, Description: "The user is the caller, who cannot delete their own account; or force is true and the user uploaded " +
+					"firmware or created overrides, which stay and name them: the error says which, to delete first.", Body: errorBody{}},
 			},
 		}),
 		apiRoute(http.MethodPost, "/users/{id}/restore", users, a.restoreUser, apiDoc{
@@ -262,7 +268,15 @@ func (a *App) noContent(w http.ResponseWriter, r *http.Request, err error) {
 }
 
 func (a *App) deleteUser(w http.ResponseWriter, r *http.Request, caller auth.User) {
-	a.noContent(w, r, a.directory.DeleteUser(r.Context(), caller, pathID(r, "id")))
+	force, ok := forced(w, r, caller)
+	if !ok {
+		return
+	}
+	remove := a.directory.DeleteUser
+	if force {
+		remove = a.directory.PurgeUser
+	}
+	a.noContent(w, r, remove(r.Context(), caller, pathID(r, "id")))
 }
 
 func (a *App) restoreUser(w http.ResponseWriter, r *http.Request, _ auth.User) {
