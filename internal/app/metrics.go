@@ -128,11 +128,7 @@ func doorFamilies(doors []firmware.DoorFirmware) []exposition.Family {
 	}
 	var out []exposition.Family
 	for _, m := range stateMetrics {
-		f := exposition.Family{Name: m.name, Help: m.help, Type: exposition.Gauge}
-		for _, df := range enrolled {
-			f.Samples = append(f.Samples, exposition.Sample{Labels: doorLabels(df.Door), Value: m.value(df)})
-		}
-		out = append(out, f)
+		out = append(out, doorFamily(m.name, m.help, exposition.Gauge, enrolled, m.value))
 	}
 	out = append(out, firmwareInfo(enrolled))
 	out = append(out, reportFamilies(reportGauges, exposition.Gauge, online)...)
@@ -157,13 +153,20 @@ func firmwareInfo(doors []firmware.DoorFirmware) exposition.Family {
 func reportFamilies(metrics []reportMetric, kind string, doors []firmware.DoorFirmware) []exposition.Family {
 	var out []exposition.Family
 	for _, m := range metrics {
-		f := exposition.Family{Name: m.name, Help: m.help, Type: kind}
-		for _, df := range doors {
-			f.Samples = append(f.Samples, exposition.Sample{Labels: doorLabels(df.Door), Value: m.value(*df.Door.Controller.Telemetry)})
-		}
-		out = append(out, f)
+		fromReport := func(df firmware.DoorFirmware) float64 { return m.value(*df.Door.Controller.Telemetry) }
+		out = append(out, doorFamily(m.name, m.help, kind, doors, fromReport))
 	}
 	return out
+}
+
+// doorFamily is a family of kind with one sample per door in doors, its
+// value read by value.
+func doorFamily(name, help, kind string, doors []firmware.DoorFirmware, value func(firmware.DoorFirmware) float64) exposition.Family {
+	f := exposition.Family{Name: name, Help: help, Type: kind}
+	for _, df := range doors {
+		f.Samples = append(f.Samples, exposition.Sample{Labels: doorLabels(df.Door), Value: value(df)})
+	}
+	return f
 }
 
 // doorLabels names d in a sample: by name and by id.
