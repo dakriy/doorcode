@@ -18,6 +18,19 @@ func scrapeAs(t *testing.T, h testsupport.Handler, b *testsupport.Browser) strin
 	return send(t, tokenClient(h, createToken(t, b, `{"name":"prometheus"}`)), "GET", "/metrics", "", 200).Body
 }
 
+// withoutHTTP is a scrape with the HTTP request families left out of its
+// body, since every request a test makes shows in them.
+func withoutHTTP(r testsupport.Response) testsupport.Response {
+	r.Body = testsupport.WithoutFamilies(r.Body, "doorcode_http_")
+	return r
+}
+
+// siteSamples is the samples of a scrape's body but those of the HTTP
+// request families.
+func siteSamples(body string) []string {
+	return testsupport.Samples(testsupport.WithoutFamilies(body, "doorcode_http_"), "doorcode_")
+}
+
 // metricFamilies are every family a scrape shows, in order: name, help,
 // and type.
 var metricFamilies = [][3]string{
@@ -96,7 +109,7 @@ func TestTheMetricsNeedATokenWhoseUserHoldsViewMetrics(t *testing.T) {
 	createGroup(t, admin, `{"slug":"monitoring","name":"Monitoring","roles":["view-metrics"]}`)
 	join(t, admin, "2", "2")
 
-	got := []testsupport.Response{refusedWithoutToken, refusedWithoutRole, annClient.Get("/metrics")}
+	got := []testsupport.Response{refusedWithoutToken, refusedWithoutRole, withoutHTTP(annClient.Get("/metrics"))}
 
 	want := []testsupport.Response{
 		apiError(401, "a valid API token is required"),
@@ -113,7 +126,7 @@ func TestAScrapeShowsADoorsStateItsLatestReportAndItsTotals(t *testing.T) {
 	k := keypadSite(t, testsupport.NewFactory())
 	k.report(with(totals(3, 7, 40, 2, 900, 12, 4, 5, 1), map[string]any{"mesh_layer": 2, "mesh_children": 1, "channel": 6}))
 
-	got := testsupport.Samples(scrapeAs(t, k.a.Handler(), k.b), "doorcode_")
+	got := siteSamples(scrapeAs(t, k.a.Handler(), k.b))
 
 	want := []string{
 		`doorcode_door_online{door="Lobby",door_id="1"} 1`,
@@ -162,7 +175,7 @@ func TestAnOfflineDoorKeepsItsStateAndTotalsButNotWhatItLastReported(t *testing.
 	k.conn.Drop()
 	run(t, k.a)
 
-	got := testsupport.Samples(scrapeAs(t, k.a.Handler(), k.b), "doorcode_")
+	got := siteSamples(scrapeAs(t, k.a.Handler(), k.b))
 
 	want := []string{
 		`doorcode_door_online{door="Lobby",door_id="1"} 0`,
@@ -281,7 +294,7 @@ func TestWhenTheStoreFailsAScrapeSaysSoWithoutDoorsAndLogsIt(t *testing.T) {
 	k.press("999999")
 	k.f.StoreStub.FailDoors()
 
-	got := []any{c.Get("/metrics"), lastLog(k.f)}
+	got := []any{withoutHTTP(c.Get("/metrics")), lastLog(k.f)}
 
 	want := []any{
 		doorlessScrape("1", "0"),
@@ -298,7 +311,7 @@ func TestAScrapeSaysWhenTheBrokerIsNotConnected(t *testing.T) {
 	h, secret := adminWithToken(t, f, `{"name":"prometheus"}`)
 	f.BrokerStub.Disconnect()
 
-	got := tokenClient(h, secret).Get("/metrics")
+	got := withoutHTTP(tokenClient(h, secret).Get("/metrics"))
 
 	if diff := cmp.Diff(doorlessScrape("0", "1"), got); diff != "" {
 		t.Errorf("scrape (-want +got):\n%s", diff)
@@ -377,7 +390,7 @@ func TestWhenTheRequestsCannotBeReadAScrapeSaysSoWithoutTheirCountAndLogsIt(t *t
 
 	body := tokenClient(h, secret).Get("/metrics").Body
 	got := []any{
-		testsupport.Samples(body, "doorcode_"),
+		siteSamples(body),
 		testsupport.Samples(body, "# TYPE doorcode_open_requests"),
 		lastLog(f),
 	}

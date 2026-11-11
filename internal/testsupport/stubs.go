@@ -44,20 +44,29 @@ var ErrCheck = errors.New("stub: check constraint")
 // as a real database without its tables would.
 var ErrNotMigrated = errors.New("stub: schema not migrated")
 
-// Clock is the stub connector.Clock: it reports a fixed time until Set.
+// Clock is the stub connector.Clock: it reports a fixed time until Set,
+// or, once paced, moves on by its pace each time it is read.
 type Clock struct {
-	now time.Time
+	mu   sync.Mutex
+	now  time.Time
+	pace time.Duration
 }
 
-// Now returns the stub's current time.
+// Now returns the stub's current time, then moves it on by its pace.
 func (c *Clock) Now() time.Time {
-	return c.now
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	now := c.now
+	c.now = c.now.Add(c.pace)
+	return now
 }
 
 // Alarm returns a channel that has received when the stub time is at or
 // past at, and one that never receives otherwise: the stub time moves only
 // when a test sets it, which it does between runs.
 func (c *Clock) Alarm(at time.Time) <-chan time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.now.Before(at) {
 		return nil
 	}
@@ -68,7 +77,22 @@ func (c *Clock) Alarm(at time.Time) <-chan time.Time {
 
 // Set moves the clock to an RFC 3339 time.
 func (c *Clock) Set(rfc3339 string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.now = mustTime(rfc3339)
+}
+
+// Pace makes every later read of the clock move it on by step, a Go
+// duration such as 250ms; "0s" holds it still again. A request the
+// server times reads it once as it starts and once as it ends.
+func (c *Clock) Pace(step string) {
+	d, err := time.ParseDuration(step)
+	if err != nil {
+		panic(err)
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.pace = d
 }
 
 // Entropy is the stub connector.Entropy. It is predictable: it hands out

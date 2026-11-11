@@ -37,3 +37,16 @@ func Samples(body, prefix string) []string {
 	}
 	return out
 }
+
+// WithoutFamilies is a metrics scrape's body with every family whose name
+// starts with prefix left out, its HELP and TYPE comments with it.
+func WithoutFamilies(body, prefix string) string {
+	var kept []string
+	for _, line := range strings.SplitAfter(body, "\n") {
+		if strings.HasPrefix(line, prefix) || strings.HasPrefix(line, "# HELP "+prefix) || strings.HasPrefix(line, "# TYPE "+prefix) {
+			continue
+		}
+		kept = append(kept, line)
+	}
+	return strings.Join(kept, "")
+}

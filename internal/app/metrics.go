@@ -97,8 +97,9 @@ var rolloutStates = []string{firmware.Pending, firmware.Updating, firmware.Faile
 
 // metrics answers a Prometheus scrape: every door's metrics, the events
 // recorded since the server started, what waits for attention across the
-// site, and whether the broker and the store answer. A store that fails
-// one of the scrape's reads leaves out what that read gives and says so in
+// site, whether the broker and the store answer, and the HTTP requests
+// answered since the server started. A store that fails one of the
+// scrape's reads leaves out what that read gives and says so in
 // doorcode_store_up.
 func (a *App) metrics(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	// The counts are taken before the doors are read, so every door they
@@ -116,6 +117,7 @@ func (a *App) metrics(w http.ResponseWriter, r *http.Request, _ auth.User) {
 		fromRead(firmwareUpdates(plan.Doors), planErr),
 		siteGauge("doorcode_broker_connected", "1 while the server is connected to the broker, else 0.", flag(a.broker.Connected())),
 		siteGauge("doorcode_store_up", "1 when the store answered the scrape's reads, else 0.", flag(planErr == nil && requestsErr == nil)))
+	families = append(families, a.traffic.Families()...)
 	w.Header().Set("Content-Type", exposition.ContentType)
 	_, _ = io.WriteString(w, exposition.Text(families))
 }

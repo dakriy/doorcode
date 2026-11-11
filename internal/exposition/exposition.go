@@ -13,8 +13,9 @@ const ContentType = "text/plain; version=0.0.4; charset=utf-8"
 
 // The types of a family.
 const (
-	Gauge   = "gauge"
-	Counter = "counter"
+	Gauge     = "gauge"
+	Counter   = "counter"
+	Histogram = "histogram"
 )
 
 // Label is one label of a sample: its name and value.
@@ -24,8 +25,10 @@ type Label struct {
 }
 
 // Sample is one value of a family, told apart from its others by its
-// labels.
+// labels. Suffix follows the family's name in the sample's line, as
+// _bucket, _sum, and _count do in a histogram's.
 type Sample struct {
+	Suffix string
 	Labels []Label
 	Value  float64
 }
@@ -51,7 +54,7 @@ func Text(families []Family) string {
 		b.WriteString("# HELP " + f.Name + " " + helpEscaper.Replace(f.Help) + "\n")
 		b.WriteString("# TYPE " + f.Name + " " + f.Type + "\n")
 		for _, s := range f.Samples {
-			b.WriteString(f.Name + labels(s.Labels) + " " + strconv.FormatFloat(s.Value, 'f', -1, 64) + "\n")
+			b.WriteString(f.Name + s.Suffix + labels(s.Labels) + " " + strconv.FormatFloat(s.Value, 'f', -1, 64) + "\n")
 		}
 	}
 	return b.String()

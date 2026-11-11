@@ -6,6 +6,7 @@ import (
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/openapi"
+	"github.com/dakriy/doorcode/internal/traffic"
 )
 
 // apiPrefix starts the path of every JSON API operation.
@@ -114,13 +115,48 @@ func (a *App) routes() []route {
 	return append(table, a.calendarPageRoutes()...)
 }
 
-// handler registers every route of table on a new mux.
+// handler registers every route of table on a new mux, and counts every
+// request it answers by the route that matched it.
 func (a *App) handler(table []route) http.Handler {
 	mux := http.NewServeMux()
+	routeOf := map[string]string{}
 	for _, rt := range table {
-		mux.HandleFunc(rt.method+" "+rt.pattern(), a.guard(rt))
+		registered := rt.method + " " + rt.pattern()
+		mux.HandleFunc(registered, a.guard(rt))
+		routeOf[registered] = rt.pattern()
 	}
-	return http.NewCrossOriginProtection().Handler(mux)
+	protected := http.NewCrossOriginProtection().Handler(mux)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := a.clock.Now()
+		// A request no route matches, or one the mux redirects, has no
+		// route of the table.
+		_, registered := mux.Handler(r)
+		route, matched := routeOf[registered]
+		if !matched {
+			route = traffic.Unmatched
+		}
+		answer := &statusWriter{ResponseWriter: w, status: http.StatusOK}
+		protected.ServeHTTP(answer, r)
+		a.traffic.Add(r.Method, route, answer.status, a.clock.Now().Sub(start).Seconds())
+	})
+}
+
+// statusWriter passes a response on and keeps the status it answered
+// with, 200 until the handler sets another.
+type statusWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *statusWriter) WriteHeader(status int) {
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
+}
+
+// Unwrap is the response passed on, so http.ResponseController reaches
+// its flushing.
+func (w *statusWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
 }
 
 // isAPI reports whether rt is a JSON API operation, which lives under

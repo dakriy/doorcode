@@ -30,6 +30,7 @@ import (
 	"github.com/dakriy/doorcode/internal/settings"
 	"github.com/dakriy/doorcode/internal/stats"
 	"github.com/dakriy/doorcode/internal/telemetry"
+	"github.com/dakriy/doorcode/internal/traffic"
 )
 
 // App is the running application.
@@ -69,6 +70,8 @@ type App struct {
 	identity identity.Service
 	// proxies decides whom to believe about where a request came from.
 	proxies proxy.Service
+	// traffic counts the HTTP requests answered, for the metrics.
+	traffic *traffic.Requests
 	// enrolling says Run has set up the enrollment credentials, and
 	// nextSweep is when it next does the periodic work. Only Run reads and
 	// changes them.
@@ -121,6 +124,7 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 		store:     store,
 		live:      live,
 		proxies:   proxy.Service{Resolver: f.Resolver(), Resolved: proxy.NewResolved()},
+		traffic:   traffic.New(),
 	}
 	a.overrides = override.Service{Store: store, Doors: a.doors, Clock: clock}
 	a.pushes = push.Service{Store: store, Settings: s, Broker: a.broker, Clock: clock, Sent: push.NewSent()}
