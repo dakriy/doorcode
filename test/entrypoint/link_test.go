@@ -10,8 +10,8 @@ import (
 
 // linkReport is how Lobby's links fared since its last report: checks
 // sent and lost, TCP segments sent, sent again, and dropped, Wi-Fi drops
-// and roams, the reason of its latest drop, and the access point it is on,
-// each count times scale.
+// and roams, the reason of its latest drop, and the access point it is on:
+// each count times scale and the reason 200 plus scale.
 func linkReport(scale int, bssid string, channel int) map[string]any {
 	return map[string]any{
 		"checks_sent": 6 * scale, "checks_lost": scale, "tcp_sent": 5000000000 * int64(scale), "tcp_retransmits": 9 * scale,

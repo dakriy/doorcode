@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/dakriy/doorcode/internal/connector"
+	"github.com/dakriy/doorcode/internal/telemetry"
 )
 
 // profile is a door's simulated controller and how it reports: its
@@ -192,56 +193,19 @@ func (p profile) writeSamples(ctx context.Context, store connector.Store, rng *r
 	return nil
 }
 
-// rollup sums up what p's controller reported in the hour from hour, and
-// whether it reported at all.
+// rollup sums up what p's controller reported in the hour from hour, as
+// the periodic work would have, and whether it reported at all.
 func (p profile) rollup(rng *rand.Rand, now, hour time.Time, opens map[slot]int) (connector.StoredRollup, bool) {
-	r := connector.StoredRollup{DoorID: p.door, Hour: hour}
-	var signal, latency, free spread
+	var reports []connector.StoredSample
 	for at := hour; at.Before(hour.Add(time.Hour)); at = at.Add(sampleEvery) {
-		t, ok := p.report(rng, now, at, opens[slot{p.door, at}])
-		if !ok {
-			continue
+		if t, ok := p.report(rng, now, at, opens[slot{p.door, at}]); ok {
+			reports = append(reports, connector.StoredSample{DoorID: p.door, StoredTelemetry: t})
 		}
-		r.Samples++
-		r.Opens += t.Opens
-		r.ChecksSent += t.ChecksSent
-		r.ChecksLost += t.ChecksLost
-		r.TCPSent += t.TCPSent
-		r.TCPRetransmits += t.TCPRetransmits
-		r.TCPDrops += t.TCPDrops
-		r.WifiDrops += t.WifiDrops
-		r.Roams += t.Roams
-		signal.add(int64(t.Signal))
-		latency.add(int64(t.LatencyMS))
-		free.add(t.FreeBytes)
 	}
-	r.Signal, r.Latency, r.FreeBytes = signal.stored(), latency.stored(), free.stored()
-	r.MeshLayer, r.MeshChildren, r.StoredLink = p.meshLayer(), p.meshChildren(), p.wifi.link()
-	return r, r.Samples > 0
-}
-
-// spread follows the mean, smallest, and largest of values as they come.
-type spread struct {
-	n             int
-	sum, min, max int64
-}
-
-func (s *spread) add(v int64) {
-	if s.n == 0 || v < s.min {
-		s.min = v
+	if len(reports) == 0 {
+		return connector.StoredRollup{}, false
 	}
-	if s.n == 0 || v > s.max {
-		s.max = v
-	}
-	s.n++
-	s.sum += v
-}
-
-func (s spread) stored() connector.StoredSpread {
-	if s.n == 0 {
-		return connector.StoredSpread{}
-	}
-	return connector.StoredSpread{Mean: float64(s.sum) / float64(s.n), Min: s.min, Max: s.max}
+	return telemetry.RollUp(reports), true
 }
 
 // openMode reports whether the lobby open hours schedule was active at at,

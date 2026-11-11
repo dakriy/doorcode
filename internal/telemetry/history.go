@@ -35,8 +35,7 @@ func (s Service) rollUp(ctx context.Context) error {
 }
 
 // rollups sums up samples, ordered by door and then by time, an hour of
-// a door at a time, keeping the mesh layer and children and the Wi-Fi
-// link of each hour's last report.
+// a door at a time.
 func rollups(samples []connector.StoredSample) []connector.StoredRollup {
 	var hours [][]connector.StoredSample
 	for _, sample := range samples {
@@ -49,22 +48,30 @@ func rollups(samples []connector.StoredSample) []connector.StoredRollup {
 	}
 	out := []connector.StoredRollup{}
 	for _, hour := range hours {
-		opens := 0
-		counts := connector.StoredLinkCounts{}
-		for _, sample := range hour {
-			opens += sample.Opens
-			counts = added(counts, sample.StoredLinkCounts)
-		}
-		last := hour[len(hour)-1]
-		out = append(out, connector.StoredRollup{
-			DoorID: hour[0].DoorID, Hour: hour[0].At.Truncate(time.Hour), Samples: len(hour), Opens: opens,
-			MeshLayer: last.MeshLayer, MeshChildren: last.MeshChildren, StoredLinkCounts: counts, StoredLink: last.StoredLink,
-			Signal:    spread(hour, func(s connector.StoredSample) int64 { return int64(s.Signal) }),
-			Latency:   spread(hour, func(s connector.StoredSample) int64 { return int64(s.LatencyMS) }),
-			FreeBytes: spread(hour, func(s connector.StoredSample) int64 { return s.FreeBytes }),
-		})
+		out = append(out, RollUp(hour))
 	}
 	return out
+}
+
+// RollUp sums up hour, at least one report of one door in one hour,
+// oldest first: the spread of their signal strength, latency, and free
+// memory, how often the door was opened and how its links fared in all,
+// and the mesh layer and children and the Wi-Fi link of the last report.
+func RollUp(hour []connector.StoredSample) connector.StoredRollup {
+	opens := 0
+	counts := connector.StoredLinkCounts{}
+	for _, sample := range hour {
+		opens += sample.Opens
+		counts = added(counts, sample.StoredLinkCounts)
+	}
+	last := hour[len(hour)-1]
+	return connector.StoredRollup{
+		DoorID: hour[0].DoorID, Hour: hour[0].At.Truncate(time.Hour), Samples: len(hour), Opens: opens,
+		MeshLayer: last.MeshLayer, MeshChildren: last.MeshChildren, StoredLinkCounts: counts, StoredLink: last.StoredLink,
+		Signal:    spread(hour, func(s connector.StoredSample) int64 { return int64(s.Signal) }),
+		Latency:   spread(hour, func(s connector.StoredSample) int64 { return int64(s.LatencyMS) }),
+		FreeBytes: spread(hour, func(s connector.StoredSample) int64 { return s.FreeBytes }),
+	}
 }
 
 // added is the counts of a and b together.
