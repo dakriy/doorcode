@@ -113,7 +113,7 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 		schedules: schedule.Service{Store: store},
 		doors:     door.Service{Store: store, Clock: clock},
 		rules:     rule.Service{Store: store},
-		events:    event.Service{Store: store},
+		events:    event.Service{Store: store, Counts: event.NewCounts()},
 		stats:     stats.Service{Store: store},
 		requests:  request.Service{Store: store, Clock: clock, Changed: live.requested},
 		decisions: decision.Service{Store: store, Auth: authService, Settings: s, Clock: clock, Limits: decision.NewLimiter()},

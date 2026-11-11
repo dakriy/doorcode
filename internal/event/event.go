@@ -148,9 +148,10 @@ var Reasons = []string{
 	UpdateSent, UpdateSucceeded, UpdateFailed,
 }
 
-// Service records and finds events.
+// Service records and finds events, and counts those it recorded.
 type Service struct {
-	Store connector.EventsStore
+	Store  connector.EventsStore
+	Counts *Counts
 }
 
 // Query selects a page of events: the filter of a connector.EventQuery,
@@ -167,9 +168,14 @@ type Page struct {
 	Total  int
 }
 
-// Record adds e to the log, and returns the id it was given.
+// Record adds e to the log and counts it, and returns the id it was
+// given.
 func (s Service) Record(ctx context.Context, e connector.StoredEvent) (int64, error) {
-	return s.Store.AddEvent(ctx, e)
+	id, err := s.Store.AddEvent(ctx, e)
+	if err == nil {
+		s.Counts.add(e)
+	}
+	return id, err
 }
 
 // Find returns the page of events q selects, newest first.

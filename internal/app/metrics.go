@@ -8,6 +8,7 @@ import (
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/door"
+	"github.com/dakriy/doorcode/internal/event"
 	"github.com/dakriy/doorcode/internal/exposition"
 	"github.com/dakriy/doorcode/internal/firmware"
 	"github.com/dakriy/doorcode/internal/telemetry"
@@ -94,17 +95,22 @@ var reportCounters = []reportMetric{
 // rollout, in the order a scrape lists them.
 var rolloutStates = []string{firmware.Pending, firmware.Updating, firmware.Failed, firmware.Done}
 
-// metrics answers a Prometheus scrape: every door's metrics, what waits
-// for attention across the site, and whether the broker and the store
-// answer. A store that fails one of the scrape's reads leaves out what
-// that read gives and says so in doorcode_store_up.
+// metrics answers a Prometheus scrape: every door's metrics, the events
+// recorded since the server started, what waits for attention across the
+// site, and whether the broker and the store answer. A store that fails
+// one of the scrape's reads leaves out what that read gives and says so in
+// doorcode_store_up.
 func (a *App) metrics(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	plan, planErr := a.firmware.Plan(r.Context())
+	// The counts are taken before the doors are read, so every door they
+	// name is among them.
+	counts := a.events.Counts.All()
+	plan, planErr := a.firmware.PlanWithDeleted(r.Context())
 	a.unscraped(planErr, "could not read the doors for metrics")
 	waiting, requestsErr := a.requests.Waiting(r.Context())
 	a.unscraped(requestsErr, "could not read the access requests for metrics")
 	families := doorFamilies(plan.Doors)
 	families = append(families,
+		eventCounts(counts, plan.Doors, planErr),
 		siteGauge("doorcode_pending_enrollments", "Controllers waiting to be approved as doors.", float64(a.pendingEnrollments())),
 		readGauge("doorcode_open_requests", "Access requests waiting for an answer.", waiting, requestsErr),
 		firmwareUpdates(plan.Doors, planErr),
@@ -139,6 +145,29 @@ func firmwareUpdates(doors []firmware.DoorFirmware, err error) exposition.Family
 			}
 		}
 		f.Samples = append(f.Samples, exposition.Sample{Labels: []exposition.Label{{Name: "state", Value: state}}, Value: float64(count)})
+	}
+	return f
+}
+
+// eventCounts is the count of each kind of event in counts, at the door
+// of doors it names, which still has series once deleted, or nothing when
+// err says doors could not be read.
+func eventCounts(counts []event.Count, doors []firmware.DoorFirmware, err error) exposition.Family {
+	f := exposition.Family{
+		Name: "doorcode_events_total", Help: "The events recorded since the server started, by door, type, outcome, reason, and the reason a controller gave for starting.", Type: exposition.Counter,
+	}
+	if err != nil {
+		return f
+	}
+	byID := map[int64]connector.StoredDoor{}
+	for _, df := range doors {
+		byID[df.Door.ID] = df.Door
+	}
+	for _, c := range counts {
+		labels := append(doorLabels(byID[c.DoorID]),
+			exposition.Label{Name: "type", Value: c.Type}, exposition.Label{Name: "outcome", Value: c.Outcome},
+			exposition.Label{Name: "reason", Value: c.Reason}, exposition.Label{Name: "start_reason", Value: c.StartReason})
+		f.Samples = append(f.Samples, exposition.Sample{Labels: labels, Value: float64(c.N)})
 	}
 	return f
 }

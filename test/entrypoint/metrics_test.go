@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/dakriy/doorcode/internal/app"
 	"github.com/dakriy/doorcode/internal/testsupport"
 )
 
@@ -44,6 +45,7 @@ var metricFamilies = [][3]string{
 	{"doorcode_door_tcp_drops_total", "The TCP segments the door's controller dropped since it started.", "counter"},
 	{"doorcode_door_wifi_drops_total", "How often the door's controller lost its Wi-Fi access point since it started.", "counter"},
 	{"doorcode_door_roams_total", "How often the door's controller moved to another access point by its own choice since it started.", "counter"},
+	{"doorcode_events_total", "The events recorded since the server started, by door, type, outcome, reason, and the reason a controller gave for starting.", "counter"},
 	{"doorcode_pending_enrollments", "Controllers waiting to be approved as doors.", "gauge"},
 	{"doorcode_open_requests", "Access requests waiting for an answer.", "gauge"},
 	{"doorcode_firmware_updates", "Doors taking part in the firmware rollout, by their state in it: pending, updating, failed, or done.", "gauge"},
@@ -276,6 +278,7 @@ func TestWhenTheStoreFailsAScrapeSaysSoWithoutDoorsAndLogsIt(t *testing.T) {
 	t.Parallel()
 	k := keypadSite(t, testsupport.NewFactory())
 	c := tokenClient(k.a.Handler(), createToken(t, k.b, `{"name":"prometheus"}`))
+	k.press("999999")
 	k.f.StoreStub.FailDoors()
 
 	got := []any{c.Get("/metrics"), lastLog(k.f)}
@@ -391,5 +394,112 @@ func TestWhenTheRequestsCannotBeReadAScrapeSaysSoWithoutTheirCountAndLogsIt(t *t
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("samples, the family's type, log (-want +got):\n%s", diff)
+	}
+}
+
+// eventsScrape is the event counts a scrape of a with a new token of b's
+// user shows.
+func eventsScrape(t *testing.T, a *app.App, b *testsupport.Browser) []string {
+	t.Helper()
+	return testsupport.Samples(scrapeAs(t, a.Handler(), b), "doorcode_events_total")
+}
+
+func TestAScrapeCountsTheChecksAlarmsAndStartsAtADoor(t *testing.T) {
+	t.Parallel()
+	k := keypadSite(t, testsupport.NewFactory())
+	createRule(t, k.b, `{"group_id":2,"schedule_id":2,"zone_ids":[1]}`)
+	k.press("111111")
+	k.press("999999")
+	k.press("999999")
+	k.starts("panic")
+	k.opens(false)
+
+	got := eventsScrape(t, k.a, k.b)
+
+	want := []string{
+		`doorcode_events_total{door="Lobby",door_id="1",type="alarm",outcome="alert",reason="forced open",start_reason=""} 1`,
+		`doorcode_events_total{door="Lobby",door_id="1",type="check",outcome="allowed",reason="access rule",start_reason=""} 1`,
+		`doorcode_events_total{door="Lobby",door_id="1",type="check",outcome="denied",reason="no rule",start_reason=""} 2`,
+		`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="opened",start_reason=""} 1`,
+		`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="started",start_reason="panic"} 1`,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("samples (-want +got):\n%s", diff)
+	}
+}
+
+func TestAScrapeCountsTheFirmwareUpdatesSentAndHowTheyEnded(t *testing.T) {
+	t.Parallel()
+	fl := fleetSite(t, testsupport.NewFactory())
+	fl.at("2026-01-06T02:00:00Z")
+	fl.reconnects(1, "1.5.0")
+	fl.acks(2, "failed", "flash error")
+
+	got := eventsScrape(t, fl.a, fl.b)
+
+	want := []string{
+		`doorcode_events_total{door="Lobby",door_id="1",type="update",outcome="info",reason="update sent",start_reason=""} 1`,
+		`doorcode_events_total{door="Lobby",door_id="1",type="update",outcome="info",reason="update succeeded",start_reason=""} 1`,
+		`doorcode_events_total{door="Dock",door_id="2",type="update",outcome="alert",reason="update failed",start_reason=""} 1`,
+		`doorcode_events_total{door="Dock",door_id="2",type="update",outcome="info",reason="update sent",start_reason=""} 1`,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("samples (-want +got):\n%s", diff)
+	}
+}
+
+func TestADoorsEventCountsCarryItsCurrentNameAndStayOnceItIsDeleted(t *testing.T) {
+	t.Parallel()
+	k := keypadSite(t, testsupport.NewFactory())
+	k.press("999999")
+	send(t, k.b, "PUT", "/api/v1/doors/1", `{"name":"Foyer"}`, 200)
+	renamed := eventsScrape(t, k.a, k.b)
+	send(t, k.b, "DELETE", "/api/v1/doors/1", "", 204)
+
+	got := [][]string{renamed, eventsScrape(t, k.a, k.b)}
+
+	count := `doorcode_events_total{door="Foyer",door_id="1",type="check",outcome="denied",reason="no rule",start_reason=""} 1`
+	if diff := cmp.Diff([][]string{{count}, {count}}, got); diff != "" {
+		t.Errorf("renamed, then deleted (-want +got):\n%s", diff)
+	}
+}
+
+func TestANewlyStartedServerCountsEventsFromZero(t *testing.T) {
+	t.Parallel()
+	k := keypadSite(t, testsupport.NewFactory())
+	k.press("999999")
+	k.press("999999")
+	restarted := start(t, k.f)
+	k.a = restarted
+	k.press("999999")
+
+	got := eventsScrape(t, restarted, k.b)
+
+	want := []string{`doorcode_events_total{door="Lobby",door_id="1",type="check",outcome="denied",reason="no rule",start_reason=""} 1`}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("samples (-want +got):\n%s", diff)
+	}
+}
+
+func TestEventsRecordedInEveryLaneAtOnceAreAllCounted(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	a, b := pushSite(t, f)
+	for i := range 8 {
+		for _, door := range []string{"1", "2", "3"} {
+			f.BrokerStub.Inject(doorTopic(door, "check"), checkAs("r"+testsupport.Itoa(i)))
+		}
+	}
+	run(t, a)
+
+	got := eventsScrape(t, a, b)
+
+	want := []string{
+		`doorcode_events_total{door="Lobby",door_id="1",type="check",outcome="denied",reason="no rule",start_reason=""} 8`,
+		`doorcode_events_total{door="Dock",door_id="2",type="check",outcome="denied",reason="no rule",start_reason=""} 8`,
+		`doorcode_events_total{door="Attic",door_id="3",type="check",outcome="denied",reason="no rule",start_reason=""} 8`,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("samples (-want +got):\n%s", diff)
 	}
 }
