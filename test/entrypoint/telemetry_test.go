@@ -16,7 +16,7 @@ func TestADoorsStateIsUnknownUntilAControllerEnrollsAsIt(t *testing.T) {
 	got := b.Get("/api/v1/doors/1/state")
 
 	want := testsupport.Response{Status: 200, ContentType: jsonType, Body: `{"enrolled":false,"online":false,"door":"unknown",` +
-		`"held_open":false,"unresponsive":false,"firmware_version":""}` + "\n"}
+		`"held_open":false,"unresponsive":false,"firmware_version":"","config_sent_digest":"","config_mismatch":false,"config_reverted":false}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -31,9 +31,10 @@ func TestATelemetryReportBecomesTheDoorsState(t *testing.T) {
 
 	want := testsupport.JSON(`{"enrolled":true,"online":true,"door":"open","opened_at":"2026-01-05T09:00:30Z","held_open":false,
 		"unresponsive":false,"firmware_version":"1.5.0","last_seen_at":"2026-01-05T09:00:30Z",
+		"config_sent_digest":"` + k.sentDigest() + `","config_sent_at":"2026-01-05T09:00:00Z","config_mismatch":false,"config_reverted":false,
 		"telemetry":{"at":"2026-01-05T09:00:30Z","signal":-70,"latency_ms":40,"uptime_s":3720,"free_bytes":120832,
 		"firmware_version":"1.5.0","reconnects":2,"door_open":true,"opens":1,"mesh_layer":0,"mesh_parent":"","mesh_children":0,
-		"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"wifi_drop_reason":0,"roams":0,"bssid":"","channel":0}}`)
+		"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"wifi_drop_reason":0,"roams":0,"bssid":"","channel":0,"config_digest":""}}`)
 	if diff := cmp.Diff(want, k.state("")); diff != "" {
 		t.Errorf("state (-want +got):\n%s", diff)
 	}
@@ -70,7 +71,7 @@ func TestADoorPageShowsTheDoorsLiveState(t *testing.T) {
 			"Uptime": "3 d 2 h", "Free memory": "118 KiB", "Reconnects": "2",
 			"Mesh layer": "0, the access point itself", "Mesh parent": "None", "Mesh children": "0",
 			"Access point": "None reported", "Last Wi-Fi drop": "None reported",
-			"Last seen": "Mon 5 Jan 2026 09:00:30", "Last report": "Mon 5 Jan 2026 09:00:30",
+			"Last seen": "Mon 5 Jan 2026 09:00:30", "Last report": "Mon 5 Jan 2026 09:00:30", "Configuration": "Not reported yet",
 		},
 		[][]string{{"When", "Alarm", "Details"},
 			{"Mon 5 Jan 2026 09:01:00", "Held open", "Open for longer than 60 seconds."},
@@ -254,7 +255,7 @@ func TestTheTelemetryAPIShowsEachReport(t *testing.T) {
 
 	want := testsupport.JSON(`{"at":"2026-01-05T09:10:00Z","signal":-60,"latency_ms":40,"uptime_s":3720,"free_bytes":100000,
 		"firmware_version":"1.4.3","reconnects":2,"door_open":false,"opens":2,"mesh_layer":0,"mesh_parent":"","mesh_children":0,
-		"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"wifi_drop_reason":0,"roams":0,"bssid":"","channel":0}`)
+		"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"wifi_drop_reason":0,"roams":0,"bssid":"","channel":0,"config_digest":""}`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("report (-want +got):\n%s", diff)
 	}

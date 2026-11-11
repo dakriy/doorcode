@@ -13,7 +13,6 @@ import (
 	"github.com/dakriy/doorcode/internal/override"
 	"github.com/dakriy/doorcode/internal/picture"
 	"github.com/dakriy/doorcode/internal/settings"
-	"github.com/dakriy/doorcode/internal/telemetry"
 )
 
 func (a *App) doorPageRoutes() []route {
@@ -95,7 +94,7 @@ func (c catalog) rowOfDoor(d connector.StoredDoor) doorRow {
 		Zones: c.zonesOf(d), OpenMode: c.openSchedules(d), Status: doorStatus(d.Controller), Thumbnail: thumbnailOf(d),
 	}
 	if d.Controller != nil {
-		row.Badges, row.Mesh = telemetry.Badges(*d.Controller), c.meshBadge(*d.Controller)
+		row.Badges, row.Mesh = badgesOf(d), c.meshBadge(*d.Controller)
 	}
 	return row
 }

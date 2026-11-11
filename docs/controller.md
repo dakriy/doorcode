@@ -406,6 +406,58 @@ independently.
 Pin mappings and other hardware matters are the firmware's own and are not
 here.
 
+### Configuration digest and trying a configuration
+
+A configuration is named by its digest: the first 8 bytes of the SHA-256
+of the message's payload exactly as published on
+`doorcode/doors/<id>/config` (the whole CBOR map with `v`), written as 16
+lowercase hex digits (`protocol.Digest`). The server encodes the message
+deterministically (section 4), so the same configuration always has the
+same digest. Store the payload as received and report the digest of the
+one in use as telemetry's `config_digest` (section 12), empty while
+running the defaults.
+
+A configuration that changes how the door reaches the server (the broker,
+Wi-Fi, and mesh fields) may be tried: the controller keeps the one it ran,
+restarts with the new one, and keeps it once it is online as its door
+again. When it cannot come online with it within the
+`update_connect_timeout_s` of the one it ran, it goes back to that one,
+restarts, and once online says `config_reverted` (section 12) with the
+digest of the configuration given up. It then ignores that configuration
+while it stays retained; any other configuration is taken as usual and
+makes it forget the one given up, so changing the door's configuration,
+any change, makes it try again.
+
+The server keeps, for each door, the digest of the configuration it last
+sent and when it first sent it (sending the same configuration again, as
+on every reconnect, keeps that time). It flags a door whose controller
+does not run it:
+
+- **older configuration:** two telemetry reports in a row, both received
+  after the configuration was sent, name another digest. One is not
+  enough: a report made just as the configuration went out, or the first
+  after the door came back online, may come before the controller took
+  it, and a controller trying a configuration restarts and reports
+  nothing until it is online with it. The flag dates from the first of
+  the reports, and goes as soon as a report names the configuration last
+  sent, names none, or a new configuration is sent.
+- **configuration given up:** the controller said `config_reverted`
+  naming the configuration last sent, after it was sent. The flag holds,
+  whatever the controller reports meanwhile, until a report names the
+  configuration last sent or a new configuration is sent.
+
+There is no flag for a door without a controller, a door sent no
+configuration since the server began keeping the digest (it is sent one
+on every reconnect), a controller that has not reported since the
+configuration was sent, nor while its reports name no configuration
+(empty `config_digest`: its defaults, or firmware that predates the
+field), which the server shows as not reported. The door list shows the
+flag as a badge, the door page as its Configuration and a note saying
+what happened and that changing the configuration makes the door try
+again, and `GET /api/v1/doors/{id}/state` as `config_mismatch`,
+`config_reverted`, and `config_mismatch_since`, beside
+`config_sent_digest` and `config_sent_at`.
+
 ## 10. The timeline and the door's state
 
 On `doorcode/doors/<id>/timeline`, retained (`Timeline`). It covers the next
@@ -550,12 +602,15 @@ connected, first soon after connecting. Every field is always sent.
 | `roams` | uint | | Times the Wi-Fi station moved to another access point by its own choice since the last report. |
 | `bssid` | text | | The access point joined now, 12 lowercase hex digits; empty with no link. |
 | `channel` | uint | | The Wi-Fi channel of the access point joined now; 0 with no link. |
+| `config_digest` | text | | The digest of the configuration in use (section 9), 16 lowercase hex digits; empty while running the defaults. |
 
 Firmware that predates the mesh fields leaves them out; the server reads a
 missing `mesh_layer` and `mesh_children` as 0 and a missing `mesh_parent`
 as empty, that is, as a controller reaching the access point itself.
 Firmware that predates the link fields (`checks_sent` to `channel`) leaves
-them out, which the server reads as 0 and an empty `bssid`.
+them out, which the server reads as 0 and an empty `bssid`. Firmware that
+predates `config_digest` leaves it out, which the server reads as empty,
+reporting no configuration (section 9).
 
 The server keeps the reports as history and hourly summaries (each hour
 sums the link counts and keeps the `mesh_layer`, `mesh_children`,
@@ -575,15 +630,19 @@ as for any other. Firmware that predates this says nothing inside an
 `open` span; the server learns the state from its next report. And once
 after the controller starts, in open mode too: `started`, the first time
 it comes online as the door since it started (section 7), never on a
-plain reconnect, with neither `unlocked` nor `open_ms`.
+plain reconnect, with neither `unlocked` nor `open_ms`. And once it is
+online again after giving up a configuration it tried (section 9), right
+after `started`: `config_reverted`, carrying the digest of the
+configuration given up.
 
 | Field | CBOR type | Meaning |
 | --- | --- | --- |
 | `v` | uint | Protocol version, 1. |
-| `event` | text | `opened` (`protocol.EventOpened`), `closed` (`protocol.EventClosed`), or `started` (`protocol.EventStarted`). |
+| `event` | text | `opened` (`protocol.EventOpened`), `closed` (`protocol.EventClosed`), `started` (`protocol.EventStarted`), or `config_reverted` (`protocol.EventConfigReverted`). |
 | `unlocked` | bool | With `opened` only, optional: whether the door was unlocked when the sensor saw it open, that is, the strike was released, or had been locked again for no longer than a short grace period the controller chooses. |
 | `open_ms` | uint | With `closed` only, optional: how many milliseconds the door was open, by the controller's clock. Sent only when the controller saw the opening from its start and it began outside an open span; otherwise left out. |
 | `reason` | text | With `started` only, optional: why the controller started, one of the values below; left out when it cannot tell. |
+| `config_digest` | text | With `config_reverted` only: the digest of the configuration given up, 16 lowercase hex digits. |
 
 The `reason` values of `started`, and what the server's event says of each:
 
@@ -609,6 +668,12 @@ kept it, matches no such filter. It leaves the
 door's open or closed state as it was and, like any message from the
 door, counts as contact. Firmware that predates it never sends it, and
 the server derives nothing in its place.
+
+A `config_reverted` event is recorded as an alarm at the door: type
+`alarm`, outcome `alert`, reason `configuration reverted`, detail "The
+door could not come online with configuration <digest> and went back to
+the one it ran before.", and flags the door as section 9 says when the
+digest is that of the configuration last sent.
 
 From these the server derives:
 
@@ -808,6 +873,7 @@ configuration and timeline bring it up to date at once.
 | The last configuration | To run offline and after a restart. |
 | The last timeline | To follow open and locked spans offline. |
 | The `id` and `version` of an update under way | To ack a failure after a revert. |
+| The configuration it ran before one it is trying, and the digest of one it gave up | To go back when it cannot come online, and to ignore the one given up (section 9). |
 | The previous firmware image | To revert. |
 
 Codes are never stored.
@@ -850,10 +916,11 @@ it.
 | `Config` (`Header`, `DoorConfig`) | message | `v` and the configuration fields in one map. | 9 |
 | `Span` (`Start`, `End`, `State`) | type | `start`, `end`, `state`. | 10 |
 | `Timeline` (`From`, `To`, `Spans`) | message | `from`, `to`, `spans`. | 10 |
-| `Telemetry` (`Signal`, `LatencyMS`, `UptimeS`, `FreeBytes`, `FirmwareVersion`, `Reconnects`, `DoorOpen`, `Opens`, `MeshLayer`, `MeshParent`, `MeshChildren`, `ChecksSent`, `ChecksLost`, `TCPSent`, `TCPRetransmits`, `TCPDrops`, `WifiDrops`, `WifiDropReason`, `Roams`, `BSSID`, `Channel`) | message | `signal`, `latency_ms`, `uptime_s`, `free_bytes`, `firmware_version`, `reconnects`, `door_open`, `opens`, `mesh_layer`, `mesh_parent`, `mesh_children`, `checks_sent`, `checks_lost`, `tcp_sent`, `tcp_retransmits`, `tcp_drops`, `wifi_drops`, `wifi_drop_reason`, `roams`, `bssid`, `channel`. | 12 |
-| `EventOpened`, `EventClosed`, `EventStarted` | constants | `opened`, `closed`, `started`. | 12 |
+| `Telemetry` (`Signal`, `LatencyMS`, `UptimeS`, `FreeBytes`, `FirmwareVersion`, `Reconnects`, `DoorOpen`, `Opens`, `MeshLayer`, `MeshParent`, `MeshChildren`, `ChecksSent`, `ChecksLost`, `TCPSent`, `TCPRetransmits`, `TCPDrops`, `WifiDrops`, `WifiDropReason`, `Roams`, `BSSID`, `Channel`, `ConfigDigest`) | message | `signal`, `latency_ms`, `uptime_s`, `free_bytes`, `firmware_version`, `reconnects`, `door_open`, `opens`, `mesh_layer`, `mesh_parent`, `mesh_children`, `checks_sent`, `checks_lost`, `tcp_sent`, `tcp_retransmits`, `tcp_drops`, `wifi_drops`, `wifi_drop_reason`, `roams`, `bssid`, `channel`, `config_digest`. | 12 |
+| `EventOpened`, `EventClosed`, `EventStarted`, `EventConfigReverted` | constants | `opened`, `closed`, `started`, `config_reverted`. | 12 |
 | `StartPowerOn`, `StartSoftware`, `StartPanic`, `StartWatchdog`, `StartBrownout`, `StartExternal`, `StartUnknown` | constants | `power_on`, `software`, `panic`, `watchdog`, `brownout`, `external`, `unknown`. | 12 |
-| `DoorEvent` (`Event`, `Unlocked`, `OpenMS`, `Reason`) | message | `event`, `unlocked` (a `*bool`, nil when left out), `open_ms` (a `*uint64`, nil when left out), `reason` (empty when left out). | 12 |
+| `DoorEvent` (`Event`, `Unlocked`, `OpenMS`, `Reason`, `ConfigDigest`) | message | `event`, `unlocked` (a `*bool`, nil when left out), `open_ms` (a `*uint64`, nil when left out), `reason` (empty when left out), `config_digest` (empty when left out). | 12 |
 | `ErrVersion` | error | A message of another protocol version. | 4 |
 | `Encode(m)` | function | `m` as CBOR, core deterministic, with `v` set to `Version`. | 4 |
 | `Decode(payload, m)` | function | Reads a payload, refusing anything but a CBOR map of this version. | 4 |
+| `Digest(payload)` | function | The digest naming a configuration message: the first 8 bytes of the payload's SHA-256 as 16 lowercase hex digits. | 9 |

@@ -43,6 +43,10 @@ type stateView struct {
 	LastDrop    string
 	LastSeen    string
 	LastReport  string
+	// Config is which configuration the controller runs, and ConfigNote
+	// what to know when it is not the one last sent, empty otherwise.
+	Config     string
+	ConfigNote string
 	// Ranges are the telemetry ranges the charts can show, and Charts the
 	// charts of the one chosen.
 	Ranges []rangeLink
@@ -105,7 +109,7 @@ func (a *App) stateOf(r *http.Request, viewer auth.User, c catalog, d connector.
 	if d.Controller == nil {
 		return nil, nil
 	}
-	view := c.rowOfState(*d.Controller, zone)
+	view := c.rowOfState(d, zone)
 	chosen := chosenRange(r.URL.Query().Get(rangeKey))
 	for _, cr := range chartRanges {
 		view.Ranges = append(view.Ranges, rangeLink{Label: cr.Label, Href: withRange(doorTabPath(d.ID, doorOverview), cr.Name), Current: cr == chosen})
@@ -125,11 +129,12 @@ func (a *App) stateOf(r *http.Request, viewer auth.User, c catalog, d connector.
 	return &view, err
 }
 
-// rowOfState is what the controller ctrl says of itself and its door,
-// as the door's page shows it, naming doors from c.
-func (c catalog) rowOfState(ctrl connector.StoredController, zone *time.Location) stateView {
+// rowOfState is what the controller of d says of itself and its door, as
+// the door's page shows it, naming doors from c.
+func (c catalog) rowOfState(d connector.StoredDoor, zone *time.Location) stateView {
+	ctrl := *d.Controller
 	view := stateView{
-		Status: doorStatus(&ctrl), Badges: telemetry.Badges(ctrl), Mesh: c.meshBadge(ctrl), Door: notReported,
+		Status: doorStatus(&ctrl), Badges: badgesOf(d), Mesh: c.meshBadge(ctrl), Door: notReported,
 		Firmware: firmwareText(ctrl.FirmwareVersion), Signal: signalText(ctrl.Signal), Latency: notReported, Uptime: notReported,
 		Memory: notReported, Reconnects: notReported, MeshLayer: notReported, MeshParent: notReported, MeshChildren: notReported,
 		AccessPoint: notReported, LastDrop: notReported, LastSeen: shownAt(zone, ctrl.LastSeenAt, secondLayout), LastReport: notReported,
@@ -147,7 +152,39 @@ func (c catalog) rowOfState(ctrl connector.StoredController, zone *time.Location
 		view.AccessPoint, view.LastDrop = accessPointText(t.StoredLink), dropReasonText(t.WifiDropReason)
 		view.LastReport = shownAt(zone, t.At, secondLayout)
 	}
+	view.Config, view.ConfigNote = configText(telemetry.ConfigOf(d), zone)
 	return view
+}
+
+// badgesOf is what door lists show of the state of d, whose controller
+// is enrolled, beyond whether it is connected and where it sits in the
+// mesh.
+func badgesOf(d connector.StoredDoor) []string {
+	badges := telemetry.Badges(*d.Controller)
+	if badge := telemetry.ConfigOf(d).Badge(); badge != "" {
+		badges = append(badges, badge)
+	}
+	return badges
+}
+
+// tryAgain is how a door is made to try the configuration again.
+const tryAgain = "Changing the door's configuration, any change, makes it try again."
+
+// configText is which configuration a controller runs, as check says,
+// and what to know when it is not the one last sent, as the door's page
+// shows them.
+func configText(check telemetry.ConfigCheck, zone *time.Location) (string, string) {
+	switch check.State {
+	case telemetry.ConfigCurrent:
+		return "The latest sent", ""
+	case telemetry.ConfigOlder:
+		return "Older", "Running an older configuration since " + shownAt(zone, *check.Since, secondLayout) +
+			": the door has not taken the configuration last sent. " + tryAgain
+	case telemetry.ConfigReverted:
+		return "The previous one", "The door gave up the latest configuration because it could not connect with it; it is running the previous one since " +
+			shownAt(zone, *check.Since, secondLayout) + ". It ignores that configuration if it is sent again. " + tryAgain
+	}
+	return notReported, ""
 }
 
 // meshLayerText is a controller's mesh layer, as its door's page shows

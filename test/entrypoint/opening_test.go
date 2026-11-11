@@ -130,7 +130,7 @@ func TestTheEventsPageFiltersByOpenings(t *testing.T) {
 		[]string{
 			"Every reason", "Access rule", "Open mode", "Open override", "Door commander", "Command",
 			"No rule", "Locked", "Expired", "Rate limited", "Not a commander", "Bad command", "Command failed", "Unreachable",
-			"Keypad open", "Keypad locked", "Keypad cancel", "Reboot sent", "Admin UI", "Forced open", "Held open",
+			"Keypad open", "Keypad locked", "Keypad cancel", "Reboot sent", "Admin UI", "Forced open", "Held open", "Configuration reverted",
 			"Opened (selected)", "Closed", "Started", "Update sent", "Update succeeded", "Update failed",
 		},
 	}

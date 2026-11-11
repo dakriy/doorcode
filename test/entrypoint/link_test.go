@@ -31,7 +31,7 @@ func TestATelemetryReportsLinkIsInTheDoorsStateAndItsReports(t *testing.T) {
 	report := testsupport.JSON(`{"at":"2026-01-05T09:00:00Z","signal":-61,"latency_ms":40,"uptime_s":3720,"free_bytes":120832,
 		"firmware_version":"1.4.3","reconnects":2,"door_open":false,"opens":0,"mesh_layer":0,"mesh_parent":"","mesh_children":0,
 		"checks_sent":6,"checks_lost":1,"tcp_sent":5000000000,"tcp_retransmits":9,"tcp_drops":2,"wifi_drops":3,"wifi_drop_reason":201,
-		"roams":4,"bssid":"f09fc2a1e001","channel":11}`)
+		"roams":4,"bssid":"f09fc2a1e001","channel":11,"config_digest":""}`)
 	if diff := cmp.Diff([]any{report, report}, got); diff != "" {
 		t.Errorf("state, report (-want +got):\n%s", diff)
 	}

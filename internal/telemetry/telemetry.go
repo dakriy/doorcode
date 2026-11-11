@@ -86,13 +86,15 @@ func (s Service) report(ctx context.Context, doorID int64, payload []byte) error
 			ChecksSent: m.ChecksSent, ChecksLost: m.ChecksLost, TCPSent: m.TCPSent, TCPRetransmits: m.TCPRetransmits,
 			TCPDrops: m.TCPDrops, WifiDrops: m.WifiDrops, Roams: m.Roams,
 		},
-		StoredLink: connector.StoredLink{WifiDropReason: m.WifiDropReason, BSSID: m.BSSID, Channel: m.Channel},
+		StoredLink:   connector.StoredLink{WifiDropReason: m.WifiDropReason, BSSID: m.BSSID, Channel: m.Channel},
+		ConfigDigest: m.ConfigDigest,
 	}
 	if err := s.Store.AddSample(ctx, connector.StoredSample{DoorID: d.ID, StoredTelemetry: t}); err != nil {
 		return err
 	}
 	c := heard(held, now)
 	c.Telemetry, c.FirmwareVersion, c.Signal = &t, m.FirmwareVersion, m.Signal
+	c.ConfigMismatchSince = mismatchSince(d, held, m.ConfigDigest, now)
 	if m.DoorOpen {
 		if err := s.checkOpened(ctx, d.ID, held, now); err != nil {
 			return err
@@ -104,7 +106,7 @@ func (s Service) report(ctx context.Context, doorID int64, payload []byte) error
 		}
 		c = closed(c)
 	}
-	return s.save(ctx, d.ID, held, c)
+	return s.save(ctx, d, held, c)
 }
 
 // doorEvent handles what the controller of the door whose id is doorID
@@ -139,10 +141,16 @@ func (s Service) doorEvent(ctx context.Context, doorID int64, payload []byte) er
 		if _, err := s.Events.Record(ctx, Started(now, d.ID, m.Reason)); err != nil {
 			return err
 		}
+	case protocol.EventConfigReverted:
+		detail := "The door could not come online with configuration " + m.ConfigDigest + " and went back to the one it ran before."
+		if _, err := s.Events.Record(ctx, alarm(now, d.ID, event.ConfigReverted, detail)); err != nil {
+			return err
+		}
+		c.ConfigRevertedDigest, c.ConfigRevertedAt = m.ConfigDigest, &now
 	default:
 		return fmt.Errorf("%w %q", ErrUnknownEvent, m.Event)
 	}
-	return s.save(ctx, d.ID, held, c)
+	return s.save(ctx, d, held, c)
 }
 
 // startedWhy is, in words, each reason a controller gives for why it
@@ -203,20 +211,26 @@ func closed(c connector.StoredController) connector.StoredController {
 	return c
 }
 
-// save stores the state of c as that of the controller of the door whose
-// id is id, which was held, and says what changed. It stores only the
-// state, so a change to the controller's credentials or connection made
-// meanwhile stands.
-func (s Service) save(ctx context.Context, id int64, held, c connector.StoredController) error {
-	if _, err := s.Store.SetDoorState(ctx, id, c.StoredDoorState); err != nil {
+// save stores the state of c as that of the controller of d, which was
+// held, and says what changed. It stores only the state, so a change to
+// the controller's credentials or connection made meanwhile stands.
+func (s Service) save(ctx context.Context, d connector.StoredDoor, held, c connector.StoredController) error {
+	if _, err := s.Store.SetDoorState(ctx, d.ID, c.StoredDoorState); err != nil {
 		return err
 	}
-	if slices.Equal(Badges(held), Badges(c)) && MeshOf(held) == MeshOf(c) {
-		s.Reported(id)
+	if slices.Equal(Badges(held), Badges(c)) && MeshOf(held) == MeshOf(c) && configBadge(d, held) == configBadge(d, c) {
+		s.Reported(d.ID)
 	} else {
 		s.Changed()
 	}
 	return nil
+}
+
+// configBadge is what door lists show of how what c runs, as the
+// controller of d, stands against the configuration d was last sent.
+func configBadge(d connector.StoredDoor, c connector.StoredController) string {
+	d.Controller = &c
+	return ConfigOf(d).Badge()
 }
 
 // Badges is what door lists show of the state of the door c is enrolled
@@ -404,7 +418,7 @@ func (s Service) watchDoor(ctx context.Context, d connector.StoredDoor, heldOpen
 	if c == held {
 		return nil
 	}
-	return s.save(ctx, d.ID, held, c)
+	return s.save(ctx, d, held, c)
 }
 
 // checkHeld is c, the controller of the door whose id is doorID, with its

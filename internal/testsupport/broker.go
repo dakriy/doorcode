@@ -2,6 +2,8 @@ package testsupport
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"maps"
 	"reflect"
@@ -218,6 +220,14 @@ func (b *Broker) Topics(since int, leaf string) []string {
 // Decoded does; nil when it keeps none.
 func (b *Broker) RetainedDecoded(topic string) any {
 	return Decoded(b.retained[topic].Payload)
+}
+
+// RetainedDigest names the message the broker keeps for topic as a door
+// names the configuration it runs: the first 8 bytes of the SHA-256 of
+// its payload, exactly as published, in lowercase hex.
+func (b *Broker) RetainedDigest(topic string) string {
+	sum := sha256.Sum256(b.retained[topic].Payload)
+	return hex.EncodeToString(sum[:8])
 }
 
 // Connected reports whether the application's connection is up, which it

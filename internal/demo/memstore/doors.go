@@ -24,6 +24,8 @@ func controllerCopy(c *connector.StoredController) *connector.StoredController {
 // stateCopy is a copy of st.
 func stateCopy(st connector.StoredDoorState) connector.StoredDoorState {
 	st.OpenedAt = clone(st.OpenedAt)
+	st.ConfigMismatchSince = clone(st.ConfigMismatchSince)
+	st.ConfigRevertedAt = clone(st.ConfigRevertedAt)
 	if st.Telemetry != nil {
 		t := *st.Telemetry
 		st.Telemetry = &t
@@ -39,6 +41,7 @@ func (s *Store) doorOut(d connector.StoredDoor) connector.StoredDoor {
 	d.Controller = controllerCopy(d.Controller)
 	d.Config = maps.Clone(d.Config)
 	d.FirmwareID = clone(d.FirmwareID)
+	d.SentConfig = clone(d.SentConfig)
 	return d
 }
 
@@ -260,6 +263,14 @@ func (s *Store) SetDoorConfig(_ context.Context, id int64, config map[string]str
 	}
 	return s.changeDoor(id, func(d *connector.StoredDoor) error {
 		d.Config = maps.Clone(config)
+		return nil
+	})
+}
+
+// SetSentConfig stores sent as the configuration the door was last sent.
+func (s *Store) SetSentConfig(_ context.Context, id int64, sent connector.StoredSentConfig) (bool, error) {
+	return s.changeDoor(id, func(d *connector.StoredDoor) error {
+		d.SentConfig = &sent
 		return nil
 	})
 }

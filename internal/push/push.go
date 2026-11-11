@@ -177,9 +177,20 @@ func (s Service) doors(ctx context.Context, ids []int64) ([]connector.StoredDoor
 	return doors, nil
 }
 
+// sendConfig sends the door its configuration and, when it differs from
+// the one the door was last sent, keeps its digest, over the payload as
+// published, and when it was sent.
 func sendConfig(s Service, ctx context.Context, t target) error {
-	m := protocol.Config{DoorConfig: protocol.DoorConfig(t.config)}
-	return s.publish(ctx, t.door.ID, protocol.LeafConfig, &m)
+	payload := protocol.Encode(&protocol.Config{DoorConfig: protocol.DoorConfig(t.config)})
+	if err := s.publish(ctx, t.door.ID, protocol.LeafConfig, payload); err != nil {
+		return err
+	}
+	digest := protocol.Digest(payload)
+	if sent := t.door.SentConfig; sent != nil && sent.Digest == digest {
+		return nil
+	}
+	_, err := s.Store.SetSentConfig(ctx, t.door.ID, connector.StoredSentConfig{Digest: digest, At: s.Clock.Now()})
+	return err
 }
 
 func sendTimeline(s Service, ctx context.Context, t target) error {
@@ -193,13 +204,13 @@ func sendTimeline(s Service, ctx context.Context, t target) error {
 	for _, span := range timeline.Of(t.door, t.zones, t.schedules, overrides, t.zone, now, to) {
 		m.Spans = append(m.Spans, protocol.Span{Start: span.Start.Unix(), End: span.End.Unix(), State: span.State})
 	}
-	if err := s.publish(ctx, t.door.ID, protocol.LeafTimeline, &m); err != nil {
+	if err := s.publish(ctx, t.door.ID, protocol.LeafTimeline, protocol.Encode(&m)); err != nil {
 		return err
 	}
 	s.Sent.mark(t.door.ID, now)
 	return nil
 }
 
-func (s Service) publish(ctx context.Context, id int64, leaf string, m protocol.Message) error {
-	return s.Broker.Publish(ctx, connector.Message{Topic: protocol.DoorTopic(id, leaf), Payload: protocol.Encode(m), Retained: true})
+func (s Service) publish(ctx context.Context, id int64, leaf string, payload []byte) error {
+	return s.Broker.Publish(ctx, connector.Message{Topic: protocol.DoorTopic(id, leaf), Payload: payload, Retained: true})
 }

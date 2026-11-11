@@ -291,6 +291,43 @@ func TestStoreKeepsADoorsConfigurationAcrossUpdates(t *testing.T) {
 	}
 }
 
+func TestStoreKeepsTheConfigurationADoorWasLastSent(t *testing.T) {
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			ctx := context.Background()
+			store := migrated(t, impl)
+			id := mustCreateDoor(t, store, plainDoor("Lobby"))
+			mustCreateDoor(t, store, plainDoor("Dock"))
+			fresh := mustDoor(t, store, id).SentConfig
+			first := connector.StoredSentConfig{Digest: "0123456789abcdef", At: controllerSeen}
+			again := connector.StoredSentConfig{Digest: "aed54fd952c8d3a6", At: controllerSeen.Add(time.Hour)}
+
+			found, err := store.SetSentConfig(ctx, id, first)
+			kept := mustDoor(t, store, id).SentConfig
+			if _, err := store.SetSentConfig(ctx, id, again); err != nil {
+				t.Fatal(err)
+			}
+			changed := mustDoor(t, store, id)
+			changed.Name, changed.SentConfig = "Main lobby", nil
+			if _, err := store.UpdateDoor(ctx, changed); err != nil {
+				t.Fatal(err)
+			}
+			doors, listErr := store.Doors(ctx)
+			if listErr != nil {
+				t.Fatal(listErr)
+			}
+			missing, missingErr := store.SetSentConfig(ctx, 7, first)
+
+			want := []any{(*connector.StoredSentConfig)(nil), true, "<nil>", &first, &again, (*connector.StoredSentConfig)(nil), false, "<nil>"}
+			got := []any{fresh, found, testsupport.ErrorText(err), kept, doors[1].SentConfig, doors[0].SentConfig, missing,
+				testsupport.ErrorText(missingErr)}
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Errorf("fresh, found, error, first, after update, other door, missing door, error (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestStoreReportsAConfigurationForADoorThatIsNotThere(t *testing.T) {
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {
@@ -313,8 +350,9 @@ func TestStoreKeepsADoorsStateWithItsController(t *testing.T) {
 			c.DoorState, c.OpenedAt, c.HeldOpen, c.Unresponsive = "open", &opened, true, true
 			c.Telemetry = &connector.StoredTelemetry{
 				At: controllerSeen, Signal: -61, LatencyMS: 40, UptimeS: 3720, FreeBytes: 120832, FirmwareVersion: "1.4.2",
-				Reconnects: 2, DoorOpen: true, Opens: 1,
+				Reconnects: 2, DoorOpen: true, Opens: 1, ConfigDigest: "0123456789abcdef",
 			}
+			c.ConfigMismatchSince, c.ConfigRevertedDigest, c.ConfigRevertedAt = &opened, "aed54fd952c8d3a6", &controllerSeen
 
 			mustSetController(t, store, id, c)
 

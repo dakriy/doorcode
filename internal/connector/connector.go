@@ -345,16 +345,23 @@ type StoredController struct {
 // held open since then or since the latest open span of its timeline
 // ended, and is false while one holds it open. Unresponsive marks a
 // controller the server has not heard from for too long. Telemetry is its
-// latest report, nil until its first.
+// latest report, nil until its first. ConfigMismatchSince is when its
+// reports began naming a configuration other than the one the door was
+// last sent, nil while they do not. ConfigRevertedDigest is the digest of
+// the configuration it last said it gave up, at ConfigRevertedAt, empty
+// and nil until it has.
 type StoredDoorState struct {
-	FirmwareVersion string
-	Signal          int
-	LastSeenAt      time.Time
-	DoorState       string
-	OpenedAt        *time.Time
-	HeldOpen        bool
-	Unresponsive    bool
-	Telemetry       *StoredTelemetry
+	FirmwareVersion      string
+	Signal               int
+	LastSeenAt           time.Time
+	DoorState            string
+	OpenedAt             *time.Time
+	HeldOpen             bool
+	Unresponsive         bool
+	Telemetry            *StoredTelemetry
+	ConfigMismatchSince  *time.Time
+	ConfigRevertedDigest string
+	ConfigRevertedAt     *time.Time
 }
 
 // StoredTelemetry is one report of a door's controller, received at At:
@@ -365,7 +372,8 @@ type StoredDoorState struct {
 // report, where it sat in the site's mesh: its layer (0 when it
 // reached the access point itself), the hardware id of the controller it
 // hopped through, and how many controllers hopped through it, how its
-// links fared since its last report, and the Wi-Fi link it had.
+// links fared since its last report, the Wi-Fi link it had, and the
+// digest of the configuration it ran, empty when it reported none.
 type StoredTelemetry struct {
 	At              time.Time
 	Signal          int
@@ -381,6 +389,7 @@ type StoredTelemetry struct {
 	MeshChildren    int
 	StoredLinkCounts
 	StoredLink
+	ConfigDigest string
 }
 
 // StoredLinkCounts is how a controller's links fared over a span of time:
@@ -519,7 +528,10 @@ type StoredTrend struct {
 // ignores it when it stores a door. A nil FirmwareID is a door that runs
 // the site's default firmware; otherwise it names the firmware the door
 // runs instead, which the store sets only through SetDoorFirmware and
-// ignores when it stores a door.
+// ignores when it stores a door. A nil SentConfig is a door the server
+// has not sent a configuration since it began keeping track; the store
+// sets it only through SetSentConfig and ignores it when it stores a
+// door.
 type StoredDoor struct {
 	ID               int64
 	Name             string
@@ -533,6 +545,15 @@ type StoredDoor struct {
 	Controller       *StoredController
 	Config           map[string]string
 	FirmwareID       *int64
+	SentConfig       *StoredSentConfig
+}
+
+// StoredSentConfig is the configuration the server last sent a door: its
+// digest, over the payload exactly as published, and when it was first
+// sent.
+type StoredSentConfig struct {
+	Digest string
+	At     time.Time
 }
 
 // DoorsStore holds the doors aggregate. Doors are never removed; a deleted
@@ -579,6 +600,10 @@ type DoorsStore interface {
 	// door whose id is id, replacing those it had, and reports whether
 	// there is such a door.
 	SetDoorConfig(ctx context.Context, id int64, config map[string]string) (bool, error)
+	// SetSentConfig stores sent as the configuration the server last
+	// sent the door whose id is id, and reports whether there is such a
+	// door.
+	SetSentConfig(ctx context.Context, id int64, sent StoredSentConfig) (bool, error)
 	// FirmwareVersions returns how many doors that are not deleted have a
 	// controller that last reported each firmware version, most doors
 	// first and then by version.

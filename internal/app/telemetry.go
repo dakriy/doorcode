@@ -7,6 +7,7 @@ import (
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/openapi"
+	"github.com/dakriy/doorcode/internal/telemetry"
 )
 
 // The ranges, in hours, the telemetry API covers unless it is asked for
@@ -39,6 +40,7 @@ type telemetryView struct {
 	Roams           int       `json:"roams" doc:"How often its Wi-Fi station moved to another access point by its own choice since its last report; 0 from firmware that does not report it."`
 	BSSID           string    `json:"bssid" doc:"The BSSID of the access point it had joined, 12 lowercase hex digits; empty with no link and from firmware that does not report it."`
 	Channel         int       `json:"channel" doc:"The Wi-Fi channel of the access point it had joined; 0 with no link and from firmware that does not report it."`
+	ConfigDigest    string    `json:"config_digest" doc:"The digest of the configuration the controller ran: the first 8 bytes of the SHA-256 of the configuration message as published, 16 lowercase hex digits. Empty while it runs its defaults and from firmware that does not report it."`
 }
 
 type doorStateView struct {
@@ -51,6 +53,13 @@ type doorStateView struct {
 	FirmwareVersion string         `json:"firmware_version" doc:"The firmware version the controller last reported; may be empty."`
 	LastSeenAt      *time.Time     `json:"last_seen_at,omitempty" doc:"When the server last heard from the controller; absent until a controller enrolls."`
 	Telemetry       *telemetryView `json:"telemetry,omitempty" doc:"The controller's latest telemetry report; absent until its first."`
+	// The configuration fields say whether the controller runs the
+	// configuration the door was last sent.
+	ConfigSentDigest    string     `json:"config_sent_digest" doc:"The digest of the configuration the server last sent the door, as telemetry's config_digest names one; empty until it has sent one."`
+	ConfigSentAt        *time.Time `json:"config_sent_at,omitempty" doc:"When the server first sent the door that configuration; absent until it has sent one."`
+	ConfigMismatch      bool       `json:"config_mismatch" doc:"True when the controller runs a configuration other than the one last sent: two reports in a row after it was sent named another, or the controller said it gave it up (config_reverted). False until the controller has reported since it was sent, and while its reports name no configuration (its defaults, or firmware that does not report one). Changing the door's configuration, any change, makes the controller try again."`
+	ConfigReverted      bool       `json:"config_reverted" doc:"True when the controller said, after the configuration last sent went out, that it gave that configuration up because it could not come online with it, and runs the one before. It ignores that configuration if sent again."`
+	ConfigMismatchSince *time.Time `json:"config_mismatch_since,omitempty" doc:"Since when config_mismatch holds: the first of the reports naming another configuration, or when the controller said it gave the configuration up; absent while it does not."`
 }
 
 type sampleList struct {
@@ -128,12 +137,13 @@ func viewOfTelemetry(t connector.StoredTelemetry) telemetryView {
 		MeshLayer: t.MeshLayer, MeshParent: t.MeshParent, MeshChildren: t.MeshChildren,
 		ChecksSent: t.ChecksSent, ChecksLost: t.ChecksLost, TCPSent: t.TCPSent, TCPRetransmits: t.TCPRetransmits, TCPDrops: t.TCPDrops,
 		WifiDrops: t.WifiDrops, WifiDropReason: t.WifiDropReason, Roams: t.Roams, BSSID: t.BSSID, Channel: t.Channel,
+		ConfigDigest: t.ConfigDigest,
 	}
 }
 
-// viewOfDoorState is the state of the door controller c is enrolled as,
-// a door without a controller when c is nil.
-func viewOfDoorState(c *connector.StoredController) doorStateView {
+// viewOfDoorState is the state of d, as its controller tells it.
+func viewOfDoorState(d connector.StoredDoor) doorStateView {
+	c := d.Controller
 	if c == nil {
 		return doorStateView{Door: doorUnknown}
 	}
@@ -149,6 +159,12 @@ func viewOfDoorState(c *connector.StoredController) doorStateView {
 		t := viewOfTelemetry(*c.Telemetry)
 		view.Telemetry = &t
 	}
+	if sent := d.SentConfig; sent != nil {
+		view.ConfigSentDigest, view.ConfigSentAt = sent.Digest, utc(&sent.At)
+	}
+	check := telemetry.ConfigOf(d)
+	view.ConfigMismatch, view.ConfigReverted = check.Mismatched(), check.State == telemetry.ConfigReverted
+	view.ConfigMismatchSince = utc(check.Since)
 	return view
 }
 
@@ -161,7 +177,7 @@ func (a *App) getDoorState(w http.ResponseWriter, r *http.Request, _ auth.User) 
 		a.doorError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, viewOfDoorState(d.Controller))
+	writeJSON(w, http.StatusOK, viewOfDoorState(d))
 }
 
 // telemetryRange reads the from and to query parameters, to now and from

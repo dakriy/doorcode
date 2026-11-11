@@ -473,6 +473,8 @@ func TestAChangeStandsAndIsLoggedWhenDoorsCannotBeSentIt(t *testing.T) {
 			createSchedule(t, b, `{"name":"Nights","windows":[{"days":["mon"],"start":"22:00","end":"06:00"}]}`)
 			f.StoreStub.FailDoors()
 		}, "PUT", "/api/v1/schedules/2", `{"name":"Nights","windows":[{"days":["tue"],"start":"22:00","end":"06:00"}]}`, 200},
+		"what was sent cannot be kept": {func(f *testsupport.Factory, _ *testsupport.Browser) { f.StoreStub.FailSentConfigWrites() },
+			"PUT", "/api/v1/doors/1/config", `{"overrides":{"log_level":"debug"}}`, 200},
 		"its door cannot be looked up": {func(f *testsupport.Factory, _ *testsupport.Browser) { f.StoreStub.FailDoorLookups() },
 			"POST", "/api/v1/zones", `{"name":"Porch","door_ids":[1]}`, 201},
 	}

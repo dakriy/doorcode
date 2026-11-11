@@ -62,7 +62,9 @@
     <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Last Wi-Fi drop</dt><dd class="mt-1 text-sm">{{.LastDrop}}</dd></div>
     <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Last seen</dt><dd class="mt-1 text-sm tabular-nums">{{.LastSeen}}</dd></div>
     <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Last report</dt><dd class="mt-1 text-sm tabular-nums">{{.LastReport}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Configuration</dt><dd class="mt-1 text-sm">{{.Config}}</dd></div>
   </dl>
+  {{with .ConfigNote}}<p role="note" class="mx-6 mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">{{.}}</p>{{end}}
   <div class="mt-6 grid gap-6 border-t border-zinc-200 px-6 py-5 lg:grid-cols-2 dark:border-zinc-800">
     {{range .Charts}}
     {{template "line-chart" .}}

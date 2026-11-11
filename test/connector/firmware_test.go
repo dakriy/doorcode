@@ -288,7 +288,9 @@ func TestStoreSetsADoorsStateLeavingItsControllerAsItIs(t *testing.T) {
 			st := connector.StoredDoorState{
 				FirmwareVersion: "1.5.0", Signal: -70, LastSeenAt: opened, DoorState: "open", OpenedAt: &opened, HeldOpen: true, Unresponsive: true,
 				Telemetry: &connector.StoredTelemetry{At: opened, Signal: -70, FirmwareVersion: "1.5.0", DoorOpen: true, MeshLayer: 1, MeshParent: "B2", MeshChildren: 2,
-					StoredLinkCounts: connector.StoredLinkCounts{ChecksSent: 9, TCPRetransmits: 4}, StoredLink: connector.StoredLink{BSSID: "f09fc2a1e001", Channel: 6}},
+					StoredLinkCounts: connector.StoredLinkCounts{ChecksSent: 9, TCPRetransmits: 4}, StoredLink: connector.StoredLink{BSSID: "f09fc2a1e001", Channel: 6},
+					ConfigDigest: "0123456789abcdef"},
+				ConfigMismatchSince: &opened, ConfigRevertedDigest: "aed54fd952c8d3a6", ConfigRevertedAt: &controllerSeen,
 			}
 
 			found, err := store.SetDoorState(context.Background(), id, st)

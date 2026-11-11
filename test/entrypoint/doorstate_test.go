@@ -420,6 +420,10 @@ func TestWhatADoorSaysOfItselfThatCannotBeHandledIsLoggedAndIgnored(t *testing.T
 		"a start that cannot be logged": {
 			event, testsupport.CBOR(map[string]any{"v": 1, "event": "started"}), func(f *testsupport.Factory) { f.StoreStub.FailEventWrites() }, unavailable,
 		},
+		"a revert that cannot be logged": {
+			event, testsupport.CBOR(map[string]any{"v": 1, "event": "config_reverted", "config_digest": "0123456789abcdef"}),
+			func(f *testsupport.Factory) { f.StoreStub.FailAlarmWrites() }, unavailable,
+		},
 		"a start whose state cannot be stored": {
 			event, testsupport.CBOR(map[string]any{"v": 1, "event": "started"}), func(f *testsupport.Factory) { f.StoreStub.FailControllerWrites() }, unavailable,
 		},

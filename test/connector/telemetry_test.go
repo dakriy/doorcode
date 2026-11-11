@@ -26,7 +26,8 @@ func sampleAt(door int64, minutes, signal int) connector.StoredSample {
 		StoredLinkCounts: connector.StoredLinkCounts{
 			ChecksSent: 7, ChecksLost: 1, TCPSent: 5000000000, TCPRetransmits: 12, TCPDrops: 3, WifiDrops: 2, Roams: 4,
 		},
-		StoredLink: connector.StoredLink{WifiDropReason: 200, BSSID: "f09fc2a1e001", Channel: 11},
+		StoredLink:   connector.StoredLink{WifiDropReason: 200, BSSID: "f09fc2a1e001", Channel: 11},
+		ConfigDigest: "0123456789abcdef",
 	}}
 }
 

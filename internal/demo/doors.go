@@ -169,8 +169,11 @@ func (c *controller) enroll(ctx context.Context) error {
 
 // door is the state of the door while its controller serves it.
 type door struct {
-	conn     *Conn
-	config   protocol.DoorConfig
+	conn   *Conn
+	config protocol.DoorConfig
+	// digest names the configuration the door runs, empty until the
+	// server sends it one.
+	digest   string
 	timeline protocol.Timeline
 	open     bool
 	opens    int
@@ -274,7 +277,7 @@ func (c *controller) receive(d *door, m connector.Message) bool {
 	case protocol.LeafConfig:
 		var config protocol.Config
 		if protocol.Decode(m.Payload, &config) == nil {
-			d.config = config.DoorConfig
+			d.config, d.digest = config.DoorConfig, protocol.Digest(m.Payload)
 		}
 	case protocol.LeafTimeline:
 		var timeline protocol.Timeline
@@ -410,7 +413,7 @@ func (c *controller) report(d *door) {
 		MeshLayer: c.door.MeshLayer, MeshParent: c.door.MeshParent, MeshChildren: c.door.MeshChildren,
 		ChecksSent: counts.ChecksSent, ChecksLost: counts.ChecksLost, TCPSent: counts.TCPSent, TCPRetransmits: counts.TCPRetransmits,
 		TCPDrops: counts.TCPDrops, WifiDrops: counts.WifiDrops, WifiDropReason: c.door.Wifi.dropReason, Roams: counts.Roams,
-		BSSID: c.door.Wifi.bssid, Channel: c.door.Wifi.channel,
+		BSSID: c.door.Wifi.bssid, Channel: c.door.Wifi.channel, ConfigDigest: d.digest,
 	}
 	d.opens, d.checks = 0, 0
 	c.publish(d, protocol.LeafTelemetry, &t)

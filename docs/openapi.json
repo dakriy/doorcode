@@ -10538,6 +10538,28 @@
       "DoorStateView": {
         "type": "object",
         "properties": {
+          "config_mismatch": {
+            "type": "boolean",
+            "description": "True when the controller runs a configuration other than the one last sent: two reports in a row after it was sent named another, or the controller said it gave it up (config_reverted). False until the controller has reported since it was sent, and while its reports name no configuration (its defaults, or firmware that does not report one). Changing the door's configuration, any change, makes the controller try again."
+          },
+          "config_mismatch_since": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Since when config_mismatch holds: the first of the reports naming another configuration, or when the controller said it gave the configuration up; absent while it does not."
+          },
+          "config_reverted": {
+            "type": "boolean",
+            "description": "True when the controller said, after the configuration last sent went out, that it gave that configuration up because it could not come online with it, and runs the one before. It ignores that configuration if sent again."
+          },
+          "config_sent_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the server first sent the door that configuration; absent until it has sent one."
+          },
+          "config_sent_digest": {
+            "type": "string",
+            "description": "The digest of the configuration the server last sent the door, as telemetry's config_digest names one; empty until it has sent one."
+          },
           "door": {
             "type": "string",
             "description": "open or closed, as the controller last said; unknown until it has."
@@ -10583,7 +10605,10 @@
           "door",
           "held_open",
           "unresponsive",
-          "firmware_version"
+          "firmware_version",
+          "config_sent_digest",
+          "config_mismatch",
+          "config_reverted"
         ]
       },
       "DoorStats": {
@@ -12651,6 +12676,10 @@
             "type": "integer",
             "description": "How many code checks the controller sent to the server since its last report; 0 from firmware that does not report it."
           },
+          "config_digest": {
+            "type": "string",
+            "description": "The digest of the configuration the controller ran: the first 8 bytes of the SHA-256 of the configuration message as published, 16 lowercase hex digits. Empty while it runs its defaults and from firmware that does not report it."
+          },
           "door_open": {
             "type": "boolean",
             "description": "True when the door was open."
@@ -12742,7 +12771,8 @@
           "wifi_drop_reason",
           "roams",
           "bssid",
-          "channel"
+          "channel",
+          "config_digest"
         ]
       },
       "TimelineView": {

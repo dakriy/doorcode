@@ -6,6 +6,8 @@
 package protocol
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strconv"
@@ -326,6 +328,10 @@ type Timeline struct {
 // access point it has joined now: its BSSID, 12 lowercase hex digits, and
 // its channel, empty and 0 with no link. Firmware that does not report
 // these leaves them out, which reads as 0 and empty.
+//
+// ConfigDigest names the configuration the door runs by its Digest, empty
+// while it runs with its defaults and from firmware that does not report
+// it.
 type Telemetry struct {
 	Header
 	Signal          int    `cbor:"signal"`
@@ -349,6 +355,7 @@ type Telemetry struct {
 	Roams           int    `cbor:"roams"`
 	BSSID           string `cbor:"bssid"`
 	Channel         int    `cbor:"channel"`
+	ConfigDigest    string `cbor:"config_digest"`
 }
 
 // The things a door says happened to it.
@@ -360,6 +367,10 @@ const (
 	// EventStarted is the controller coming online as the door for the
 	// first time since it started.
 	EventStarted = "started"
+	// EventConfigReverted is the controller, back online, saying it gave
+	// up a configuration it tried because it could not come online with
+	// it, and went back to the one it ran before.
+	EventConfigReverted = "config_reverted"
 )
 
 // The reasons a controller gives with EventStarted for why it started.
@@ -395,13 +406,15 @@ var StartReasons = []string{StartPowerOn, StartSoftware, StartPanic, StartWatchd
 // controller says EventStarted once, the first time it comes online as
 // the door after it started, with Reason saying why it started, such as
 // StartPowerOn, when it knows. Controllers that predate these leave them
-// out.
+// out. With EventConfigReverted, ConfigDigest is the Digest of the
+// configuration the controller gave up.
 type DoorEvent struct {
 	Header
-	Event    string  `cbor:"event"`
-	Unlocked *bool   `cbor:"unlocked,omitempty"`
-	OpenMS   *uint64 `cbor:"open_ms,omitempty"`
-	Reason   string  `cbor:"reason,omitempty"`
+	Event        string  `cbor:"event"`
+	Unlocked     *bool   `cbor:"unlocked,omitempty"`
+	OpenMS       *uint64 `cbor:"open_ms,omitempty"`
+	Reason       string  `cbor:"reason,omitempty"`
+	ConfigDigest string  `cbor:"config_digest,omitempty"`
 }
 
 // ErrVersion reports a message of another protocol version.
@@ -417,6 +430,15 @@ func Encode(m Message) []byte {
 	m.header().V = Version
 	out, _ := encoding.Marshal(m)
 	return out
+}
+
+// Digest names the configuration message whose payload is payload, as
+// the door names the configuration it runs: the first 8 bytes of the
+// payload's SHA-256, as 16 lowercase hex digits. Encode is deterministic,
+// so the same configuration always has the same digest.
+func Digest(payload []byte) string {
+	sum := sha256.Sum256(payload)
+	return hex.EncodeToString(sum[:8])
 }
 
 // Decode reads payload into m, refusing anything but a CBOR map of this

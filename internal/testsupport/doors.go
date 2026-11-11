@@ -125,7 +125,7 @@ func (s *Store) CreateDoor(_ context.Context, d connector.StoredDoor) (int64, er
 	}
 	s.nextDoor++
 	d.ID = s.nextDoor
-	d.PrimaryPictureID, d.Controller, d.Config, d.FirmwareID = nil, nil, map[string]string{}, nil
+	d.PrimaryPictureID, d.Controller, d.Config, d.FirmwareID, d.SentConfig = nil, nil, map[string]string{}, nil, nil
 	s.placeDoor(d.ID, d.ZoneIDs)
 	d.ZoneIDs = nil
 	s.doors = append(s.doors, d)
@@ -179,14 +179,22 @@ func clonedController(c *connector.StoredController) *connector.StoredController
 		return nil
 	}
 	copied := *c
-	if c.OpenedAt != nil {
-		at := *c.OpenedAt
-		copied.OpenedAt = &at
-	}
+	copied.OpenedAt = cloneTime(c.OpenedAt)
 	if c.Telemetry != nil {
 		t := *c.Telemetry
 		copied.Telemetry = &t
 	}
+	copied.ConfigMismatchSince = cloneTime(c.ConfigMismatchSince)
+	copied.ConfigRevertedAt = cloneTime(c.ConfigRevertedAt)
+	return &copied
+}
+
+// cloneTime is a copy of at sharing nothing with it.
+func cloneTime(at *time.Time) *time.Time {
+	if at == nil {
+		return nil
+	}
+	copied := *at
 	return &copied
 }
 
@@ -258,6 +266,25 @@ func (s *Store) SetDoorConfig(_ context.Context, id int64, config map[string]str
 	return true, nil
 }
 
+// SetSentConfig stores sent as the configuration the door with id was
+// last sent.
+func (s *Store) SetSentConfig(_ context.Context, id int64, sent connector.StoredSentConfig) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.writable(doorsAggregate, doorWrites); err != nil {
+		return false, err
+	}
+	if s.failing[sentConfigWrites] {
+		return false, ErrUnavailable
+	}
+	held := s.doorByID(id)
+	if held == nil {
+		return false, nil
+	}
+	held.SentConfig = &sent
+	return true, nil
+}
+
 // SetDoorDeleted stores at as the deletion time of the door with id.
 func (s *Store) SetDoorDeleted(_ context.Context, id int64, at *time.Time) (bool, error) {
 	s.mu.Lock()
@@ -307,6 +334,10 @@ func (s *Store) cloneDoor(d connector.StoredDoor) connector.StoredDoor {
 	d.Controller = clonedController(d.Controller)
 	d.Config = maps.Clone(d.Config)
 	d.FirmwareID = cloneID(d.FirmwareID)
+	if d.SentConfig != nil {
+		sent := *d.SentConfig
+		d.SentConfig = &sent
+	}
 	d.ZoneIDs = []int64{}
 	for _, p := range s.zoneDoors {
 		if p.door == d.ID {
@@ -590,6 +621,12 @@ func (s *Store) FailPrimaryPictures() {
 // ErrUnavailable, while doors can still be changed otherwise.
 func (s *Store) FailControllerWrites() {
 	s.failing[controllerWrites] = true
+}
+
+// FailSentConfigWrites makes SetSentConfig report ErrUnavailable, while
+// doors can still be changed otherwise.
+func (s *Store) FailSentConfigWrites() {
+	s.failing[sentConfigWrites] = true
 }
 
 // FailControllerReads makes HardwareDoor report ErrUnavailable, while

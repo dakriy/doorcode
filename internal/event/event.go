@@ -110,6 +110,10 @@ const (
 	ForcedOpen = "forced open"
 	// HeldOpen is a door open for longer than its configuration allows.
 	HeldOpen = "held open"
+	// ConfigReverted is a door's controller giving up the configuration
+	// it was sent, because it could not come online with it, and running
+	// the one before.
+	ConfigReverted = "configuration reverted"
 )
 
 // Opened is the reason of a door opening after it was not open.
@@ -140,7 +144,7 @@ const (
 var Reasons = []string{
 	AccessRule, OpenMode, OpenOverride, Commander, Commanded,
 	NoRule, Locked, Expired, RateLimited, NotCommander, BadCommand, CommandFailed, Unreachable,
-	KeypadOpen, KeypadLocked, KeypadCancel, RebootSent, FromUI, ForcedOpen, HeldOpen, Opened, Closed, Started,
+	KeypadOpen, KeypadLocked, KeypadCancel, RebootSent, FromUI, ForcedOpen, HeldOpen, ConfigReverted, Opened, Closed, Started,
 	UpdateSent, UpdateSucceeded, UpdateFailed,
 }
 

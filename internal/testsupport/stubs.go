@@ -229,6 +229,7 @@ const (
 	credentialWrites
 	controllerWrites
 	controllerReads
+	sentConfigWrites
 	eventsAggregate
 	eventWrites
 	eventReads
