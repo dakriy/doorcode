@@ -54,6 +54,7 @@ func (a *App) routes() []route {
 	table := []route{
 		pageRoute(http.MethodGet, "/healthz", anyone, healthz),
 		pageRoute(http.MethodGet, "/readyz", anyone, a.readyz),
+		pageRoute(http.MethodGet, "/favicon", anyone, a.favicon),
 		pageRoute(http.MethodGet, "/sign-in", anyone, a.signInPage),
 		pageRoute(http.MethodPost, "/sign-in", anyone, a.signIn),
 		pageRoute(http.MethodPost, "/sign-out", anyone, a.signOut),

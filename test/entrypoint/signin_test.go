@@ -17,8 +17,9 @@ const (
 	badCredentials = "That email and password do not match an account."
 )
 
-// pageOf reads the page a response carries, leaving out the assets every
-// page loads, which TestPagesLoadTheirAssets covers, and where navigation
+// pageOf reads the page a response carries, leaving out the assets and
+// the icon every page loads, which TestPagesLoadTheirAssets and
+// TestEveryPageNamesTheFavicon cover, and where navigation
 // links lead, what checkboxes say, what selects offer, the kind of each
 // input, and where the parts that reload themselves reload from, which the
 // few tests that need them read themselves.
@@ -26,6 +27,7 @@ func pageOf(r testsupport.Response) testsupport.Page {
 	p := testsupport.ParsePage(r.Body)
 	p.Inputs = nil
 	p.Assets = nil
+	p.Icon = ""
 	p.NavTargets = nil
 	p.Choices = nil
 	p.Options = nil

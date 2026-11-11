@@ -502,6 +502,21 @@ func serveAsset(content []byte, contentType string) viewerHandler {
 	}
 }
 
+// faviconTemplate draws the favicon, the keypad mark every page's head
+// links to.
+var faviconTemplate = parsePage("ui/templates/base.html")
+
+// favicon serves the keypad mark in the theme's accent colors.
+func (a *App) favicon(w http.ResponseWriter, r *http.Request, _ auth.User) {
+	current, err := a.settings.Current(r.Context())
+	if err != nil {
+		a.pageError(w, r, err)
+		return
+	}
+	w.Header().Set("Content-Type", "image/svg+xml")
+	_ = faviconTemplate.ExecuteTemplate(w, "favicon", current.Theme)
+}
+
 // apiDocsPath is the API documentation page, a page of the portal.
 const apiDocsPath = "/api-docs"
 

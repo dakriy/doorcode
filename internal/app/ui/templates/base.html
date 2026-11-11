@@ -7,6 +7,7 @@
   <meta name="color-scheme" content="light dark">
   <meta name="htmx-config" content='{"disableInheritance":true,"responseHandling":[{"code":"204","swap":false},{"code":"...","swap":true}]}'>
   <title>{{.Title}}</title>
+  <link rel="icon" href="/favicon">
   <link rel="stylesheet" href="{{index .Assets "CSS"}}">
   {{with .Theme.Accent}}<style>:root { --accent: {{.}};{{with $.Theme.AccentDark}} --accent-dark: {{.}};{{end}} }</style>{{end}}
   <script src="{{index .Assets "HTMX"}}" defer></script>
@@ -31,11 +32,25 @@
 
 {{define "logo"}}
 <svg class="{{.}}" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-  <rect width="32" height="32" rx="8" class="fill-brand-600"/>
-  <g class="fill-white">
+  {{template "keypad" "fill-brand-600"}}
+</svg>
+{{end}}
+
+{{/* The favicon is the keypad mark on its own, in the accent color, and
+     in the dark accent under a dark color scheme when one is set. */}}
+{{define "favicon" -}}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>.accent { fill: {{.Accent}}; }{{with .AccentDark}} @media (prefers-color-scheme: dark) { .accent { fill: {{.}}; } }{{end}}</style>
+  {{template "keypad" "accent"}}
+</svg>
+{{- end}}
+
+{{/* keypad is the mark: a key pad on a square whose class colors it. */}}
+{{define "keypad" -}}
+<rect width="32" height="32" rx="8" class="{{.}}"/>
+  <g fill="#fff">
     <circle cx="10" cy="9" r="2"/><circle cx="16" cy="9" r="2"/><circle cx="22" cy="9" r="2"/>
     <circle cx="10" cy="15" r="2"/><circle cx="16" cy="15" r="2"/><circle cx="22" cy="15" r="2"/>
     <circle cx="10" cy="21" r="2"/><circle cx="16" cy="21" r="2"/><circle cx="22" cy="21" r="2"/>
   </g>
-</svg>
-{{end}}
+{{- end}}

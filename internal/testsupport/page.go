@@ -67,6 +67,8 @@ type Page struct {
 	Lists map[string][]string
 	// Assets is every stylesheet and script the page loads.
 	Assets []string
+	// Icon is the address of the icon the page names for itself.
+	Icon string
 	// Comboboxes is the name of each select and list of checkboxes the
 	// combobox script makes searchable, in order.
 	Comboboxes []string
@@ -299,12 +301,22 @@ func (p *Page) readResource(n *html.Node) {
 		p.readLink(n)
 	case n.Data == "img":
 		p.Images = append(p.Images, Image{Src: attr(n, "src"), Alt: attr(n, "alt")})
-	case n.Data == "link" && attr(n, "rel") == "stylesheet":
-		p.Assets = append(p.Assets, attr(n, "href"))
+	case n.Data == "link":
+		p.readHeadLink(n)
 	case n.Data == "script" && attr(n, "src") != "":
 		p.Assets = append(p.Assets, attr(n, "src"))
 	default:
 		p.readText(n)
+	}
+}
+
+// readHeadLink reads a stylesheet the page loads and its icon.
+func (p *Page) readHeadLink(n *html.Node) {
+	switch attr(n, "rel") {
+	case "stylesheet":
+		p.Assets = append(p.Assets, attr(n, "href"))
+	case "icon":
+		p.Icon = attr(n, "href")
 	}
 }
 

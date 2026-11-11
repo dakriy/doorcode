@@ -502,6 +502,11 @@ func TestPageStoreFailureShowsARequestIDThatTheLogCarries(t *testing.T) {
 			f.StoreStub.FailSettings()
 			return testsupport.Get(h, "/sign-in")
 		}},
+		"favicon without settings": {id: "2223242526272829", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
+			h := start(t, f).Handler()
+			f.StoreStub.FailSettings()
+			return testsupport.Get(h, "/favicon")
+		}},
 		"sign-in without users": {id: "2223242526272829", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
 			h := start(t, f).Handler()
 			f.StoreStub.FailUsers()
