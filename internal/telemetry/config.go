@@ -42,12 +42,13 @@ type ConfigCheck struct {
 }
 
 // Mismatched reports whether the controller runs a configuration other
-// than the one last sent.
+// than the one last sent, which is when door lists show a Badge of it.
 func (c ConfigCheck) Mismatched() bool {
-	return c.State == ConfigOlder || c.State == ConfigReverted
+	return c.Badge() != ""
 }
 
-// Badge is what door lists show of c, empty unless it is Mismatched.
+// Badge is what door lists show of c, empty unless the controller runs a
+// configuration other than the one last sent.
 func (c ConfigCheck) Badge() string {
 	switch c.State {
 	case ConfigOlder:
