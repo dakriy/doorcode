@@ -62,17 +62,25 @@ func TestForcingAUsersDeleteRemovesThemAndTheirHistoryForGood(t *testing.T) {
 	}
 }
 
+// deletable is a door or a user to delete: how an administrator's
+// browser creates it, its address once created, the refusal to read it
+// once gone, and the role that deletes it without admin.
+type deletable struct {
+	create  func(t *testing.T, b *testsupport.Browser)
+	target  string
+	missing string
+	roles   string
+}
+
+// deletables are the front door (1) and Ann (2).
+var deletables = map[string]deletable{
+	"door": {func(t *testing.T, b *testsupport.Browser) { createDoor(t, b, frontDoor) }, "/api/v1/doors/1", "no door has this id", `["manage-doors"]`},
+	"user": {func(t *testing.T, b *testsupport.Browser) { createUser(t, b, ann) }, "/api/v1/users/2", "no user has this id", `["manage-users"]`},
+}
+
 func TestADeletedDoorOrUserCanBeDeletedForGood(t *testing.T) {
 	t.Parallel()
-	cases := map[string]struct {
-		create  func(t *testing.T, b *testsupport.Browser)
-		target  string
-		missing string
-	}{
-		"door": {func(t *testing.T, b *testsupport.Browser) { createDoor(t, b, frontDoor) }, "/api/v1/doors/1", "no door has this id"},
-		"user": {func(t *testing.T, b *testsupport.Browser) { createUser(t, b, ann) }, "/api/v1/users/2", "no user has this id"},
-	}
-	for name, c := range cases {
+	for name, c := range deletables {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			b := signedInAdmin(t, testsupport.NewFactory())
@@ -92,14 +100,7 @@ func TestADeletedDoorOrUserCanBeDeletedForGood(t *testing.T) {
 
 func TestADeleteWithForceFalseOnlyMarksItDeleted(t *testing.T) {
 	t.Parallel()
-	cases := map[string]struct {
-		create func(t *testing.T, b *testsupport.Browser)
-		target string
-	}{
-		"door": {func(t *testing.T, b *testsupport.Browser) { createDoor(t, b, frontDoor) }, "/api/v1/doors/1"},
-		"user": {func(t *testing.T, b *testsupport.Browser) { createUser(t, b, ann) }, "/api/v1/users/2"},
-	}
-	for name, c := range cases {
+	for name, c := range deletables {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			b := signedInAdmin(t, testsupport.NewFactory())
@@ -131,15 +132,7 @@ func TestAForceThatIsNeitherTrueNorFalseIsRefused(t *testing.T) {
 
 func TestOnlyAnAdministratorMayDeleteForGood(t *testing.T) {
 	t.Parallel()
-	cases := map[string]struct {
-		roles  string
-		create func(t *testing.T, b *testsupport.Browser)
-		target string
-	}{
-		"door": {`["manage-doors"]`, func(t *testing.T, b *testsupport.Browser) { createDoor(t, b, frontDoor) }, "/api/v1/doors/1"},
-		"user": {`["manage-users"]`, func(t *testing.T, b *testsupport.Browser) { createUser(t, b, ann) }, "/api/v1/users/2"},
-	}
-	for name, c := range cases {
+	for name, c := range deletables {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			_, b := adminHolding(t, testsupport.NewFactory(), c.roles)
