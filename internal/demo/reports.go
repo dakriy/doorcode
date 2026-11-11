@@ -151,9 +151,10 @@ func (p profile) report(rng *rand.Rand, now, at time.Time, opens int) (connector
 	}
 	return connector.StoredTelemetry{
 		At: at, Signal: p.signal + rng.IntN(7) - 3, LatencyMS: latency, UptimeS: int64(at.Sub(at.Truncate(7 * 24 * time.Hour)).Seconds()),
-		FreeBytes: 182000 + rng.Int64N(6000), FirmwareVersion: version, Reconnects: rng.IntN(3), Opens: opens,
+		FreeBytes: 182000 + rng.Int64N(6000), FirmwareVersion: version,
 		MeshLayer: p.meshLayer(), MeshParent: p.meshParent, MeshChildren: p.meshChildren(),
-		StoredLinkCounts: p.wifi.counts(rng.IntN, p.signal, int(sampleEvery.Seconds()), checks), StoredLink: p.wifi.link(),
+		StoredCounts: connector.StoredCounts{Opens: opens, StoredLinkCounts: p.wifi.counts(rng.IntN, p.signal, int(sampleEvery.Seconds()), checks)},
+		StoredLink:   p.wifi.link(),
 	}, true
 }
 
@@ -179,13 +180,20 @@ func writeTelemetry(ctx context.Context, store connector.Store, rng *rand.Rand, 
 }
 
 // writeSamples writes every report p's controller made from from up to
-// now.
+// now, with the totals it counted since it last started, which its
+// uptime going down marks.
 func (p profile) writeSamples(ctx context.Context, store connector.Store, rng *rand.Rand, opens map[slot]int, from, now time.Time) error {
+	totals, uptime := connector.StoredCounts{}, int64(0)
 	for at := from; at.Before(now); at = at.Add(sampleEvery) {
 		t, ok := p.report(rng, now, at, opens[slot{p.door, at}])
 		if !ok {
 			continue
 		}
+		if t.UptimeS < uptime {
+			totals = connector.StoredCounts{}
+		}
+		totals, uptime = telemetry.Added(totals, t.StoredCounts), t.UptimeS
+		t.Totals = totals
 		if err := store.AddSample(ctx, connector.StoredSample{DoorID: p.door, StoredTelemetry: t}); err != nil {
 			return err
 		}

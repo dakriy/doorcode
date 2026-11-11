@@ -21,11 +21,14 @@ func linkFields(c *connector.StoredLinkCounts, l *connector.StoredLink) []any {
 // sampleColumns lists the telemetry_samples columns in the order
 // sampleFields reads them.
 const sampleColumns = `door_id, at, signal, latency_ms, uptime_s, free_bytes, firmware_version, reconnects, door_open, opens,
-	mesh_layer, mesh_parent, mesh_children, config_digest, ` + linkColumns
+	mesh_layer, mesh_parent, mesh_children, config_digest, total_reconnects, total_opens, total_checks_sent, total_checks_lost,
+	total_tcp_sent, total_tcp_retransmits, total_tcp_drops, total_wifi_drops, total_roams, ` + linkColumns
 
 func sampleFields(s *connector.StoredSample) []any {
+	t := &s.Totals
 	fields := []any{&s.DoorID, &s.At, &s.Signal, &s.LatencyMS, &s.UptimeS, &s.FreeBytes, &s.FirmwareVersion, &s.Reconnects, &s.DoorOpen, &s.Opens,
-		&s.MeshLayer, &s.MeshParent, &s.MeshChildren, &s.ConfigDigest}
+		&s.MeshLayer, &s.MeshParent, &s.MeshChildren, &s.ConfigDigest, &t.Reconnects, &t.Opens, &t.ChecksSent, &t.ChecksLost,
+		&t.TCPSent, &t.TCPRetransmits, &t.TCPDrops, &t.WifiDrops, &t.Roams}
 	return append(fields, linkFields(&s.StoredLinkCounts, &s.StoredLink)...)
 }
 
@@ -43,7 +46,7 @@ func rollupFields(r *connector.StoredRollup) []any {
 // AddSample inserts sample.
 func (s *Store) AddSample(ctx context.Context, sample connector.StoredSample) error {
 	_, err := s.pool.Exec(ctx, `insert into telemetry_samples (`+sampleColumns+`) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
-		$14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)`,
+		$14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33)`,
 		sampleFields(&sample)...)
 	return err
 }

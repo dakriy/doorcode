@@ -58,28 +58,17 @@ func Hourly(samples []connector.StoredSample) []connector.StoredRollup {
 // memory, how often the door was opened and how its links fared in all,
 // and the mesh layer and children and the Wi-Fi link of the last report.
 func RollUp(hour []connector.StoredSample) connector.StoredRollup {
-	opens := 0
-	counts := connector.StoredLinkCounts{}
+	counts := connector.StoredCounts{}
 	for _, sample := range hour {
-		opens += sample.Opens
-		counts = added(counts, sample.StoredLinkCounts)
+		counts = Added(counts, sample.StoredCounts)
 	}
 	last := hour[len(hour)-1]
 	return connector.StoredRollup{
-		DoorID: hour[0].DoorID, Hour: hour[0].At.Truncate(time.Hour), Samples: len(hour), Opens: opens,
-		MeshLayer: last.MeshLayer, MeshChildren: last.MeshChildren, StoredLinkCounts: counts, StoredLink: last.StoredLink,
+		DoorID: hour[0].DoorID, Hour: hour[0].At.Truncate(time.Hour), Samples: len(hour), Opens: counts.Opens,
+		MeshLayer: last.MeshLayer, MeshChildren: last.MeshChildren, StoredLinkCounts: counts.StoredLinkCounts, StoredLink: last.StoredLink,
 		Signal:    spread(hour, func(s connector.StoredSample) int64 { return int64(s.Signal) }),
 		Latency:   spread(hour, func(s connector.StoredSample) int64 { return int64(s.LatencyMS) }),
 		FreeBytes: spread(hour, func(s connector.StoredSample) int64 { return s.FreeBytes }),
-	}
-}
-
-// added is the counts of a and b together.
-func added(a, b connector.StoredLinkCounts) connector.StoredLinkCounts {
-	return connector.StoredLinkCounts{
-		ChecksSent: a.ChecksSent + b.ChecksSent, ChecksLost: a.ChecksLost + b.ChecksLost, TCPSent: a.TCPSent + b.TCPSent,
-		TCPRetransmits: a.TCPRetransmits + b.TCPRetransmits, TCPDrops: a.TCPDrops + b.TCPDrops,
-		WifiDrops: a.WifiDrops + b.WifiDrops, Roams: a.Roams + b.Roams,
 	}
 }
 

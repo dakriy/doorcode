@@ -586,7 +586,7 @@ func TestTheTrendChartsDrawEachOfTheFirstEightDoorsOnOneScale(t *testing.T) {
 	}{
 		{"2026-01-05T09:10:00Z", 1, map[string]any{"signal": -60, "latency_ms": 40, "opens": 1}},
 		{"2026-01-05T09:10:00Z", 2, map[string]any{"signal": -70, "latency_ms": 60}},
-		{"2026-01-05T10:10:00Z", 1, map[string]any{"signal": -64, "latency_ms": 44, "opens": 2}},
+		{"2026-01-05T10:10:00Z", 1, map[string]any{"signal": -64, "latency_ms": 44, "opens": 3}},
 	} {
 		f.ClockStub.Set(report.at)
 		if err := conns[report.door-1].Publish("doorcode/doors/"+testsupport.Itoa(report.door)+"/telemetry", reportOf(report.says), false); err != nil {

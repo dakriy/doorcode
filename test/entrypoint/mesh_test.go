@@ -30,7 +30,8 @@ func TestATelemetryReportsMeshIsTheDoorsState(t *testing.T) {
 
 	want := testsupport.JSON(`{"at":"2026-01-05T09:00:00Z","signal":-61,"latency_ms":40,"uptime_s":3720,"free_bytes":120832,
 		"firmware_version":"1.4.3","reconnects":2,"door_open":false,"opens":0,"mesh_layer":2,"mesh_parent":"B2","mesh_children":1,
-		"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"wifi_drop_reason":0,"roams":0,"bssid":"","channel":0,"config_digest":""}`)
+		"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"wifi_drop_reason":0,"roams":0,"bssid":"","channel":0,"config_digest":"",
+		"totals":{"reconnects":2,"opens":0,"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"roams":0}}`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("telemetry (-want +got):\n%s", diff)
 	}
@@ -44,7 +45,8 @@ func TestTheTelemetryAPIListsEachReportsMesh(t *testing.T) {
 
 	want := testsupport.JSON(`{"at":"2026-01-05T09:00:00Z","signal":-61,"latency_ms":40,"uptime_s":3720,"free_bytes":120832,
 		"firmware_version":"1.4.3","reconnects":2,"door_open":false,"opens":0,"mesh_layer":2,"mesh_parent":"B2","mesh_children":1,
-		"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"wifi_drop_reason":0,"roams":0,"bssid":"","channel":0,"config_digest":""}`)
+		"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"wifi_drop_reason":0,"roams":0,"bssid":"","channel":0,"config_digest":"",
+		"totals":{"reconnects":2,"opens":0,"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"roams":0}}`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("report (-want +got):\n%s", diff)
 	}
@@ -63,7 +65,8 @@ func TestAReportWithoutTheMeshFieldsReadsAsReachingTheAccessPointItself(t *testi
 
 	report := testsupport.JSON(`{"at":"2026-01-05T09:00:00Z","signal":-61,"latency_ms":40,"uptime_s":3720,"free_bytes":120832,
 		"firmware_version":"1.4.3","reconnects":2,"door_open":false,"opens":0,"mesh_layer":0,"mesh_parent":"","mesh_children":0,
-		"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"wifi_drop_reason":0,"roams":0,"bssid":"","channel":0,"config_digest":""}`)
+		"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"wifi_drop_reason":0,"roams":0,"bssid":"","channel":0,"config_digest":"",
+		"totals":{"reconnects":2,"opens":0,"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"roams":0}}`)
 	if diff := cmp.Diff([]any{report, report, "Online"}, got); diff != "" {
 		t.Errorf("report, state, status (-want +got):\n%s", diff)
 	}

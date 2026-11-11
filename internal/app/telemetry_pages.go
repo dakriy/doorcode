@@ -147,7 +147,7 @@ func (c catalog) rowOfState(d connector.StoredDoor, zone *time.Location) stateVi
 	}
 	if t := ctrl.Telemetry; t != nil {
 		view.Latency, view.Uptime = strconv.Itoa(t.LatencyMS)+" ms", uptimeText(t.UptimeS)
-		view.Memory, view.Reconnects = strconv.FormatInt(t.FreeBytes/1024, 10)+" KiB", strconv.Itoa(t.Reconnects)
+		view.Memory, view.Reconnects = strconv.FormatInt(t.FreeBytes/1024, 10)+" KiB", strconv.Itoa(t.Totals.Reconnects)
 		view.MeshLayer, view.MeshParent, view.MeshChildren = meshLayerText(t.MeshLayer), c.parentText(t.MeshParent), strconv.Itoa(t.MeshChildren)
 		view.AccessPoint, view.LastDrop = accessPointText(t.StoredLink), dropReasonText(t.WifiDropReason)
 		view.LastReport = shownAt(zone, t.At, secondLayout)

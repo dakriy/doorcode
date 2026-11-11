@@ -351,6 +351,7 @@ func TestStoreKeepsADoorsStateWithItsController(t *testing.T) {
 			c.Telemetry = &connector.StoredTelemetry{
 				At: controllerSeen, Signal: -61, LatencyMS: 40, UptimeS: 3720, FreeBytes: 120832, FirmwareVersion: "1.4.2",
 				Reconnects: 2, DoorOpen: true, Opens: 1, ConfigDigest: "0123456789abcdef",
+				Totals: connector.StoredCounts{Reconnects: 5, Opens: 9, StoredLinkCounts: connector.StoredLinkCounts{ChecksSent: 12, Roams: 3}},
 			}
 			c.ConfigMismatchSince, c.ConfigRevertedDigest, c.ConfigRevertedAt = &opened, "aed54fd952c8d3a6", &controllerSeen
 

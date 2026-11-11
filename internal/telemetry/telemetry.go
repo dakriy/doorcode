@@ -78,16 +78,14 @@ func (s Service) report(ctx context.Context, doorID int64, payload []byte) error
 		return err
 	}
 	now := s.Clock.Now()
+	totals := totalsOf(m)
 	t := connector.StoredTelemetry{
 		At: now, Signal: m.Signal, LatencyMS: m.LatencyMS, UptimeS: m.UptimeS, FreeBytes: m.FreeBytes,
-		FirmwareVersion: m.FirmwareVersion, Reconnects: m.Reconnects, DoorOpen: m.DoorOpen, Opens: m.Opens,
+		FirmwareVersion: m.FirmwareVersion, DoorOpen: m.DoorOpen,
 		MeshLayer: m.MeshLayer, MeshParent: m.MeshParent, MeshChildren: m.MeshChildren,
-		StoredLinkCounts: connector.StoredLinkCounts{
-			ChecksSent: m.ChecksSent, ChecksLost: m.ChecksLost, TCPSent: m.TCPSent, TCPRetransmits: m.TCPRetransmits,
-			TCPDrops: m.TCPDrops, WifiDrops: m.WifiDrops, Roams: m.Roams,
-		},
+		StoredCounts: counted(totals, totalsBefore(held, m.UptimeS)),
 		StoredLink:   connector.StoredLink{WifiDropReason: m.WifiDropReason, BSSID: m.BSSID, Channel: m.Channel},
-		ConfigDigest: m.ConfigDigest,
+		ConfigDigest: m.ConfigDigest, Totals: totals,
 	}
 	if err := s.Store.AddSample(ctx, connector.StoredSample{DoorID: d.ID, StoredTelemetry: t}); err != nil {
 		return err

@@ -10,6 +10,7 @@ import (
 
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/protocol"
+	"github.com/dakriy/doorcode/internal/telemetry"
 )
 
 // enrollmentUsername is the enrollment_username setting's default, which
@@ -87,8 +88,10 @@ type controller struct {
 	started    time.Time
 	// startedBy is why it started, until it has said so as its door.
 	startedBy string
-	// connects is how often it connected as its door since it started.
+	// connects is how often it connected as its door since it started,
+	// and counted what else it counted since then, as it reports them.
 	connects int
+	counted  connector.StoredCounts
 }
 
 // run connects until ctx ends, pausing after a connection that failed or
@@ -329,7 +332,7 @@ func (c *controller) restart(d *door) error {
 	d.conn.Drop()
 	c.door.Firmware = d.installed
 	c.started, c.startedBy = time.Now(), protocol.StartSoftware
-	c.connects = 0
+	c.connects, c.counted = 0, connector.StoredCounts{}
 	return nil
 }
 
@@ -404,12 +407,15 @@ func (c *controller) say(d *door, what protocol.DoorEvent) {
 	c.publish(d, protocol.LeafEvent, &what)
 }
 
-// report publishes the controller's telemetry.
+// report publishes the controller's telemetry, each count a total since
+// it started.
 func (c *controller) report(d *door) {
-	counts := c.door.Wifi.counts(rand.IntN, c.door.Signal, max(d.config.TelemetryIntervalS, 5), d.checks)
+	link := c.door.Wifi.counts(rand.IntN, c.door.Signal, max(d.config.TelemetryIntervalS, 5), d.checks)
+	c.counted = telemetry.Added(c.counted, connector.StoredCounts{Opens: d.opens, StoredLinkCounts: link})
+	counts := c.counted
 	t := protocol.Telemetry{
 		Signal: c.door.Signal + rand.IntN(7) - 3, LatencyMS: 20 + rand.IntN(40), UptimeS: int64(time.Since(c.started).Seconds()),
-		FreeBytes: 182000 + rand.Int64N(6000), FirmwareVersion: c.door.Firmware, Reconnects: c.connects - 1, DoorOpen: d.open, Opens: d.opens,
+		FreeBytes: 182000 + rand.Int64N(6000), FirmwareVersion: c.door.Firmware, Reconnects: c.connects - 1, DoorOpen: d.open, Opens: counts.Opens,
 		MeshLayer: c.door.MeshLayer, MeshParent: c.door.MeshParent, MeshChildren: c.door.MeshChildren,
 		ChecksSent: counts.ChecksSent, ChecksLost: counts.ChecksLost, TCPSent: counts.TCPSent, TCPRetransmits: counts.TCPRetransmits,
 		TCPDrops: counts.TCPDrops, WifiDrops: counts.WifiDrops, WifiDropReason: c.door.Wifi.dropReason, Roams: counts.Roams,

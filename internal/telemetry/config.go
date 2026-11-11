@@ -110,7 +110,7 @@ func mismatchSince(d connector.StoredDoor, held connector.StoredController, t co
 // connection it made report prev over: it has neither restarted nor
 // connected again since.
 func sameConnection(prev, t connector.StoredTelemetry) bool {
-	return t.Reconnects == prev.Reconnects && t.UptimeS >= prev.UptimeS
+	return t.Totals.Reconnects == prev.Totals.Reconnects && t.UptimeS >= prev.UptimeS
 }
 
 // sinceSent reports whether at, nil for never, is no earlier than when

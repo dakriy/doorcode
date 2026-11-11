@@ -34,7 +34,8 @@ func TestATelemetryReportBecomesTheDoorsState(t *testing.T) {
 		"config_sent_digest":"` + k.sentDigest() + `","config_sent_at":"2026-01-05T09:00:00Z","config_mismatch":false,"config_reverted":false,
 		"telemetry":{"at":"2026-01-05T09:00:30Z","signal":-70,"latency_ms":40,"uptime_s":3720,"free_bytes":120832,
 		"firmware_version":"1.5.0","reconnects":2,"door_open":true,"opens":1,"mesh_layer":0,"mesh_parent":"","mesh_children":0,
-		"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"wifi_drop_reason":0,"roams":0,"bssid":"","channel":0,"config_digest":""}}`)
+		"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"wifi_drop_reason":0,"roams":0,"bssid":"","channel":0,"config_digest":"",
+		"totals":{"reconnects":2,"opens":1,"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"roams":0}}}`)
 	if diff := cmp.Diff(want, k.state("")); diff != "" {
 		t.Errorf("state (-want +got):\n%s", diff)
 	}
@@ -183,7 +184,8 @@ func TestLiveStreamTellsPagesWhatChangedOfADoorsState(t *testing.T) {
 // reported is a keypad site whose Lobby reported at 09:10 (-60 dBm, 40
 // ms, 100000 bytes free, 2 opens), at 09:40 (-70 dBm, 60 ms, 120000
 // bytes, 3 opens), and at 10:05 (-65 dBm, 50 ms, 110000 bytes, no opens)
-// on Monday 5 January, with the stub clock at 10:30.
+// on Monday 5 January, its opens totals of 2, 5, and 5, with the stub
+// clock at 10:30.
 func reported(t *testing.T, f *testsupport.Factory) *keypad {
 	t.Helper()
 	k := keypadSite(t, f)
@@ -192,8 +194,8 @@ func reported(t *testing.T, f *testsupport.Factory) *keypad {
 		signal, latency, free, opens int
 	}{
 		{"2026-01-05T09:10:00Z", -60, 40, 100000, 2},
-		{"2026-01-05T09:40:00Z", -70, 60, 120000, 3},
-		{"2026-01-05T10:05:00Z", -65, 50, 110000, 0},
+		{"2026-01-05T09:40:00Z", -70, 60, 120000, 5},
+		{"2026-01-05T10:05:00Z", -65, 50, 110000, 5},
 	} {
 		k.at(r.at)
 		k.report(map[string]any{"signal": r.signal, "latency_ms": r.latency, "free_bytes": r.free, "opens": r.opens})
@@ -255,7 +257,8 @@ func TestTheTelemetryAPIShowsEachReport(t *testing.T) {
 
 	want := testsupport.JSON(`{"at":"2026-01-05T09:10:00Z","signal":-60,"latency_ms":40,"uptime_s":3720,"free_bytes":100000,
 		"firmware_version":"1.4.3","reconnects":2,"door_open":false,"opens":2,"mesh_layer":0,"mesh_parent":"","mesh_children":0,
-		"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"wifi_drop_reason":0,"roams":0,"bssid":"","channel":0,"config_digest":""}`)
+		"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"wifi_drop_reason":0,"roams":0,"bssid":"","channel":0,"config_digest":"",
+		"totals":{"reconnects":2,"opens":2,"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"roams":0}}`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("report (-want +got):\n%s", diff)
 	}

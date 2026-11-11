@@ -8,10 +8,10 @@ import (
 	"github.com/dakriy/doorcode/internal/testsupport"
 )
 
-// linkReport is how Lobby's links fared since its last report: checks
-// sent and lost, TCP segments sent, sent again, and dropped, Wi-Fi drops
-// and roams, the reason of its latest drop, and the access point it is on:
-// each count times scale and the reason 200 plus scale.
+// linkReport is how Lobby's links fared since it started: checks sent and
+// lost, TCP segments sent, sent again, and dropped, Wi-Fi drops and roams,
+// the reason of its latest drop, and the access point it is on: each
+// count times scale and the reason 200 plus scale.
 func linkReport(scale int, bssid string, channel int) map[string]any {
 	return map[string]any{
 		"checks_sent": 6 * scale, "checks_lost": scale, "tcp_sent": 5000000000 * int64(scale), "tcp_retransmits": 9 * scale,
@@ -31,7 +31,8 @@ func TestATelemetryReportsLinkIsInTheDoorsStateAndItsReports(t *testing.T) {
 	report := testsupport.JSON(`{"at":"2026-01-05T09:00:00Z","signal":-61,"latency_ms":40,"uptime_s":3720,"free_bytes":120832,
 		"firmware_version":"1.4.3","reconnects":2,"door_open":false,"opens":0,"mesh_layer":0,"mesh_parent":"","mesh_children":0,
 		"checks_sent":6,"checks_lost":1,"tcp_sent":5000000000,"tcp_retransmits":9,"tcp_drops":2,"wifi_drops":3,"wifi_drop_reason":201,
-		"roams":4,"bssid":"f09fc2a1e001","channel":11,"config_digest":""}`)
+		"roams":4,"bssid":"f09fc2a1e001","channel":11,"config_digest":"",
+		"totals":{"reconnects":2,"opens":0,"checks_sent":6,"checks_lost":1,"tcp_sent":5000000000,"tcp_retransmits":9,"tcp_drops":2,"wifi_drops":3,"roams":4}}`)
 	if diff := cmp.Diff([]any{report, report}, got); diff != "" {
 		t.Errorf("state, report (-want +got):\n%s", diff)
 	}
@@ -63,8 +64,8 @@ func TestEachHourSumsItsLinkCountsAndKeepsTheLinkOfItsLastReport(t *testing.T) {
 		channel int
 	}{
 		{"2026-01-05T09:10:00Z", 1, "f09fc2a1e001", 1},
-		{"2026-01-05T09:40:00Z", 2, "f09fc2a1e002", 6},
-		{"2026-01-05T10:05:00Z", 3, "f09fc2a1e003", 11},
+		{"2026-01-05T09:40:00Z", 3, "f09fc2a1e002", 6},
+		{"2026-01-05T10:05:00Z", 6, "f09fc2a1e003", 11},
 	} {
 		k.at(r.at)
 		k.report(linkReport(r.scale, r.bssid, r.channel))
@@ -79,12 +80,12 @@ func TestEachHourSumsItsLinkCountsAndKeepsTheLinkOfItsLastReport(t *testing.T) {
 			"latency_ms":{"mean":40,"min":40,"max":40},"free_bytes":{"mean":120832,"min":120832,"max":120832},"opens":0,
 			"mesh_layer":0,"mesh_children":0,
 			"checks_sent":18,"checks_lost":3,"tcp_sent":15000000000,"tcp_retransmits":27,"tcp_drops":6,"wifi_drops":9,
-			"wifi_drop_reason":202,"roams":12,"bssid":"f09fc2a1e002","channel":6},
+			"wifi_drop_reason":203,"roams":12,"bssid":"f09fc2a1e002","channel":6},
 		{"hour":"2026-01-05T10:00:00Z","samples":1,"signal":{"mean":-61,"min":-61,"max":-61},
 			"latency_ms":{"mean":40,"min":40,"max":40},"free_bytes":{"mean":120832,"min":120832,"max":120832},"opens":0,
 			"mesh_layer":0,"mesh_children":0,
 			"checks_sent":18,"checks_lost":3,"tcp_sent":15000000000,"tcp_retransmits":27,"tcp_drops":6,"wifi_drops":9,
-			"wifi_drop_reason":203,"roams":12,"bssid":"f09fc2a1e003","channel":11}]}`)
+			"wifi_drop_reason":206,"roams":12,"bssid":"f09fc2a1e003","channel":11}]}`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("rollups (-want +got):\n%s", diff)
 	}
@@ -121,12 +122,12 @@ func TestADoorPageShowsTheAccessPointAndWhyTheLinkLastDropped(t *testing.T) {
 	}
 }
 
-// linkHours has Lobby report how its links fared at 06:40, 09:10, 09:40,
-// 10:05, and 11:20 on Monday 5 January: in the hour from 06:00 nothing
-// lost; from 09:00 4 of 20 checks lost, 20 of 200 TCP segments sent again
-// and 3 dropped, a Wi-Fi drop and 2 roams; from 10:00 nothing sent; and
-// from 11:00 none of 4 checks lost, none of 50 segments sent again, and 2
-// Wi-Fi drops and a roam.
+// linkHours has Lobby report how its links fared, in totals since it
+// started, at 06:40, 09:10, 09:40, 10:05, and 11:20 on Monday 5 January:
+// in the hour from 06:00 nothing lost; from 09:00 4 of 20 checks lost, 20
+// of 200 TCP segments sent again and 3 dropped, a Wi-Fi drop and 2 roams;
+// from 10:00 nothing sent; and from 11:00 none of 4 checks lost, none of
+// 50 segments sent again, and 2 Wi-Fi drops and a roam.
 func linkHours(k *keypad) {
 	k.t.Helper()
 	for _, r := range []struct {
@@ -134,10 +135,10 @@ func linkHours(k *keypad) {
 		sent, lost, tcp, again, drops, wifi, roam int
 	}{
 		{"2026-01-05T06:40:00Z", 5, 0, 10, 0, 0, 0, 0},
-		{"2026-01-05T09:10:00Z", 10, 1, 100, 5, 2, 1, 0},
-		{"2026-01-05T09:40:00Z", 10, 3, 100, 15, 1, 0, 2},
-		{"2026-01-05T10:05:00Z", 0, 0, 0, 0, 0, 0, 0},
-		{"2026-01-05T11:20:00Z", 4, 0, 50, 0, 0, 2, 1},
+		{"2026-01-05T09:10:00Z", 15, 1, 110, 5, 2, 1, 0},
+		{"2026-01-05T09:40:00Z", 25, 4, 210, 20, 3, 1, 2},
+		{"2026-01-05T10:05:00Z", 25, 4, 210, 20, 3, 1, 2},
+		{"2026-01-05T11:20:00Z", 29, 4, 260, 20, 3, 3, 3},
 	} {
 		k.at(r.at)
 		k.report(map[string]any{

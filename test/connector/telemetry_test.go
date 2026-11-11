@@ -17,7 +17,8 @@ import (
 var telemetryStart = time.Date(2026, 3, 2, 8, 0, 0, 0, time.UTC)
 
 // sampleAt is a report of the door whose id is door, minutes after
-// telemetryStart, with signal.
+// telemetryStart, with signal, its totals each different from the others
+// and from its counts.
 func sampleAt(door int64, minutes, signal int) connector.StoredSample {
 	return connector.StoredSample{DoorID: door, StoredTelemetry: connector.StoredTelemetry{
 		At: telemetryStart.Add(time.Duration(minutes) * time.Minute), Signal: signal, LatencyMS: 40, UptimeS: 3720,
@@ -28,6 +29,9 @@ func sampleAt(door int64, minutes, signal int) connector.StoredSample {
 		},
 		StoredLink:   connector.StoredLink{WifiDropReason: 200, BSSID: "f09fc2a1e001", Channel: 11},
 		ConfigDigest: "0123456789abcdef",
+		Totals: connector.StoredCounts{Reconnects: 5, Opens: 11, StoredLinkCounts: connector.StoredLinkCounts{
+			ChecksSent: 70, ChecksLost: 10, TCPSent: 6000000000, TCPRetransmits: 120, TCPDrops: 30, WifiDrops: 20, Roams: 40,
+		}},
 	}}
 }
 

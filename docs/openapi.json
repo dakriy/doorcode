@@ -13035,11 +13035,11 @@
           },
           "checks_lost": {
             "type": "integer",
-            "description": "How many checks since its last report got no reply in time; 0 from firmware that does not report it."
+            "description": "How many checks since its report before got no reply in time; 0 from firmware that does not report it."
           },
           "checks_sent": {
             "type": "integer",
-            "description": "How many code checks the controller sent to the server since its last report; 0 from firmware that does not report it."
+            "description": "How many code checks the controller sent to the server since its report before; 0 from firmware that does not report it."
           },
           "config_digest": {
             "type": "string",
@@ -13075,15 +13075,15 @@
           },
           "opens": {
             "type": "integer",
-            "description": "How often the door was opened since the controller's last report."
+            "description": "How often the door was opened since the controller's report before."
           },
           "reconnects": {
             "type": "integer",
-            "description": "How often the controller connected to the broker again since it started."
+            "description": "How often the controller connected to the broker again since its report before."
           },
           "roams": {
             "type": "integer",
-            "description": "How often its Wi-Fi station moved to another access point by its own choice since its last report; 0 from firmware that does not report it."
+            "description": "How often its Wi-Fi station moved to another access point by its own choice since its report before; 0 from firmware that does not report it."
           },
           "signal": {
             "type": "integer",
@@ -13091,15 +13091,19 @@
           },
           "tcp_drops": {
             "type": "integer",
-            "description": "How many TCP segments it dropped since its last report; 0 from firmware that does not report it or keeps no TCP counters."
+            "description": "How many TCP segments it dropped since its report before; 0 from firmware that does not report it or keeps no TCP counters."
           },
           "tcp_retransmits": {
             "type": "integer",
-            "description": "How many TCP segments it sent again since its last report; 0 from firmware that does not report it or keeps no TCP counters."
+            "description": "How many TCP segments it sent again since its report before; 0 from firmware that does not report it or keeps no TCP counters."
           },
           "tcp_sent": {
             "type": "integer",
-            "description": "How many TCP segments it sent for the first time since its last report, not counting bare acknowledgements, resets, and segments sent again; 0 from firmware that does not report it or keeps no TCP counters."
+            "description": "How many TCP segments it sent for the first time since its report before, not counting bare acknowledgements, resets, and segments sent again; 0 from firmware that does not report it or keeps no TCP counters."
+          },
+          "totals": {
+            "$ref": "#/components/schemas/TotalsView",
+            "description": "The counts as the controller reported them, each a total since it started. The counts above are the difference from its report before; all of a total counts as new when it is the controller's first report, when uptime_s is lower than in the report before (it restarted), or when the total is lower than in the report before (its counter started again)."
           },
           "uptime_s": {
             "type": "integer",
@@ -13111,7 +13115,7 @@
           },
           "wifi_drops": {
             "type": "integer",
-            "description": "How often its Wi-Fi station lost its access point since its last report; 0 from firmware that does not report it."
+            "description": "How often its Wi-Fi station lost its access point since its report before; 0 from firmware that does not report it."
           }
         },
         "required": [
@@ -13137,7 +13141,8 @@
           "roams",
           "bssid",
           "channel",
-          "config_digest"
+          "config_digest",
+          "totals"
         ]
       },
       "TimelineView": {
@@ -13232,6 +13237,58 @@
           "name",
           "created_at",
           "expired"
+        ]
+      },
+      "TotalsView": {
+        "type": "object",
+        "properties": {
+          "checks_lost": {
+            "type": "integer",
+            "description": "How many checks got no reply in time."
+          },
+          "checks_sent": {
+            "type": "integer",
+            "description": "How many code checks it sent to the server."
+          },
+          "opens": {
+            "type": "integer",
+            "description": "How often the door was opened, open-mode openings included."
+          },
+          "reconnects": {
+            "type": "integer",
+            "description": "How often it connected to the broker again."
+          },
+          "roams": {
+            "type": "integer",
+            "description": "How often its Wi-Fi station moved to another access point by its own choice."
+          },
+          "tcp_drops": {
+            "type": "integer",
+            "description": "How many TCP segments it dropped."
+          },
+          "tcp_retransmits": {
+            "type": "integer",
+            "description": "How many TCP segments it sent again."
+          },
+          "tcp_sent": {
+            "type": "integer",
+            "description": "How many TCP segments it sent for the first time, not counting bare acknowledgements, resets, and segments sent again."
+          },
+          "wifi_drops": {
+            "type": "integer",
+            "description": "How often its Wi-Fi station lost its access point."
+          }
+        },
+        "required": [
+          "reconnects",
+          "opens",
+          "checks_sent",
+          "checks_lost",
+          "tcp_sent",
+          "tcp_retransmits",
+          "tcp_drops",
+          "wifi_drops",
+          "roams"
         ]
       },
       "TrendView": {

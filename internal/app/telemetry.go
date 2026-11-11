@@ -18,29 +18,43 @@ const (
 )
 
 type telemetryView struct {
-	At              time.Time `json:"at" doc:"When the server received the report."`
-	Signal          int       `json:"signal" doc:"The signal strength, in dBm."`
-	LatencyMS       int       `json:"latency_ms" doc:"The round trip from the controller to the server and back, in milliseconds."`
-	UptimeS         int64     `json:"uptime_s" doc:"How long the controller has run since it started, in seconds."`
-	FreeBytes       int64     `json:"free_bytes" doc:"The controller's free memory, in bytes."`
-	FirmwareVersion string    `json:"firmware_version" doc:"The firmware version the controller runs."`
-	Reconnects      int       `json:"reconnects" doc:"How often the controller connected to the broker again since it started."`
-	DoorOpen        bool      `json:"door_open" doc:"True when the door was open."`
-	Opens           int       `json:"opens" doc:"How often the door was opened since the controller's last report."`
-	MeshLayer       int       `json:"mesh_layer" doc:"The controller's layer in the site's Wi-Fi mesh: 0 when it reaches the building's access point itself, 1 when it hops through one other controller, and so on. 0 from firmware that does not report it."`
-	MeshParent      string    `json:"mesh_parent" doc:"The hardware id of the controller it hops through; empty at layer 0 and from firmware that does not report it."`
-	MeshChildren    int       `json:"mesh_children" doc:"How many controllers hop through this one; 0 from firmware that does not report it."`
-	ChecksSent      int       `json:"checks_sent" doc:"How many code checks the controller sent to the server since its last report; 0 from firmware that does not report it."`
-	ChecksLost      int       `json:"checks_lost" doc:"How many checks since its last report got no reply in time; 0 from firmware that does not report it."`
-	TCPSent         int64     `json:"tcp_sent" doc:"How many TCP segments it sent for the first time since its last report, not counting bare acknowledgements, resets, and segments sent again; 0 from firmware that does not report it or keeps no TCP counters."`
-	TCPRetransmits  int64     `json:"tcp_retransmits" doc:"How many TCP segments it sent again since its last report; 0 from firmware that does not report it or keeps no TCP counters."`
-	TCPDrops        int64     `json:"tcp_drops" doc:"How many TCP segments it dropped since its last report; 0 from firmware that does not report it or keeps no TCP counters."`
-	WifiDrops       int       `json:"wifi_drops" doc:"How often its Wi-Fi station lost its access point since its last report; 0 from firmware that does not report it."`
-	WifiDropReason  int       `json:"wifi_drop_reason" doc:"The reason code (ESP-IDF's wifi_err_reason_t) of its latest loss of its access point since it started; 0 when there was none and from firmware that does not report it."`
-	Roams           int       `json:"roams" doc:"How often its Wi-Fi station moved to another access point by its own choice since its last report; 0 from firmware that does not report it."`
-	BSSID           string    `json:"bssid" doc:"The BSSID of the access point it had joined, 12 lowercase hex digits; empty with no link and from firmware that does not report it."`
-	Channel         int       `json:"channel" doc:"The Wi-Fi channel of the access point it had joined; 0 with no link and from firmware that does not report it."`
-	ConfigDigest    string    `json:"config_digest" doc:"The digest of the configuration the controller ran: the first 8 bytes of the SHA-256 of the configuration message as published, 16 lowercase hex digits. Empty while it runs its defaults and from firmware that does not report it."`
+	At              time.Time  `json:"at" doc:"When the server received the report."`
+	Signal          int        `json:"signal" doc:"The signal strength, in dBm."`
+	LatencyMS       int        `json:"latency_ms" doc:"The round trip from the controller to the server and back, in milliseconds."`
+	UptimeS         int64      `json:"uptime_s" doc:"How long the controller has run since it started, in seconds."`
+	FreeBytes       int64      `json:"free_bytes" doc:"The controller's free memory, in bytes."`
+	FirmwareVersion string     `json:"firmware_version" doc:"The firmware version the controller runs."`
+	Reconnects      int        `json:"reconnects" doc:"How often the controller connected to the broker again since its report before."`
+	DoorOpen        bool       `json:"door_open" doc:"True when the door was open."`
+	Opens           int        `json:"opens" doc:"How often the door was opened since the controller's report before."`
+	MeshLayer       int        `json:"mesh_layer" doc:"The controller's layer in the site's Wi-Fi mesh: 0 when it reaches the building's access point itself, 1 when it hops through one other controller, and so on. 0 from firmware that does not report it."`
+	MeshParent      string     `json:"mesh_parent" doc:"The hardware id of the controller it hops through; empty at layer 0 and from firmware that does not report it."`
+	MeshChildren    int        `json:"mesh_children" doc:"How many controllers hop through this one; 0 from firmware that does not report it."`
+	ChecksSent      int        `json:"checks_sent" doc:"How many code checks the controller sent to the server since its report before; 0 from firmware that does not report it."`
+	ChecksLost      int        `json:"checks_lost" doc:"How many checks since its report before got no reply in time; 0 from firmware that does not report it."`
+	TCPSent         int64      `json:"tcp_sent" doc:"How many TCP segments it sent for the first time since its report before, not counting bare acknowledgements, resets, and segments sent again; 0 from firmware that does not report it or keeps no TCP counters."`
+	TCPRetransmits  int64      `json:"tcp_retransmits" doc:"How many TCP segments it sent again since its report before; 0 from firmware that does not report it or keeps no TCP counters."`
+	TCPDrops        int64      `json:"tcp_drops" doc:"How many TCP segments it dropped since its report before; 0 from firmware that does not report it or keeps no TCP counters."`
+	WifiDrops       int        `json:"wifi_drops" doc:"How often its Wi-Fi station lost its access point since its report before; 0 from firmware that does not report it."`
+	WifiDropReason  int        `json:"wifi_drop_reason" doc:"The reason code (ESP-IDF's wifi_err_reason_t) of its latest loss of its access point since it started; 0 when there was none and from firmware that does not report it."`
+	Roams           int        `json:"roams" doc:"How often its Wi-Fi station moved to another access point by its own choice since its report before; 0 from firmware that does not report it."`
+	BSSID           string     `json:"bssid" doc:"The BSSID of the access point it had joined, 12 lowercase hex digits; empty with no link and from firmware that does not report it."`
+	Channel         int        `json:"channel" doc:"The Wi-Fi channel of the access point it had joined; 0 with no link and from firmware that does not report it."`
+	ConfigDigest    string     `json:"config_digest" doc:"The digest of the configuration the controller ran: the first 8 bytes of the SHA-256 of the configuration message as published, 16 lowercase hex digits. Empty while it runs its defaults and from firmware that does not report it."`
+	Totals          totalsView `json:"totals" doc:"The counts as the controller reported them, each a total since it started. The counts above are the difference from its report before; all of a total counts as new when it is the controller's first report, when uptime_s is lower than in the report before (it restarted), or when the total is lower than in the report before (its counter started again)."`
+}
+
+// totalsView is what a controller counted since it started.
+type totalsView struct {
+	Reconnects     int   `json:"reconnects" doc:"How often it connected to the broker again."`
+	Opens          int   `json:"opens" doc:"How often the door was opened, open-mode openings included."`
+	ChecksSent     int   `json:"checks_sent" doc:"How many code checks it sent to the server."`
+	ChecksLost     int   `json:"checks_lost" doc:"How many checks got no reply in time."`
+	TCPSent        int64 `json:"tcp_sent" doc:"How many TCP segments it sent for the first time, not counting bare acknowledgements, resets, and segments sent again."`
+	TCPRetransmits int64 `json:"tcp_retransmits" doc:"How many TCP segments it sent again."`
+	TCPDrops       int64 `json:"tcp_drops" doc:"How many TCP segments it dropped."`
+	WifiDrops      int   `json:"wifi_drops" doc:"How often its Wi-Fi station lost its access point."`
+	Roams          int   `json:"roams" doc:"How often its Wi-Fi station moved to another access point by its own choice."`
 }
 
 type doorStateView struct {
@@ -137,7 +151,14 @@ func viewOfTelemetry(t connector.StoredTelemetry) telemetryView {
 		MeshLayer: t.MeshLayer, MeshParent: t.MeshParent, MeshChildren: t.MeshChildren,
 		ChecksSent: t.ChecksSent, ChecksLost: t.ChecksLost, TCPSent: t.TCPSent, TCPRetransmits: t.TCPRetransmits, TCPDrops: t.TCPDrops,
 		WifiDrops: t.WifiDrops, WifiDropReason: t.WifiDropReason, Roams: t.Roams, BSSID: t.BSSID, Channel: t.Channel,
-		ConfigDigest: t.ConfigDigest,
+		ConfigDigest: t.ConfigDigest, Totals: viewOfTotals(t.Totals),
+	}
+}
+
+func viewOfTotals(c connector.StoredCounts) totalsView {
+	return totalsView{
+		Reconnects: c.Reconnects, Opens: c.Opens, ChecksSent: c.ChecksSent, ChecksLost: c.ChecksLost, TCPSent: c.TCPSent,
+		TCPRetransmits: c.TCPRetransmits, TCPDrops: c.TCPDrops, WifiDrops: c.WifiDrops, Roams: c.Roams,
 	}
 }
 

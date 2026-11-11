@@ -581,6 +581,12 @@ limit itself, though it may hold back entries faster than the bucket allows.
 On `doorcode/doors/<id>/telemetry`, every `telemetry_interval_s` while
 connected, first soon after connecting. Every field is always sent.
 
+Every count (`reconnects`, `opens`, `checks_sent`, `checks_lost`,
+`tcp_sent`, `tcp_retransmits`, `tcp_drops`, `wifi_drops`, and `roams`) is
+a total since the controller started: never reset after a report, only
+when the controller starts, so a report lost on the way loses no counts.
+A count kept in a 32-bit counter may wrap.
+
 | Field | CBOR type | Unit | Meaning |
 | --- | --- | --- | --- |
 | `v` | uint | | Protocol version, 1. |
@@ -591,18 +597,18 @@ connected, first soon after connecting. Every field is always sent.
 | `firmware_version` | text | | The version running now. |
 | `reconnects` | uint | | How often it connected to the broker again since it started (0 for the first connection). |
 | `door_open` | bool | | Whether the door sensor says the door is open now. |
-| `opens` | uint | | How often the door opened since the last report, open-mode opens included; reset to 0 after each report. |
+| `opens` | uint | | How often the door opened, open-mode opens included. |
 | `mesh_layer` | uint | | Where the controller sits in the site's Wi-Fi mesh: 0 when it is connected straight to the building's access point, 1 when it hops through one other controller, and so on. |
 | `mesh_parent` | text | | The **hardware id** (the MQTT client id it enrolled with, not a door id) of the controller it hops through; empty at layer 0. |
 | `mesh_children` | uint | | How many controllers hop through this one (its direct children in the mesh). |
-| `checks_sent` | uint | | Code checks sent to the server since the last report. |
-| `checks_lost` | uint | | Checks since the last report whose reply did not come in time. A check replaced by a newer one before then is not lost. |
-| `tcp_sent` | uint | segments | TCP segments sent for the first time since the last report: those carrying data or opening or closing a connection, not bare acknowledgements, resets, or segments sent again. 0 on a controller whose network stack keeps no TCP counters. |
-| `tcp_retransmits` | uint | segments | TCP segments sent again since the last report; 0 without TCP counters. |
-| `tcp_drops` | uint | segments | TCP segments dropped since the last report; 0 without TCP counters. |
-| `wifi_drops` | uint | | Times the Wi-Fi station lost its access point since the last report. |
+| `checks_sent` | uint | | Code checks sent to the server. |
+| `checks_lost` | uint | | Checks whose reply did not come in time. A check replaced by a newer one before then is not lost. |
+| `tcp_sent` | uint | segments | TCP segments sent for the first time: those carrying data or opening or closing a connection, not bare acknowledgements, resets, or segments sent again. 0 on a controller whose network stack keeps no TCP counters. |
+| `tcp_retransmits` | uint | segments | TCP segments sent again; 0 without TCP counters. |
+| `tcp_drops` | uint | segments | TCP segments dropped; 0 without TCP counters. |
+| `wifi_drops` | uint | | Times the Wi-Fi station lost its access point. |
 | `wifi_drop_reason` | uint | | The system's reason code for the latest loss of the access point since the controller started (ESP-IDF `wifi_err_reason_t`); 0 when there was none. |
-| `roams` | uint | | Times the Wi-Fi station moved to another access point by its own choice since the last report. |
+| `roams` | uint | | Times the Wi-Fi station moved to another access point by its own choice. |
 | `bssid` | text | | The access point joined now, 12 lowercase hex digits; empty with no link. |
 | `channel` | uint | | The Wi-Fi channel of the access point joined now; 0 with no link. |
 | `config_digest` | text | | The digest of the configuration in use (section 9), 16 lowercase hex digits; empty while running the defaults. |
@@ -615,8 +621,14 @@ them out, which the server reads as 0 and an empty `bssid`. Firmware that
 predates `config_digest` leaves it out, which the server reads as empty,
 reporting no configuration (section 9).
 
-The server keeps the reports as history and hourly summaries (each hour
-sums the link counts and keeps the `mesh_layer`, `mesh_children`,
+The server works out what each report counted since the one before it:
+each total less the same total in the report before. When there is no
+report before, when `uptime_s` is lower than in the report before (the
+controller restarted), or when a total is lower than before (its counter
+wrapped or started again), all of that total counts as new. The server
+keeps the reports, with both what they counted and the totals as sent,
+as history and hourly summaries (each hour sums what its reports counted
+and keeps the `mesh_layer`, `mesh_children`,
 `wifi_drop_reason`, `bssid`, and `channel` of its last report), and shows
 the latest; a door whose `mesh_layer` is above 0 is shown meshing, naming
 the door whose controller has the `mesh_parent` hardware id. A connected door the server has heard nothing from (online status,

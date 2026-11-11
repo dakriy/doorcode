@@ -383,13 +383,13 @@ type StoredDoorState struct {
 // StoredTelemetry is one report of a door's controller, received at At:
 // its signal strength in dBm, the round trip to the server in
 // milliseconds, how long it has run in seconds, its free memory in bytes,
-// its firmware version, how often it connected again since it started,
-// whether the door was open, how often it was opened since its last
-// report, where it sat in the site's mesh: its layer (0 when it
-// reached the access point itself), the hardware id of the controller it
-// hopped through, and how many controllers hopped through it, how its
-// links fared since its last report, the Wi-Fi link it had, and the
-// digest of the configuration it ran, empty when it reported none.
+// its firmware version, whether the door was open, where it sat in the
+// site's mesh: its layer (0 when it reached the access point itself), the
+// hardware id of the controller it hopped through, and how many
+// controllers hopped through it, what it counted since its report before
+// (StoredCounts), the Wi-Fi link it had, the digest of the configuration
+// it ran, empty when it reported none, and the counts it reported, each a
+// total since it started (Totals).
 type StoredTelemetry struct {
 	At              time.Time
 	Signal          int
@@ -397,15 +397,23 @@ type StoredTelemetry struct {
 	UptimeS         int64
 	FreeBytes       int64
 	FirmwareVersion string
-	Reconnects      int
 	DoorOpen        bool
-	Opens           int
 	MeshLayer       int
 	MeshParent      string
 	MeshChildren    int
-	StoredLinkCounts
+	StoredCounts
 	StoredLink
 	ConfigDigest string
+	Totals       StoredCounts
+}
+
+// StoredCounts is what a controller counted over a span of time: how
+// often it connected to the broker again, how often its door was opened,
+// and how its links fared.
+type StoredCounts struct {
+	Reconnects int
+	Opens      int
+	StoredLinkCounts
 }
 
 // StoredLinkCounts is how a controller's links fared over a span of time:
