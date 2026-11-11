@@ -3988,6 +3988,189 @@
         }
       }
     },
+    "/favicon": {
+      "delete": {
+        "operationId": "deleteFavicon",
+        "summary": "Take the site's favicon away",
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Browsers show the logo for the site's pages, or the keypad mark when the site has no logo."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the admin role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The site has no favicon.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getFavicon",
+        "summary": "Read the site's favicon",
+        "tags": [
+          "settings"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The favicon, as PNG.",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The site has no favicon.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setFavicon",
+        "summary": "Set the site's favicon",
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/PictureUpload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Browsers show the favicon for the site's pages, reduced to at most 512 pixels on its longest side. Its transparent parts stay transparent."
+          },
+          "400": {
+            "description": "The body is not a multipart form with the file in the field picture, or the file is not an image that can be read.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the admin role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The file is larger than 10 MB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/firmware": {
       "get": {
         "operationId": "listFirmware",
@@ -5416,7 +5599,7 @@
             "name": "v",
             "in": "query",
             "required": false,
-            "description": "Ignored. Pages add when the logo was stored, so browsers fetch a new logo at a new address.",
+            "description": "Ignored. Pages add when the picture was stored, so browsers fetch a new picture at a new address.",
             "schema": {
               "type": "string"
             },
@@ -5476,14 +5659,14 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/LogoUpload"
+                "$ref": "#/components/schemas/PictureUpload"
               }
             }
           }
         },
         "responses": {
           "204": {
-            "description": "The page header and the sign-in page show the logo in place of the keypad mark, reduced to at most 512 pixels on its longest side."
+            "description": "The page header and the sign-in page show the logo in place of the keypad mark, reduced to at most 512 pixels on its longest side. Its transparent parts stay transparent."
           },
           "400": {
             "description": "The body is not a multipart form with the file in the field picture, or the file is not an image that can be read.",
@@ -7722,7 +7905,7 @@
             "name": "v",
             "in": "query",
             "required": false,
-            "description": "Ignored. The sign-in page adds when the picture was stored, so browsers fetch a new picture at a new address.",
+            "description": "Ignored. Pages add when the picture was stored, so browsers fetch a new picture at a new address.",
             "schema": {
               "type": "string"
             },
@@ -7782,7 +7965,7 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/SignInImageUpload"
+                "$ref": "#/components/schemas/PictureUpload"
               }
             }
           }
@@ -11650,19 +11833,6 @@
           }
         }
       },
-      "LogoUpload": {
-        "type": "object",
-        "properties": {
-          "picture": {
-            "type": "string",
-            "format": "binary",
-            "description": "The logo: JPEG, PNG, GIF, or WebP. Its transparent parts stay transparent."
-          }
-        },
-        "required": [
-          "picture"
-        ]
-      },
       "MemberList": {
         "type": "object",
         "properties": {
@@ -12799,19 +12969,6 @@
           "source",
           "read_only",
           "env_var"
-        ]
-      },
-      "SignInImageUpload": {
-        "type": "object",
-        "properties": {
-          "picture": {
-            "type": "string",
-            "format": "binary",
-            "description": "The image: JPEG, PNG, GIF, or WebP."
-          }
-        },
-        "required": [
-          "picture"
         ]
       },
       "SpanView": {

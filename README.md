@@ -65,7 +65,7 @@ the engineering contract is [AGENTS.md](AGENTS.md).
 - **Settings.** Edited in the UI, each overridable by an environment
   variable (and then read-only in the UI). Secret settings are encrypted at
   rest. Light and dark themes follow the browser; the accent color, the
-  logo, and the sign-in page picture are settings.
+  logo, the favicon, and the sign-in page picture are settings.
 
 ## Try the demo
 

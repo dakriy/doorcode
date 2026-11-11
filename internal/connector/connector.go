@@ -73,24 +73,32 @@ type SettingsStore interface {
 	// parameters unless some are stored already, and returns the stored
 	// ones.
 	CodeHashing(ctx context.Context, candidate string) (string, error)
-	// SignInImage returns the picture the sign-in page shows, and whether
-	// one is stored.
-	SignInImage(ctx context.Context) (StoredImage, bool, error)
-	// PutSignInImage stores image as the picture the sign-in page shows,
-	// replacing any stored before.
-	PutSignInImage(ctx context.Context, image StoredImage) error
-	// RemoveSignInImage removes the picture the sign-in page shows, and
-	// reports whether one was stored.
-	RemoveSignInImage(ctx context.Context) (bool, error)
-	// Logo returns the site's logo, and whether one is stored.
-	Logo(ctx context.Context) (StoredImage, bool, error)
-	// PutLogo stores image as the site's logo, replacing any stored
-	// before.
-	PutLogo(ctx context.Context, image StoredImage) error
-	// RemoveLogo removes the site's logo, and reports whether one was
+	// SiteImage returns the site's picture of kind, and whether one is
 	// stored.
-	RemoveLogo(ctx context.Context) (bool, error)
+	SiteImage(ctx context.Context, kind ImageKind) (StoredImage, bool, error)
+	// SiteImageStoredAt returns when the site's picture of kind was
+	// stored, without reading the picture, and whether one is stored.
+	SiteImageStoredAt(ctx context.Context, kind ImageKind) (time.Time, bool, error)
+	// PutSiteImage stores image as the site's picture of kind, replacing
+	// any stored before.
+	PutSiteImage(ctx context.Context, kind ImageKind, image StoredImage) error
+	// RemoveSiteImage removes the site's picture of kind, and reports
+	// whether one was stored.
+	RemoveSiteImage(ctx context.Context, kind ImageKind) (bool, error)
 }
+
+// ImageKind names a picture the site keeps at most one of.
+type ImageKind string
+
+// The pictures the site keeps at most one of.
+const (
+	// SignInImage is the picture the sign-in page shows.
+	SignInImage ImageKind = "sign_in"
+	// LogoImage is the site's logo.
+	LogoImage ImageKind = "logo"
+	// FaviconImage is the site's favicon.
+	FaviconImage ImageKind = "favicon"
+)
 
 // StoredImage is a picture the site shows as the store holds it: its
 // encoded data and when it was stored.

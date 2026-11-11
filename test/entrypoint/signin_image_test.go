@@ -17,7 +17,7 @@ func TestTheSignInPageShowsThePictureUploadedOnTheSettingsPage(t *testing.T) {
 	f := testsupport.NewFactory()
 	h, b := adminSession(t, f)
 
-	uploaded := b.Upload("/admin/settings/sign-in-image", "picture", "lobby.png", testsupport.PNG(3000, 1000))
+	uploaded := b.Upload("/admin/settings/sign-in-image", "sign-in-image", "lobby.png", testsupport.PNG(3000, 1000))
 	settings := testsupport.ParsePage(b.Get(uploaded.Location).Body)
 	signIn := testsupport.ParsePage(testsupport.Get(h, "/sign-in").Body)
 	anyone := testsupport.NewBrowser(h)
@@ -70,7 +70,7 @@ func TestRemovingTheSignInPictureTakesItOffTheSignInPage(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	h, b := adminSession(t, f)
-	b.Upload("/admin/settings/sign-in-image", "picture", "lobby.png", testsupport.PNG(30, 20))
+	b.Upload("/admin/settings/sign-in-image", "sign-in-image", "lobby.png", testsupport.PNG(30, 20))
 	b.Get("/admin/settings")
 
 	removed := b.Post("/admin/settings/sign-in-image/delete")
@@ -122,10 +122,10 @@ func TestARefusedSignInPictureSaysWhatIsWrong(t *testing.T) {
 			b := signedInAdmin(t, testsupport.NewFactory())
 			b.Get("/")
 
-			page := b.Upload("/admin/settings/sign-in-image", "picture", "lobby.png", c.content)
+			page := b.Upload("/admin/settings/sign-in-image", "sign-in-image", "lobby.png", c.content)
 			api := b.UploadWith("PUT", "/api/v1/sign-in-image", "picture", "lobby.png", c.content)
 
-			want := []any{c.status, map[string]string{"picture": c.problem}, []testsupport.Image(nil), c.apiStatus}
+			want := []any{c.status, map[string]string{"sign-in-image": c.problem}, []testsupport.Image(nil), c.apiStatus}
 			got := []any{page.Status, testsupport.ParsePage(page.Body).FieldErrors, testsupport.ParsePage(page.Body).Images, api.Status}
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("page status, problems, images, API status (-want +got):\n%s", diff)

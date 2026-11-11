@@ -1,12 +1,9 @@
 package app
 
 import (
-	"errors"
-	"fmt"
 	"maps"
 	"net/http"
 	"slices"
-	"strconv"
 	"time"
 
 	"github.com/dakriy/doorcode/internal/auth"
@@ -34,33 +31,13 @@ type settingUpdate struct {
 	Clear bool    `json:"clear,omitempty" doc:"True stores the empty value, which for a secret removes it, where an empty value leaves a secret as it is. Give either it or value."`
 }
 
-// signInImagePath is where the sign-in page's picture is served.
-const signInImagePath = "/api/v1/sign-in-image"
-
-// imageCache lets browsers keep the sign-in page's picture and the logo,
-// whose addresses change with every new one.
-const imageCache = "public, max-age=31536000, immutable"
-
-// signInImageUpload is the body that sets the sign-in page's picture.
-type signInImageUpload struct {
-	Picture openapi.File `json:"picture" doc:"The image: JPEG, PNG, GIF, or WebP."`
-}
-
-// logoPath is where the site's logo is served.
-const logoPath = "/api/v1/logo"
-
-// logoUpload is the body that sets the site's logo.
-type logoUpload struct {
-	Picture openapi.File `json:"picture" doc:"The logo: JPEG, PNG, GIF, or WebP. Its transparent parts stay transparent."`
-}
-
 // settingKey is the path parameter naming a setting.
 var settingKey = openapi.Param{Name: "key", In: "path", Description: "The setting's key.", Example: "site_name"}
 
 func (a *App) settingsRoutes() []route {
 	admin := holding(auth.RoleAdmin)
 	example := "North Campus"
-	return []route{
+	table := []route{
 		pageRoute(http.MethodGet, "/admin/settings", admin, a.settingsPage),
 		pageRoute(http.MethodPost, "/admin/settings", admin, a.saveSettingsFromForm),
 		apiRoute(http.MethodGet, "/settings", admin, a.listSettings, apiDoc{
@@ -86,61 +63,12 @@ func (a *App) settingsRoutes() []route {
 				{Status: http.StatusConflict, Description: "The environment provides the setting, so it is read-only.", Body: errorBody{}},
 			},
 		}),
-		apiRoute(http.MethodGet, "/sign-in-image", anyone, a.serveSignInImage, apiDoc{
-			id: "getSignInImage", summary: "Read the sign-in page's picture", tag: "settings",
-			params: []openapi.Param{{Name: "v", In: "query", Description: "Ignored. The sign-in page adds when the picture was stored, so browsers fetch a new picture at a new address.", Example: "1767603600"}},
-			responses: []openapi.Response{
-				{Status: http.StatusOK, Description: "The picture, as JPEG.", Body: openapi.File{}, Type: picture.ContentType},
-				noSignInImage,
-				{Status: http.StatusInternalServerError, Description: "The server failed; the body names a request id to give an administrator.", Body: errorBody{}},
-			},
-		}),
-		apiRoute(http.MethodPut, "/sign-in-image", admin, a.putSignInImage, apiDoc{
-			id: "setSignInImage", summary: "Set the sign-in page's picture", tag: "settings", form: signInImageUpload{},
-			responses: []openapi.Response{
-				{Status: http.StatusNoContent, Description: fmt.Sprintf("The sign-in page shows the picture, reduced to at most %d pixels on its longest side.", picture.MaxSide)},
-				{Status: http.StatusBadRequest, Description: "The body is not a multipart form with the file in the field picture, or the file is not an image that can be read.", Body: errorBody{}},
-				{Status: http.StatusRequestEntityTooLarge, Description: fmt.Sprintf("The file is larger than %d MB.", picture.Megabytes()), Body: errorBody{}},
-			},
-		}),
-		apiRoute(http.MethodDelete, "/sign-in-image", admin, a.deleteSignInImage, apiDoc{
-			id: "deleteSignInImage", summary: "Take the picture off the sign-in page", tag: "settings",
-			responses: []openapi.Response{{Status: http.StatusNoContent, Description: "The sign-in page shows no picture."}, noSignInImage},
-		}),
-		pageRoute(http.MethodPost, "/admin/settings/sign-in-image", admin, a.uploadSignInImageFromForm),
-		pageRoute(http.MethodPost, "/admin/settings/sign-in-image/delete", admin, a.deleteSignInImageFromForm),
-		apiRoute(http.MethodGet, "/logo", anyone, a.serveLogo, apiDoc{
-			id: "getLogo", summary: "Read the site's logo", tag: "settings",
-			params: []openapi.Param{{Name: "v", In: "query", Description: "Ignored. Pages add when the logo was stored, so browsers fetch a new logo at a new address.", Example: "1767603600"}},
-			responses: []openapi.Response{
-				{Status: http.StatusOK, Description: "The logo, as PNG.", Body: openapi.File{}, Type: picture.LogoType},
-				noLogo,
-				{Status: http.StatusInternalServerError, Description: "The server failed; the body names a request id to give an administrator.", Body: errorBody{}},
-			},
-		}),
-		apiRoute(http.MethodPut, "/logo", admin, a.putLogo, apiDoc{
-			id: "setLogo", summary: "Set the site's logo", tag: "settings", form: logoUpload{},
-			responses: []openapi.Response{
-				{Status: http.StatusNoContent, Description: fmt.Sprintf("The page header and the sign-in page show the logo in place of the keypad mark, reduced to at most %d pixels on its longest side.", picture.LogoSide)},
-				{Status: http.StatusBadRequest, Description: "The body is not a multipart form with the file in the field picture, or the file is not an image that can be read.", Body: errorBody{}},
-				{Status: http.StatusRequestEntityTooLarge, Description: fmt.Sprintf("The file is larger than %d MB.", picture.Megabytes()), Body: errorBody{}},
-			},
-		}),
-		apiRoute(http.MethodDelete, "/logo", admin, a.deleteLogo, apiDoc{
-			id: "deleteLogo", summary: "Take the site's logo away", tag: "settings",
-			responses: []openapi.Response{{Status: http.StatusNoContent, Description: "The pages show the keypad mark again."}, noLogo},
-		}),
-		pageRoute(http.MethodPost, "/admin/settings/logo", admin, a.uploadLogoFromForm),
-		pageRoute(http.MethodPost, "/admin/settings/logo/delete", admin, a.deleteLogoFromForm),
 	}
+	for _, img := range siteImages {
+		table = append(table, a.imageRoutes(img)...)
+	}
+	return table
 }
-
-// noLogo answers a request for the site's logo when it has none.
-var noLogo = openapi.Response{Status: http.StatusNotFound, Description: "The site has no logo.", Body: errorBody{}}
-
-// noSignInImage answers a request for the sign-in page's picture when it
-// shows none.
-var noSignInImage = openapi.Response{Status: http.StatusNotFound, Description: "The sign-in page shows no picture.", Body: errorBody{}}
 
 func viewOf(s settings.Setting) settingView {
 	view := settingView{
@@ -207,9 +135,6 @@ var settingStatuses = []refusalStatus{
 	{settings.ErrUnknown, http.StatusNotFound},
 	{settings.ErrInvalid, http.StatusBadRequest},
 	{settings.ErrReadOnly, http.StatusConflict},
-	{settings.ErrNoSignInImage, http.StatusNotFound},
-	{settings.ErrNoLogo, http.StatusNotFound},
-	{errTooBig, http.StatusRequestEntityTooLarge},
 }
 
 // settingError answers an API request with what err, from the settings,
@@ -220,16 +145,18 @@ func (a *App) settingError(w http.ResponseWriter, r *http.Request, err error) {
 
 // settingsContent is the settings page's content: every setting in its
 // section, with the value entered for it when a form was refused, and
-// what is wrong with each refused value; where the sign-in page's picture
-// is served, empty when it shows none; and an alert to show above
-// everything else. It shows the sections of one tab, and the sign-in
-// page's picture and the logo with them when Pictures says so.
+// what is wrong with each refused value or upload; where the sign-in
+// page's picture and the favicon are served, each empty when the site has
+// none; and an alert to show above everything else. It shows the sections
+// of one tab, and the sign-in page's picture, the logo, and the favicon
+// with them when Pictures says so.
 type settingsContent struct {
 	Tabs           tabStrip
 	Sections       []settingSection
 	Pictures       bool
 	Errors         map[string]string
 	SignInImage    string
+	Favicon        string
 	Alert          string
 	MaxPictureMB   int
 	MaxPictureSide int
@@ -282,9 +209,10 @@ func (a *App) showSettings(w http.ResponseWriter, r *http.Request, status int, v
 		a.pageError(w, r, err)
 		return
 	}
-	pictures, image := tab == settings.TabLook, ""
+	pictures := tab == settings.TabLook
+	var signIn, favicon string
 	if pictures {
-		image, err = a.signInImageURL(r)
+		signIn, favicon, err = a.lookImages(r)
 	}
 	if err != nil {
 		a.pageError(w, r, err)
@@ -292,10 +220,21 @@ func (a *App) showSettings(w http.ResponseWriter, r *http.Request, status int, v
 	}
 	content := settingsContent{
 		Tabs: stripOf("Settings tabs", settingsPath, settings.Tabs, tab), Sections: a.sectionsOf(all, tab, entered), Pictures: pictures,
-		Errors: errs, SignInImage: image, Alert: alert,
+		Errors: errs, SignInImage: signIn, Favicon: favicon, Alert: alert,
 		MaxPictureMB: picture.Megabytes(), MaxPictureSide: picture.MaxSide, MaxLogoSide: picture.LogoSide,
 	}
 	a.render(w, r, status, settingsTemplate, "Settings", &viewer, content)
+}
+
+// lookImages is where the sign-in page's picture and the favicon are
+// served, each empty when the site has none.
+func (a *App) lookImages(r *http.Request) (string, string, error) {
+	signIn, err := a.imageURL(r, signInImage)
+	if err != nil {
+		return "", "", err
+	}
+	favicon, err := a.imageURL(r, faviconImage)
+	return signIn, favicon, err
 }
 
 // sectionsOf is the settings of all, listed section by section, that tab
@@ -393,139 +332,4 @@ func (a *App) saveSettingsFromForm(w http.ResponseWriter, r *http.Request, viewe
 	}
 	sent := append(slices.Collect(maps.Keys(entered)), r.PostForm["clear"]...)
 	a.changed(w, r, err, settingsTabPath(settings.TabHolding(sent)), "settings-saved")
-}
-
-// signInImageURL is where the sign-in page's picture is served, with when
-// it was stored so a new picture has a new address; empty when the page
-// shows none.
-func (a *App) signInImageURL(r *http.Request) (string, error) {
-	image, found, err := a.settings.SignInImage(r.Context())
-	if !found {
-		return "", err
-	}
-	return signInImagePath + "?v=" + strconv.FormatInt(image.UpdatedAt.Unix(), 10), err
-}
-
-func (a *App) serveSignInImage(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	image, found, err := a.settings.SignInImage(r.Context())
-	if err != nil {
-		a.internalError(w, r, err)
-		return
-	}
-	if !found {
-		a.settingError(w, r, settings.ErrNoSignInImage)
-		return
-	}
-	w.Header().Set("Content-Type", picture.ContentType)
-	w.Header().Set("Cache-Control", imageCache)
-	_, _ = w.Write(image.Data)
-}
-
-// setSignInImage makes the picture r uploads the sign-in page's.
-func (a *App) setSignInImage(w http.ResponseWriter, r *http.Request) error {
-	data, err := readUpload(w, r)
-	if err != nil {
-		return err
-	}
-	return a.settings.SetSignInImage(r.Context(), data)
-}
-
-func (a *App) putSignInImage(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	a.settingDone(w, r, a.setSignInImage(w, r))
-}
-
-func (a *App) deleteSignInImage(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	a.settingDone(w, r, a.settings.RemoveSignInImage(r.Context()))
-}
-
-// settingDone answers an API request that changed the settings with no
-// content, or with what err means.
-func (a *App) settingDone(w http.ResponseWriter, r *http.Request, err error) {
-	if err != nil {
-		a.settingError(w, r, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func (a *App) uploadSignInImageFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	err := a.setSignInImage(w, r)
-	if status, refused := uploadRefusal(err); refused {
-		a.showSettings(w, r, status, viewer, settings.TabLook, nil, map[string]string{picture.Field: err.Error()}, "")
-		return
-	}
-	a.changed(w, r, err, settingsTabPath(settings.TabLook), "sign-in-image-saved")
-}
-
-func (a *App) deleteSignInImageFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	err := a.settings.RemoveSignInImage(r.Context())
-	if errors.Is(err, settings.ErrNoSignInImage) {
-		a.showSettings(w, r, http.StatusNotFound, viewer, settings.TabLook, nil, nil, "The sign-in page shows no picture any more. It may have been removed already.")
-		return
-	}
-	a.changed(w, r, err, settingsTabPath(settings.TabLook), "sign-in-image-removed")
-}
-
-// logoURL is where the site's logo is served, with when it was stored so
-// a new logo has a new address; empty when the site has none.
-func (a *App) logoURL(r *http.Request) (string, error) {
-	logo, found, err := a.settings.Logo(r.Context())
-	if !found {
-		return "", err
-	}
-	return logoPath + "?v=" + strconv.FormatInt(logo.UpdatedAt.Unix(), 10), err
-}
-
-func (a *App) serveLogo(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	logo, found, err := a.settings.Logo(r.Context())
-	if err != nil {
-		a.internalError(w, r, err)
-		return
-	}
-	if !found {
-		a.settingError(w, r, settings.ErrNoLogo)
-		return
-	}
-	w.Header().Set("Content-Type", picture.LogoType)
-	w.Header().Set("Cache-Control", imageCache)
-	_, _ = w.Write(logo.Data)
-}
-
-// setLogo makes the picture r uploads the site's logo.
-func (a *App) setLogo(w http.ResponseWriter, r *http.Request) error {
-	data, err := readUpload(w, r)
-	if err != nil {
-		return err
-	}
-	return a.settings.SetLogo(r.Context(), data)
-}
-
-func (a *App) putLogo(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	a.settingDone(w, r, a.setLogo(w, r))
-}
-
-func (a *App) deleteLogo(w http.ResponseWriter, r *http.Request, _ auth.User) {
-	a.settingDone(w, r, a.settings.RemoveLogo(r.Context()))
-}
-
-// logoField is the settings page's name for the logo's upload, so that a
-// refused logo is not mistaken for a refused sign-in page picture.
-const logoField = "logo"
-
-func (a *App) uploadLogoFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	err := a.setLogo(w, r)
-	if status, refused := uploadRefusal(err); refused {
-		a.showSettings(w, r, status, viewer, settings.TabLook, nil, map[string]string{logoField: err.Error()}, "")
-		return
-	}
-	a.changed(w, r, err, settingsTabPath(settings.TabLook), "logo-saved")
-}
-
-func (a *App) deleteLogoFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	err := a.settings.RemoveLogo(r.Context())
-	if errors.Is(err, settings.ErrNoLogo) {
-		a.showSettings(w, r, http.StatusNotFound, viewer, settings.TabLook, nil, nil, "The site has no logo any more. It may have been removed already.")
-		return
-	}
-	a.changed(w, r, err, settingsTabPath(settings.TabLook), "logo-removed")
 }

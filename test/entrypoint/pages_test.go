@@ -340,7 +340,9 @@ func settingsTab(current string) testsupport.Page {
 	case "Site setup":
 		page.Comboboxes = []string{"site_timezone"}
 	case "Look and feel":
-		page.Values["picture"] = ""
+		page.Values["sign-in-image"] = ""
+		page.Values["logo"] = ""
+		page.Values["favicon"] = ""
 	}
 	return page
 }

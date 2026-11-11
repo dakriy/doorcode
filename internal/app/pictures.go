@@ -124,12 +124,12 @@ var notUpload = check.Problems{{Field: picture.Field, Message: "Send the picture
 // errTooBig reports an upload over picture.MaxBytes.
 var errTooBig = errors.New(picture.TooBig())
 
-// readUpload reads the file in the picture field of r's multipart form,
+// readUpload reads the file in field of r's multipart form,
 // reading no more of it than one byte past the limit. It reports errTooBig
 // for a file over the limit and notUpload for a body that is not such a
 // form. Nothing is written to disk.
-func readUpload(w http.ResponseWriter, r *http.Request) ([]byte, error) {
-	data, ok := readFile(w, r, picture.Field, picture.MaxBytes)
+func readUpload(w http.ResponseWriter, r *http.Request, field string) ([]byte, error) {
+	data, ok := readFile(w, r, field, picture.MaxBytes)
 	if !ok {
 		return nil, notUpload
 	}
@@ -165,7 +165,7 @@ func readFile(w http.ResponseWriter, r *http.Request, field string, most int) ([
 // addPicture adds the picture r uploads to the door the path names, and
 // returns the door as it is now.
 func (a *App) addPicture(w http.ResponseWriter, r *http.Request) (connector.StoredDoor, connector.StoredPicture, error) {
-	data, err := readUpload(w, r)
+	data, err := readUpload(w, r, picture.Field)
 	if err != nil {
 		return connector.StoredDoor{}, connector.StoredPicture{}, err
 	}

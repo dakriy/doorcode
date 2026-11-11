@@ -110,13 +110,40 @@
     {{$error := index $c.Errors "logo"}}
     <label for="logo" class="block text-sm font-medium">{{if $.Logo}}Replace the logo{{else}}Add a logo{{end}}</label>
     <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
-      <input id="logo" name="picture" type="file" accept="image/jpeg,image/png,image/gif,image/webp" required
+      <input id="logo" name="logo" type="file" accept="image/jpeg,image/png,image/gif,image/webp" required
         {{if $error}}aria-invalid="true" aria-describedby="logo-error"{{end}}
         class="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-800 hover:file:bg-zinc-200 dark:text-zinc-400 dark:file:bg-zinc-800 dark:file:text-zinc-200 dark:hover:file:bg-zinc-700">
       <button type="submit" class="shrink-0 {{template "primary-class"}}">Upload</button>
     </div>
     {{if $error}}<p id="logo-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$error}}</p>
     {{else}}<p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">JPEG, PNG, GIF, or WebP, up to {{$c.MaxPictureMB}} MB. Transparent parts stay transparent; use a PNG or WebP with a transparent background. It is turned upright and reduced to {{$c.MaxLogoSide}} pixels on its longest side.</p>{{end}}
+  </form>
+</section>
+
+<section aria-labelledby="favicon-heading" class="mt-6 p-6 {{template "card-class"}}">
+  <h2 id="favicon-heading" class="text-sm font-semibold">Favicon</h2>
+  <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Shown by browsers in tabs and bookmarks. Without one, browsers show the logo, or the keypad mark in the accent color when the site has no logo. Browsers keep a favicon for a while, so a new one may take time to appear.</p>
+  {{with $c.Favicon}}
+  <div class="mt-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <img src="{{.}}" alt="The favicon" class="size-16 object-contain">
+    <form method="post" action="/admin/settings/favicon/delete" hx-confirm="Take the favicon away and show the logo or the keypad mark?">
+      <button type="submit" class="{{template "danger-class"}} py-2">Remove favicon</button>
+    </form>
+  </div>
+  {{else}}
+  <p class="mt-5 rounded-lg border border-dashed border-zinc-300 px-4 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">The site has no favicon. Browsers show the logo, or the keypad mark when the site has no logo.</p>
+  {{end}}
+  <form method="post" action="/admin/settings/favicon" enctype="multipart/form-data" hx-disabled-elt="find button" class="mt-6 border-t border-zinc-200 pt-5 dark:border-zinc-800">
+    {{$error := index $c.Errors "favicon"}}
+    <label for="favicon" class="block text-sm font-medium">{{if $c.Favicon}}Replace the favicon{{else}}Add a favicon{{end}}</label>
+    <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
+      <input id="favicon" name="favicon" type="file" accept="image/jpeg,image/png,image/gif,image/webp" required
+        {{if $error}}aria-invalid="true" aria-describedby="favicon-error"{{end}}
+        class="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-800 hover:file:bg-zinc-200 dark:text-zinc-400 dark:file:bg-zinc-800 dark:file:text-zinc-200 dark:hover:file:bg-zinc-700">
+      <button type="submit" class="shrink-0 {{template "primary-class"}}">Upload</button>
+    </div>
+    {{if $error}}<p id="favicon-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$error}}</p>
+    {{else}}<p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">JPEG, PNG, GIF, or WebP, up to {{$c.MaxPictureMB}} MB. A square image works best; transparent parts stay transparent. It is turned upright and reduced to {{$c.MaxLogoSide}} pixels on its longest side.</p>{{end}}
   </form>
 </section>
 
@@ -134,15 +161,15 @@
   <p class="mt-5 rounded-lg border border-dashed border-zinc-300 px-4 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">The sign-in page shows no picture. It shows the accent color pattern instead.</p>
   {{end}}
   <form method="post" action="/admin/settings/sign-in-image" enctype="multipart/form-data" hx-disabled-elt="find button" class="mt-6 border-t border-zinc-200 pt-5 dark:border-zinc-800">
-    {{$error := index $c.Errors "picture"}}
-    <label for="picture" class="block text-sm font-medium">{{if $c.SignInImage}}Replace the picture{{else}}Add a picture{{end}}</label>
+    {{$error := index $c.Errors "sign-in-image"}}
+    <label for="sign-in-image" class="block text-sm font-medium">{{if $c.SignInImage}}Replace the picture{{else}}Add a picture{{end}}</label>
     <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
-      <input id="picture" name="picture" type="file" accept="image/jpeg,image/png,image/gif,image/webp" required
-        {{if $error}}aria-invalid="true" aria-describedby="picture-error"{{end}}
+      <input id="sign-in-image" name="sign-in-image" type="file" accept="image/jpeg,image/png,image/gif,image/webp" required
+        {{if $error}}aria-invalid="true" aria-describedby="sign-in-image-error"{{end}}
         class="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-800 hover:file:bg-zinc-200 dark:text-zinc-400 dark:file:bg-zinc-800 dark:file:text-zinc-200 dark:hover:file:bg-zinc-700">
       <button type="submit" class="shrink-0 {{template "primary-class"}}">Upload</button>
     </div>
-    {{if $error}}<p id="picture-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$error}}</p>
+    {{if $error}}<p id="sign-in-image-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$error}}</p>
     {{else}}<p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">JPEG, PNG, GIF, or WebP, up to {{$c.MaxPictureMB}} MB. It is turned upright and reduced to {{$c.MaxPictureSide}} pixels on its longest side.</p>{{end}}
   </form>
 </section>

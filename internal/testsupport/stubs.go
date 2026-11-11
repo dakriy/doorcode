@@ -170,8 +170,7 @@ type Store struct {
 	members      []membership
 	nextGroup    int64
 	codeParams   string
-	signInImage  *connector.StoredImage
-	logo         *connector.StoredImage
+	images       map[connector.ImageKind]connector.StoredImage
 	sessions     map[string]connector.StoredSession
 	tokens       []connector.StoredToken
 	nextToken    int64
@@ -223,6 +222,7 @@ const (
 	primaryPictureWrites
 	signInImageReads
 	logoReads
+	faviconReads
 	rulesAggregate
 	ruleWrites
 	overridesAggregate
@@ -252,6 +252,7 @@ const (
 func NewStore() *Store {
 	return &Store{
 		settings: map[string]connector.StoredSetting{},
+		images:   map[connector.ImageKind]connector.StoredImage{},
 		sessions: map[string]connector.StoredSession{},
 		failing:  map[aggregate]bool{},
 		holds:    map[int64]chan struct{}{},
@@ -325,81 +326,58 @@ func (s *Store) CodeHashing(_ context.Context, candidate string) (string, error)
 	return s.codeParams, nil
 }
 
-// SignInImage returns a copy of the stored sign-in page picture.
-func (s *Store) SignInImage(context.Context) (connector.StoredImage, bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.writable(settingsAggregate, signInImageReads); err != nil {
-		return connector.StoredImage{}, false, err
-	}
-	if s.signInImage == nil {
-		return connector.StoredImage{}, false, nil
-	}
-	image := *s.signInImage
-	image.Data = bytes.Clone(image.Data)
-	return image, true, nil
+// imageReads is the aggregate whose failure fails reading each site
+// picture.
+var imageReads = map[connector.ImageKind]aggregate{
+	connector.SignInImage:  signInImageReads,
+	connector.LogoImage:    logoReads,
+	connector.FaviconImage: faviconReads,
 }
 
-// PutSignInImage stores a copy of image as the sign-in page picture.
-func (s *Store) PutSignInImage(_ context.Context, image connector.StoredImage) error {
+// SiteImage returns a copy of the stored site picture of kind.
+func (s *Store) SiteImage(_ context.Context, kind connector.ImageKind) (connector.StoredImage, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.writable(settingsAggregate, imageReads[kind]); err != nil {
+		return connector.StoredImage{}, false, err
+	}
+	image, held := s.images[kind]
+	image.Data = bytes.Clone(image.Data)
+	return image, held, nil
+}
+
+// SiteImageStoredAt returns when the site picture of kind was stored.
+func (s *Store) SiteImageStoredAt(_ context.Context, kind connector.ImageKind) (time.Time, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.writable(settingsAggregate, imageReads[kind]); err != nil {
+		return time.Time{}, false, err
+	}
+	image, held := s.images[kind]
+	return image.UpdatedAt, held, nil
+}
+
+// PutSiteImage stores a copy of image as the site picture of kind.
+func (s *Store) PutSiteImage(_ context.Context, kind connector.ImageKind, image connector.StoredImage) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.writable(settingsAggregate, settingWrites); err != nil {
 		return err
 	}
 	image.Data = bytes.Clone(image.Data)
-	s.signInImage = &image
+	s.images[kind] = image
 	return nil
 }
 
-// RemoveSignInImage removes the sign-in page picture.
-func (s *Store) RemoveSignInImage(context.Context) (bool, error) {
+// RemoveSiteImage removes the site picture of kind.
+func (s *Store) RemoveSiteImage(_ context.Context, kind connector.ImageKind) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.writable(settingsAggregate, settingWrites); err != nil {
 		return false, err
 	}
-	held := s.signInImage != nil
-	s.signInImage = nil
-	return held, nil
-}
-
-// Logo returns a copy of the stored site logo.
-func (s *Store) Logo(context.Context) (connector.StoredImage, bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.writable(settingsAggregate, logoReads); err != nil {
-		return connector.StoredImage{}, false, err
-	}
-	if s.logo == nil {
-		return connector.StoredImage{}, false, nil
-	}
-	image := *s.logo
-	image.Data = bytes.Clone(image.Data)
-	return image, true, nil
-}
-
-// PutLogo stores a copy of image as the site logo.
-func (s *Store) PutLogo(_ context.Context, image connector.StoredImage) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.writable(settingsAggregate, settingWrites); err != nil {
-		return err
-	}
-	image.Data = bytes.Clone(image.Data)
-	s.logo = &image
-	return nil
-}
-
-// RemoveLogo removes the site logo.
-func (s *Store) RemoveLogo(context.Context) (bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.writable(settingsAggregate, settingWrites); err != nil {
-		return false, err
-	}
-	held := s.logo != nil
-	s.logo = nil
+	_, held := s.images[kind]
+	delete(s.images, kind)
 	return held, nil
 }
 
@@ -627,16 +605,22 @@ func (s *Store) FailPing() {
 	s.pingErr = ErrUnavailable
 }
 
-// FailSignInImageReads makes SignInImage report ErrUnavailable, while
-// the settings can still be read.
+// FailSignInImageReads makes reading the sign-in page picture report
+// ErrUnavailable, while the settings can still be read.
 func (s *Store) FailSignInImageReads() {
 	s.failing[signInImageReads] = true
 }
 
-// FailLogoReads makes Logo report ErrUnavailable, while the settings can
-// still be read.
+// FailLogoReads makes reading the logo report ErrUnavailable, while the
+// settings can still be read.
 func (s *Store) FailLogoReads() {
 	s.failing[logoReads] = true
+}
+
+// FailFaviconReads makes reading the favicon report ErrUnavailable, while
+// the settings can still be read.
+func (s *Store) FailFaviconReads() {
+	s.failing[faviconReads] = true
 }
 
 // Fail makes every aggregate method report ErrUnavailable.

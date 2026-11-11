@@ -446,7 +446,7 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, status int, page *t
 		a.pageError(w, r, err)
 		return
 	}
-	logo, err := a.logoURL(r)
+	logo, err := a.imageURL(r, logoImage)
 	if err != nil {
 		a.pageError(w, r, err)
 		return
@@ -527,12 +527,29 @@ func serveAsset(content []byte, contentType string) viewerHandler {
 // links to.
 var faviconTemplate = parsePage("ui/templates/base.html")
 
-// favicon serves the keypad mark in the theme's accent colors.
+// faviconImages is what the favicon is, in order of preference: the
+// uploaded favicon, then the logo.
+var faviconImages = []siteImage{faviconImage, logoImage}
+
+// favicon serves the uploaded favicon, or the logo when the site has no
+// favicon, or the keypad mark in the theme's accent colors when it has
+// neither.
 func (a *App) favicon(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	current, err := a.settings.Current(r.Context())
 	if err != nil {
 		a.pageError(w, r, err)
 		return
+	}
+	for _, img := range faviconImages {
+		stored, found, err := a.settings.Image(r.Context(), img.kind)
+		if err != nil {
+			a.pageError(w, r, err)
+			return
+		}
+		if found {
+			writeImage(w, faviconImage, stored.Data)
+			return
+		}
 	}
 	w.Header().Set("Content-Type", "image/svg+xml")
 	_ = faviconTemplate.ExecuteTemplate(w, "favicon", current.Theme)

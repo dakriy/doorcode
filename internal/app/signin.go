@@ -62,6 +62,8 @@ var flashes = map[string]string{
 	"sign-in-image-removed":  "The sign-in page shows no picture.",
 	"logo-saved":             "The site shows the new logo.",
 	"logo-removed":           "The site shows the keypad mark in place of a logo.",
+	"favicon-saved":          "Browsers show the new favicon.",
+	"favicon-removed":        "Browsers show the logo, or the keypad mark when the site has no logo, in place of a favicon.",
 	"controller-approved":    "The controller has been approved. Its credentials are on their way, and it connects as this door once it has them.",
 	"credentials-rotated":    "New credentials are on their way to the controller. The old ones work until it connects with the new ones.",
 	"credentials-revoked":    "The controller's credentials have been revoked and it has been disconnected. It connects again only by enrolling and being approved.",
@@ -169,7 +171,7 @@ func (a *App) renderSignIn(w http.ResponseWriter, r *http.Request, status int, f
 func (a *App) showSignIn(w http.ResponseWriter, r *http.Request, status int, o settings.OIDC, form signInForm) {
 	form.Provider = o.Enabled
 	form.Password = !o.HidesPasswordForms() || form.Bypass
-	image, err := a.signInImageURL(r)
+	image, err := a.imageURL(r, signInImage)
 	if err != nil {
 		a.pageError(w, r, err)
 		return

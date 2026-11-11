@@ -35,8 +35,7 @@ type Store struct {
 
 	settings    map[string]connector.StoredSetting
 	codeHashing *string
-	signInImage *connector.StoredImage
-	logo        *connector.StoredImage
+	images      map[connector.ImageKind]connector.StoredImage
 
 	users    map[int64]connector.StoredUser
 	groups   map[int64]connector.StoredGroup
@@ -77,6 +76,7 @@ type pair struct {
 func New() *Store {
 	return &Store{
 		settings:    map[string]connector.StoredSetting{},
+		images:      map[connector.ImageKind]connector.StoredImage{},
 		users:       map[int64]connector.StoredUser{},
 		groups:      map[int64]connector.StoredGroup{},
 		members:     map[pair]bool{},

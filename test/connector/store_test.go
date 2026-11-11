@@ -410,36 +410,29 @@ func TestStoreRefusesASecondSessionWithTheSameToken(t *testing.T) {
 	}
 }
 
-// siteImage is one of the pictures the site keeps at most one of: how a
-// store reads, stores, and removes it.
-type siteImage struct {
-	name   string
-	read   func(connector.Store, context.Context) (connector.StoredImage, bool, error)
-	put    func(connector.Store, context.Context, connector.StoredImage) error
-	remove func(connector.Store, context.Context) (bool, error)
-}
+// siteImages is every picture the site keeps at most one of.
+var siteImages = []connector.ImageKind{connector.SignInImage, connector.LogoImage, connector.FaviconImage}
 
-var siteImages = []siteImage{
-	{"sign-in image", connector.Store.SignInImage, connector.Store.PutSignInImage, connector.Store.RemoveSignInImage},
-	{"logo", connector.Store.Logo, connector.Store.PutLogo, connector.Store.RemoveLogo},
-}
-
-// imageOf is the picture of kind store holds, its time in UTC, and whether
-// it holds one.
-func imageOf(t *testing.T, store connector.Store, kind siteImage) []any {
+// imageOf is the picture of kind store holds, its time in UTC, whether it
+// holds one, and when it says the one it holds was stored, in UTC.
+func imageOf(t *testing.T, store connector.Store, kind connector.ImageKind) []any {
 	t.Helper()
-	image, found, err := kind.read(store, context.Background())
+	image, found, err := store.SiteImage(context.Background(), kind)
+	if err != nil {
+		t.Fatal(err)
+	}
+	at, dated, err := store.SiteImageStoredAt(context.Background(), kind)
 	if err != nil {
 		t.Fatal(err)
 	}
 	image.UpdatedAt = image.UpdatedAt.UTC()
-	return []any{image, found}
+	return []any{image, found, at.UTC(), dated}
 }
 
 // putImage stores image as store's picture of kind.
-func putImage(t *testing.T, store connector.Store, kind siteImage, image connector.StoredImage) {
+func putImage(t *testing.T, store connector.Store, kind connector.ImageKind, image connector.StoredImage) {
 	t.Helper()
-	if err := kind.put(store, context.Background(), image); err != nil {
+	if err := store.PutSiteImage(context.Background(), kind, image); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -447,7 +440,7 @@ func putImage(t *testing.T, store connector.Store, kind siteImage, image connect
 func TestStoreKeepsOneOfEachSiteImageUntilItIsRemoved(t *testing.T) {
 	for _, impl := range storeImpls {
 		for _, kind := range siteImages {
-			t.Run(impl.name+"/"+kind.name, func(t *testing.T) {
+			t.Run(impl.name+"/"+string(kind), func(t *testing.T) {
 				store := migrated(t, impl)
 				first := connector.StoredImage{Data: []byte{1, 2, 3}, UpdatedAt: time.Date(2026, 3, 1, 9, 0, 0, 0, time.UTC)}
 				second := connector.StoredImage{Data: []byte{4, 5}, UpdatedAt: time.Date(2026, 3, 2, 9, 0, 0, 0, time.UTC)}
@@ -457,16 +450,45 @@ func TestStoreKeepsOneOfEachSiteImageUntilItIsRemoved(t *testing.T) {
 				stored := imageOf(t, store, kind)
 				putImage(t, store, kind, second)
 				replaced := imageOf(t, store, kind)
-				removed, err := kind.remove(store, context.Background())
-				again, againErr := kind.remove(store, context.Background())
+				removed, err := store.RemoveSiteImage(context.Background(), kind)
+				again, againErr := store.RemoveSiteImage(context.Background(), kind)
 				after := imageOf(t, store, kind)
 
-				empty := []any{connector.StoredImage{}, false}
-				want := []any{empty, []any{first, true}, []any{second, true}, true, nil, false, nil, empty}
+				empty := []any{connector.StoredImage{}, false, time.Time{}, false}
+				want := []any{
+					empty, []any{first, true, first.UpdatedAt, true}, []any{second, true, second.UpdatedAt, true},
+					true, nil, false, nil, empty,
+				}
 				if diff := cmp.Diff(want, []any{none, stored, replaced, removed, err, again, againErr, after}); diff != "" {
 					t.Errorf("none, first, second, removed, removed again, after (-want +got):\n%s", diff)
 				}
 			})
 		}
+	}
+}
+
+func TestStoreKeepsEachKindOfSiteImageApart(t *testing.T) {
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			store := migrated(t, impl)
+			at := time.Date(2026, 3, 1, 9, 0, 0, 0, time.UTC)
+			for i, kind := range siteImages {
+				putImage(t, store, kind, connector.StoredImage{Data: []byte{byte(i)}, UpdatedAt: at.AddDate(0, 0, i)})
+			}
+
+			var got [][]any
+			for _, kind := range siteImages {
+				got = append(got, imageOf(t, store, kind))
+			}
+
+			var want [][]any
+			for i := range siteImages {
+				image := connector.StoredImage{Data: []byte{byte(i)}, UpdatedAt: at.AddDate(0, 0, i)}
+				want = append(want, []any{image, true, image.UpdatedAt, true})
+			}
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Errorf("each kind (-want +got):\n%s", diff)
+			}
+		})
 	}
 }

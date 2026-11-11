@@ -90,47 +90,32 @@ func (s *Store) PutSetting(ctx context.Context, key, value string, at time.Time)
 	return err
 }
 
-// SignInImage returns the stored sign-in page picture.
-func (s *Store) SignInImage(ctx context.Context) (connector.StoredImage, bool, error) {
+// SiteImage returns the stored site picture of kind.
+func (s *Store) SiteImage(ctx context.Context, kind connector.ImageKind) (connector.StoredImage, bool, error) {
 	var image connector.StoredImage
-	err := s.pool.QueryRow(ctx, `select image, updated_at from sign_in_image`).Scan(&image.Data, &image.UpdatedAt)
+	err := s.pool.QueryRow(ctx, `select image, updated_at from site_images where kind = $1`, kind).Scan(&image.Data, &image.UpdatedAt)
 	return found(image, err)
 }
 
-// PutSignInImage inserts or replaces the sign-in page picture.
-func (s *Store) PutSignInImage(ctx context.Context, image connector.StoredImage) error {
+// SiteImageStoredAt returns when the site picture of kind was stored.
+func (s *Store) SiteImageStoredAt(ctx context.Context, kind connector.ImageKind) (time.Time, bool, error) {
+	var at time.Time
+	err := s.pool.QueryRow(ctx, `select updated_at from site_images where kind = $1`, kind).Scan(&at)
+	return found(at, err)
+}
+
+// PutSiteImage inserts or replaces the site picture of kind.
+func (s *Store) PutSiteImage(ctx context.Context, kind connector.ImageKind, image connector.StoredImage) error {
 	_, err := s.pool.Exec(ctx, `
-		insert into sign_in_image (image, updated_at) values ($1, $2)
-		on conflict (only_one) do update set image = excluded.image, updated_at = excluded.updated_at`,
-		image.Data, image.UpdatedAt)
+		insert into site_images (kind, image, updated_at) values ($1, $2, $3)
+		on conflict (kind) do update set image = excluded.image, updated_at = excluded.updated_at`,
+		kind, image.Data, image.UpdatedAt)
 	return err
 }
 
-// RemoveSignInImage deletes the sign-in page picture.
-func (s *Store) RemoveSignInImage(ctx context.Context) (bool, error) {
-	tag, err := s.pool.Exec(ctx, `delete from sign_in_image`)
-	return tag.RowsAffected() == 1, err
-}
-
-// Logo returns the stored site logo.
-func (s *Store) Logo(ctx context.Context) (connector.StoredImage, bool, error) {
-	var image connector.StoredImage
-	err := s.pool.QueryRow(ctx, `select image, updated_at from logo`).Scan(&image.Data, &image.UpdatedAt)
-	return found(image, err)
-}
-
-// PutLogo inserts or replaces the site logo.
-func (s *Store) PutLogo(ctx context.Context, image connector.StoredImage) error {
-	_, err := s.pool.Exec(ctx, `
-		insert into logo (image, updated_at) values ($1, $2)
-		on conflict (only_one) do update set image = excluded.image, updated_at = excluded.updated_at`,
-		image.Data, image.UpdatedAt)
-	return err
-}
-
-// RemoveLogo deletes the site logo.
-func (s *Store) RemoveLogo(ctx context.Context) (bool, error) {
-	tag, err := s.pool.Exec(ctx, `delete from logo`)
+// RemoveSiteImage deletes the site picture of kind.
+func (s *Store) RemoveSiteImage(ctx context.Context, kind connector.ImageKind) (bool, error) {
+	tag, err := s.pool.Exec(ctx, `delete from site_images where kind = $1`, kind)
 	return tag.RowsAffected() == 1, err
 }
 

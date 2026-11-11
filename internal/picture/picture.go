@@ -1,7 +1,7 @@
 // Package picture turns an uploaded image into the two JPEG renditions the
 // site keeps of it: an image no larger than MaxSide pixels on its longest
-// side, and a thumbnail no larger than ThumbnailSide; or, for a logo, into
-// a PNG no larger than LogoSide that keeps its transparency. Decoding,
+// side, and a thumbnail no larger than ThumbnailSide; or, for a logo or a
+// favicon, into a PNG no larger than LogoSide that keeps its transparency. Decoding,
 // resizing, and encoding are pure Go.
 package picture
 
@@ -89,6 +89,13 @@ func Prepare(data []byte) (Prepared, error) {
 		Image: encode(full), Width: full.Bounds().Dx(), Height: full.Bounds().Dy(),
 		Thumbnail: encode(thumbnail),
 	}, nil
+}
+
+// PrepareImage is the image Prepare makes of data, without its
+// thumbnail, or the problem with data.
+func PrepareImage(data []byte) ([]byte, error) {
+	prepared, err := Prepare(data)
+	return prepared.Image, err
 }
 
 // PrepareLogo reads data as an image and returns it as a PNG no larger

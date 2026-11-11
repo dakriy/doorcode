@@ -34,68 +34,43 @@ func (s *Store) CodeHashing(_ context.Context, candidate string) (string, error)
 	return *s.codeHashing, nil
 }
 
-// SignInImage returns the sign-in page picture.
-func (s *Store) SignInImage(_ context.Context) (connector.StoredImage, bool, error) {
+// SiteImage returns the site picture of kind.
+func (s *Store) SiteImage(_ context.Context, kind connector.ImageKind) (connector.StoredImage, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.signInImage == nil {
+	image, had := s.images[kind]
+	if !had {
 		return connector.StoredImage{}, false, nil
 	}
-	image := *s.signInImage
 	image.Data = list(image.Data)
 	return image, true, nil
 }
 
-// PutSignInImage stores the sign-in page picture.
-func (s *Store) PutSignInImage(_ context.Context, image connector.StoredImage) error {
+// SiteImageStoredAt returns when the site picture of kind was stored.
+func (s *Store) SiteImageStoredAt(_ context.Context, kind connector.ImageKind) (time.Time, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	image, had := s.images[kind]
+	return image.UpdatedAt, had, nil
+}
+
+// PutSiteImage stores the site picture of kind.
+func (s *Store) PutSiteImage(_ context.Context, kind connector.ImageKind, image connector.StoredImage) error {
 	if image.Data == nil {
 		return errNil
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	image.Data = list(image.Data)
-	s.signInImage = &image
+	s.images[kind] = image
 	return nil
 }
 
-// RemoveSignInImage removes the sign-in page picture.
-func (s *Store) RemoveSignInImage(_ context.Context) (bool, error) {
+// RemoveSiteImage removes the site picture of kind.
+func (s *Store) RemoveSiteImage(_ context.Context, kind connector.ImageKind) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	had := s.signInImage != nil
-	s.signInImage = nil
-	return had, nil
-}
-
-// Logo returns the site logo.
-func (s *Store) Logo(_ context.Context) (connector.StoredImage, bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.logo == nil {
-		return connector.StoredImage{}, false, nil
-	}
-	image := *s.logo
-	image.Data = list(image.Data)
-	return image, true, nil
-}
-
-// PutLogo stores the site logo.
-func (s *Store) PutLogo(_ context.Context, image connector.StoredImage) error {
-	if image.Data == nil {
-		return errNil
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	image.Data = list(image.Data)
-	s.logo = &image
-	return nil
-}
-
-// RemoveLogo removes the site logo.
-func (s *Store) RemoveLogo(_ context.Context) (bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	had := s.logo != nil
-	s.logo = nil
+	_, had := s.images[kind]
+	delete(s.images, kind)
 	return had, nil
 }
