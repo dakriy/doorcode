@@ -63,7 +63,7 @@ func (c *Clock) Now() time.Time {
 
 // Alarm returns a channel that has received when the stub time is at or
 // past at, and one that never receives otherwise: the stub time moves only
-// when a test sets it, which it does between runs.
+// when a test sets or paces it, which it does between runs.
 func (c *Clock) Alarm(at time.Time) <-chan time.Time {
 	c.mu.Lock()
 	defer c.mu.Unlock()

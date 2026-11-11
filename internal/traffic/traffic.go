@@ -101,7 +101,7 @@ func (r *Requests) Families() []exposition.Family {
 			withStatus := append(slices.Clone(labels), exposition.Label{Name: "status", Value: strconv.Itoa(status)})
 			total.Samples = append(total.Samples, exposition.Sample{Labels: withStatus, Value: float64(s.statuses[status])})
 		}
-		duration.Samples = append(duration.Samples, histogram(labels, s)...)
+		duration.Samples = append(duration.Samples, exposition.HistogramSamples(labels, buckets, s.inBucket, s.seconds, s.count)...)
 	}
 	return []exposition.Family{total, duration}
 }
@@ -126,23 +126,4 @@ func sortedStatuses(statuses map[int]int) []int {
 	}
 	slices.Sort(out)
 	return out
-}
-
-// histogram is the bucket, sum, and count samples of s, labelled labels.
-func histogram(labels []exposition.Label, s *series) []exposition.Sample {
-	var out []exposition.Sample
-	for i, bound := range buckets {
-		out = append(out, bucket(labels, strconv.FormatFloat(bound, 'f', -1, 64), s.inBucket[i]))
-	}
-	return append(out,
-		bucket(labels, "+Inf", s.count),
-		exposition.Sample{Suffix: "_sum", Labels: labels, Value: s.seconds},
-		exposition.Sample{Suffix: "_count", Labels: labels, Value: float64(s.count)})
-}
-
-// bucket is the sample of a bucket whose bound is le, labelled labels and
-// le, holding count requests.
-func bucket(labels []exposition.Label, le string, count int) exposition.Sample {
-	withBound := append(slices.Clone(labels), exposition.Label{Name: "le", Value: le})
-	return exposition.Sample{Suffix: "_bucket", Labels: withBound, Value: float64(count)}
 }

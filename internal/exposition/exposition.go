@@ -4,6 +4,7 @@
 package exposition
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -26,7 +27,7 @@ type Label struct {
 
 // Sample is one value of a family, told apart from its others by its
 // labels. Suffix follows the family's name in the sample's line, as
-// _bucket, _sum, and _count do in a histogram's.
+// _bucket, _sum, and _count do in a histogram's (see HistogramSamples).
 type Sample struct {
 	Suffix string
 	Labels []Label
@@ -54,10 +55,36 @@ func Text(families []Family) string {
 		b.WriteString("# HELP " + f.Name + " " + helpEscaper.Replace(f.Help) + "\n")
 		b.WriteString("# TYPE " + f.Name + " " + f.Type + "\n")
 		for _, s := range f.Samples {
-			b.WriteString(f.Name + s.Suffix + labels(s.Labels) + " " + strconv.FormatFloat(s.Value, 'f', -1, 64) + "\n")
+			b.WriteString(f.Name + s.Suffix + labels(s.Labels) + " " + number(s.Value) + "\n")
 		}
 	}
 	return b.String()
+}
+
+// HistogramSamples is a histogram's samples, labelled labels: for each of
+// bounds a bucket counting the inBucket observations no larger than it,
+// the +Inf bucket counting all count of them, then their sum and count.
+func HistogramSamples(labels []Label, bounds []float64, inBucket []int, sum float64, count int) []Sample {
+	var out []Sample
+	for i, bound := range bounds {
+		out = append(out, bucket(labels, number(bound), inBucket[i]))
+	}
+	return append(out,
+		bucket(labels, "+Inf", count),
+		Sample{Suffix: "_sum", Labels: labels, Value: sum},
+		Sample{Suffix: "_count", Labels: labels, Value: float64(count)})
+}
+
+// bucket is the sample of a histogram's bucket whose bound is le,
+// labelled labels and le, holding count observations.
+func bucket(labels []Label, le string, count int) Sample {
+	withBound := append(slices.Clone(labels), Label{Name: "le", Value: le})
+	return Sample{Suffix: "_bucket", Labels: withBound, Value: float64(count)}
+}
+
+// number is v as the text format writes a value or a bucket's bound.
+func number(v float64) string {
+	return strconv.FormatFloat(v, 'f', -1, 64)
 }
 
 // labels is a sample's labels in braces, nothing when it has none.

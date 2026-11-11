@@ -11,10 +11,11 @@ import (
 // healthzDurations is the duration histogram's samples of the GET
 // requests to /healthz in a scrape's body.
 func healthzDurations(body string) []string {
-	return append(
-		testsupport.Samples(body, `doorcode_http_request_duration_seconds_bucket{method="GET",route="/healthz",`),
-		append(testsupport.Samples(body, `doorcode_http_request_duration_seconds_sum{method="GET",route="/healthz"}`),
-			testsupport.Samples(body, `doorcode_http_request_duration_seconds_count{method="GET",route="/healthz"}`)...)...)
+	var out []string
+	for _, kind := range []string{`_bucket{method="GET",route="/healthz",`, `_sum{method="GET",route="/healthz"}`, `_count{method="GET",route="/healthz"}`} {
+		out = append(out, testsupport.Samples(body, "doorcode_http_request_duration_seconds"+kind)...)
+	}
+	return out
 }
 
 func TestAScrapeCountsTheRequestsAnsweredByMethodRouteAndStatus(t *testing.T) {
