@@ -35,6 +35,12 @@ type chartView struct {
 	Empty  string
 }
 
+// legendEntry names a line and the class that colors it.
+type legendEntry struct {
+	Name  string
+	Class string
+}
+
 // chartLine is one line of a chart: its points in the chart's view box,
 // and the class that colors it, empty for the page's accent color.
 type chartLine struct {
@@ -75,6 +81,25 @@ func (f chartFrame) chart(name, unit string, series ...[]point) chartView {
 	}
 	view.Top, view.Bottom = valueText(high, unit), valueText(low, unit)
 	return view
+}
+
+// keyedChart is the chart of series as chart draws it, each line colored
+// as its series and named in a legend by names, in order.
+func (f chartFrame) keyedChart(name, unit string, names []string, series ...[]point) chartView {
+	f.palette = true
+	view := f.chart(name, unit, series...)
+	view.Legend = legend(names)
+	return view
+}
+
+// legend names the lines of a palette chart's series by names, in order,
+// each beside the color of its line.
+func legend(names []string) []legendEntry {
+	var entries []legendEntry
+	for i, name := range names {
+		entries = append(entries, legendEntry{Name: name, Class: seriesClass("viz-bg", i)})
+	}
+	return entries
 }
 
 // line is points in a chart's view box, scaled from low to high.

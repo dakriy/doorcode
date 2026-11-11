@@ -31,15 +31,14 @@ func (f chartFrame) linkCharts(hours []linkHour) []chartView {
 		lost = appendShare(lost, h.At, int64(h.ChecksLost), int64(h.ChecksSent))
 		retransmits = appendShare(retransmits, h.At, h.TCPRetransmits, h.TCPSent)
 		drops = append(drops, point{h.At, float64(h.TCPDrops)})
-		wifiDrops, roams = append(wifiDrops, point{h.At, float64(h.WifiDrops)}), append(roams, point{h.At, float64(h.Roams)})
+		wifiDrops = append(wifiDrops, point{h.At, float64(h.WifiDrops)})
+		roams = append(roams, point{h.At, float64(h.Roams)})
 	}
-	wifi := f
-	wifi.palette = true
-	wifiChart := wifi.chart("Wi-Fi drops and roams per hour", "", wifiDrops, roams)
-	wifiChart.Legend = []legendEntry{{"Drops", seriesClass("viz-bg", 0)}, {"Roams", seriesClass("viz-bg", 1)}}
 	return []chartView{
-		f.shareChart("Code checks lost", "code checks sent", lost), f.shareChart("TCP retransmits", "TCP segments sent", retransmits),
-		f.chart("TCP drops per hour", "", drops), wifiChart,
+		f.shareChart("Code checks lost", "code checks sent", lost),
+		f.shareChart("TCP retransmits", "TCP segments sent", retransmits),
+		f.chart("TCP drops per hour", "", drops),
+		f.keyedChart("Wi-Fi drops and roams per hour", "", []string{"Drops", "Roams"}, wifiDrops, roams),
 	}
 }
 
@@ -53,9 +52,9 @@ func appendShare(points []point, at time.Time, part, whole int64) []point {
 	return append(points, point{at, float64(part) * 100 / float64(whole)})
 }
 
-// shareChart is the chart of what share of each hour's whole the
-// percentages of points are, named name, which says when no hour had any
-// of whole, which names it.
+// shareChart is the chart named name of points, each a part of an
+// hour's whole as a percentage; with no points it says that no hour had
+// any of the whole, which whole names.
 func (f chartFrame) shareChart(name, whole string, points []point) chartView {
 	view := f.chart(name, "%", points)
 	view.Empty = "No " + whole + " " + f.during + "."
@@ -88,12 +87,12 @@ var dropReasons = map[int]string{
 	4:   "The access point dropped it for inactivity",
 	5:   "The access point had too many devices",
 	8:   "It left the access point",
-	15:  "The Wi-Fi password exchange timed out",
+	15:  "The Wi-Fi password check timed out; the password may be wrong",
 	200: "It stopped hearing the access point",
 	201: "It could not find the access point",
 	202: "The access point refused its sign-in",
 	203: "The access point refused to connect it",
-	204: "The Wi-Fi security handshake timed out",
+	204: "The Wi-Fi password check timed out; the password may be wrong",
 	205: "It could not connect to the access point",
 }
 

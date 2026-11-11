@@ -429,23 +429,18 @@ type healthRow struct {
 	Latency  string
 }
 
-// legendEntry names a door's line and the class that colors it.
-type legendEntry struct {
-	Name  string
-	Class string
-}
-
 func healthViewOf(h stats.Health, chosen stats.Range, zone *time.Location) *healthView {
 	view := &healthView{Unit: map[string]string{connector.ByHour: "hour", connector.ByDay: "day"}[h.Unit]}
 	frame := chartFrame{from: chosen.From, to: chosen.To, zone: zone, over: "by door, " + spanText(chosen), during: "in this range", palette: true}
 	var signal, latency [][]point
+	var names []string
 	for i, d := range h.Doors {
 		view.Rows = append(view.Rows, healthRowOf(h, d))
 		if i >= maxSeries {
 			view.More++
 			continue
 		}
-		view.Legend = append(view.Legend, legendEntry{Name: d.Name, Class: seriesClass("viz-bg", i)})
+		names = append(names, d.Name)
 		var s, l []point
 		for _, t := range d.Trend {
 			s, l = append(s, point{t.Start, t.Signal}), append(l, point{t.Start, t.Latency})
@@ -453,6 +448,7 @@ func healthViewOf(h stats.Health, chosen stats.Range, zone *time.Location) *heal
 		signal, latency = append(signal, s), append(latency, l)
 	}
 	view.Charts = []chartView{frame.chart("Signal", "dBm", signal...), frame.chart("Latency", "ms", latency...)}
+	view.Legend = legend(names)
 	return view
 }
 
