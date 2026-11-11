@@ -156,22 +156,20 @@ func (c catalog) rowOfState(d connector.StoredDoor, zone *time.Location) stateVi
 	return view
 }
 
-// tryAgain is how a door is made to try the configuration again.
-const tryAgain = "Changing the door's configuration, any change, makes it try again."
-
 // configText is which configuration a controller runs, as check says,
 // and what to know when it is not the one last sent, as the door's page
 // shows them.
 func configText(check telemetry.ConfigCheck, zone *time.Location) (string, string) {
 	switch check.State {
 	case telemetry.ConfigCurrent:
-		return "The latest sent", ""
+		return "The one last sent", ""
 	case telemetry.ConfigOlder:
 		return "Older", "Running an older configuration since " + shownAt(zone, *check.Since, secondLayout) +
-			": the door has not taken the configuration last sent. " + tryAgain
+			": the door has not taken up the configuration last sent yet."
 	case telemetry.ConfigReverted:
-		return "The previous one", "The door gave up the latest configuration because it could not connect with it; it is running the previous one since " +
-			shownAt(zone, *check.Since, secondLayout) + ". It ignores that configuration if it is sent again. " + tryAgain
+		return "The previous one", "The door gave up the configuration last sent because it could not connect with it; it is running the previous one since " +
+			shownAt(zone, *check.Since, secondLayout) + ". It ignores that configuration if it is sent again. " +
+			"Changing the door's configuration, any change, makes it try again."
 	}
 	return notReported, ""
 }

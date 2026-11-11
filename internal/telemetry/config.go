@@ -17,8 +17,8 @@ const (
 	// configuration last sent.
 	ConfigCurrent = "current"
 	// ConfigOlder is a controller that went on naming another
-	// configuration in two reports in a row, both after the one last sent
-	// went out.
+	// configuration in two reports in a row over one connection, both
+	// after the one last sent went out.
 	ConfigOlder = "older"
 	// ConfigReverted is a controller that said, after the configuration
 	// last sent went out, that it gave that one up because it could not
@@ -66,9 +66,9 @@ func (c ConfigCheck) Badge() string {
 // back online, may come before the door took it, and a door trying a
 // configuration that changes how it connects restarts and reports
 // nothing until it is online with it. Only a second report in a row
-// that names another configuration makes it older, since the door had
-// a whole telemetry interval to take it. A door that says it gave the
-// configuration up is flagged at once.
+// over the same connection that names another configuration makes it
+// older, since the door had a whole telemetry interval to take it. A
+// door that says it gave the configuration up is flagged at once.
 func ConfigOf(d connector.StoredDoor) ConfigCheck {
 	c, sent := d.Controller, d.SentConfig
 	if sent == nil {
@@ -87,19 +87,29 @@ func ConfigOf(d connector.StoredDoor) ConfigCheck {
 }
 
 // mismatchSince is when the controller of d, held, began naming a
-// configuration other than the one d was last sent, given that its
-// report at now names digest: nil when the report names that one or
-// none, or d was sent none, otherwise when the reports since it was sent
-// began naming another, now when this is the first.
-func mismatchSince(d connector.StoredDoor, held connector.StoredController, digest string, now time.Time) *time.Time {
+// configuration other than the one d was last sent, given its report t:
+// nil when t names that one or none, or d was sent none, otherwise when
+// the reports since it was sent began naming another over the connection
+// t came over, t.At when t is the first. A report over a new connection
+// starts the count again, since the first after the door came back may
+// come before it took the configuration, however long ago the one before
+// it was.
+func mismatchSince(d connector.StoredDoor, held connector.StoredController, t connector.StoredTelemetry) *time.Time {
 	sent := d.SentConfig
-	if sent == nil || digest == "" || digest == sent.Digest {
+	if sent == nil || t.ConfigDigest == "" || t.ConfigDigest == sent.Digest {
 		return nil
 	}
-	if since := held.ConfigMismatchSince; sinceSent(*sent, since) {
+	if since := held.ConfigMismatchSince; sinceSent(*sent, since) && sameConnection(*held.Telemetry, t) {
 		return since
 	}
-	return &now
+	return &t.At
+}
+
+// sameConnection reports whether the controller made report t over the
+// connection it made report prev over: it has neither restarted nor
+// connected again since.
+func sameConnection(prev, t connector.StoredTelemetry) bool {
+	return t.Reconnects == prev.Reconnects && t.UptimeS >= prev.UptimeS
 }
 
 // sinceSent reports whether at, nil for never, is no earlier than when

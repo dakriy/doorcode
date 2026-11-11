@@ -79,14 +79,14 @@ func TestADoorIsNotFlaggedUntilItGoesOnRunningAnotherConfiguration(t *testing.T)
 		"before it reports": {func(*keypad) {}, "Not reported yet"},
 		"running the configuration last sent": {func(k *keypad) {
 			k.runs("2026-01-05T09:01:00Z", k.sentDigest())
-		}, "The latest sent"},
+		}, "The one last sent"},
 		"one report of another": {func(k *keypad) {
 			k.runs("2026-01-05T09:01:00Z", otherDigest)
 		}, "Not reported yet"},
 		"another and then the configuration last sent": {func(k *keypad) {
 			k.runs("2026-01-05T09:01:00Z", otherDigest)
 			k.runs("2026-01-05T09:02:00Z", k.sentDigest())
-		}, "The latest sent"},
+		}, "The one last sent"},
 		"running its defaults": {func(k *keypad) {
 			k.runs("2026-01-05T09:01:00Z", "")
 			k.runs("2026-01-05T09:02:00Z", "")
@@ -130,8 +130,7 @@ func TestADoorThatGoesOnRunningAnotherConfigurationIsFlaggedSinceItsFirstReportO
 	want := []any{
 		[]any{true, false, "2026-01-05T09:01:00Z"},
 		[]any{"Online Older configuration", "Older"},
-		[]string{"Running an older configuration since Mon 5 Jan 2026 09:01:00: the door has not taken the configuration last sent. " +
-			"Changing the door's configuration, any change, makes it try again."},
+		[]string{"Running an older configuration since Mon 5 Jan 2026 09:01:00: the door has not taken up the configuration last sent yet."},
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("state, shown, notes (-want +got):\n%s", diff)
@@ -158,6 +157,33 @@ func TestReportsBeforeTheConfigurationWasSentAgainDoNotCount(t *testing.T) {
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("sent again, once, twice (-want +got):\n%s", diff)
+	}
+}
+
+func TestAReportOverANewConnectionStartsTheCountAgain(t *testing.T) {
+	t.Parallel()
+	cases := map[string]map[string]any{
+		"connected again": {"reconnects": 3},
+		"restarted":       {"uptime_s": 60},
+	}
+	for name, connection := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			k := keypadSite(t, testsupport.NewFactory())
+			k.runs("2026-01-05T09:01:00Z", otherDigest)
+			k.at("2026-01-05T09:02:00Z")
+			k.report(with(map[string]any{"config_digest": otherDigest}, connection))
+			once := k.configState()
+			k.at("2026-01-05T09:03:00Z")
+			k.report(with(map[string]any{"config_digest": otherDigest}, connection))
+
+			got := []any{once, k.configState()}
+
+			want := []any{[]any{false, false, nil}, []any{true, false, "2026-01-05T09:02:00Z"}}
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Errorf("first over the new connection, second (-want +got):\n%s", diff)
+			}
+		})
 	}
 }
 
@@ -191,7 +217,7 @@ func TestADoorGivingUpTheConfigurationLastSentIsLoggedAndFlaggedAtOnce(t *testin
 			`"reason":"configuration reverted","detail":"` + detail + `"}`),
 		[]any{true, true, "2026-01-05T09:05:00Z"},
 		[]any{"Online Configuration given up", "The previous one"},
-		[]string{"The door gave up the latest configuration because it could not connect with it; it is running the previous one " +
+		[]string{"The door gave up the configuration last sent because it could not connect with it; it is running the previous one " +
 			"since Mon 5 Jan 2026 09:05:00. It ignores that configuration if it is sent again. " +
 			"Changing the door's configuration, any change, makes it try again."},
 		[][]string{{"When", "Alarm", "Details"}, {"Mon 5 Jan 2026 09:05:00", "Configuration reverted", detail}},
@@ -210,6 +236,23 @@ func TestADoorThatGaveUpTheConfigurationStaysFlaggedWhileItRunsAnother(t *testin
 
 	if diff := cmp.Diff([]any{true, true, "2026-01-05T09:05:00Z"}, k.configState()); diff != "" {
 		t.Errorf("state (-want +got):\n%s", diff)
+	}
+}
+
+func TestAGivenUpConfigurationSentAgainUnchangedStaysFlagged(t *testing.T) {
+	t.Parallel()
+	k := keypadSite(t, testsupport.NewFactory())
+	k.givesUp("2026-01-05T09:05:00Z", k.sentDigest())
+	k.at("2026-01-05T09:06:00Z")
+	k.publish("doorcode/doors/1/online", onlineAs(firstUsername, true))
+	k.runs("2026-01-05T09:07:00Z", otherDigest)
+	k.runs("2026-01-05T09:08:00Z", otherDigest)
+
+	got := []any{k.configState(), k.configShown()}
+
+	want := []any{[]any{true, true, "2026-01-05T09:05:00Z"}, []any{"Online Configuration given up", "The previous one"}}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("state, shown (-want +got):\n%s", diff)
 	}
 }
 

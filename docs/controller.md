@@ -434,17 +434,20 @@ on every reconnect, keeps that time). It flags a door whose controller
 does not run it:
 
 - **older configuration:** two telemetry reports in a row, both received
-  after the configuration was sent, name another digest. One is not
-  enough: a report made just as the configuration went out, or the first
-  after the door came back online, may come before the controller took
-  it, and a controller trying a configuration restarts and reports
+  after the configuration was sent, with the controller neither
+  restarting nor connecting again between them (the second's `uptime_s`
+  no lower and its `reconnects` the same), name another digest. One is
+  not enough: a report made just as the configuration went out, or the
+  first after the door came back online, may come before the controller
+  took it, and a controller trying a configuration restarts and reports
   nothing until it is online with it. The flag dates from the first of
   the reports, and goes as soon as a report names the configuration last
   sent, names none, or a new configuration is sent.
 - **configuration given up:** the controller said `config_reverted`
   naming the configuration last sent, after it was sent. The flag holds,
   whatever the controller reports meanwhile, until a report names the
-  configuration last sent or a new configuration is sent.
+  configuration last sent or a new configuration is sent; sending the
+  same one again, which the controller ignores, keeps it.
 
 There is no flag for a door without a controller, a door sent no
 configuration since the server began keeping the digest (it is sent one
@@ -453,8 +456,8 @@ configuration was sent, nor while its reports name no configuration
 (empty `config_digest`: its defaults, or firmware that predates the
 field), which the server shows as not reported. The door list shows the
 flag as a badge, the door page as its Configuration and a note saying
-what happened and that changing the configuration makes the door try
-again, and `GET /api/v1/doors/{id}/state` as `config_mismatch`,
+what happened (for a configuration given up, also that changing the
+configuration makes the door try again), and `GET /api/v1/doors/{id}/state` as `config_mismatch`,
 `config_reverted`, and `config_mismatch_since`, beside
 `config_sent_digest` and `config_sent_at`.
 

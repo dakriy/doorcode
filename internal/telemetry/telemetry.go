@@ -94,7 +94,7 @@ func (s Service) report(ctx context.Context, doorID int64, payload []byte) error
 	}
 	c := heard(held, now)
 	c.Telemetry, c.FirmwareVersion, c.Signal = &t, m.FirmwareVersion, m.Signal
-	c.ConfigMismatchSince = mismatchSince(d, held, m.ConfigDigest, now)
+	c.ConfigMismatchSince = mismatchSince(d, held, t)
 	if m.DoorOpen {
 		if err := s.checkOpened(ctx, d.ID, held, now); err != nil {
 			return err
