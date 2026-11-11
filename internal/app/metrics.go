@@ -110,10 +110,10 @@ func (a *App) metrics(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	a.unscraped(requestsErr, "could not read the access requests for metrics")
 	families := doorFamilies(plan.Doors)
 	families = append(families,
-		eventCounts(counts, plan.Doors, planErr),
+		fromRead(eventCounts(counts, plan.Doors), planErr),
 		siteGauge("doorcode_pending_enrollments", "Controllers waiting to be approved as doors.", float64(a.pendingEnrollments())),
-		readGauge("doorcode_open_requests", "Access requests waiting for an answer.", waiting, requestsErr),
-		firmwareUpdates(plan.Doors, planErr),
+		fromRead(siteGauge("doorcode_open_requests", "Access requests waiting for an answer.", float64(waiting)), requestsErr),
+		fromRead(firmwareUpdates(plan.Doors), planErr),
 		siteGauge("doorcode_broker_connected", "1 while the server is connected to the broker, else 0.", flag(a.broker.Connected())),
 		siteGauge("doorcode_store_up", "1 when the store answered the scrape's reads, else 0.", flag(planErr == nil && requestsErr == nil)))
 	w.Header().Set("Content-Type", exposition.ContentType)
@@ -127,15 +127,20 @@ func (a *App) unscraped(err error, message string) {
 	}
 }
 
+// fromRead is f, built from what a store read gave, without its samples
+// when err says the read failed.
+func fromRead(f exposition.Family, err error) exposition.Family {
+	if err != nil {
+		f.Samples = nil
+	}
+	return f
+}
+
 // firmwareUpdates counts the doors in doors taking part in the rollout by
-// status, every status included, or nothing when err says doors could not
-// be read.
-func firmwareUpdates(doors []firmware.DoorFirmware, err error) exposition.Family {
+// status, every status included.
+func firmwareUpdates(doors []firmware.DoorFirmware) exposition.Family {
 	f := exposition.Family{
 		Name: "doorcode_firmware_updates", Help: "Doors taking part in the firmware rollout, by their state in it: pending, updating, failed, or done.", Type: exposition.Gauge,
-	}
-	if err != nil {
-		return f
 	}
 	for _, state := range rolloutStates {
 		count := 0
@@ -150,14 +155,10 @@ func firmwareUpdates(doors []firmware.DoorFirmware, err error) exposition.Family
 }
 
 // eventCounts is the count of each kind of event in counts, at the door
-// of doors it names, which still has series once deleted, or nothing when
-// err says doors could not be read.
-func eventCounts(counts []event.Count, doors []firmware.DoorFirmware, err error) exposition.Family {
+// of doors it names, which still has series once deleted.
+func eventCounts(counts []event.Count, doors []firmware.DoorFirmware) exposition.Family {
 	f := exposition.Family{
 		Name: "doorcode_events_total", Help: "The events recorded since the server started, by door, type, outcome, reason, and the reason a controller gave for starting.", Type: exposition.Counter,
-	}
-	if err != nil {
-		return f
 	}
 	byID := map[int64]connector.StoredDoor{}
 	for _, df := range doors {
@@ -240,15 +241,6 @@ func doorLabels(d connector.StoredDoor) []exposition.Label {
 
 func siteGauge(name, help string, value float64) exposition.Family {
 	return exposition.Family{Name: name, Help: help, Type: exposition.Gauge, Samples: []exposition.Sample{{Value: value}}}
-}
-
-// readGauge is a site gauge of value, which a store read gave, without a
-// sample when err says the read failed.
-func readGauge(name, help string, value int, err error) exposition.Family {
-	if err != nil {
-		return exposition.Family{Name: name, Help: help, Type: exposition.Gauge}
-	}
-	return siteGauge(name, help, float64(value))
 }
 
 // flag is 1 for true and 0 for false, as gauges say yes or no.
