@@ -92,6 +92,7 @@ var brokerSettingsJSON = `{"key":"enrollment_username","value":"doorcode-enroll"
 	defaultSetting("door_wifi_ssid", "") + `,` +
 	`{"key":"door_wifi_password","value":"","source":"default","read_only":false,"env_var":"DOORCODE_DOOR_WIFI_PASSWORD","secret":true},` +
 	defaultSetting("door_wifi_roam_rssi", "-70") + `,` +
+	defaultSetting("door_wifi_11b_disabled", "false") + `,` +
 	defaultSetting("door_mesh_enabled", "false") + `,` +
 	defaultSetting("door_mesh_ssid", "") + `,` +
 	`{"key":"door_mesh_password","value":"","source":"default","read_only":false,"env_var":"DOORCODE_DOOR_MESH_PASSWORD","secret":true},` +

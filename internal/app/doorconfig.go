@@ -32,6 +32,7 @@ type doorConfigView struct {
 	WifiSSID               string `json:"wifi_ssid" doc:"The Wi-Fi network the door joins; empty keeps the network it uses. A door falls back to the last network that worked when a new one fails."`
 	WifiPassword           string `json:"wifi_password" doc:"The Wi-Fi network's password, a secret: ******** when it has one."`
 	WifiRoamRSSI           int    `json:"wifi_roam_rssi" doc:"The signal, in dBm, below which the door looks for an access point of the same network at least 8 dB stronger and moves to it."`
+	Wifi11bDisabled        bool   `json:"wifi_11b_disabled" doc:"Whether the door's Wi-Fi keeps off the slow 802.11b rates, 1 to 11 Mbps. It helps a door with a strong signal but heavy loss on a crowded 2.4 GHz network and hurts a door with a weak signal, which needs those rates to stay connected. A change makes the door restart its Wi-Fi, or the door itself when it is in the mesh."`
 	KeepaliveS             int    `json:"keepalive_s" doc:"The door's MQTT keep-alive interval, in seconds, from its next connection; it shows offline once one and a half of these pass without a packet."`
 	ReconnectMaxS          int    `json:"reconnect_max_s" doc:"The longest pause between the door's attempts to connect again, in seconds; it waits 1, 2, 4 seconds and so on up to this."`
 	MeshEnabled            bool   `json:"mesh_enabled" doc:"Whether the door may join or form a Wi-Fi mesh with other doors when its own access point's signal is poor."`

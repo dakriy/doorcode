@@ -153,6 +153,7 @@ type DoorConfig struct {
 	WifiSSID               string
 	WifiPassword           string
 	WifiRoamRSSI           int
+	Wifi11bDisabled        bool
 	KeepaliveS             int
 	ReconnectMaxS          int
 	MeshEnabled            bool
@@ -313,6 +314,9 @@ var DoorFields = grouped(
 		signalField("wifi_roam_rssi", "Roam below",
 			"When the signal from its access point is weaker than this, the door moves to an access point of the same network at least 8 dB stronger, if it finds one.",
 			"-70", 100, func(c *DoorConfig) *int { return &c.WifiRoamRSSI }),
+		yesNoField("wifi_11b_disabled", "No 802.11b rates",
+			"Whether the door keeps off the slow 802.11b rates, 1 to 11 Mbps, instead of falling back to them when packets are lost. It helps a door with a strong signal that still loses many packets on a crowded 2.4 GHz network, where the slow rates make things worse, and hurts a door with a weak signal at the edge of coverage, which needs those rates to stay connected. Leave it off unless the door's telemetry shows a good signal together with many TCP retransmits. Changing it makes the door restart its Wi-Fi, dropping off the network for a moment; a door in the mesh restarts.",
+			"false", func(c *DoorConfig) *bool { return &c.Wifi11bDisabled }),
 	}},
 	doorGroup{"Mesh", []DoorField{
 		yesNoField("mesh_enabled", "Mesh", "Whether the door may join or form a Wi-Fi mesh with other doors when its own access point's signal is poor.",

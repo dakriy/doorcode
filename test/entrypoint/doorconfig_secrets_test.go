@@ -15,7 +15,7 @@ import (
 const (
 	strikePulseRow    = 2
 	wifiPasswordRow   = 25
-	connectTimeoutRow = 34
+	connectTimeoutRow = 35
 )
 
 // sentConfig is the value of field in the configuration the door whose id
@@ -259,7 +259,7 @@ func TestOpenAPIDescribesEveryDoorConfigurationField(t *testing.T) {
 	doc := openAPIDocument(t)
 	fields := map[string]string{
 		"broker_port": "integer", "broker_tls": "boolean", "broker_ca_pem": "string", "wifi_ssid": "string", "wifi_password": "string",
-		"wifi_roam_rssi": "integer", "keepalive_s": "integer", "reconnect_max_s": "integer", "mesh_enabled": "boolean",
+		"wifi_roam_rssi": "integer", "wifi_11b_disabled": "boolean", "keepalive_s": "integer", "reconnect_max_s": "integer", "mesh_enabled": "boolean",
 		"mesh_ssid": "string", "mesh_password": "string", "mesh_min_router_rssi": "integer", "mesh_max_layer": "integer",
 		"update_connect_timeout_s": "integer", "accept_unsigned_firmware": "boolean",
 	}

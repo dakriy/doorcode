@@ -68,6 +68,7 @@ var defaultSettings = []shownSetting{
 	{"door_broker_host", "", "default"}, {"door_broker_port", "8883", "default"}, {"door_broker_tls", "true", "default"},
 	{"door_broker_ca_pem", "", "default"}, {"door_keepalive_s", "30", "default"}, {"door_reconnect_max_s", "60", "default"},
 	{"door_wifi_ssid", "", "default"}, {"door_wifi_password", "", "default"}, {"door_wifi_roam_rssi", "-70", "default"},
+	{"door_wifi_11b_disabled", "false", "default"},
 	{"door_mesh_enabled", "false", "default"}, {"door_mesh_ssid", "", "default"}, {"door_mesh_password", "", "default"},
 	{"door_mesh_min_router_rssi", "-75", "default"}, {"door_mesh_max_layer", "4", "default"},
 	{"door_update_connect_timeout_s", "300", "default"}, {"door_accept_unsigned_firmware", "false", "default"},
@@ -151,6 +152,8 @@ var settingRows = map[string]struct{ section, label, help string }{
 		"The Wi-Fi network's password. It is stored encrypted and sent to nobody but the door. A password of up to 63 bytes."},
 	"door_wifi_roam_rssi": {"Door defaults", "Roam below",
 		"When the signal from its access point is weaker than this, the door moves to an access point of the same network at least 8 dB stronger, if it finds one. A whole number of dBm from -100 to 0."},
+	"door_wifi_11b_disabled": {"Door defaults", "No 802.11b rates",
+		"Whether the door keeps off the slow 802.11b rates, 1 to 11 Mbps, instead of falling back to them when packets are lost. It helps a door with a strong signal that still loses many packets on a crowded 2.4 GHz network, where the slow rates make things worse, and hurts a door with a weak signal at the edge of coverage, which needs those rates to stay connected. Leave it off unless the door's telemetry shows a good signal together with many TCP retransmits. Changing it makes the door restart its Wi-Fi, dropping off the network for a moment; a door in the mesh restarts. True or false."},
 	"door_keepalive_s": {"Door defaults", "Keep-alive",
 		"How often the door lets the broker know it is still there, from its next connection on; it shows offline once one and a half of these pass without a word from it. A whole number of seconds from 10 to 300."},
 	"door_reconnect_max_s": {"Door defaults", "Longest reconnect pause",
@@ -184,7 +187,7 @@ var doorGroups = []struct {
 	{"Server", []string{"telemetry_interval_s", "timeline_refresh_hours", "credential_rotation_days", "rate_limit_per_minute", "rate_limit_burst",
 		"log_level", "ntp_server"}},
 	{"Broker", []string{"broker_host", "broker_port", "broker_tls", "broker_ca_pem", "keepalive_s", "reconnect_max_s"}},
-	{"Wi-Fi", []string{"wifi_ssid", "wifi_password", "wifi_roam_rssi"}},
+	{"Wi-Fi", []string{"wifi_ssid", "wifi_password", "wifi_roam_rssi", "wifi_11b_disabled"}},
 	{"Mesh", []string{"mesh_enabled", "mesh_ssid", "mesh_password", "mesh_min_router_rssi", "mesh_max_layer"}},
 	{"Firmware", []string{"update_connect_timeout_s", "accept_unsigned_firmware"}},
 }
@@ -217,7 +220,7 @@ var settingChoices = map[string][]string{
 // checkbox.
 var yesNoSettings = map[string]bool{
 	"oidc_enabled": true, "oidc_auto_sign_in": true, "portal_door_pictures": true,
-	"door_broker_tls": true, "door_mesh_enabled": true, "door_accept_unsigned_firmware": true,
+	"door_broker_tls": true, "door_wifi_11b_disabled": true, "door_mesh_enabled": true, "door_accept_unsigned_firmware": true,
 }
 
 // settingCell adds what page reads from the cell showing the setting s

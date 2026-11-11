@@ -13,8 +13,8 @@ import (
 const defaultConfigJSON = `{"strike_pulse_ms":3000,"keypad_idle_clear_ms":10000,"min_code_length":4,"max_code_length":32,` +
 	`"reply_timeout_ms":3000,"telemetry_interval_s":60,"held_open_s":60,"timeline_refresh_hours":6,` +
 	`"credential_rotation_days":30,"rate_limit_per_minute":30,"rate_limit_burst":10,"ntp_server":"pool.ntp.org","broker_host":"",` +
-	`"broker_port":8883,"broker_tls":true,"broker_ca_pem":"","wifi_ssid":"","wifi_password":"","wifi_roam_rssi":-70,"keepalive_s":30,` +
-	`"reconnect_max_s":60,"mesh_enabled":false,"mesh_ssid":"","mesh_password":"","mesh_min_router_rssi":-75,"mesh_max_layer":4,` +
+	`"broker_port":8883,"broker_tls":true,"broker_ca_pem":"","wifi_ssid":"","wifi_password":"","wifi_roam_rssi":-70,"wifi_11b_disabled":false,` +
+	`"keepalive_s":30,"reconnect_max_s":60,"mesh_enabled":false,"mesh_ssid":"","mesh_password":"","mesh_min_router_rssi":-75,"mesh_max_layer":4,` +
 	`"update_connect_timeout_s":300,"accept_unsigned_firmware":false,"log_level":"info"}`
 
 func TestADoorWithoutOverridesHasTheSitesDefaultConfiguration(t *testing.T) {
@@ -206,6 +206,9 @@ func TestEachDoorSettingAcceptsOnlyWhatADoorCanRunWith(t *testing.T) {
 		"too weak a roaming signal":       {"wifi_roam_rssi", "-101", false},
 		"the strongest roaming signal":    {"wifi_roam_rssi", "0", true},
 		"too strong a roaming signal":     {"wifi_roam_rssi", "1", false},
+		"no 802.11b rates":                {"wifi_11b_disabled", "true", true},
+		"802.11b rates":                   {"wifi_11b_disabled", "false", true},
+		"802.11b rates of maybe":          {"wifi_11b_disabled", "maybe", false},
 		"the shortest keep-alive":         {"keepalive_s", "10", true},
 		"too short a keep-alive":          {"keepalive_s", "9", false},
 		"the longest keep-alive":          {"keepalive_s", "300", true},
@@ -335,6 +338,8 @@ func configTable(changed map[string][2]string) [][]string {
 			"The Wi-Fi network's password. It is stored encrypted and sent to nobody but the door. A password of up to 63 bytes.", ""},
 		{"wifi_roam_rssi", "Roam below",
 			"When the signal from its access point is weaker than this, the door moves to an access point of the same network at least 8 dB stronger, if it finds one. A whole number of dBm from -100 to 0.", "-70"},
+		{"wifi_11b_disabled", "No 802.11b rates",
+			"Whether the door keeps off the slow 802.11b rates, 1 to 11 Mbps, instead of falling back to them when packets are lost. It helps a door with a strong signal that still loses many packets on a crowded 2.4 GHz network, where the slow rates make things worse, and hurts a door with a weak signal at the edge of coverage, which needs those rates to stay connected. Leave it off unless the door's telemetry shows a good signal together with many TCP retransmits. Changing it makes the door restart its Wi-Fi, dropping off the network for a moment; a door in the mesh restarts. True or false.", "false"},
 		{"mesh_enabled", "Mesh",
 			"Whether the door may join or form a Wi-Fi mesh with other doors when its own access point's signal is poor. True or false.", "false"},
 		{"mesh_ssid", "Mesh network",
@@ -458,7 +463,7 @@ func TestADoorsPageCountsTheSettingsItOverrides(t *testing.T) {
 		"none": {`{"overrides":{}}`, "configuration",
 			[]any{doorNav("Configuration", true), []string{"Follows the site defaults", hostNote, brokerNote}}},
 		"three": {threeOverrides, "configuration",
-			[]any{countingThree(doorNav("Configuration", true)), []string{"3 of 29 settings overridden", hostNote, brokerNote}}},
+			[]any{countingThree(doorNav("Configuration", true)), []string{"3 of 30 settings overridden", hostNote, brokerNote}}},
 		"three, from another tab": {threeOverrides, "details",
 			[]any{countingThree(doorNav("Details", true)), []string{picturesNote,
 				"Never in open mode: none of its zones has an open-mode schedule. Open-mode schedules are set on each zone's page.",

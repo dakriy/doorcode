@@ -68,9 +68,9 @@ func configWith(changed map[string]any) map[string]any {
 		"max_code_length": int64(32), "reply_timeout_ms": int64(3000), "telemetry_interval_s": int64(60),
 		"held_open_s": int64(60), "timeline_refresh_hours": int64(6), "credential_rotation_days": int64(30), "rate_limit_per_minute": int64(30),
 		"rate_limit_burst": int64(10), "ntp_server": "pool.ntp.org", "broker_host": "", "broker_port": int64(8883), "broker_tls": true,
-		"broker_ca_pem": "", "wifi_ssid": "", "wifi_password": "", "wifi_roam_rssi": int64(-70), "keepalive_s": int64(30),
-		"reconnect_max_s": int64(60), "mesh_enabled": false, "mesh_ssid": "", "mesh_password": "", "mesh_min_router_rssi": int64(-75),
-		"mesh_max_layer": int64(4), "update_connect_timeout_s": int64(300), "accept_unsigned_firmware": false, "log_level": "info",
+		"broker_ca_pem": "", "wifi_ssid": "", "wifi_password": "", "wifi_roam_rssi": int64(-70), "wifi_11b_disabled": false,
+		"keepalive_s": int64(30), "reconnect_max_s": int64(60), "mesh_enabled": false, "mesh_ssid": "", "mesh_password": "",
+		"mesh_min_router_rssi": int64(-75), "mesh_max_layer": int64(4), "update_connect_timeout_s": int64(300), "accept_unsigned_firmware": false, "log_level": "info",
 	}, changed)
 }
 
@@ -241,6 +241,21 @@ func TestADoorsConfigurationTellsItWhichBrokerToConnectTo(t *testing.T) {
 	send(t, b, "PUT", "/api/v1/doors/2/config", `{"overrides":{"broker_host":"2001:db8::10"}}`, 200)
 
 	want := []any{configWith(map[string]any{"broker_host": "mqtt.example.com"}), configWith(map[string]any{"broker_host": "2001:db8::10"})}
+	got := []any{f.BrokerStub.RetainedDecoded(doorTopic("1", "config")), f.BrokerStub.RetainedDecoded(doorTopic("2", "config"))}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Lobby's, Dock's configuration (-want +got):\n%s", diff)
+	}
+}
+
+func TestADoorsConfigurationTellsItWhetherToKeepOffThe80211bRates(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	_, b := pushSite(t, f)
+	send(t, b, "PUT", "/api/v1/settings/door_wifi_11b_disabled", `{"value":"true"}`, 200)
+
+	send(t, b, "PUT", "/api/v1/doors/2/config", `{"overrides":{"wifi_11b_disabled":"false"}}`, 200)
+
+	want := []any{configWith(map[string]any{"wifi_11b_disabled": true}), configWith(nil)}
 	got := []any{f.BrokerStub.RetainedDecoded(doorTopic("1", "config")), f.BrokerStub.RetainedDecoded(doorTopic("2", "config"))}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("Lobby's, Dock's configuration (-want +got):\n%s", diff)

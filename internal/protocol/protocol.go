@@ -237,8 +237,9 @@ type Reply struct {
 // (and in a burst) the server checks, where it gets the time, which
 // broker it connects to (empty to keep the one it has) on which port,
 // whether over TLS and verifying it against which certificate, which
-// Wi-Fi network it joins (empty to keep the one it has) and when it roams,
-// its MQTT keep-alive and longest reconnect pause, whether and how it
+// Wi-Fi network it joins (empty to keep the one it has), when it roams,
+// whether it keeps off the 802.11b rates, its MQTT keep-alive and
+// longest reconnect pause, whether and how it
 // meshes with other doors, how long new firmware may take to connect
 // before it reverts, whether it installs unsigned firmware, and how much
 // it logs. Wi-Fi and mesh passwords travel in the clear here, the one
@@ -263,6 +264,7 @@ type DoorConfig struct {
 	WifiSSID               string `cbor:"wifi_ssid"`
 	WifiPassword           string `cbor:"wifi_password"`
 	WifiRoamRSSI           int    `cbor:"wifi_roam_rssi"`
+	Wifi11bDisabled        bool   `cbor:"wifi_11b_disabled"`
 	KeepaliveS             int    `cbor:"keepalive_s"`
 	ReconnectMaxS          int    `cbor:"reconnect_max_s"`
 	MeshEnabled            bool   `cbor:"mesh_enabled"`

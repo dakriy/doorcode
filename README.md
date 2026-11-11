@@ -281,6 +281,7 @@ full table.
 | `door_wifi_ssid` | The Wi-Fi network doors join, up to 32 bytes; empty keeps the network each door uses. | empty |
 | `door_wifi_password` | Its password, up to 63 bytes. Secret: stored encrypted and shown masked. | empty |
 | `door_wifi_roam_rssi` | Below this signal, -100 to 0 dBm, a door moves to an access point of its network at least 8 dB stronger. | `-70` |
+| `door_wifi_11b_disabled` | `true` keeps doors off the slow 802.11b rates, 1 to 11 Mbps. It helps a door with a strong signal that still loses many packets on a crowded 2.4 GHz network and hurts a door with a weak signal at the edge of coverage, which needs those rates to stay connected; leave it off unless a door's telemetry shows a good signal with many TCP retransmits. A change makes the door restart its Wi-Fi, and a door in the mesh restart. | `false` |
 | `door_mesh_enabled` | `true` lets doors join or form a Wi-Fi mesh when their own signal is poor. Refused, as a default and as a door's override, while the mesh would have no network name or password, which would leave its soft-AP open; a door whose configuration still has that (its override on, the site's password cleared later) is sent the mesh off, and its page and the settings page warn of it. | `false` |
 | `door_mesh_ssid` | The mesh network's name, up to 32 bytes; needed while the mesh is on. | empty |
 | `door_mesh_password` | The mesh network's password, empty or 8 to 63 bytes; needed while the mesh is on. Secret: stored encrypted and shown masked. | empty |
