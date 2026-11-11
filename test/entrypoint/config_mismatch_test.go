@@ -79,14 +79,14 @@ func TestADoorIsNotFlaggedUntilItGoesOnRunningAnotherConfiguration(t *testing.T)
 		"before it reports": {func(*keypad) {}, "Not reported yet"},
 		"running the configuration last sent": {func(k *keypad) {
 			k.runs("2026-01-05T09:01:00Z", k.sentDigest())
-		}, "The one last sent"},
+		}, "Up to date"},
 		"one report of another": {func(k *keypad) {
 			k.runs("2026-01-05T09:01:00Z", otherDigest)
 		}, "Not reported yet"},
 		"another and then the configuration last sent": {func(k *keypad) {
 			k.runs("2026-01-05T09:01:00Z", otherDigest)
 			k.runs("2026-01-05T09:02:00Z", k.sentDigest())
-		}, "The one last sent"},
+		}, "Up to date"},
 		"running its defaults": {func(k *keypad) {
 			k.runs("2026-01-05T09:01:00Z", "")
 			k.runs("2026-01-05T09:02:00Z", "")
@@ -129,7 +129,7 @@ func TestADoorThatGoesOnRunningAnotherConfigurationIsFlaggedSinceItsFirstReportO
 
 	want := []any{
 		[]any{true, false, "2026-01-05T09:01:00Z"},
-		[]any{"Online Older configuration", "Older"},
+		[]any{"Online Older configuration", "Mismatched"},
 		[]string{"Running an older configuration since Mon 5 Jan 2026 09:01:00: the door has not taken up the configuration last sent yet."},
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
@@ -216,7 +216,7 @@ func TestADoorGivingUpTheConfigurationLastSentIsLoggedAndFlaggedAtOnce(t *testin
 		testsupport.JSON(`{"id":1,"at":"2026-01-05T09:05:00Z","door":{"id":1,"name":"Lobby"},"type":"alarm","outcome":"alert",` +
 			`"reason":"configuration reverted","detail":"` + detail + `"}`),
 		[]any{true, true, "2026-01-05T09:05:00Z"},
-		[]any{"Online Configuration given up", "The previous one"},
+		[]any{"Online Configuration given up", "Reverted"},
 		[]string{"The door gave up the configuration last sent because it could not connect with it; it is running the previous one " +
 			"since Mon 5 Jan 2026 09:05:00. It ignores that configuration if it is sent again. " +
 			"Changing the door's configuration, any change, makes it try again."},
@@ -250,7 +250,7 @@ func TestAGivenUpConfigurationSentAgainUnchangedStaysFlagged(t *testing.T) {
 
 	got := []any{k.configState(), k.configShown()}
 
-	want := []any{[]any{true, true, "2026-01-05T09:05:00Z"}, []any{"Online Configuration given up", "The previous one"}}
+	want := []any{[]any{true, true, "2026-01-05T09:05:00Z"}, []any{"Online Configuration given up", "Reverted"}}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("state, shown (-want +got):\n%s", diff)
 	}
