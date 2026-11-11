@@ -36,3 +36,31 @@ func (s Service) RemoveSignInImage(ctx context.Context) error {
 	}
 	return err
 }
+
+// ErrNoLogo reports that the site has no logo.
+var ErrNoLogo = errors.New("the site has no logo")
+
+// Logo returns the site's logo, and whether it has one.
+func (s Service) Logo(ctx context.Context) (connector.StoredImage, bool, error) {
+	return s.Store.Logo(ctx)
+}
+
+// SetLogo makes the picture data, reduced and kept transparent, the
+// site's logo, or reports the problem with it.
+func (s Service) SetLogo(ctx context.Context, data []byte) error {
+	prepared, err := picture.PrepareLogo(data)
+	if err != nil {
+		return err
+	}
+	return s.Store.PutLogo(ctx, connector.StoredImage{Data: prepared, UpdatedAt: s.Clock.Now()})
+}
+
+// RemoveLogo takes the site's logo away, reporting ErrNoLogo when it has
+// none.
+func (s Service) RemoveLogo(ctx context.Context) error {
+	removed, err := s.Store.RemoveLogo(ctx)
+	if err == nil && !removed {
+		return ErrNoLogo
+	}
+	return err
+}

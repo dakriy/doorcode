@@ -146,7 +146,7 @@ func WithEXIF(img image.Image, tag, kind, count, value uint16) []byte {
 
 // Quadrants says what JPEG or PNG image body holds as its format, size,
 // and the color of each corner, top left, top right, bottom left, bottom
-// right: red, green, blue, white, or other.
+// right: transparent, red, green, blue, white, or other.
 func Quadrants(body string) string {
 	img, format, err := image.Decode(bytes.NewReader([]byte(body)))
 	if err != nil {
@@ -161,9 +161,13 @@ func Quadrants(body string) string {
 	return out
 }
 
-// colorName names c when it is near red, green, blue, or white.
+// colorName names c when it is transparent or near red, green, blue, or
+// white.
 func colorName(c color.Color) string {
-	r, g, b, _ := c.RGBA()
+	r, g, b, a := c.RGBA()
+	if a == 0 {
+		return "transparent"
+	}
 	if name, near := colorNames[level(r)+level(g)+level(b)]; near {
 		return name
 	}

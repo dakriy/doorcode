@@ -171,6 +171,7 @@ type Store struct {
 	nextGroup    int64
 	codeParams   string
 	signInImage  *connector.StoredImage
+	logo         *connector.StoredImage
 	sessions     map[string]connector.StoredSession
 	tokens       []connector.StoredToken
 	nextToken    int64
@@ -221,6 +222,7 @@ const (
 	zoneWrites
 	primaryPictureWrites
 	signInImageReads
+	logoReads
 	rulesAggregate
 	ruleWrites
 	overridesAggregate
@@ -359,6 +361,45 @@ func (s *Store) RemoveSignInImage(context.Context) (bool, error) {
 	}
 	held := s.signInImage != nil
 	s.signInImage = nil
+	return held, nil
+}
+
+// Logo returns a copy of the stored site logo.
+func (s *Store) Logo(context.Context) (connector.StoredImage, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.writable(settingsAggregate, logoReads); err != nil {
+		return connector.StoredImage{}, false, err
+	}
+	if s.logo == nil {
+		return connector.StoredImage{}, false, nil
+	}
+	image := *s.logo
+	image.Data = bytes.Clone(image.Data)
+	return image, true, nil
+}
+
+// PutLogo stores a copy of image as the site logo.
+func (s *Store) PutLogo(_ context.Context, image connector.StoredImage) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.writable(settingsAggregate, settingWrites); err != nil {
+		return err
+	}
+	image.Data = bytes.Clone(image.Data)
+	s.logo = &image
+	return nil
+}
+
+// RemoveLogo removes the site logo.
+func (s *Store) RemoveLogo(context.Context) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.writable(settingsAggregate, settingWrites); err != nil {
+		return false, err
+	}
+	held := s.logo != nil
+	s.logo = nil
 	return held, nil
 }
 
@@ -590,6 +631,12 @@ func (s *Store) FailPing() {
 // the settings can still be read.
 func (s *Store) FailSignInImageReads() {
 	s.failing[signInImageReads] = true
+}
+
+// FailLogoReads makes Logo report ErrUnavailable, while the settings can
+// still be read.
+func (s *Store) FailLogoReads() {
+	s.failing[logoReads] = true
 }
 
 // Fail makes every aggregate method report ErrUnavailable.

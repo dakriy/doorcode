@@ -60,6 +60,8 @@ var flashes = map[string]string{
 	"settings-saved":         "The settings have been saved. Doors receive changed configuration defaults right away.",
 	"sign-in-image-saved":    "The sign-in page shows the new picture.",
 	"sign-in-image-removed":  "The sign-in page shows no picture.",
+	"logo-saved":             "The site shows the new logo.",
+	"logo-removed":           "The site shows the keypad mark in place of a logo.",
 	"controller-approved":    "The controller has been approved. Its credentials are on their way, and it connects as this door once it has them.",
 	"credentials-rotated":    "New credentials are on their way to the controller. The old ones work until it connects with the new ones.",
 	"credentials-revoked":    "The controller's credentials have been revoked and it has been disconnected. It connects again only by enrolling and being approved.",

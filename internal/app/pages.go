@@ -166,6 +166,15 @@ type navItem struct {
 	Reload  bool
 }
 
+// markView is the site's mark as a page draws it: the logo served at Logo
+// in the classes Fit, or the keypad mark in the classes Class when Logo is
+// empty.
+type markView struct {
+	Logo  string
+	Class string
+	Fit   string
+}
+
 var templateFuncs = template.FuncMap{
 	"navlink": func(href, label, path string) navItem {
 		return navItem{Href: href, Label: label, Current: within(path, href)}
@@ -175,6 +184,9 @@ var templateFuncs = template.FuncMap{
 	},
 	"field": func(name, label, kind, value string, errors map[string]string, help string) fieldView {
 		return fieldView{Name: name, Label: label, Type: kind, Value: value, Error: errors[name], Help: help}
+	},
+	"mark": func(logo, class, fit string) markView {
+		return markView{Logo: logo, Class: class, Fit: fit}
 	},
 	"has":      slices.Contains[[]string],
 	"describe": func(role string) string { return auth.RoleDescriptions[role] },
@@ -414,6 +426,9 @@ type pageData struct {
 	Waiting int
 	Live    bool
 	Flash   string
+	// Logo is where the site's logo is served, empty when it has none and
+	// the page shows the keypad mark.
+	Logo string
 	// Theme is the colors the page is drawn in, and Zone the site
 	// timezone every time it shows is read in; both are zero on a page
 	// drawn without the settings.
@@ -431,6 +446,11 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, status int, page *t
 		a.pageError(w, r, err)
 		return
 	}
+	logo, err := a.logoURL(r)
+	if err != nil {
+		a.pageError(w, r, err)
+		return
+	}
 	data := pageData{
 		Title:     title + " · " + current.SiteName,
 		Site:      current.SiteName,
@@ -442,6 +462,7 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, status int, page *t
 		Portal:    inPortal(r.URL.Path),
 		Passwords: !current.OIDC.HidesPasswordForms(),
 		Flash:     a.takeFlash(w, r),
+		Logo:      logo,
 		Theme:     current.Theme,
 		Zone:      current.Zone,
 		Content:   content,

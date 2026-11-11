@@ -36,6 +36,7 @@ type Store struct {
 	settings    map[string]connector.StoredSetting
 	codeHashing *string
 	signInImage *connector.StoredImage
+	logo        *connector.StoredImage
 
 	users    map[int64]connector.StoredUser
 	groups   map[int64]connector.StoredGroup

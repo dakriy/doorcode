@@ -10,7 +10,7 @@
     <div aria-hidden="true" class="absolute inset-0 bg-[linear-gradient(to_right,rgb(255_255_255/0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgb(255_255_255/0.06)_1px,transparent_1px)] bg-[size:48px_48px]"></div>
     {{end}}
     <div class="relative flex items-center gap-3 text-white">
-      {{template "logo" "size-9"}}
+      {{template "logo" (mark .Logo "size-9" "h-9 w-auto max-w-48")}}
       <span class="text-lg font-semibold tracking-tight">{{.Site}}</span>
     </div>
     <div class="relative max-w-md">
@@ -22,7 +22,7 @@
   <main class="flex flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:flex-none lg:px-20 xl:px-24">
     <div class="mx-auto w-full max-w-sm lg:w-96">
       <div class="flex items-center gap-3 lg:hidden">
-        {{template "logo" "size-9"}}
+        {{template "logo" (mark .Logo "size-9" "h-9 w-auto max-w-48")}}
         <span class="text-lg font-semibold tracking-tight">{{.Site}}</span>
       </div>
       <h1 class="mt-8 text-2xl font-semibold tracking-tight lg:mt-0">Sign in</h1>

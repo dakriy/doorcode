@@ -112,6 +112,28 @@ func (s *Store) RemoveSignInImage(ctx context.Context) (bool, error) {
 	return tag.RowsAffected() == 1, err
 }
 
+// Logo returns the stored site logo.
+func (s *Store) Logo(ctx context.Context) (connector.StoredImage, bool, error) {
+	var image connector.StoredImage
+	err := s.pool.QueryRow(ctx, `select image, updated_at from logo`).Scan(&image.Data, &image.UpdatedAt)
+	return found(image, err)
+}
+
+// PutLogo inserts or replaces the site logo.
+func (s *Store) PutLogo(ctx context.Context, image connector.StoredImage) error {
+	_, err := s.pool.Exec(ctx, `
+		insert into logo (image, updated_at) values ($1, $2)
+		on conflict (only_one) do update set image = excluded.image, updated_at = excluded.updated_at`,
+		image.Data, image.UpdatedAt)
+	return err
+}
+
+// RemoveLogo deletes the site logo.
+func (s *Store) RemoveLogo(ctx context.Context) (bool, error) {
+	tag, err := s.pool.Exec(ctx, `delete from logo`)
+	return tag.RowsAffected() == 1, err
+}
+
 // CreateSession inserts a session.
 func (s *Store) CreateSession(ctx context.Context, session connector.StoredSession) error {
 	_, err := s.pool.Exec(ctx, `

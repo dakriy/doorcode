@@ -14,7 +14,7 @@
         <span class="hidden sm:inline">Menu</span>
       </label>
       <a href="/" class="flex min-w-0 items-center gap-2.5 font-semibold tracking-tight">
-        {{template "logo" "size-8 shrink-0"}}
+        {{template "logo" (mark .Logo "size-8 shrink-0" "h-8 w-auto max-w-40 shrink-0")}}
         <span class="truncate">{{.Site}}</span>
         {{if not .Portal}}<span class="rounded-md bg-zinc-900 px-1.5 py-0.5 text-[0.6875rem] font-semibold tracking-wide text-white uppercase dark:bg-zinc-100 dark:text-zinc-900">Admin</span>{{end}}
       </a>

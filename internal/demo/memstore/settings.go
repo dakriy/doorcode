@@ -66,3 +66,36 @@ func (s *Store) RemoveSignInImage(_ context.Context) (bool, error) {
 	s.signInImage = nil
 	return had, nil
 }
+
+// Logo returns the site logo.
+func (s *Store) Logo(_ context.Context) (connector.StoredImage, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.logo == nil {
+		return connector.StoredImage{}, false, nil
+	}
+	image := *s.logo
+	image.Data = list(image.Data)
+	return image, true, nil
+}
+
+// PutLogo stores the site logo.
+func (s *Store) PutLogo(_ context.Context, image connector.StoredImage) error {
+	if image.Data == nil {
+		return errNil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	image.Data = list(image.Data)
+	s.logo = &image
+	return nil
+}
+
+// RemoveLogo removes the site logo.
+func (s *Store) RemoveLogo(_ context.Context) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	had := s.logo != nil
+	s.logo = nil
+	return had, nil
+}

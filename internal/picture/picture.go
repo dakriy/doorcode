@@ -1,7 +1,8 @@
 // Package picture turns an uploaded image into the two JPEG renditions the
 // site keeps of it: an image no larger than MaxSide pixels on its longest
-// side, and a thumbnail no larger than ThumbnailSide. Decoding, resizing,
-// and encoding are pure Go.
+// side, and a thumbnail no larger than ThumbnailSide; or, for a logo, into
+// a PNG no larger than LogoSide that keeps its transparency. Decoding,
+// resizing, and encoding are pure Go.
 package picture
 
 import (
@@ -13,7 +14,7 @@ import (
 	// Registered decoders: the formats an upload may be in.
 	_ "image/gif"
 	"image/jpeg"
-	_ "image/png"
+	"image/png"
 
 	"github.com/rwcarlsen/goexif/exif"
 	xdraw "golang.org/x/image/draw"
@@ -32,12 +33,17 @@ const (
 	MaxSide = 1600
 	// ThumbnailSide is the longest side of the thumbnail.
 	ThumbnailSide = 320
+	// LogoSide is the longest side of a logo kept.
+	LogoSide = 512
 	// quality is the JPEG quality both renditions are encoded with.
 	quality = 85
 )
 
 // ContentType is the type of both renditions.
 const ContentType = "image/jpeg"
+
+// LogoType is the type of a prepared logo.
+const LogoType = "image/png"
 
 // Field is the name of the form field and the problem an upload arrives
 // in.
@@ -73,23 +79,48 @@ type Prepared struct {
 // problem with it. Transparent parts become white, and an image whose EXIF
 // orientation says it is stored turned or mirrored is turned upright.
 func Prepare(data []byte) (Prepared, error) {
-	config, _, err := image.DecodeConfig(bytes.NewReader(data))
+	decoded, err := decode(data)
 	if err != nil {
-		return Prepared{}, problem(unreadable)
+		return Prepared{}, err
 	}
-	if config.Width*config.Height > MaxPixels {
-		return Prepared{}, problem(fmt.Sprintf("The picture has more than %d million pixels. Choose a smaller one.", MaxPixels/1_000_000))
-	}
-	decoded, _, err := image.Decode(bytes.NewReader(data))
-	if err != nil {
-		return Prepared{}, problem(unreadable)
-	}
-	full := upright(fit(decoded, MaxSide), orientation(data))
-	thumbnail := fit(full, ThumbnailSide)
+	full := upright(fit(decoded, MaxSide, image.White), orientation(data))
+	thumbnail := fit(full, ThumbnailSide, image.White)
 	return Prepared{
 		Image: encode(full), Width: full.Bounds().Dx(), Height: full.Bounds().Dy(),
 		Thumbnail: encode(thumbnail),
 	}, nil
+}
+
+// PrepareLogo reads data as an image and returns it as a PNG no larger
+// than LogoSide on its longest side, turned upright as Prepare turns a
+// picture, with its transparent parts kept transparent; or the problem
+// with it.
+func PrepareLogo(data []byte) ([]byte, error) {
+	decoded, err := decode(data)
+	if err != nil {
+		return nil, err
+	}
+	logo := upright(fit(decoded, LogoSide, image.Transparent), orientation(data))
+	var out bytes.Buffer
+	// Encoding into memory does not fail for an image fit has made.
+	_ = png.Encode(&out, logo)
+	return out.Bytes(), nil
+}
+
+// decode reads data as an image, or returns the problem with it.
+func decode(data []byte) (image.Image, error) {
+	config, _, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		return nil, problem(unreadable)
+	}
+	if config.Width*config.Height > MaxPixels {
+		return nil, problem(fmt.Sprintf("The picture has more than %d million pixels. Choose a smaller one.", MaxPixels/1_000_000))
+	}
+	decoded, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, problem(unreadable)
+	}
+	return decoded, nil
 }
 
 // orientation is the EXIF orientation data's metadata gives, from 1 to 8,
@@ -173,13 +204,13 @@ func (t turn) from(p, stored image.Point) image.Point {
 }
 
 // fit is src scaled down, keeping its proportions, so that its longest side
-// is at most side, drawn over white.
-func fit(src image.Image, side int) image.Image {
+// is at most side, drawn over background.
+func fit(src image.Image, side int, background image.Image) image.Image {
 	width, height := src.Bounds().Dx(), src.Bounds().Dy()
 	longest := max(width, height)
 	target := min(longest, side)
 	dst := image.NewRGBA(image.Rect(0, 0, scaled(width, target, longest), scaled(height, target, longest)))
-	draw.Draw(dst, dst.Bounds(), image.White, image.Point{}, draw.Src)
+	draw.Draw(dst, dst.Bounds(), background, image.Point{}, draw.Src)
 	xdraw.CatmullRom.Scale(dst, dst.Bounds(), src, src.Bounds(), xdraw.Over, nil)
 	return dst
 }

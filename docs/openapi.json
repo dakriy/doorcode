@@ -5343,6 +5343,201 @@
         }
       }
     },
+    "/logo": {
+      "delete": {
+        "operationId": "deleteLogo",
+        "summary": "Take the site's logo away",
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The pages show the keypad mark again."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the admin role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The site has no logo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getLogo",
+        "summary": "Read the site's logo",
+        "tags": [
+          "settings"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "v",
+            "in": "query",
+            "required": false,
+            "description": "Ignored. Pages add when the logo was stored, so browsers fetch a new logo at a new address.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "1767603600"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The logo, as PNG.",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The site has no logo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setLogo",
+        "summary": "Set the site's logo",
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/LogoUpload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The page header and the sign-in page show the logo in place of the keypad mark, reduced to at most 512 pixels on its longest side."
+          },
+          "400": {
+            "description": "The body is not a multipart form with the file in the field picture, or the file is not an image that can be read.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the admin role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The file is larger than 10 MB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/me/access": {
       "get": {
         "operationId": "getMyAccess",
@@ -11454,6 +11649,19 @@
             "description": "Doors whose controller is connected but has not been heard from for the unresponsive_minutes setting; only for manage-doors or door-commander."
           }
         }
+      },
+      "LogoUpload": {
+        "type": "object",
+        "properties": {
+          "picture": {
+            "type": "string",
+            "format": "binary",
+            "description": "The logo: JPEG, PNG, GIF, or WebP. Its transparent parts stay transparent."
+          }
+        },
+        "required": [
+          "picture"
+        ]
       },
       "MemberList": {
         "type": "object",

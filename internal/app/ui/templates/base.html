@@ -30,11 +30,15 @@
 </div>
 {{end}}{{end}}
 
-{{define "logo"}}
-<svg class="{{.}}" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+{{/* logo is the site's mark, given a markView: the uploaded logo when
+     there is one, otherwise the keypad mark. */}}
+{{define "logo"}}{{if .Logo}}
+<img src="{{.Logo}}" alt="" class="{{.Fit}} object-contain">
+{{else}}
+<svg class="{{.Class}}" viewBox="0 0 32 32" fill="none" aria-hidden="true">
   {{template "keypad" "fill-brand-600"}}
 </svg>
-{{end}}
+{{end}}{{end}}
 
 {{/* The favicon is the keypad mark on its own, in the accent color, and
      in the dark accent under a dark color scheme when one is set. */}}

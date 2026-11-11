@@ -64,8 +64,8 @@ the engineering contract is [AGENTS.md](AGENTS.md).
   HTTP Basic password.
 - **Settings.** Edited in the UI, each overridable by an environment
   variable (and then read-only in the UI). Secret settings are encrypted at
-  rest. Light and dark themes follow the browser; the accent color and the
-  sign-in page picture are settings.
+  rest. Light and dark themes follow the browser; the accent color, the
+  logo, and the sign-in page picture are settings.
 
 ## Try the demo
 

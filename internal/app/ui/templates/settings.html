@@ -93,6 +93,33 @@
 </form>
 
 {{if $c.Pictures}}
+<section aria-labelledby="logo-heading" class="mt-6 p-6 {{template "card-class"}}">
+  <h2 id="logo-heading" class="text-sm font-semibold">Logo</h2>
+  <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Shown beside the site name in the page header and on the sign-in page, in place of the keypad mark.</p>
+  {{with $.Logo}}
+  <div class="mt-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <img src="{{.}}" alt="The logo" class="h-20 w-auto max-w-full object-contain">
+    <form method="post" action="/admin/settings/logo/delete" hx-confirm="Take the logo away and show the keypad mark?">
+      <button type="submit" class="{{template "danger-class"}} py-2">Remove logo</button>
+    </form>
+  </div>
+  {{else}}
+  <p class="mt-5 rounded-lg border border-dashed border-zinc-300 px-4 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">The site has no logo. It shows the keypad mark instead.</p>
+  {{end}}
+  <form method="post" action="/admin/settings/logo" enctype="multipart/form-data" hx-disabled-elt="find button" class="mt-6 border-t border-zinc-200 pt-5 dark:border-zinc-800">
+    {{$error := index $c.Errors "logo"}}
+    <label for="logo" class="block text-sm font-medium">{{if $.Logo}}Replace the logo{{else}}Add a logo{{end}}</label>
+    <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
+      <input id="logo" name="picture" type="file" accept="image/jpeg,image/png,image/gif,image/webp" required
+        {{if $error}}aria-invalid="true" aria-describedby="logo-error"{{end}}
+        class="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-800 hover:file:bg-zinc-200 dark:text-zinc-400 dark:file:bg-zinc-800 dark:file:text-zinc-200 dark:hover:file:bg-zinc-700">
+      <button type="submit" class="shrink-0 {{template "primary-class"}}">Upload</button>
+    </div>
+    {{if $error}}<p id="logo-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$error}}</p>
+    {{else}}<p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">JPEG, PNG, GIF, or WebP, up to {{$c.MaxPictureMB}} MB. Transparent parts stay transparent; use a PNG or WebP with a transparent background. It is turned upright and reduced to {{$c.MaxLogoSide}} pixels on its longest side.</p>{{end}}
+  </form>
+</section>
+
 <section aria-labelledby="sign-in-image-heading" class="mt-6 p-6 {{template "card-class"}}">
   <h2 id="sign-in-image-heading" class="text-sm font-semibold">Sign-in page picture</h2>
   <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Shown beside the sign-in form on wide screens, in place of the accent color pattern.</p>

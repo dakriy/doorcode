@@ -410,11 +410,25 @@ func TestStoreRefusesASecondSessionWithTheSameToken(t *testing.T) {
 	}
 }
 
-// signInImageOf is the sign-in page picture store holds, its time in UTC,
-// and whether it holds one.
-func signInImageOf(t *testing.T, store connector.Store) []any {
+// siteImage is one of the pictures the site keeps at most one of: how a
+// store reads, stores, and removes it.
+type siteImage struct {
+	name   string
+	read   func(connector.Store, context.Context) (connector.StoredImage, bool, error)
+	put    func(connector.Store, context.Context, connector.StoredImage) error
+	remove func(connector.Store, context.Context) (bool, error)
+}
+
+var siteImages = []siteImage{
+	{"sign-in image", connector.Store.SignInImage, connector.Store.PutSignInImage, connector.Store.RemoveSignInImage},
+	{"logo", connector.Store.Logo, connector.Store.PutLogo, connector.Store.RemoveLogo},
+}
+
+// imageOf is the picture of kind store holds, its time in UTC, and whether
+// it holds one.
+func imageOf(t *testing.T, store connector.Store, kind siteImage) []any {
 	t.Helper()
-	image, found, err := store.SignInImage(context.Background())
+	image, found, err := kind.read(store, context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -422,35 +436,37 @@ func signInImageOf(t *testing.T, store connector.Store) []any {
 	return []any{image, found}
 }
 
-// putSignInImage stores image as store's sign-in page picture.
-func putSignInImage(t *testing.T, store connector.Store, image connector.StoredImage) {
+// putImage stores image as store's picture of kind.
+func putImage(t *testing.T, store connector.Store, kind siteImage, image connector.StoredImage) {
 	t.Helper()
-	if err := store.PutSignInImage(context.Background(), image); err != nil {
+	if err := kind.put(store, context.Background(), image); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestStoreKeepsOneSignInImageUntilItIsRemoved(t *testing.T) {
+func TestStoreKeepsOneOfEachSiteImageUntilItIsRemoved(t *testing.T) {
 	for _, impl := range storeImpls {
-		t.Run(impl.name, func(t *testing.T) {
-			store := migrated(t, impl)
-			first := connector.StoredImage{Data: []byte{1, 2, 3}, UpdatedAt: time.Date(2026, 3, 1, 9, 0, 0, 0, time.UTC)}
-			second := connector.StoredImage{Data: []byte{4, 5}, UpdatedAt: time.Date(2026, 3, 2, 9, 0, 0, 0, time.UTC)}
+		for _, kind := range siteImages {
+			t.Run(impl.name+"/"+kind.name, func(t *testing.T) {
+				store := migrated(t, impl)
+				first := connector.StoredImage{Data: []byte{1, 2, 3}, UpdatedAt: time.Date(2026, 3, 1, 9, 0, 0, 0, time.UTC)}
+				second := connector.StoredImage{Data: []byte{4, 5}, UpdatedAt: time.Date(2026, 3, 2, 9, 0, 0, 0, time.UTC)}
 
-			none := signInImageOf(t, store)
-			putSignInImage(t, store, first)
-			stored := signInImageOf(t, store)
-			putSignInImage(t, store, second)
-			replaced := signInImageOf(t, store)
-			removed, err := store.RemoveSignInImage(context.Background())
-			again, againErr := store.RemoveSignInImage(context.Background())
-			after := signInImageOf(t, store)
+				none := imageOf(t, store, kind)
+				putImage(t, store, kind, first)
+				stored := imageOf(t, store, kind)
+				putImage(t, store, kind, second)
+				replaced := imageOf(t, store, kind)
+				removed, err := kind.remove(store, context.Background())
+				again, againErr := kind.remove(store, context.Background())
+				after := imageOf(t, store, kind)
 
-			empty := []any{connector.StoredImage{}, false}
-			want := []any{empty, []any{first, true}, []any{second, true}, true, nil, false, nil, empty}
-			if diff := cmp.Diff(want, []any{none, stored, replaced, removed, err, again, againErr, after}); diff != "" {
-				t.Errorf("none, first, second, removed, removed again, after (-want +got):\n%s", diff)
-			}
-		})
+				empty := []any{connector.StoredImage{}, false}
+				want := []any{empty, []any{first, true}, []any{second, true}, true, nil, false, nil, empty}
+				if diff := cmp.Diff(want, []any{none, stored, replaced, removed, err, again, againErr, after}); diff != "" {
+					t.Errorf("none, first, second, removed, removed again, after (-want +got):\n%s", diff)
+				}
+			})
+		}
 	}
 }

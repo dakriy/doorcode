@@ -82,10 +82,18 @@ type SettingsStore interface {
 	// RemoveSignInImage removes the picture the sign-in page shows, and
 	// reports whether one was stored.
 	RemoveSignInImage(ctx context.Context) (bool, error)
+	// Logo returns the site's logo, and whether one is stored.
+	Logo(ctx context.Context) (StoredImage, bool, error)
+	// PutLogo stores image as the site's logo, replacing any stored
+	// before.
+	PutLogo(ctx context.Context, image StoredImage) error
+	// RemoveLogo removes the site's logo, and reports whether one was
+	// stored.
+	RemoveLogo(ctx context.Context) (bool, error)
 }
 
-// StoredImage is a picture the site shows as the store holds it: its JPEG
-// data and when it was stored.
+// StoredImage is a picture the site shows as the store holds it: its
+// encoded data and when it was stored.
 type StoredImage struct {
 	Data      []byte
 	UpdatedAt time.Time
