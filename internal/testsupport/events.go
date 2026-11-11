@@ -23,7 +23,7 @@ func (s *Store) AddEvent(_ context.Context, e connector.StoredEvent) (int64, err
 	}
 	e.ID = int64(len(s.events) + 1)
 	e.DoorName, e.UserName = "", ""
-	e.UserID, e.RuleID, e.OpenMS = clonedID(e.UserID), clonedID(e.RuleID), clonedID(e.OpenMS)
+	e.UserID, e.RuleID, e.OpenMS = cloned(e.UserID), cloned(e.RuleID), cloned(e.OpenMS)
 	s.events = append(s.events, e)
 	return e.ID, nil
 }
@@ -77,16 +77,8 @@ func (s *Store) namedEvent(e connector.StoredEvent) connector.StoredEvent {
 	if e.UserID != nil {
 		e.UserName = s.userByID(*e.UserID).DisplayName
 	}
-	e.UserID, e.RuleID, e.OpenMS = clonedID(e.UserID), clonedID(e.RuleID), clonedID(e.OpenMS)
+	e.UserID, e.RuleID, e.OpenMS = cloned(e.UserID), cloned(e.RuleID), cloned(e.OpenMS)
 	return e
-}
-
-func clonedID(id *int64) *int64 {
-	if id == nil {
-		return nil
-	}
-	held := *id
-	return &held
 }
 
 // FailEvents makes the event methods report ErrUnavailable.

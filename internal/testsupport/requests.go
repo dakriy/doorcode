@@ -22,7 +22,7 @@ func (s *Store) CreateRequest(_ context.Context, r connector.StoredRequest) (int
 	}
 	s.nextRequest++
 	r.ID = s.nextRequest
-	r.ResolvedAt = clonedTime(r.ResolvedAt)
+	r.ResolvedAt = cloned(r.ResolvedAt)
 	r.UserName = ""
 	s.requests = append(s.requests, r)
 	return r.ID, nil
@@ -88,7 +88,7 @@ func (s *Store) selects(q connector.RequestQuery, r connector.StoredRequest) boo
 
 // returnedRequest is r as the store returns it, with its user's name.
 func (s *Store) returnedRequest(r connector.StoredRequest) connector.StoredRequest {
-	r.ResolvedAt = clonedTime(r.ResolvedAt)
+	r.ResolvedAt = cloned(r.ResolvedAt)
 	r.UserName = s.userByID(r.UserID).DisplayName
 	return r
 }
@@ -135,7 +135,7 @@ func (s *Store) SetRequestResolved(_ context.Context, id int64, at *time.Time) (
 	if held == nil {
 		return false, nil
 	}
-	held.ResolvedAt = clonedTime(at)
+	held.ResolvedAt = cloned(at)
 	return true, nil
 }
 
@@ -169,12 +169,4 @@ func (s *Store) FailRequests() {
 // ErrUnavailable, while the ones that read them still work.
 func (s *Store) FailRequestWrites() {
 	s.failing[requestWrites] = true
-}
-
-func clonedTime(t *time.Time) *time.Time {
-	if t == nil {
-		return nil
-	}
-	held := *t
-	return &held
 }

@@ -218,7 +218,7 @@ func (s Service) save(ctx context.Context, d connector.StoredDoor, held, c conne
 	if _, err := s.Store.SetDoorState(ctx, d.ID, c.StoredDoorState); err != nil {
 		return err
 	}
-	if slices.Equal(Badges(held), Badges(c)) && MeshOf(held) == MeshOf(c) && configBadge(d, held) == configBadge(d, c) {
+	if slices.Equal(badgesAs(d, held), badgesAs(d, c)) && MeshOf(held) == MeshOf(c) {
 		s.Reported(d.ID)
 	} else {
 		s.Changed()
@@ -226,11 +226,22 @@ func (s Service) save(ctx context.Context, d connector.StoredDoor, held, c conne
 	return nil
 }
 
-// configBadge is what door lists show of how what c runs, as the
-// controller of d, stands against the configuration d was last sent.
-func configBadge(d connector.StoredDoor, c connector.StoredController) string {
+// badgesAs is what door lists show of d with c as its controller.
+func badgesAs(d connector.StoredDoor, c connector.StoredController) []string {
 	d.Controller = &c
-	return ConfigOf(d).Badge()
+	return DoorBadges(d)
+}
+
+// DoorBadges is what door lists show of the state of d, whose controller
+// is enrolled, beyond whether it is connected and where it sits in the
+// mesh: its controller's Badges, and whether it runs a configuration
+// other than the one d was last sent.
+func DoorBadges(d connector.StoredDoor) []string {
+	badges := Badges(*d.Controller)
+	if badge := ConfigOf(d).Badge(); badge != "" {
+		badges = append(badges, badge)
+	}
+	return badges
 }
 
 // Badges is what door lists show of the state of the door c is enrolled

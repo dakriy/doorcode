@@ -77,10 +77,10 @@ func ConfigOf(d connector.StoredDoor) ConfigCheck {
 	if t := c.Telemetry; t != nil && t.ConfigDigest == sent.Digest {
 		return ConfigCheck{State: ConfigCurrent}
 	}
-	if at := c.ConfigRevertedAt; at != nil && c.ConfigRevertedDigest == sent.Digest && !at.Before(sent.At) {
+	if at := c.ConfigRevertedAt; sinceSent(*sent, at) && c.ConfigRevertedDigest == sent.Digest {
 		return ConfigCheck{State: ConfigReverted, Since: at}
 	}
-	if since := c.ConfigMismatchSince; since != nil && !since.Before(sent.At) && c.Telemetry.At.After(*since) {
+	if since := c.ConfigMismatchSince; sinceSent(*sent, since) && c.Telemetry.At.After(*since) {
 		return ConfigCheck{State: ConfigOlder, Since: since}
 	}
 	return ConfigCheck{}
@@ -96,8 +96,15 @@ func mismatchSince(d connector.StoredDoor, held connector.StoredController, dige
 	if sent == nil || digest == "" || digest == sent.Digest {
 		return nil
 	}
-	if since := held.ConfigMismatchSince; since != nil && !since.Before(sent.At) {
+	if since := held.ConfigMismatchSince; sinceSent(*sent, since) {
 		return since
 	}
 	return &now
+}
+
+// sinceSent reports whether at, nil for never, is no earlier than when
+// sent was first sent, so that what the controller said then can speak
+// of it.
+func sinceSent(sent connector.StoredSentConfig, at *time.Time) bool {
+	return at != nil && !at.Before(sent.At)
 }

@@ -179,22 +179,17 @@ func clonedController(c *connector.StoredController) *connector.StoredController
 		return nil
 	}
 	copied := *c
-	copied.OpenedAt = cloneTime(c.OpenedAt)
-	if c.Telemetry != nil {
-		t := *c.Telemetry
-		copied.Telemetry = &t
-	}
-	copied.ConfigMismatchSince = cloneTime(c.ConfigMismatchSince)
-	copied.ConfigRevertedAt = cloneTime(c.ConfigRevertedAt)
+	copied.OpenedAt, copied.Telemetry = cloned(c.OpenedAt), cloned(c.Telemetry)
+	copied.ConfigMismatchSince, copied.ConfigRevertedAt = cloned(c.ConfigMismatchSince), cloned(c.ConfigRevertedAt)
 	return &copied
 }
 
-// cloneTime is a copy of at sharing nothing with it.
-func cloneTime(at *time.Time) *time.Time {
-	if at == nil {
+// cloned is a copy of what p points to, nil when p is nil.
+func cloned[T any](p *T) *T {
+	if p == nil {
 		return nil
 	}
-	copied := *at
+	copied := *p
 	return &copied
 }
 
@@ -234,17 +229,8 @@ func (s *Store) SetDoorFirmware(_ context.Context, id int64, firmwareID *int64) 
 	if held == nil {
 		return false, nil
 	}
-	held.FirmwareID = cloneID(firmwareID)
+	held.FirmwareID = cloned(firmwareID)
 	return true, nil
-}
-
-// cloneID is a copy of id sharing nothing with it.
-func cloneID(id *int64) *int64 {
-	if id == nil {
-		return nil
-	}
-	copied := *id
-	return &copied
 }
 
 // SetDoorConfig stores config as the configuration overrides of the door
@@ -333,11 +319,8 @@ func (s *Store) doorByID(id int64) *connector.StoredDoor {
 func (s *Store) cloneDoor(d connector.StoredDoor) connector.StoredDoor {
 	d.Controller = clonedController(d.Controller)
 	d.Config = maps.Clone(d.Config)
-	d.FirmwareID = cloneID(d.FirmwareID)
-	if d.SentConfig != nil {
-		sent := *d.SentConfig
-		d.SentConfig = &sent
-	}
+	d.FirmwareID = cloned(d.FirmwareID)
+	d.SentConfig = cloned(d.SentConfig)
 	d.ZoneIDs = []int64{}
 	for _, p := range s.zoneDoors {
 		if p.door == d.ID {

@@ -134,7 +134,7 @@ func (a *App) stateOf(r *http.Request, viewer auth.User, c catalog, d connector.
 func (c catalog) rowOfState(d connector.StoredDoor, zone *time.Location) stateView {
 	ctrl := *d.Controller
 	view := stateView{
-		Status: doorStatus(&ctrl), Badges: badgesOf(d), Mesh: c.meshBadge(ctrl), Door: notReported,
+		Status: doorStatus(&ctrl), Badges: telemetry.DoorBadges(d), Mesh: c.meshBadge(ctrl), Door: notReported,
 		Firmware: firmwareText(ctrl.FirmwareVersion), Signal: signalText(ctrl.Signal), Latency: notReported, Uptime: notReported,
 		Memory: notReported, Reconnects: notReported, MeshLayer: notReported, MeshParent: notReported, MeshChildren: notReported,
 		AccessPoint: notReported, LastDrop: notReported, LastSeen: shownAt(zone, ctrl.LastSeenAt, secondLayout), LastReport: notReported,
@@ -154,17 +154,6 @@ func (c catalog) rowOfState(d connector.StoredDoor, zone *time.Location) stateVi
 	}
 	view.Config, view.ConfigNote = configText(telemetry.ConfigOf(d), zone)
 	return view
-}
-
-// badgesOf is what door lists show of the state of d, whose controller
-// is enrolled, beyond whether it is connected and where it sits in the
-// mesh.
-func badgesOf(d connector.StoredDoor) []string {
-	badges := telemetry.Badges(*d.Controller)
-	if badge := telemetry.ConfigOf(d).Badge(); badge != "" {
-		badges = append(badges, badge)
-	}
-	return badges
 }
 
 // tryAgain is how a door is made to try the configuration again.
