@@ -16,7 +16,10 @@ func TestResolverLooksANameUpToItsAddresses(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if !slices.Contains(addresses, netip.MustParseAddr("127.0.0.1")) {
+			// Some systems answer IPv4 in its IPv4-mapped IPv6 form
+			// (::ffff:127.0.0.1), which the application unmaps.
+			loopback := netip.MustParseAddr("127.0.0.1")
+			if !slices.ContainsFunc(addresses, func(a netip.Addr) bool { return a.Unmap() == loopback }) {
 				t.Errorf("localhost resolved to %v, want 127.0.0.1 among them", addresses)
 			}
 		})
