@@ -91,8 +91,8 @@ type App struct {
 // when there is no user yet, makes the firmware signing key when the store
 // holds none, and returns the application. It refuses to start without the
 // key that encrypts the secret settings, or with a stored signing key that
-// key cannot decrypt. It takes every
-// connector from f and constructs none itself.
+// key cannot decrypt. It takes every connector from f and constructs none
+// itself.
 func New(ctx context.Context, f connector.Factory) (*App, error) {
 	env := f.Environment()
 	entropy := f.Entropy()
