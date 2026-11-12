@@ -30,14 +30,15 @@ type Store interface {
 	connector.OverridesStore
 }
 
-// Service publishes doors' configurations, with SigningKey, the public
-// firmware signing key in hex, and their timelines.
+// Service publishes doors' configurations and timelines.
 type Service struct {
-	Store      Store
-	Settings   settings.Service
-	Broker     connector.Broker
-	Clock      connector.Clock
-	Sent       *Sent
+	Store    Store
+	Settings settings.Service
+	Broker   connector.Broker
+	Clock    connector.Clock
+	Sent     *Sent
+	// SigningKey is the site's public firmware signing key as every
+	// configuration message carries it.
 	SigningKey string
 }
 

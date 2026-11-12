@@ -138,8 +138,8 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 		return nil, fmt.Errorf("firmware signing key: %w", err)
 	}
 	a.overrides = override.Service{Store: store, Doors: a.doors, Clock: clock}
-	a.pushes = push.Service{Store: store, Settings: s, Broker: a.broker, Clock: clock, Sent: push.NewSent(),
-		SigningKey: a.signingKey.PublicText(),
+	a.pushes = push.Service{
+		Store: store, Settings: s, Broker: a.broker, Clock: clock, Sent: push.NewSent(), SigningKey: a.signingKey.PublicText(),
 	}
 	a.controllers = controller.Service{
 		Store: store, Doors: a.doors, Broker: a.broker, Clock: clock, Entropy: entropy, Pending: controller.NewPending(),
