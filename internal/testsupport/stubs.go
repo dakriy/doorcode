@@ -266,6 +266,7 @@ const (
 	firmwareAggregate
 	updatesAggregate
 	firmwareWrites
+	firmwareImageReads
 	requestsAggregate
 	requestWrites
 	emailLookups

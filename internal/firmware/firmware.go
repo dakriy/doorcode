@@ -21,6 +21,7 @@ import (
 	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/event"
 	"github.com/dakriy/doorcode/internal/settings"
+	"github.com/dakriy/doorcode/internal/signing"
 )
 
 var (
@@ -32,9 +33,13 @@ var (
 )
 
 const (
-	// MaxBytes is the largest image an upload may hold, MaxMiB mebibytes.
-	MaxBytes = 16_777_216
-	MaxMiB   = 16
+	// SlotBytes is how large a signed image may be: the doors' smaller
+	// over-the-air update slot.
+	SlotBytes = 0x1F0000
+	// MaxBytes is the largest image an upload may hold, so that signed it
+	// fills the slot at most: SlotBytes less the 68 bytes of the
+	// signature block.
+	MaxBytes = 2_031_548
 	// Field is the multipart form field an upload carries the image in.
 	Field            = "image"
 	maxVersionLength = 64
@@ -61,6 +66,8 @@ type Service struct {
 	Settings    settings.Service
 	Clock       connector.Clock
 	Entropy     connector.Entropy
+	// Key signs every image as it is served.
+	Key signing.Key
 	// DownloadPath is the path, below the server's public address, a door
 	// downloads version from.
 	DownloadPath func(doorID int64, version string) string
@@ -96,8 +103,8 @@ func (e InUseError) Is(target error) bool {
 }
 
 // verify says why image cannot be offered to the doors, empty when it can.
-// It is the one place an image is judged before it is stored: today any
-// file is accepted, and checking the image's signature belongs here.
+// It is the one place an image is judged before it is stored: any file is
+// accepted, since the server signs what it serves.
 func verify(image []byte) string {
 	if len(image) == 0 {
 		return "Choose the firmware image to upload."
@@ -105,8 +112,9 @@ func verify(image []byte) string {
 	return ""
 }
 
-// Upload stores image as the firmware f describes, uploaded by the user
-// whose id is by.
+// Upload stores image, unsigned, as the firmware f describes, uploaded by
+// the user whose id is by. The SHA-256 and size stored with it are those
+// of the signed image the doors download.
 func (s Service) Upload(ctx context.Context, f Fields, image []byte, by int64) (connector.StoredFirmware, error) {
 	all, err := s.Store.Firmwares(ctx)
 	if err != nil {
@@ -120,9 +128,10 @@ func (s Service) Upload(ctx context.Context, f Fields, image []byte, by int64) (
 	if err := found.Err(); err != nil {
 		return connector.StoredFirmware{}, err
 	}
-	sum := sha256.Sum256(image)
+	signed := s.Key.Sign(image)
+	sum := sha256.Sum256(signed)
 	stored := connector.StoredFirmware{
-		Version: version, Notes: notes, SHA256: hex.EncodeToString(sum[:]), Size: len(image), UploadedBy: by, UploadedAt: s.Clock.Now(),
+		Version: version, Notes: notes, SHA256: hex.EncodeToString(sum[:]), Size: len(signed), UploadedBy: by, UploadedAt: s.Clock.Now(),
 	}
 	id, err := s.Store.AddFirmware(ctx, stored, image)
 	if err != nil {

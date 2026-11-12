@@ -1654,7 +1654,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The image. Doors call this from the URL of their update command, which needs no API token.",
+            "description": "The image, followed by the server's 68-byte signature block. Doors call this from the URL of their update command, which needs no API token.",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -4315,7 +4315,7 @@
             }
           },
           "413": {
-            "description": "The image is larger than 16 MiB.",
+            "description": "The image is larger than 2031548 bytes; signed, it must fit the doors' update slot of 2031616 bytes (0x1F0000).",
             "content": {
               "application/json": {
                 "schema": {
@@ -11480,7 +11480,7 @@
           "image": {
             "type": "string",
             "format": "binary",
-            "description": "The firmware image. Any file is accepted."
+            "description": "The firmware image, unsigned, at most 2031548 bytes so that signed it fits the doors' update slot of 0x1F0000 bytes. Any file is accepted."
           },
           "notes": {
             "type": "string",
@@ -11517,11 +11517,11 @@
           },
           "sha256": {
             "type": "string",
-            "description": "The SHA-256 of the image, in hex, which doors check after downloading it."
+            "description": "The SHA-256 of the signed image a door downloads, in hex, which doors check after downloading it."
           },
           "size": {
             "type": "integer",
-            "description": "The image's size in bytes."
+            "description": "The size in bytes of the signed image a door downloads: the uploaded image and its 68-byte signature block."
           },
           "targeting": {
             "type": "integer",

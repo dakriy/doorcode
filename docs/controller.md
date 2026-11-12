@@ -745,7 +745,7 @@ door.
 | `username` | text | | The new broker username. | `credentials`. |
 | `token` | text | | The new broker password. | `credentials`. |
 | `version` | text | | The firmware version to install. | `update`. |
-| `sha256` | text | | The SHA-256 of the image, 64 lower-case hex digits. | `update`. |
+| `sha256` | text | | The SHA-256 of the signed image the server serves, signature block included, 64 lower-case hex digits. | `update`. |
 | `url` | text | | The address to download the image from (section 15), `https://` except on development servers. | `update`. |
 
 | `command` | What the controller does |
@@ -842,10 +842,13 @@ from the door page. The controller:
    same certificate as the broker (`broker_ca_pem`, or the one provisioned):
    `device_url` names the entrypoint whose certificate chain comes from
    that CA (section 2). The server answers:
-   - `200` with the image as `application/octet-stream` (at most 16 MiB);
+   - `200` with the signed image as `application/octet-stream`: the image
+     as uploaded followed by the server's 68-byte signature block, at most
+     0x1F0000 bytes in all, the size of the smaller update slot;
    - `403` when the token is wrong, or the update has ended or timed out;
    - `404` when the version no longer exists.
-3. Checks the image's SHA-256 against `sha256`.
+3. Checks the SHA-256 of the whole download, signature block included,
+   against `sha256`.
 4. Installs it into the inactive image slot and restarts into it.
 5. Connects as its door (section 7) and publishes its online status with
    the new `firmware_version`. That ends the update as succeeded.

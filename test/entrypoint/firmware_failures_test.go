@@ -17,6 +17,7 @@ var (
 	firmwareFails       fleetFailure = func(fl *fleet) { fl.f.StoreStub.FailFirmware() }
 	updatesFail         fleetFailure = func(fl *fleet) { fl.f.StoreStub.FailUpdates() }
 	firmwareWritesFail  fleetFailure = func(fl *fleet) { fl.f.StoreStub.FailFirmwareWrites() }
+	imageReadsFail      fleetFailure = func(fl *fleet) { fl.f.StoreStub.FailImageReads() }
 	doorsFail           fleetFailure = func(fl *fleet) { fl.f.StoreStub.FailDoors() }
 	doorWritesFail      fleetFailure = func(fl *fleet) { fl.f.StoreStub.FailDoorWrites() }
 	settingsFail        fleetFailure = func(fl *fleet) { fl.f.StoreStub.FailSettings() }
@@ -85,6 +86,7 @@ func TestFirmwareOperationsAnswerAFailureWithARequestID(t *testing.T) {
 		"updating now, when the event cannot be stored":     {eventWritesFail, call("POST", "/api/v1/doors/1/update", "")},
 		"downloading, when updates cannot be read":          {updatesFail, call("GET", "/api/v1/doors/1/firmware/1.5.0?token=x", "")},
 		"downloading, when firmware cannot be read":         {both(updateSentToLobby, firmwareFails), downloading},
+		"downloading, when the image cannot be read":        {both(updateSentToLobby, imageReadsFail), downloading},
 		"uploading, when firmware cannot be read":           {firmwareFails, uploading},
 		"uploading, when the upload cannot be stored":       {firmwareWritesFail, uploading},
 		"the firmware page, when settings cannot be read":   {settingsFail, call("GET", "/admin/firmware", "")},

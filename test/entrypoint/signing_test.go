@@ -15,11 +15,12 @@ const signingKeySetting = "firmware_signing_private_key"
 // The firmware signing key a new site makes from the stub's entropy: the
 // 40 bytes 0x22 to 0x49, drawn after the first administrator's password
 // and salt, reduced modulo the P-256 order less one, plus one. The
-// fingerprint is the first 16 hex characters of the SHA-256 of its public
-// point x || y.
+// public key is its point x || y in hex, and the fingerprint the first 16
+// hex characters of the SHA-256 of that point.
 const (
 	signingPrivateKey  = "50525455e5e4e3e33b25bccf2a981912fefdc17e227760793e991e37a7de29ea"
 	signingFingerprint = "6b29a4c924997018"
+	signingPublicKey   = "a96bfef5330bf8805f3cada848f9ff9f14645e6378af18d5968ea4e095b8c0279254e2db6fc2cb2a405ed08d6489b256e0c32aa4b8d094c0b3a564a39a147147"
 )
 
 // otherSecretKey is a valid key for the secret settings other than the one

@@ -4,12 +4,16 @@ package signing
 
 import (
 	"cmp"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/sha256"
+	"encoding/asn1"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"math/big"
+	"slices"
 )
 
 // SeedBytes is how many random bytes New makes a key from: 64 bits more
@@ -20,6 +24,10 @@ const SeedBytes = 40
 // scalarBytes is how long a private key is, and each coordinate of a
 // public one.
 const scalarBytes = 32
+
+// blockVersion is the signature block's version word, the only one the
+// doors read.
+const blockVersion = 0
 
 // fingerprintLength is how many hex characters of the public key's
 // SHA-256 name it.
@@ -75,4 +83,22 @@ func (k Key) Public() []byte {
 func (k Key) Fingerprint() string {
 	sum := sha256.Sum256(k.Public())
 	return hex.EncodeToString(sum[:])[:fingerprintLength]
+}
+
+// Sign is image followed by its signature block: the version word 0, 4
+// bytes little-endian, then the ECDSA signature of the SHA-256 of image as
+// r || s, each 32 bytes big-endian. The signature is deterministic (RFC
+// 6979), so an image signed again gives the same bytes.
+func (k Key) Sign(image []byte) []byte {
+	sum := sha256.Sum256(image)
+	// It cannot fail: with no random source the key signs
+	// deterministically, and the signature is the DER the standard
+	// library writes.
+	der, _ := k.private.Sign(nil, sum[:], crypto.SHA256)
+	var signature struct{ R, S *big.Int }
+	_, _ = asn1.Unmarshal(der, &signature)
+	version := binary.LittleEndian.AppendUint32(nil, blockVersion)
+	r := signature.R.FillBytes(make([]byte, scalarBytes))
+	s := signature.S.FillBytes(make([]byte, scalarBytes))
+	return slices.Concat(image, version, r, s)
 }

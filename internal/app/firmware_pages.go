@@ -92,11 +92,11 @@ type firmwareContent struct {
 	Defaults []selectOption
 	// Upload is the upload form as entered, and Errors what is wrong with
 	// it.
-	Upload  firmware.Fields
-	Errors  map[string]string
-	Window  windowForm
-	Rollout []rolloutGroup
-	MaxMiB  int
+	Upload   firmware.Fields
+	Errors   map[string]string
+	Window   windowForm
+	Rollout  []rolloutGroup
+	MaxBytes int
 	// NoAddress is true while the device_url setting is empty, so no
 	// update can be sent.
 	NoAddress bool
@@ -239,7 +239,7 @@ func (a *App) showFirmware(w http.ResponseWriter, r *http.Request, status int, v
 	}
 	content := firmwareContent{
 		Defaults: firmwareOptions(plan.Firmware, "No default", defaultOf(plan)), Upload: upload, Errors: errs, Window: window,
-		MaxMiB: firmware.MaxMiB, NoAddress: current.DeviceURL == "", Versions: []firmwareRow{}, Unprovisionable: unprovisionable(all),
+		MaxBytes: firmware.MaxBytes, NoAddress: current.DeviceURL == "", Versions: []firmwareRow{}, Unprovisionable: unprovisionable(all),
 		Fingerprint: a.signingKey.Fingerprint(),
 	}
 	zone := current.Zone

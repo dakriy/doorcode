@@ -115,7 +115,7 @@ func TestUploadingFirmwareFromThePageOpensItsPage(t *testing.T) {
 	want := testsupport.Page{
 		Title: "1.5.0 · doorcode", Heading: "1.5.0", Nav: firmwareNav,
 		Messages: []string{"The firmware has been uploaded. Doors run it once it is the default or their own."},
-		Details:  map[string]string{"Size": "14 bytes", "SHA-256": sha150, "Notes": "Fixes the keypad."},
+		Details:  map[string]string{"Size": "82 bytes", "SHA-256": sha150, "Notes": "Fixes the keypad."},
 		Tables:   map[string][][]string{"Doors": {{"Door", "Running", "Target", "Rollout"}, {"No door runs this version or should."}}},
 	}
 	if diff := cmp.Diff([]any{303, "/admin/firmware/1", want}, []any{uploaded.Status, uploaded.Location, got}); diff != "" {
@@ -133,7 +133,7 @@ func TestARefusedUploadFromThePageSaysWhatIsWrong(t *testing.T) {
 		"without a version or an image": {nil, 422, map[string]string{
 			"version": "Enter the version, such as 1.4.3.", "image": "Choose the firmware image to upload.",
 		}},
-		"too large": {testsupport.Padded(nil, 16_777_217), 413, map[string]string{"image": "The image is larger than 16 MiB."}},
+		"too large": {testsupport.Padded(nil, 2_031_549), 413, map[string]string{"image": "T" + tooBigImage[1:] + "."}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

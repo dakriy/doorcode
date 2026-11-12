@@ -80,7 +80,7 @@ func (s *Store) uploaded(f connector.StoredFirmware) connector.StoredFirmware {
 func (s *Store) FirmwareImage(_ context.Context, id int64) ([]byte, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if err := s.usable(firmwareAggregate); err != nil {
+	if err := s.writable(firmwareAggregate, firmwareImageReads); err != nil {
 		return nil, false, err
 	}
 	held := s.firmwareByID(id)
@@ -88,6 +88,14 @@ func (s *Store) FirmwareImage(_ context.Context, id int64) ([]byte, bool, error)
 		return nil, false, nil
 	}
 	return slices.Clone(held.image), true, nil
+}
+
+// StoredImage is the image the store holds for the firmware with id, as
+// it was stored.
+func (s *Store) StoredImage(id int64) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return string(s.firmwareByID(id).image)
 }
 
 // SetDefaultFirmware makes the firmware with id the only default one.
@@ -197,6 +205,12 @@ func (s *Store) FailFirmware() {
 // while the firmware images still work.
 func (s *Store) FailUpdates() {
 	s.failing[updatesAggregate] = true
+}
+
+// FailImageReads makes FirmwareImage report ErrUnavailable, while the
+// rest of the firmware still works.
+func (s *Store) FailImageReads() {
+	s.failing[firmwareImageReads] = true
 }
 
 // FailFirmwareWrites makes the methods that change firmware or updates

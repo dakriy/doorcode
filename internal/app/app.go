@@ -138,10 +138,6 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 		Push: a.pushes, Changed: a.live.notify,
 		Connected: func(ctx context.Context, doorID int64) error { return a.firmware.Settle(ctx, doorID) },
 	}
-	a.firmware = firmware.Service{
-		Store: store, Doors: a.doors, Controllers: a.controllers, Events: a.events, Settings: s, Clock: clock, Entropy: entropy,
-		DownloadPath: firmwareImagePath, Changed: a.live.notify,
-	}
 	a.identity = identity.Service{
 		Settings: s, Directory: a.directory, Auth: authService, Identity: f.Identity(), Entropy: entropy, Clock: clock,
 		Providers: &identity.Providers{},
@@ -154,6 +150,10 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 	}
 	if a.signingKey, err = signingKey(ctx, s, entropy); err != nil {
 		return nil, fmt.Errorf("firmware signing key: %w", err)
+	}
+	a.firmware = firmware.Service{
+		Store: store, Doors: a.doors, Controllers: a.controllers, Events: a.events, Settings: s, Clock: clock, Entropy: entropy,
+		Key: a.signingKey, DownloadPath: firmwareImagePath, Changed: a.live.notify,
 	}
 
 	table := a.routes()

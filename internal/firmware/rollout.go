@@ -380,9 +380,10 @@ func (s Service) finish(ctx context.Context, u connector.StoredUpdate, state, mo
 	return err
 }
 
-// Download returns the image of version for the controller of the door
-// whose id is doorID, which token must let it download: the token it was
-// sent with its update to version, under way and not expired.
+// Download returns the image of version, signed, for the controller of
+// the door whose id is doorID, which token must let it download: the
+// token it was sent with its update to version, under way and not
+// expired.
 func (s Service) Download(ctx context.Context, doorID int64, version, token string) ([]byte, error) {
 	u, err := s.updating(ctx, doorID)
 	if err != nil {
@@ -406,5 +407,8 @@ func (s Service) Download(ctx context.Context, doorID int64, version, token stri
 		return nil, ErrNoFirmware
 	}
 	image, _, err := s.Store.FirmwareImage(ctx, all[i].ID)
-	return image, err
+	if err != nil {
+		return nil, err
+	}
+	return s.Key.Sign(image), nil
 }

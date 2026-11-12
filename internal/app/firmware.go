@@ -27,8 +27,8 @@ type firmwareView struct {
 	ID         int64     `json:"id" doc:"Names the firmware in the API."`
 	Version    string    `json:"version" doc:"The version, unique."`
 	Notes      string    `json:"notes" doc:"What the uploader said of it; may be empty."`
-	SHA256     string    `json:"sha256" doc:"The SHA-256 of the image, in hex, which doors check after downloading it."`
-	Size       int       `json:"size" doc:"The image's size in bytes."`
+	SHA256     string    `json:"sha256" doc:"The SHA-256 of the signed image a door downloads, in hex, which doors check after downloading it."`
+	Size       int       `json:"size" doc:"The size in bytes of the signed image a door downloads: the uploaded image and its 68-byte signature block."`
 	UploadedBy nameRef   `json:"uploaded_by" doc:"Who uploaded it, by id and display name."`
 	UploadedAt time.Time `json:"uploaded_at" doc:"When it was uploaded."`
 	Default    bool      `json:"default" doc:"True for the site's default version, which every door runs unless it names another."`
@@ -45,7 +45,7 @@ type firmwareList struct {
 type firmwareUpload struct {
 	Version string       `json:"version" doc:"The version, up to 64 letters, digits, dots, dashes, underscores, and plus signs, starting with a letter or digit; unique."`
 	Notes   string       `json:"notes,omitempty" doc:"What to know about this version, up to 2000 characters."`
-	Image   openapi.File `json:"image" doc:"The firmware image. Any file is accepted."`
+	Image   openapi.File `json:"image" doc:"The firmware image, unsigned, at most 2031548 bytes so that signed it fits the doors' update slot of 0x1F0000 bytes. Any file is accepted."`
 }
 
 type firmwareChoice struct {
@@ -101,7 +101,7 @@ func (a *App) firmwareRoutes() []route {
 			responses: []openapi.Response{
 				{Status: http.StatusCreated, Description: "The new firmware. Doors run it once it is the default or their own.", Body: firmwareView{}},
 				{Status: http.StatusBadRequest, Description: "The body is not a multipart form with the image in the field image, or a field is wrong; the error says which.", Body: errorBody{}},
-				{Status: http.StatusRequestEntityTooLarge, Description: fmt.Sprintf("The image is larger than %d MiB.", firmware.MaxMiB), Body: errorBody{}},
+				{Status: http.StatusRequestEntityTooLarge, Description: sentence(errImageTooBig.Error()) + ".", Body: errorBody{}},
 			},
 		}),
 		apiRoute(http.MethodGet, "/firmware/rollout", manage, a.getRollout, apiDoc{
@@ -166,7 +166,7 @@ func (a *App) firmwareRoutes() []route {
 				{Name: "token", In: "query", Description: "The token the update command's URL carries.", Example: "c2VjcmV0"},
 			},
 			responses: []openapi.Response{
-				{Status: http.StatusOK, Description: "The image. Doors call this from the URL of their update command, which needs no API token.", Body: openapi.File{}, Type: firmwareType},
+				{Status: http.StatusOK, Description: "The image, followed by the server's 68-byte signature block. Doors call this from the URL of their update command, which needs no API token.", Body: openapi.File{}, Type: firmwareType},
 				{Status: http.StatusForbidden, Description: "The token is not the one the door was sent for this version, its update has ended, or it has expired.", Body: errorBody{}},
 				{Status: http.StatusNotFound, Description: "The version has been deleted since.", Body: errorBody{}},
 				{Status: http.StatusInternalServerError, Description: "The server failed; the body names a request id to give an administrator.", Body: errorBody{}},
@@ -282,8 +282,10 @@ func (a *App) writeFirmware(w http.ResponseWriter, r *http.Request, status int, 
 	writeJSON(w, status, viewOfFirmware(f, plan))
 }
 
-// errImageTooBig reports an upload over firmware.MaxBytes.
-var errImageTooBig = fmt.Errorf("the image is larger than %d MiB", firmware.MaxMiB)
+// errImageTooBig reports an upload over firmware.MaxBytes, which signed
+// would not fit the doors' update slot.
+var errImageTooBig = fmt.Errorf("the image is larger than %d bytes; signed, it must fit the doors' update slot of %d bytes (0x%X)",
+	firmware.MaxBytes, firmware.SlotBytes, firmware.SlotBytes)
 
 // notFirmware is the problem with a body that is not a firmware upload.
 var notFirmware = check.Problems{{Field: firmware.Field, Message: "Send the firmware as a multipart form with the image in the field image."}}

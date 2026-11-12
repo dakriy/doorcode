@@ -13,10 +13,13 @@ import (
 // to run.
 const noTargetNote = "Choose a default version on the firmware page, or one for this door, to update it."
 
-// The SHA-256 of the images imageOf makes of versions 1.5.0 and 1.6.0.
+// The SHA-256 of the images imageOf makes of versions 1.5.0 and 1.6.0,
+// signed with the key a new site makes: the image, the version word 0,
+// and the deterministic signature r || s of the image's SHA-256, worked
+// out apart from the server.
 const (
-	sha150 = "4d4bd67b11237adcbcdefc64267f6a2cdd6b9a56ddbf6050c2c2113164073ad0"
-	sha160 = "1607ac6905854a533304e6d419fd956c83e059aab9ba73a23ad486060cae4245"
+	sha150 = "49532470ef583c1dae31768ddd5c9c1818384a7ca77f4988c0f6a2f83404b78d"
+	sha160 = "52f07b6ef25444d6ff0f7fa6df737e89fe5de68f9217d0c5985686f1e248860c"
 )
 
 // imageOf is the firmware image the tests upload as version.
@@ -238,10 +241,35 @@ func TestAnUpdateCommandCarriesTheVersionItsHashAndADownloadOfTheImage(t *testin
 	download := fl.download(1)
 	want := []any{
 		map[string]any{"v": int64(1), "command": "update", "version": "1.5.0", "sha256": sha150},
-		testsupport.Response{Status: 200, ContentType: "application/octet-stream", Body: "firmware 1.5.0"},
+		[]any{200, "application/octet-stream", 82, sha150},
 	}
-	if diff := cmp.Diff(want, []any{command, download}); diff != "" {
+	got := []any{command, []any{download.Status, download.ContentType, len(download.Body), testsupport.SHA256(download.Body)}}
+	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("command, download (-want +got):\n%s", diff)
+	}
+}
+
+func TestADownloadIsTheUploadedImageSignedWithTheSitesKey(t *testing.T) {
+	t.Parallel()
+	fl := fleetSite(t, testsupport.NewFactory())
+	fl.at("2026-01-06T02:00:00Z")
+
+	image, err := testsupport.SignedImage(signingPublicKey, fl.download(1).Body)
+
+	if diff := cmp.Diff([]string{"firmware 1.5.0", "<nil>"}, []string{image, testsupport.ErrorText(err)}); diff != "" {
+		t.Errorf("image, verification (-want +got):\n%s", diff)
+	}
+}
+
+func TestAnUploadedImageIsStoredUnsigned(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	b := signedInAdmin(t, f)
+
+	uploadFirmware(t, b, "1.5.0")
+
+	if diff := cmp.Diff("firmware 1.5.0", f.StoreStub.StoredImage(1)); diff != "" {
+		t.Errorf("stored image (-want +got):\n%s", diff)
 	}
 }
 
@@ -600,9 +628,9 @@ func TestFirmwareIsListedWithItsUploaderAndTheDoorsThatRunIt(t *testing.T) {
 
 	by := `"uploaded_by":{"id":1,"name":"Administrator"}`
 	want := testsupport.JSON(`{"firmware":[
-		{"id":2,"version":"1.6.0","notes":"Release 1.6.0.","sha256":"` + sha160 + `","size":14,` + by + `,
+		{"id":2,"version":"1.6.0","notes":"Release 1.6.0.","sha256":"` + sha160 + `","size":82,` + by + `,
 		 "uploaded_at":"2026-01-05T10:00:00Z","default":false,"running":0,"targeting":1},
-		{"id":1,"version":"1.5.0","notes":"Release 1.5.0.","sha256":"` + sha150 + `","size":14,` + by + `,
+		{"id":1,"version":"1.5.0","notes":"Release 1.5.0.","sha256":"` + sha150 + `","size":82,` + by + `,
 		 "uploaded_at":"2026-01-05T09:00:00Z","default":true,"running":1,"targeting":1}
 	],"signing_key_fingerprint":"` + signingFingerprint + `"}`)
 	if diff := cmp.Diff(want, testsupport.JSONAt(got.Body, "")); diff != "" {
@@ -617,7 +645,7 @@ func TestUploadedFirmwareCanBeReadBack(t *testing.T) {
 
 	got := b.Get("/api/v1/firmware/1")
 
-	want := testsupport.JSON(`{"id":1,"version":"1.5.0","notes":"Fixes the keypad.","sha256":"` + sha150 + `","size":14,` +
+	want := testsupport.JSON(`{"id":1,"version":"1.5.0","notes":"Fixes the keypad.","sha256":"` + sha150 + `","size":82,` +
 		`"uploaded_by":{"id":1,"name":"Administrator"},"uploaded_at":"2026-01-05T09:00:00Z","default":false,"running":0,"targeting":0}`)
 	if diff := cmp.Diff([]any{201, want, created.Body}, []any{created.Status, testsupport.JSONAt(created.Body, ""), got.Body}); diff != "" {
 		t.Errorf("status, created, read back (-want +got):\n%s", diff)
@@ -689,9 +717,9 @@ func TestAFirmwareUploadThatIsWrongIsRefused(t *testing.T) {
 		},
 		"too large": {
 			upload: func(b *testsupport.Browser) testsupport.Response {
-				return b.Upload("/api/v1/firmware", "image", "a.bin", testsupport.Padded(nil, 16_777_217), "version", "1.5.0")
+				return b.Upload("/api/v1/firmware", "image", "a.bin", testsupport.Padded(nil, 2_031_549), "version", "1.5.0")
 			},
-			status: 413, error: "the image is larger than 16 MiB",
+			status: 413, error: tooBigImage,
 		},
 	}
 	for name, c := range cases {
@@ -708,13 +736,17 @@ func TestAFirmwareUploadThatIsWrongIsRefused(t *testing.T) {
 	}
 }
 
-func TestAnImageOfTheLargestSizeIsAccepted(t *testing.T) {
+// tooBigImage is the refusal of an image that signed would not fit the
+// doors' smaller update slot, 0x1F0000 bytes.
+const tooBigImage = "the image is larger than 2031548 bytes; signed, it must fit the doors' update slot of 2031616 bytes (0x1F0000)"
+
+func TestAnImageThatSignedFillsTheUpdateSlotIsAccepted(t *testing.T) {
 	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 
-	got := b.Upload("/api/v1/firmware", "image", "a.bin", testsupport.Padded(nil, 16_777_216), "version", "1.5.0")
+	got := b.Upload("/api/v1/firmware", "image", "a.bin", testsupport.Padded(nil, 2_031_548), "version", "1.5.0")
 
-	if diff := cmp.Diff([]any{201, float64(16_777_216)}, []any{got.Status, testsupport.JSONAt(got.Body, "/size")}); diff != "" {
+	if diff := cmp.Diff([]any{201, float64(0x1F0000)}, []any{got.Status, testsupport.JSONAt(got.Body, "/size")}); diff != "" {
 		t.Errorf("status, size (-want +got):\n%s", diff)
 	}
 }
