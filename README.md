@@ -80,11 +80,12 @@ doors. It needs neither Postgres nor a broker, and nothing it does outlives
 it.
 
 ```sh
-docker build --target doorcode-demo -t doorcode-demo .
-docker run --rm -p 8080:8080 doorcode-demo
+docker run --rm -p 8080:8080 ghcr.io/dakriy/doorcode-demo
 ```
 
-or, with Go installed, `go run ./cmd/doorcode-demo`. Open
+or build it from a checkout with
+`docker build --target doorcode-demo -t doorcode-demo .`, or, with Go
+installed, run `go run ./cmd/doorcode-demo`. Open
 <http://localhost:8080> and sign in with one of the two accounts the demo
 prints at start: the administrator (`admin@example.com` and
 `doorcode-demo`), or a member of staff with a door code and no role
@@ -108,6 +109,18 @@ it.
 
 `docker-compose.yml` runs the server (`app`) with PostgreSQL 18 and
 Mosquitto 2 with its dynamic-security plugin. Migrations apply on start.
+
+The compose file builds the server from the checkout. Each release is also
+published as `ghcr.io/dakriy/doorcode`, tagged with its version (`1.2.3`),
+its minor line (`1.2`), and `latest`. To run a release instead of building,
+name it under the `app` service in a `docker-compose.override.yml`:
+
+```yaml
+services:
+  app:
+    image: ghcr.io/dakriy/doorcode:1.2
+    pull_policy: always
+```
 
 1. Generate the key that encrypts stored secrets, and keep it: secrets
    stored under one key cannot be read under another.
