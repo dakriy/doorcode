@@ -133,7 +133,7 @@ func TestARefusedUploadFromThePageSaysWhatIsWrong(t *testing.T) {
 		"without a version or an image": {nil, 422, map[string]string{
 			"version": "Enter the version, such as 1.4.3.", "image": "Choose the firmware image to upload.",
 		}},
-		"too large": {testsupport.Padded(nil, 2_031_549), 413, map[string]string{"image": "T" + tooBigImage[1:] + "."}},
+		"too large": {testsupport.Padded(nil, 2_031_549), 413, map[string]string{"image": sentence(tooBigImage)}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
