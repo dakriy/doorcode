@@ -19,6 +19,11 @@ jobs:
   fast:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # The budget times compiling the coverage builds as well as running
+      # the tests, and the runner compiles them from a cold cache on four
+      # cores (about 13 seconds, against about 2 locally).
+      FAST_BUDGET_SECONDS: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
