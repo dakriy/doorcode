@@ -61,7 +61,8 @@ func topicsOf(leaf string, ids ...string) []string {
 }
 
 // configWith is the configuration message of a door that follows the
-// site's defaults, but for the fields changed names.
+// site's defaults, with the site's firmware signing key, but for the
+// fields changed names.
 func configWith(changed map[string]any) map[string]any {
 	return with(map[string]any{
 		"v": int64(1), "strike_pulse_ms": int64(3000), "keypad_idle_clear_ms": int64(10000), "min_code_length": int64(4),
@@ -71,6 +72,7 @@ func configWith(changed map[string]any) map[string]any {
 		"broker_ca_pem": "", "wifi_ssid": "", "wifi_password": "", "wifi_roam_rssi": int64(-70), "wifi_11b_disabled": false,
 		"keepalive_s": int64(30), "reconnect_max_s": int64(60), "mesh_enabled": false, "mesh_ssid": "", "mesh_password": "",
 		"mesh_min_router_rssi": int64(-75), "mesh_max_layer": int64(4), "update_connect_timeout_s": int64(300), "accept_unsigned_firmware": false, "log_level": "info",
+		"firmware_signing_key": signingPublicKey,
 	}, changed)
 }
 

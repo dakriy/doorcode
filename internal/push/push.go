@@ -30,13 +30,15 @@ type Store interface {
 	connector.OverridesStore
 }
 
-// Service publishes doors' configurations and timelines.
+// Service publishes doors' configurations, with SigningKey, the public
+// firmware signing key in hex, and their timelines.
 type Service struct {
-	Store    Store
-	Settings settings.Service
-	Broker   connector.Broker
-	Clock    connector.Clock
-	Sent     *Sent
+	Store      Store
+	Settings   settings.Service
+	Broker     connector.Broker
+	Clock      connector.Clock
+	Sent       *Sent
+	SigningKey string
 }
 
 // Sent remembers when each door was last sent its timeline. Requests and
@@ -181,7 +183,7 @@ func (s Service) doors(ctx context.Context, ids []int64) ([]connector.StoredDoor
 // the one the door was last sent, keeps its digest, over the payload as
 // published, and when it was sent.
 func sendConfig(s Service, ctx context.Context, t target) error {
-	payload := protocol.Encode(&protocol.Config{DoorConfig: protocol.DoorConfig(t.config)})
+	payload := protocol.Encode(&protocol.Config{DoorConfig: protocol.DoorConfig(t.config), FirmwareSigningKey: s.SigningKey})
 	if err := s.publish(ctx, t.door.ID, protocol.LeafConfig, payload); err != nil {
 		return err
 	}

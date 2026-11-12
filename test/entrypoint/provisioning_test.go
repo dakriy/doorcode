@@ -45,6 +45,7 @@ func provisioningFile(broker, wifi, changed map[string]any) any {
 	config := testsupport.JSON(defaultConfigJSON).(map[string]any)
 	config["broker_host"], config["broker_ca_pem"] = "mqtt.example.com", testsupport.Certificate
 	config["wifi_ssid"], config["wifi_password"] = "Example", "wifi-secret"
+	config["firmware_signing_key"] = signingPublicKey
 	file := map[string]any{
 		"format": 1.0, "generated_at": 1767603600.0,
 		"broker":      with(map[string]any{"host": "mqtt.example.com", "port": 8883.0, "tls": true, "ca_pem": testsupport.Certificate}, broker),

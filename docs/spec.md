@@ -305,8 +305,11 @@ shows them live. A door with no contact for a configurable period is
 ## 8. Firmware
 
 Admins with *manage-firmware* upload images with a version string through
-the UI or the JSON API (CI uploads releases). Signature verification is a
-later addition; today any file is accepted. One version is the *default*; a
+the UI or the JSON API (CI uploads releases). Any file is accepted and
+stored as uploaded; the server signs each image as a door downloads it,
+with a key it makes on its first start, and sends that key's public half
+to every door in its configuration, so a door installs only images the
+server signed. One version is the *default*; a
 door may carry a per-door override. A door whose reported version differs
 from its target is *pending update*.
 

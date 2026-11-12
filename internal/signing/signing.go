@@ -78,6 +78,12 @@ func (k Key) Public() []byte {
 	return point[1:]
 }
 
+// PublicText is the public key as the doors are given it: Public in
+// lowercase hex, 128 characters.
+func (k Key) PublicText() string {
+	return hex.EncodeToString(k.Public())
+}
+
 // Fingerprint names the key: the first 16 hex characters of the SHA-256 of
 // its public key.
 func (k Key) Fingerprint() string {

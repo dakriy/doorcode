@@ -281,10 +281,12 @@ type DoorConfig struct {
 
 // Config is what the server publishes, retained, on a door's config
 // topic: the configuration it runs with, the site's defaults with the
-// door's own overrides.
+// door's own overrides, and the site's firmware signing key, the public
+// point x || y in lowercase hex, that the door checks every image against.
 type Config struct {
 	Header
 	DoorConfig
+	FirmwareSigningKey string `cbor:"firmware_signing_key"`
 }
 
 // Span is a time from Start up to, but not including, End, both in Unix

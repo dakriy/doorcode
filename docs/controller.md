@@ -105,7 +105,8 @@ answer is `application/json` with `Content-Disposition: attachment`.
   "server": {"device_url": "https://devices.example.com:8443"},
   "enrollment": {"username": "doorcode-enroll", "password": "<enrollment_password>"},
   "wifi": {"ssid": "<wifi_ssid>", "password": "<wifi_password>"},
-  "door_config": {"strike_pulse_ms": 3000, "keypad_idle_clear_ms": 10000, "...": "..."}
+  "door_config": {"strike_pulse_ms": 3000, "keypad_idle_clear_ms": 10000, "...": "...",
+                  "firmware_signing_key": "<128 lowercase hex characters>"}
 }
 ```
 
@@ -119,6 +120,7 @@ answer is `application/json` with `Content-Disposition: attachment`.
 | `enrollment.username`, `enrollment.password` | string, string | The enrollment credentials (section 6): the server's `enrollment_username` and `enrollment_password` settings. |
 | `wifi.ssid`, `wifi.password` | string, string | The Wi-Fi network to join: `wifi_ssid` and `wifi_password` of the configuration. |
 | `door_config` | object | Every field of the configuration (section 9), with the same names and types as the configuration message: integers are JSON numbers, text JSON strings, booleans JSON booleans. |
+| `door_config.firmware_signing_key` | string | The site's firmware signing key, as the configuration message carries it (section 9), so a controller checks the signature of the first update it is sent. |
 
 Secrets are in the clear: the enrollment password and the Wi-Fi and mesh
 passwords. Besides the configuration message, this file is the only place
@@ -359,9 +361,9 @@ On `doorcode/doors/<id>/online`, retained.
 ## 9. Configuration
 
 On `doorcode/doors/<id>/config`, retained (`Config`). The message is one
-flat map: `v` and every field below (`DoorConfig`), never omitted. Each is
-the site's default (setting `door_` + the field's name) unless the door
-overrides it. Replace the whole configuration on every message, store it in
+flat map: `v`, every field below (`DoorConfig`), and
+`firmware_signing_key`, never omitted. Each field below is the site's
+default (setting `door_` + the field's name) unless the door overrides it. Replace the whole configuration on every message, store it in
 non-volatile memory, and use it until the next one. Before the first one,
 use the `door_config` of the provisioning file (section 3), or the defaults
 below for a field it lacks.
@@ -402,6 +404,22 @@ below for a field it lacks.
 A controller must ignore keys it does not know and use the defaults above
 for keys a message lacks, so server and firmware can ship new fields
 independently.
+
+### Firmware signing key
+
+| Field | CBOR type | Meaning |
+| --- | --- | --- |
+| `firmware_signing_key` | text | The public key every firmware image must be signed with (section 15): the ECDSA P-256 point `x \|\| y`, each coordinate 32 bytes big-endian, with no leading `04`, as 128 lowercase hex characters. |
+
+It is not a setting: no door overrides it, no page edits it, and it is
+the same in every door's message. The server makes the key pair the first
+time it starts, keeps the private key encrypted with the other secret
+settings, and never sends it; the firmware page names the key by its
+fingerprint, the first 16 hex characters of the SHA-256 of the 64-byte
+point. Store the key with the configuration and check every update with
+the one in the configuration in use. Firmware has no key of its own, so a
+controller that has none (it has not received a configuration or
+provisioning file that carries one) cannot check an image (section 15).
 
 Pin mappings and other hardware matters are the firmware's own and are not
 here.
@@ -849,14 +867,40 @@ from the door page. The controller:
    - `404` when the version no longer exists.
 3. Checks the SHA-256 of the whole download, signature block included,
    against `sha256`.
-4. Installs it into the inactive image slot and restarts into it.
-5. Connects as its door (section 7) and publishes its online status with
+4. Checks the signature block against `firmware_signing_key` (section 9;
+   see below), unless `accept_unsigned_firmware` is true.
+5. Installs it into the inactive image slot and restarts into it.
+6. Connects as its door (section 7) and publishes its online status with
    the new `firmware_version`. That ends the update as succeeded.
 
-If the download, the checksum, or the installation fails, the controller
-stays on its current firmware and publishes an ack with the command's `id`,
+If the download, the checksum, the signature, or the installation fails,
+the controller stays on its current firmware and publishes an ack with the command's `id`,
 `result: failed`, and a `detail`. The server records the update as failed
 and sends it again in the next update window.
+
+**Signature.** The server signs every image as it serves it, with the
+site's firmware signing key; images are uploaded unsigned, and an
+administrator never signs one. The signature block is the last 68 bytes
+of the download:
+
+    +---------------------------+---------------+-------------------------+
+    | image (N bytes)           | version (4)   | signature (64)          |
+    +---------------------------+---------------+-------------------------+
+
+- **Image**: the image exactly as uploaded.
+- **Version**: a 32-bit word, little-endian, that is `0`.
+- **Signature**: the ECDSA P-256 signature of the SHA-256 of the image's
+  N bytes, as `r` followed by `s`, each 32 bytes big-endian. It is
+  deterministic (RFC 6979), so the same image under the same key is served
+  as the same bytes, with the same `sha256`, every time.
+
+The controller verifies the signature with `firmware_signing_key` before
+it installs the image. A controller without a key refuses the update with the ack detail
+`no signing key`, and one whose download is shorter than 68 bytes, has a
+version word other than 0, or whose signature does not verify with the
+key refuses it with `bad signature`. With `accept_unsigned_firmware` true
+it installs the image without checking the signature, key or no key; that
+is for bench and development boards only.
 
 **Self-revert.** New firmware that cannot connect to the broker within
 `update_connect_timeout_s` (section 9) must restart into the previous image (an A/B
@@ -891,7 +935,7 @@ configuration and timeline bring it up to date at once.
 | --- | --- |
 | Hardware id, broker address and CA, Wi-Fi network and password, enrollment username and password | Provisioning (section 3), to enroll. |
 | `door_id`, `username`, `token` | To connect as the door after a restart. During a rotation, both pairs. |
-| The last configuration | To run offline and after a restart. |
+| The last configuration, its `firmware_signing_key` included | To run offline and after a restart, and to check firmware updates. |
 | The last timeline | To follow open and locked spans offline. |
 | The `id` and `version` of an update under way | To ack a failure after a revert. |
 | The configuration it ran before one it is trying, and the digest of one it gave up | To go back when it cannot come online, and to ignore the one given up (section 9). |
@@ -934,7 +978,7 @@ it.
 | `Check` (`RequestID`, `Digits`) | message | `request_id`, `digits`. | 11 |
 | `Reply` (`RequestID`, `Allow`, `StrikeMS`) | message | `request_id`, `allow`, `strike_ms`. | 11 |
 | `DoorConfig` (`StrikePulseMS`, `KeypadIdleClearMS`, `MinCodeLength`, `MaxCodeLength`, `ReplyTimeoutMS`, `TelemetryIntervalS`, `HeldOpenS`, `TimelineRefreshHours`, `CredentialRotationDays`, `RateLimitPerMinute`, `RateLimitBurst`, `NTPServer`, `BrokerHost`, `BrokerPort`, `BrokerTLS`, `BrokerCAPEM`, `WifiSSID`, `WifiPassword`, `WifiRoamRSSI`, `Wifi11bDisabled`, `KeepaliveS`, `ReconnectMaxS`, `MeshEnabled`, `MeshSSID`, `MeshPassword`, `MeshMinRouterRSSI`, `MeshMaxLayer`, `UpdateConnectTimeoutS`, `AcceptUnsignedFirmware`, `LogLevel`) | type | The configuration fields, `strike_pulse_ms` through `log_level`. | 9 |
-| `Config` (`Header`, `DoorConfig`) | message | `v` and the configuration fields in one map. | 9 |
+| `Config` (`Header`, `DoorConfig`, `FirmwareSigningKey`) | message | `v`, the configuration fields, and `firmware_signing_key` in one map. | 9 |
 | `Span` (`Start`, `End`, `State`) | type | `start`, `end`, `state`. | 10 |
 | `Timeline` (`From`, `To`, `Spans`) | message | `from`, `to`, `spans`. | 10 |
 | `Telemetry` (`Signal`, `LatencyMS`, `UptimeS`, `FreeBytes`, `FirmwareVersion`, `Reconnects`, `DoorOpen`, `Opens`, `MeshLayer`, `MeshParent`, `MeshChildren`, `ChecksSent`, `ChecksLost`, `TCPSent`, `TCPRetransmits`, `TCPDrops`, `WifiDrops`, `WifiDropReason`, `Roams`, `BSSID`, `Channel`, `ConfigDigest`) | message | `signal`, `latency_ms`, `uptime_s`, `free_bytes`, `firmware_version`, `reconnects`, `door_open`, `opens`, `mesh_layer`, `mesh_parent`, `mesh_children`, `checks_sent`, `checks_lost`, `tcp_sent`, `tcp_retransmits`, `tcp_drops`, `wifi_drops`, `wifi_drop_reason`, `roams`, `bssid`, `channel`, `config_digest`. | 12 |

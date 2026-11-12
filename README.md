@@ -122,7 +122,8 @@ Mosquitto 2 with its dynamic-security plugin. Migrations apply on start.
    makes the key it signs firmware with and stores it encrypted under this
    one, so keep the key: a server started with another refuses to start
    rather than make a new signing key. The firmware page shows the signing
-   key's fingerprint.
+   key's fingerprint, and every door is sent its public half to check
+   firmware with.
 
 2. Start everything and wait for it to be healthy:
 

@@ -131,8 +131,16 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 		proxies:   proxy.Service{Resolver: f.Resolver(), Resolved: proxy.NewResolved()},
 		traffic:   traffic.New(),
 	}
+	if err := a.auth.CreateFirstAdmin(ctx); err != nil {
+		return nil, fmt.Errorf("create first administrator: %w", err)
+	}
+	if a.signingKey, err = signingKey(ctx, s, entropy); err != nil {
+		return nil, fmt.Errorf("firmware signing key: %w", err)
+	}
 	a.overrides = override.Service{Store: store, Doors: a.doors, Clock: clock}
-	a.pushes = push.Service{Store: store, Settings: s, Broker: a.broker, Clock: clock, Sent: push.NewSent()}
+	a.pushes = push.Service{Store: store, Settings: s, Broker: a.broker, Clock: clock, Sent: push.NewSent(),
+		SigningKey: a.signingKey.PublicText(),
+	}
 	a.controllers = controller.Service{
 		Store: store, Doors: a.doors, Broker: a.broker, Clock: clock, Entropy: entropy, Pending: controller.NewPending(),
 		Push: a.pushes, Changed: a.live.notify,
@@ -144,12 +152,6 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 	}
 	a.telemetry = telemetry.Service{
 		Store: store, Doors: a.doors, Events: a.events, Settings: s, Clock: clock, Changed: a.live.notify, Reported: a.live.report,
-	}
-	if err := a.auth.CreateFirstAdmin(ctx); err != nil {
-		return nil, fmt.Errorf("create first administrator: %w", err)
-	}
-	if a.signingKey, err = signingKey(ctx, s, entropy); err != nil {
-		return nil, fmt.Errorf("firmware signing key: %w", err)
 	}
 	a.firmware = firmware.Service{
 		Store: store, Doors: a.doors, Controllers: a.controllers, Events: a.events, Settings: s, Clock: clock, Entropy: entropy,

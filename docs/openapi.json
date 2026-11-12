@@ -12380,6 +12380,168 @@
           "ca_pem"
         ]
       },
+      "ProvisioningConfig": {
+        "type": "object",
+        "properties": {
+          "accept_unsigned_firmware": {
+            "type": "boolean",
+            "description": "Whether the door installs firmware without a valid signature; for bench and development boards only."
+          },
+          "broker_ca_pem": {
+            "type": "string",
+            "description": "The PEM certificate of the CA, or of the broker itself, the door verifies the broker against; empty keeps the one it has."
+          },
+          "broker_host": {
+            "type": "string",
+            "description": "The host name or IP address of the broker the door connects to; empty keeps the broker it has."
+          },
+          "broker_port": {
+            "type": "integer",
+            "description": "The port of the broker the door connects to."
+          },
+          "broker_tls": {
+            "type": "boolean",
+            "description": "Whether the door connects to the broker over TLS; false is for development brokers only."
+          },
+          "credential_rotation_days": {
+            "type": "integer",
+            "description": "How many days the door's broker credentials work before the server issues new ones."
+          },
+          "firmware_signing_key": {
+            "type": "string",
+            "description": "The public key every firmware image must be signed with: the P-256 point x || y, each 32 bytes big-endian, in 128 lowercase hex characters."
+          },
+          "held_open_s": {
+            "type": "integer",
+            "description": "How long the door may stay open, when it should be locked, before it is logged as held open, in seconds."
+          },
+          "keepalive_s": {
+            "type": "integer",
+            "description": "The door's MQTT keep-alive interval, in seconds, from its next connection; it shows offline once one and a half of these pass without a packet."
+          },
+          "keypad_idle_clear_ms": {
+            "type": "integer",
+            "description": "How long a half-typed code waits for the next key before the keypad clears it, in milliseconds."
+          },
+          "log_level": {
+            "type": "string",
+            "description": "How much the door logs: error, warn, info, or debug."
+          },
+          "max_code_length": {
+            "type": "integer",
+            "description": "The most digits the keypad sends as a code."
+          },
+          "mesh_enabled": {
+            "type": "boolean",
+            "description": "Whether the door may join or form a Wi-Fi mesh with other doors when its own access point's signal is poor."
+          },
+          "mesh_max_layer": {
+            "type": "integer",
+            "description": "The most hops from the access point a door may be in the mesh."
+          },
+          "mesh_min_router_rssi": {
+            "type": "integer",
+            "description": "The signal, in dBm, below which a door with the mesh enabled joins it through a neighboring door when that is the strongest access point it sees."
+          },
+          "mesh_password": {
+            "type": "string",
+            "description": "The mesh network's password, a secret: ******** when it has one."
+          },
+          "mesh_ssid": {
+            "type": "string",
+            "description": "The mesh network's name, the same at every door of the site."
+          },
+          "min_code_length": {
+            "type": "integer",
+            "description": "The fewest digits the keypad sends as a code."
+          },
+          "ntp_server": {
+            "type": "string",
+            "description": "The time server the door sets its clock from."
+          },
+          "rate_limit_burst": {
+            "type": "integer",
+            "description": "How many codes the server checks for the door in a burst."
+          },
+          "rate_limit_per_minute": {
+            "type": "integer",
+            "description": "How many codes a minute the server checks for the door."
+          },
+          "reconnect_max_s": {
+            "type": "integer",
+            "description": "The longest pause between the door's attempts to connect again, in seconds; it waits 1, 2, 4 seconds and so on up to this."
+          },
+          "reply_timeout_ms": {
+            "type": "integer",
+            "description": "How long the door waits for the server's answer to a code, in milliseconds."
+          },
+          "strike_pulse_ms": {
+            "type": "integer",
+            "description": "How long the strike is released for an entry, in milliseconds."
+          },
+          "telemetry_interval_s": {
+            "type": "integer",
+            "description": "How often the door reports its telemetry, in seconds."
+          },
+          "timeline_refresh_hours": {
+            "type": "integer",
+            "description": "How often the server sends the door its timeline when nothing changed it, in hours."
+          },
+          "update_connect_timeout_s": {
+            "type": "integer",
+            "description": "How long a door on newly installed firmware tries to connect as its door before it goes back to its previous image, in seconds."
+          },
+          "wifi_11b_disabled": {
+            "type": "boolean",
+            "description": "Whether the door's Wi-Fi keeps off the slow 802.11b rates, 1 to 11 Mbps. It helps a door with a strong signal but heavy loss on a crowded 2.4 GHz network and hurts a door with a weak signal, which needs those rates to stay connected. A change makes the door restart its Wi-Fi, or the door itself when it is in the mesh."
+          },
+          "wifi_password": {
+            "type": "string",
+            "description": "The Wi-Fi network's password, a secret: ******** when it has one."
+          },
+          "wifi_roam_rssi": {
+            "type": "integer",
+            "description": "The signal, in dBm, below which the door looks for an access point of the same network at least 8 dB stronger and moves to it."
+          },
+          "wifi_ssid": {
+            "type": "string",
+            "description": "The Wi-Fi network the door joins; empty keeps the network it uses. A door falls back to the last network that worked when a new one fails."
+          }
+        },
+        "required": [
+          "strike_pulse_ms",
+          "keypad_idle_clear_ms",
+          "min_code_length",
+          "max_code_length",
+          "reply_timeout_ms",
+          "telemetry_interval_s",
+          "held_open_s",
+          "timeline_refresh_hours",
+          "credential_rotation_days",
+          "rate_limit_per_minute",
+          "rate_limit_burst",
+          "ntp_server",
+          "broker_host",
+          "broker_port",
+          "broker_tls",
+          "broker_ca_pem",
+          "wifi_ssid",
+          "wifi_password",
+          "wifi_roam_rssi",
+          "wifi_11b_disabled",
+          "keepalive_s",
+          "reconnect_max_s",
+          "mesh_enabled",
+          "mesh_ssid",
+          "mesh_password",
+          "mesh_min_router_rssi",
+          "mesh_max_layer",
+          "update_connect_timeout_s",
+          "accept_unsigned_firmware",
+          "log_level",
+          "firmware_signing_key"
+        ]
+      },
       "ProvisioningEnrollment": {
         "type": "object",
         "properties": {
@@ -12405,8 +12567,8 @@
             "description": "The broker to connect to."
           },
           "door_config": {
-            "$ref": "#/components/schemas/DoorConfigView",
-            "description": "The configuration to run with until the server sends one, with the names and types of the configuration message; secrets in the clear."
+            "$ref": "#/components/schemas/ProvisioningConfig",
+            "description": "The configuration to run with until the server sends one, with the names and types of the configuration message, the firmware signing key among them; secrets in the clear."
           },
           "enrollment": {
             "$ref": "#/components/schemas/ProvisioningEnrollment",

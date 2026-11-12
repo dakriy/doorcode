@@ -37,6 +37,14 @@ type provisioningServer struct {
 	DeviceURL string `json:"device_url" doc:"The address to download firmware from, the device_url setting; empty while it is not set."`
 }
 
+// provisioningConfig is the configuration a controller starts with, as
+// the configuration message carries it: the door's fields and the site's
+// firmware signing key.
+type provisioningConfig struct {
+	doorConfigView
+	FirmwareSigningKey string `json:"firmware_signing_key" doc:"The public key every firmware image must be signed with: the P-256 point x || y, each 32 bytes big-endian, in 128 lowercase hex characters."`
+}
+
 type provisioningFile struct {
 	Format      int                    `json:"format" doc:"The version of this file's layout, 1."`
 	GeneratedAt int64                  `json:"generated_at" doc:"When the file was made, in Unix seconds."`
@@ -44,7 +52,7 @@ type provisioningFile struct {
 	Server      provisioningServer     `json:"server" doc:"The server to download firmware from."`
 	Enrollment  provisioningEnrollment `json:"enrollment" doc:"The credentials to enroll with."`
 	Wifi        provisioningWifi       `json:"wifi" doc:"The Wi-Fi network to join."`
-	DoorConfig  doorConfigView         `json:"door_config" doc:"The configuration to run with until the server sends one, with the names and types of the configuration message; secrets in the clear."`
+	DoorConfig  provisioningConfig     `json:"door_config" doc:"The configuration to run with until the server sends one, with the names and types of the configuration message, the firmware signing key among them; secrets in the clear."`
 }
 
 func (a *App) provisioningRoutes() []route {
@@ -107,7 +115,7 @@ func (a *App) writeProvisioning(w http.ResponseWriter, r *http.Request, d connec
 		Server:     provisioningServer{DeviceURL: current.DeviceURL},
 		Enrollment: provisioningEnrollment{Username: username, Password: password},
 		Wifi:       provisioningWifi{SSID: config.WifiSSID, Password: config.WifiPassword},
-		DoorConfig: doorConfigView(config),
+		DoorConfig: provisioningConfig{doorConfigView: doorConfigView(config), FirmwareSigningKey: a.signingKey.PublicText()},
 	}
 	if config.BrokerTLS {
 		file.Broker.CAPEM = config.BrokerCAPEM

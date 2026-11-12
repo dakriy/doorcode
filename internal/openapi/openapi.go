@@ -7,6 +7,7 @@ package openapi
 import (
 	"cmp"
 	"encoding/json"
+	"maps"
 	"reflect"
 	"strconv"
 	"strings"
@@ -278,11 +279,18 @@ func (g generator) ref(t reflect.Type) Schema {
 	return Schema{Ref: "#/components/schemas/" + name}
 }
 
-// object describes a struct by its exported fields' json tags. A field
-// tagged omitempty may be absent; every other field is required.
+// object describes a struct by its exported fields' json tags, an
+// embedded struct's fields among its own, as encoding/json writes them. A
+// field tagged omitempty may be absent; every other field is required.
 func (g generator) object(t reflect.Type) Schema {
 	out := Schema{Type: "object", Properties: map[string]Schema{}}
 	for f := range t.Fields() {
+		if f.Anonymous {
+			embedded := g.object(f.Type)
+			maps.Copy(out.Properties, embedded.Properties)
+			out.Required = append(out.Required, embedded.Required...)
+			continue
+		}
 		name, options, _ := strings.Cut(f.Tag.Get("json"), ",")
 		property := g.schema(f.Type)
 		property.Description = f.Tag.Get("doc")
