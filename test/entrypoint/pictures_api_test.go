@@ -316,7 +316,7 @@ func TestPicturesAnswerWithARequestIDWhenTheStoreFails(t *testing.T) {
 
 			got := b.Send(c.method, c.target, "")
 
-			want := internalError("4243444546474849")
+			want := internalError("767778797a7b7c7d")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
@@ -339,7 +339,7 @@ func TestUploadAnswersWithARequestIDWhenThePictureCannotBeStored(t *testing.T) {
 
 			got := b.Upload("/api/v1/doors/1/pictures", "picture", "door.png", testsupport.PNG(4, 4))
 
-			want := internalError("4243444546474849")
+			want := internalError("767778797a7b7c7d")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}

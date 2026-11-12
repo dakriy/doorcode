@@ -10,7 +10,7 @@ import (
 
 // firstSecret is the secret of the first token created after signedInAdmin,
 // drawn from the stub entropy.
-const firstSecret = "dct_QkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGE"
+const firstSecret = "dct_dnd4eXp7fH1-f4CBgoOEhYaHiImKi4yNjo-QkZKTlJU"
 
 // createToken creates a token through the API as b's user and returns its
 // secret.
@@ -186,7 +186,7 @@ func TestTokenListShowsExpiredTokens(t *testing.T) {
 	createToken(t, b, `{"name":"current"}`)
 	f.ClockStub.Set("2026-01-07T00:00:00Z")
 
-	got := tokenClient(h, "dct_YmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ent8fX5_gIE").Get("/api/v1/tokens")
+	got := tokenClient(h, "dct_lpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq-wsbKztLU").Get("/api/v1/tokens")
 
 	want := testsupport.JSON(`{"id":1,"name":"old","created_at":"2026-01-05T09:00:00Z","expires_at":"2026-01-06T09:00:00Z","expired":true}`)
 	if diff := cmp.Diff(want, testsupport.JSONAt(got.Body, "/tokens/0")); diff != "" {
@@ -291,13 +291,13 @@ func TestTokenStoreFailureAnswersWithARequestID(t *testing.T) {
 		request func(b *testsupport.Browser) testsupport.Response
 		id      string
 	}{
-		"list": {id: "4243444546474849", request: func(b *testsupport.Browser) testsupport.Response {
+		"list": {id: "767778797a7b7c7d", request: func(b *testsupport.Browser) testsupport.Response {
 			return b.Get("/api/v1/tokens")
 		}},
-		"create, after drawing the secret": {id: "6263646566676869", request: func(b *testsupport.Browser) testsupport.Response {
+		"create, after drawing the secret": {id: "969798999a9b9c9d", request: func(b *testsupport.Browser) testsupport.Response {
 			return b.PostJSON("/api/v1/tokens", `{"name":"ci"}`)
 		}},
-		"revoke": {id: "4243444546474849", request: func(b *testsupport.Browser) testsupport.Response {
+		"revoke": {id: "767778797a7b7c7d", request: func(b *testsupport.Browser) testsupport.Response {
 			return b.Delete("/api/v1/tokens/1")
 		}},
 	}
@@ -325,7 +325,7 @@ func TestTokenThatCannotBeCheckedAnswersWithARequestID(t *testing.T) {
 
 	got := tokenClient(h, secret).Get("/api/v1/settings")
 
-	want := internalError("6263646566676869")
+	want := internalError("969798999a9b9c9d")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}

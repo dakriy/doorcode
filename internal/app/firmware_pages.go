@@ -103,6 +103,8 @@ type firmwareContent struct {
 	// Unprovisionable is what the page warns of while no provisioning
 	// file can be made, each why.
 	Unprovisionable []string
+	// Fingerprint names the key firmware is signed with.
+	Fingerprint string
 }
 
 // statusLabels names each status of a door in the rollout on pages.
@@ -238,6 +240,7 @@ func (a *App) showFirmware(w http.ResponseWriter, r *http.Request, status int, v
 	content := firmwareContent{
 		Defaults: firmwareOptions(plan.Firmware, "No default", defaultOf(plan)), Upload: upload, Errors: errs, Window: window,
 		MaxMiB: firmware.MaxMiB, NoAddress: current.DeviceURL == "", Versions: []firmwareRow{}, Unprovisionable: unprovisionable(all),
+		Fingerprint: a.signingKey.Fingerprint(),
 	}
 	zone := current.Zone
 	for _, f := range plan.Firmware {

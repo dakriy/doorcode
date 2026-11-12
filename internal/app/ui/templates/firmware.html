@@ -15,6 +15,10 @@
 {{if $c.NoAddress}}
 <p role="note" class="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">No update can be sent until the device_url setting gives the address of the entrypoint doors download firmware from.</p>
 {{end}}
+<dl class="mt-6 flex flex-wrap items-center gap-2 text-sm">
+  <dt class="text-zinc-500 dark:text-zinc-400">Signing key fingerprint</dt>
+  <dd class="font-mono break-all">{{$c.Fingerprint}}</dd>
+</dl>
 
 <section aria-labelledby="versions-heading" class="mt-8 overflow-hidden {{template "card-class"}}">
   <div class="px-6 pt-6">

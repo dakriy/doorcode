@@ -134,8 +134,8 @@ func enrolledDoor(t *testing.T, f *testsupport.Factory) (*app.App, *testsupport.
 // firstUsername and firstToken are the credentials the first door approved
 // on a broker site receives, drawn from the stub entropy after sign-in.
 const (
-	firstUsername = "door-1-424344454647"
-	firstToken    = "SElKS0xNTk9QUVJTVFVWV1hZWltcXV5f"
+	firstUsername = "door-1-767778797a7b"
+	firstToken    = "fH1-f4CBgoOEhYaHiImKi4yNjo-QkZKT"
 )
 
 func TestEnrollingControllerWaitsWhileConnected(t *testing.T) {

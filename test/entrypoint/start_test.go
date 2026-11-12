@@ -166,6 +166,16 @@ func TestStartupFails(t *testing.T) {
 			arrange: func(f *testsupport.Factory) { f.StoreStub.FailUsers() },
 			want:    "create first administrator: stub: unavailable",
 		},
+		"when the signing key cannot be stored": {
+			arrange: func(f *testsupport.Factory) { f.StoreStub.FailSettingWrites() },
+			want:    "firmware signing key: stub: unavailable",
+		},
+		"when the stored signing key is not a key": {
+			arrange: func(f *testsupport.Factory) {
+				f.StoreStub.SeedSetting(signingKeySetting, testsupport.SealSecret(signingKeySetting, "not a key"), testsupport.DefaultNow)
+			},
+			want: "firmware signing key: the stored firmware signing key is not a P-256 private key",
+		},
 		"when the site timezone names no zone": {
 			arrange: func(f *testsupport.Factory) { f.EnvStub["DOORCODE_SITE_TIMEZONE"] = "Mars/Olympus" },
 			want: "create first administrator: invalid value for site_timezone: " +

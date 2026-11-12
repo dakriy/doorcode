@@ -409,7 +409,7 @@ func TestDoorCodesAreHashedAtFixedParametersWhateverThePasswordHashingCost(t *te
 
 			send(t, b, "PUT", "/api/v1/users/1/code", `{"code":"654321"}`, 204)
 
-			want := []string{"$argon2id$v=19$m=2048,t=1,p=1$QkNERUZHSElKS0xNTk9QUQ", f.StoreStub.HashCode("654321")}
+			want := []string{"$argon2id$v=19$m=2048,t=1,p=1$dnd4eXp7fH1+f4CBgoOEhQ", f.StoreStub.HashCode("654321")}
 			got := []string{f.StoreStub.StoredCodeHashing(), f.StoreStub.StoredCodeHash(adminEmail)}
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("code hashing parameters and stored hash (-want +got):\n%s", diff)
@@ -457,7 +457,7 @@ func TestDoorCodeHashingThatCannotBeReadAnswersWithARequestID(t *testing.T) {
 
 	got := b.PutJSON("/api/v1/users/1/code", `{"code":"654321"}`)
 
-	want := internalError("5253545556575859")
+	want := internalError("868788898a8b8c8d")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -520,9 +520,9 @@ func TestUserStoreFailureAnswersWithARequestID(t *testing.T) {
 		"update":                                {fail: (*testsupport.Store).FailUsers, method: "PUT", target: "/api/v1/users/1", body: ann},
 		"delete":                                {fail: (*testsupport.Store).FailUsers, method: "DELETE", target: "/api/v1/users/2"},
 		"restore":                               {fail: (*testsupport.Store).FailUsers, method: "POST", target: "/api/v1/users/2/restore"},
-		"set code":                              {fail: (*testsupport.Store).FailUsers, method: "PUT", target: "/api/v1/users/1/code", body: `{"code":"123456"}`, id: "5253545556575859"},
-		"set code, storing it":                  {fail: (*testsupport.Store).FailUserWrites, method: "PUT", target: "/api/v1/users/1/code", body: `{"code":"123456"}`, id: "5253545556575859"},
-		"set code, fixing how codes are hashed": {fail: (*testsupport.Store).FailSettingWrites, method: "PUT", target: "/api/v1/users/1/code", body: `{"code":"123456"}`, id: "5253545556575859"},
+		"set code":                              {fail: (*testsupport.Store).FailUsers, method: "PUT", target: "/api/v1/users/1/code", body: `{"code":"123456"}`, id: "868788898a8b8c8d"},
+		"set code, storing it":                  {fail: (*testsupport.Store).FailUserWrites, method: "PUT", target: "/api/v1/users/1/code", body: `{"code":"123456"}`, id: "868788898a8b8c8d"},
+		"set code, fixing how codes are hashed": {fail: (*testsupport.Store).FailSettingWrites, method: "PUT", target: "/api/v1/users/1/code", body: `{"code":"123456"}`, id: "868788898a8b8c8d"},
 		"clear code":                            {fail: (*testsupport.Store).FailUsers, method: "DELETE", target: "/api/v1/users/1/code"},
 		"list tokens":                           {fail: (*testsupport.Store).FailTokens, method: "GET", target: "/api/v1/users/1/tokens"},
 	}
@@ -536,7 +536,7 @@ func TestUserStoreFailureAnswersWithARequestID(t *testing.T) {
 
 			id := c.id
 			if id == "" {
-				id = "4243444546474849"
+				id = "767778797a7b7c7d"
 			}
 			want := internalError(id)
 			if diff := cmp.Diff(want, got); diff != "" {

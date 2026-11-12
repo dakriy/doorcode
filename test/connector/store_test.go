@@ -118,6 +118,28 @@ func TestStorePutReplacesTheEarlierValue(t *testing.T) {
 	}
 }
 
+func TestStoreAddKeepsTheValueStoredFirst(t *testing.T) {
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			ctx := context.Background()
+			store := migrated(t, impl)
+			first := time.Date(2026, 3, 1, 8, 0, 0, 0, time.UTC)
+
+			added, errAdded := store.AddSetting(ctx, "site_name", "First", first)
+			kept, errKept := store.AddSetting(ctx, "site_name", "Second", first.Add(time.Hour))
+			got, err := store.Settings(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			want := []any{"First", "First", "<nil>", "<nil>", map[string]connector.StoredSetting{"site_name": {Value: "First", UpdatedAt: first}}}
+			if diff := cmp.Diff(want, []any{added, kept, testsupport.ErrorText(errAdded), testsupport.ErrorText(errKept), got}); diff != "" {
+				t.Errorf("added, kept, errors, settings (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func storedUser(email string) connector.StoredUser {
 	hash := "$argon2id$v=19$m=8,t=2,p=1$c2FsdA$a2V5"
 	code := "$argon2id$v=19$m=8,t=2,p=1$c2FsdA$Y29kZQ:" + email

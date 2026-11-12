@@ -10,7 +10,7 @@ import (
 
 // secondUsername is the username of the credentials the first rotation
 // issues the door enrolledDoor gives.
-const secondUsername = "door-1-606162636465"
+const secondUsername = "door-1-949596979899"
 
 // connects reports, for each of creds, whether the broker accepts a
 // connection with it.
@@ -47,8 +47,8 @@ func TestRotatingSendsNewCredentialsOverTheDoorsConnection(t *testing.T) {
 	send(t, b, "POST", "/api/v1/doors/1/credentials/rotate", "", 204)
 
 	got := lastReceived(t, conn)
-	want := map[string]any{"v": int64(1), "id": "7e7f808182838485", "command": "credentials", "username": secondUsername,
-		"token": "ZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9"}
+	want := map[string]any{"v": int64(1), "id": "b2b3b4b5b6b7b8b9", "command": "credentials", "username": secondUsername,
+		"token": "mpucnZ6foKGio6SlpqeoqaqrrK2ur7Cx"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("command (-want +got):\n%s", diff)
 	}

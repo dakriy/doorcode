@@ -11448,10 +11448,15 @@
             "items": {
               "$ref": "#/components/schemas/FirmwareView"
             }
+          },
+          "signing_key_fingerprint": {
+            "type": "string",
+            "description": "The fingerprint of the key the server signs firmware with: the first 16 hex characters of the SHA-256 of its public key, the 64 bytes of its point x || y."
           }
         },
         "required": [
-          "firmware"
+          "firmware",
+          "signing_key_fingerprint"
         ]
       },
       "FirmwareStats": {

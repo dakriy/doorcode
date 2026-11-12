@@ -12,7 +12,7 @@ const (
 	htmlType = "text/html; charset=utf-8"
 	// sessionToken is the first session token the stub entropy yields after
 	// the first administrator is created.
-	sessionToken   = "IiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4_QEE"
+	sessionToken   = "VldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm9wcXJzdHU"
 	sessionCookie  = "doorcode_session=" + sessionToken + "; Path=/; Max-Age=43200; HttpOnly; SameSite=Lax"
 	badCredentials = "That email and password do not match an account."
 )

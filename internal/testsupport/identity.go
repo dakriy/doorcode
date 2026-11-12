@@ -37,6 +37,17 @@ func OpenSecret(key, stored string) (string, error) {
 	return string(value), err
 }
 
+// SealSecret is value encrypted under SecretKey as the application stores
+// the secret setting named key, with a nonce of zeros.
+func SealSecret(key, value string) string {
+	raw, _ := base64.StdEncoding.DecodeString(SecretKey)
+	block, _ := aes.NewCipher(raw)
+	aead, _ := cipher.NewGCM(block)
+	nonce := make([]byte, aead.NonceSize())
+	sealed := aead.Seal(nil, nonce, []byte(value), []byte(key))
+	return base64.RawURLEncoding.EncodeToString(nonce) + "." + base64.RawURLEncoding.EncodeToString(sealed)
+}
+
 // StoredSetting is the value the store holds for key, as the application
 // wrote it.
 func (s *Store) StoredSetting(key string) string {

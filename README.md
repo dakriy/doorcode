@@ -118,7 +118,11 @@ Mosquitto 2 with its dynamic-security plugin. Migrations apply on start.
 
    Put it in a `.env` file next to `docker-compose.yml` (as
    `DOORCODE_SECRET_KEY=...`) to have compose read it every time. The server
-   refuses to start without a valid key.
+   refuses to start without a valid key. On its first start the server also
+   makes the key it signs firmware with and stores it encrypted under this
+   one, so keep the key: a server started with another refuses to start
+   rather than make a new signing key. The firmware page shows the signing
+   key's fingerprint.
 
 2. Start everything and wait for it to be healthy:
 
@@ -295,7 +299,7 @@ controller's start, and `update failed` on an update (see
 | `DOORCODE_DATABASE_URL` | PostgreSQL connection URL, such as `postgres://doorcode:secret@db.example.com:5432/doorcode`. The server keeps a pool of up to the larger of 4 and the host's CPUs connections, which `pool_max_conns` in the URL changes; it handles the doors' messages four at a time, so a smaller pool makes them wait. | none, required |
 | `DOORCODE_BROKER_URL` | The broker's address with its dynamic-security administrator's credentials, such as `mqtt://admin:secret@mqtt.example.com:1883`; `mqtts://` for TLS. Characters special in URLs must be percent-encoded. | none, required |
 | `DOORCODE_LISTEN_ADDR` | The address the web server listens on, such as `:8080`. | none, required (`:8080` in the image) |
-| `DOORCODE_SECRET_KEY` | 32 random bytes in standard base64 (`openssl rand -base64 32`) that encrypt secret settings. | none, required |
+| `DOORCODE_SECRET_KEY` | 32 random bytes in standard base64 (`openssl rand -base64 32`) that encrypt secret settings and the firmware signing key. | none, required |
 
 ### docker compose only
 

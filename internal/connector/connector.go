@@ -69,6 +69,10 @@ type SettingsStore interface {
 	Settings(ctx context.Context) (map[string]StoredSetting, error)
 	// PutSetting stores value under key, recording when it was written.
 	PutSetting(ctx context.Context, key, value string, at time.Time) error
+	// AddSetting stores value under key, recording when it was written,
+	// unless a value is stored there already, and returns the value
+	// stored.
+	AddSetting(ctx context.Context, key, value string, at time.Time) (string, error)
 	// CodeHashing stores candidate as the site's door code hashing
 	// parameters unless some are stored already, and returns the stored
 	// ones.

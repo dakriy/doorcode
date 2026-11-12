@@ -2,6 +2,7 @@ package settings
 
 import (
 	"cmp"
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/base64"
@@ -112,6 +113,28 @@ func shown(def definition, s Setting) Setting {
 		s.Value = Mask
 	}
 	return s
+}
+
+// keySigningKey is where the store keeps the firmware signing key, sealed
+// like a secret setting. It is not among the settings, so no listing shows
+// it and nothing changes it.
+const keySigningKey = "firmware_signing_private_key"
+
+// SigningKey returns the firmware signing key the store holds, storing
+// candidate, sealed, first when it holds none. A stored key that cannot be
+// decrypted is an error and is never replaced, since the doors trust only
+// the key they were given.
+func (s Service) SigningKey(ctx context.Context, candidate string) (string, error) {
+	stored, err := s.Store.AddSetting(ctx, keySigningKey, s.Secrets.seal(keySigningKey, candidate), s.Clock.Now())
+	if err != nil {
+		return "", err
+	}
+	key, err := s.Secrets.open(keySigningKey, stored)
+	if err != nil {
+		return "", fmt.Errorf("the stored firmware signing key cannot be decrypted with the key in %s; "+
+			"start with the %s it was stored under", SecretKeyVar, SecretKeyVar)
+	}
+	return key, nil
 }
 
 // unreadable reports a stored secret that cannot be decrypted.

@@ -23,6 +23,17 @@ func (s *Store) PutSetting(_ context.Context, key, value string, at time.Time) e
 	return nil
 }
 
+// AddSetting stores value under key unless a value is stored there, and
+// returns the stored one.
+func (s *Store) AddSetting(_ context.Context, key, value string, at time.Time) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, stored := s.settings[key]; !stored {
+		s.settings[key] = connector.StoredSetting{Value: value, UpdatedAt: at}
+	}
+	return s.settings[key].Value, nil
+}
+
 // CodeHashing stores candidate unless parameters are stored, and returns
 // the stored ones.
 func (s *Store) CodeHashing(_ context.Context, candidate string) (string, error) {

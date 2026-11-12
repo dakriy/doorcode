@@ -28,6 +28,7 @@ import (
 	"github.com/dakriy/doorcode/internal/rule"
 	"github.com/dakriy/doorcode/internal/schedule"
 	"github.com/dakriy/doorcode/internal/settings"
+	"github.com/dakriy/doorcode/internal/signing"
 	"github.com/dakriy/doorcode/internal/stats"
 	"github.com/dakriy/doorcode/internal/telemetry"
 	"github.com/dakriy/doorcode/internal/traffic"
@@ -64,6 +65,8 @@ type App struct {
 	// firmware keeps the firmware images and rolls updates out to the
 	// doors.
 	firmware firmware.Service
+	// signingKey is the key firmware is signed with.
+	signingKey signing.Key
 	// stats sums up the dashboard's figures.
 	stats stats.Service
 	// identity signs people in through the OpenID Connect provider.
@@ -85,8 +88,10 @@ type App struct {
 }
 
 // New brings the store's schema up to date, creates the first administrator
-// when there is no user yet, and returns the application. It refuses to
-// start without the key that encrypts the secret settings. It takes every
+// when there is no user yet, makes the firmware signing key when the store
+// holds none, and returns the application. It refuses to start without the
+// key that encrypts the secret settings, or with a stored signing key that
+// key cannot decrypt. It takes every
 // connector from f and constructs none itself.
 func New(ctx context.Context, f connector.Factory) (*App, error) {
 	env := f.Environment()
@@ -147,11 +152,25 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 	if err := a.auth.CreateFirstAdmin(ctx); err != nil {
 		return nil, fmt.Errorf("create first administrator: %w", err)
 	}
+	if a.signingKey, err = signingKey(ctx, s, entropy); err != nil {
+		return nil, fmt.Errorf("firmware signing key: %w", err)
+	}
 
 	table := a.routes()
 	a.openapi = sync.OnceValue(func() []byte { return apiDocument(table) })
 	a.root = a.handler(table)
 	return a, nil
+}
+
+// signingKey is the firmware signing key the store holds, made from entropy
+// and stored first when it holds none.
+func signingKey(ctx context.Context, s settings.Service, entropy connector.Entropy) (signing.Key, error) {
+	candidate := signing.New(entropy.Bytes(signing.SeedBytes))
+	stored, err := s.SigningKey(ctx, candidate.Text())
+	if err != nil {
+		return signing.Key{}, err
+	}
+	return signing.Parse(stored)
 }
 
 // Handler returns the application's HTTP handler.

@@ -349,12 +349,12 @@ func TestSettingsStoreFailureAnswersWithARequestIDThatTheLogCarries(t *testing.T
 
 			got := request(b)
 
-			want := internalError("4243444546474849")
+			want := internalError("767778797a7b7c7d")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
 			wantLog := testsupport.LogEntry{Level: "error", Message: "request failed",
-				Fields: map[string]string{"request_id": "4243444546474849", "error": "stub: unavailable", "client": testsupport.ClientAddress}}
+				Fields: map[string]string{"request_id": "767778797a7b7c7d", "error": "stub: unavailable", "client": testsupport.ClientAddress}}
 			if diff := cmp.Diff(wantLog, lastLog(f)); diff != "" {
 				t.Errorf("last log line (-want +got):\n%s", diff)
 			}
@@ -402,7 +402,7 @@ func TestSettingsAPIAnswersWithARequestIDWhenSessionsCannotBeRead(t *testing.T) 
 
 	got := b.Get("/api/v1/settings")
 
-	want := internalError("4243444546474849")
+	want := internalError("767778797a7b7c7d")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}

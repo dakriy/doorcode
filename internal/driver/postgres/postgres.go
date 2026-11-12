@@ -90,6 +90,23 @@ func (s *Store) PutSetting(ctx context.Context, key, value string, at time.Time)
 	return err
 }
 
+// AddSetting inserts value under key unless a row exists, and returns the
+// row's value. Within one statement the select does not see the insert, so
+// exactly one branch of the union has a row.
+func (s *Store) AddSetting(ctx context.Context, key, value string, at time.Time) (string, error) {
+	var stored string
+	err := s.pool.QueryRow(ctx, `
+		with inserted as (
+			insert into settings (key, value, updated_at) values ($1, $2, $3)
+			on conflict (key) do nothing
+			returning value
+		)
+		select value from inserted
+		union all
+		select value from settings where key = $1`, key, value, at).Scan(&stored)
+	return stored, err
+}
+
 // SiteImage returns the stored site picture of kind.
 func (s *Store) SiteImage(ctx context.Context, kind connector.ImageKind) (connector.StoredImage, bool, error) {
 	var image connector.StoredImage

@@ -38,6 +38,8 @@ type firmwareView struct {
 
 type firmwareList struct {
 	Firmware []firmwareView `json:"firmware" doc:"Every firmware, newest upload first."`
+	// SigningKey names the key without showing it.
+	SigningKey string `json:"signing_key_fingerprint" doc:"The fingerprint of the key the server signs firmware with: the first 16 hex characters of the SHA-256 of its public key, the 64 bytes of its point x || y."`
 }
 
 type firmwareUpload struct {
@@ -262,7 +264,7 @@ func (a *App) listFirmware(w http.ResponseWriter, r *http.Request, _ auth.User) 
 	for _, f := range plan.Firmware {
 		views = append(views, viewOfFirmware(f, plan))
 	}
-	writeJSON(w, http.StatusOK, firmwareList{Firmware: views})
+	writeJSON(w, http.StatusOK, firmwareList{Firmware: views, SigningKey: a.signingKey.Fingerprint()})
 }
 
 // writeFirmware answers with f, which err may say could not be read or

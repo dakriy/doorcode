@@ -604,7 +604,7 @@ func TestFirmwareIsListedWithItsUploaderAndTheDoorsThatRunIt(t *testing.T) {
 		 "uploaded_at":"2026-01-05T10:00:00Z","default":false,"running":0,"targeting":1},
 		{"id":1,"version":"1.5.0","notes":"Release 1.5.0.","sha256":"` + sha150 + `","size":14,` + by + `,
 		 "uploaded_at":"2026-01-05T09:00:00Z","default":true,"running":1,"targeting":1}
-	]}`)
+	],"signing_key_fingerprint":"` + signingFingerprint + `"}`)
 	if diff := cmp.Diff(want, testsupport.JSONAt(got.Body, "")); diff != "" {
 		t.Errorf("firmware (-want +got):\n%s", diff)
 	}
@@ -763,7 +763,7 @@ func TestFirmwareNoDoorRunsCanBeDeleted(t *testing.T) {
 
 	send(t, b, "DELETE", "/api/v1/firmware/1", "", 204)
 
-	if diff := cmp.Diff(`{"firmware":[]}`+"\n", b.Get("/api/v1/firmware").Body); diff != "" {
+	if diff := cmp.Diff(`{"firmware":[],"signing_key_fingerprint":"`+signingFingerprint+`"}`+"\n", b.Get("/api/v1/firmware").Body); diff != "" {
 		t.Errorf("firmware (-want +got):\n%s", diff)
 	}
 }

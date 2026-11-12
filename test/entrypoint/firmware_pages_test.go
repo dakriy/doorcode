@@ -60,6 +60,7 @@ func TestFirmwarePageShowsTheVersionsAndTheRollout(t *testing.T) {
 			"Done":     {rolloutHead, {"Lobby", "1.5.0", "1.5.0", updated}},
 			"Failed":   {rolloutHead, {"Dock", "1.4.3", "1.5.0", failed}},
 		},
+		Details:     map[string]string{"Signing key fingerprint": signingFingerprint},
 		Comboboxes:  []string{"firmware_id"},
 		LinkTargets: provisioningLink("/api/v1/firmware/provisioning"),
 	}

@@ -499,62 +499,62 @@ func TestPageStoreFailureShowsARequestIDThatTheLogCarries(t *testing.T) {
 		request func(t *testing.T, f *testsupport.Factory) testsupport.Response
 		id      string
 	}{
-		"sign-in page without settings": {id: "2223242526272829", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
+		"sign-in page without settings": {id: "565758595a5b5c5d", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
 			h := start(t, f).Handler()
 			f.StoreStub.FailSettings()
 			return testsupport.Get(h, "/sign-in")
 		}},
-		"favicon without settings": {id: "2223242526272829", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
+		"favicon without settings": {id: "565758595a5b5c5d", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
 			h := start(t, f).Handler()
 			f.StoreStub.FailSettings()
 			return testsupport.Get(h, "/favicon")
 		}},
-		"sign-in without users": {id: "2223242526272829", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
+		"sign-in without users": {id: "565758595a5b5c5d", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
 			h := start(t, f).Handler()
 			f.StoreStub.FailUsers()
 			return testsupport.NewBrowser(h).Post("/sign-in", "email", adminEmail, "password", adminPassword(t, f))
 		}},
-		"sign-in of an unknown email without settings": {id: "2223242526272829", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
+		"sign-in of an unknown email without settings": {id: "565758595a5b5c5d", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
 			h := start(t, f).Handler()
 			f.StoreStub.FailSettings()
 			return testsupport.NewBrowser(h).Post("/sign-in", "email", "nobody@example.com", "password", "x")
 		}},
-		"sign-in without sessions": {id: "4243444546474849", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
+		"sign-in without sessions": {id: "767778797a7b7c7d", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
 			h := start(t, f).Handler()
 			f.StoreStub.FailSessions()
 			return testsupport.NewBrowser(h).Post("/sign-in", "email", adminEmail, "password", adminPassword(t, f))
 		}},
-		"home without sessions": {id: "4243444546474849", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
+		"home without sessions": {id: "767778797a7b7c7d", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
 			b := signedInAdmin(t, f)
 			f.StoreStub.FailSessions()
 			return b.Get("/")
 		}},
-		"settings page without settings": {id: "4243444546474849", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
+		"settings page without settings": {id: "767778797a7b7c7d", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
 			b := signedInAdmin(t, f)
 			f.StoreStub.FailSettings()
 			return b.Get("/admin/settings")
 		}},
-		"tokens page without tokens": {id: "4243444546474849", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
+		"tokens page without tokens": {id: "767778797a7b7c7d", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
 			b := signedInAdmin(t, f)
 			f.StoreStub.FailTokens()
 			return b.Get("/account/tokens")
 		}},
-		"token creation without tokens, after drawing the secret": {id: "6263646566676869", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
+		"token creation without tokens, after drawing the secret": {id: "969798999a9b9c9d", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
 			b := signedInAdmin(t, f)
 			f.StoreStub.FailTokens()
 			return b.Post("/account/tokens", "name", "ci", "expires_in_days", "30")
 		}},
-		"rejected token form without tokens": {id: "4243444546474849", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
+		"rejected token form without tokens": {id: "767778797a7b7c7d", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
 			b := signedInAdmin(t, f)
 			f.StoreStub.FailTokens()
 			return b.Post("/account/tokens", "name", "", "expires_in_days", "30")
 		}},
-		"token revocation without tokens": {id: "4243444546474849", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
+		"token revocation without tokens": {id: "767778797a7b7c7d", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
 			b := signedInAdmin(t, f)
 			f.StoreStub.FailTokens()
 			return b.Post("/account/tokens/1/revoke")
 		}},
-		"sign-out without sessions": {id: "4243444546474849", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
+		"sign-out without sessions": {id: "767778797a7b7c7d", request: func(t *testing.T, f *testsupport.Factory) testsupport.Response {
 			b := signedInAdmin(t, f)
 			f.StoreStub.FailSessions()
 			return b.Post("/sign-out")
