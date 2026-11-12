@@ -80,12 +80,11 @@ doors. It needs neither Postgres nor a broker, and nothing it does outlives
 it.
 
 ```sh
-docker run --rm -p 8080:8080 ghcr.io/dakriy/doorcode-demo
+docker build --target doorcode-demo -t doorcode-demo .
+docker run --rm -p 8080:8080 doorcode-demo
 ```
 
-or build it from a checkout with
-`docker build --target doorcode-demo -t doorcode-demo .`, or, with Go
-installed, run `go run ./cmd/doorcode-demo`. Open
+or, with Go installed, `go run ./cmd/doorcode-demo`. Open
 <http://localhost:8080> and sign in with one of the two accounts the demo
 prints at start: the administrator (`admin@example.com` and
 `doorcode-demo`), or a member of staff with a door code and no role
