@@ -44,10 +44,10 @@ jobs:
           go-version-file: go.mod
       # The broker mounts its configuration from the checkout, so it starts
       # from the compose file rather than as a job service.
-      - run: docker compose up -d --wait postgres mosquitto
+      - run: docker compose -f docker-compose.dev.yml up -d --wait postgres mosquitto
       - run: make verify-integration
       - if: failure()
-        run: docker compose logs postgres mosquitto
+        run: docker compose -f docker-compose.dev.yml logs postgres mosquitto
 
   mutation-diff:
     if: github.event_name == 'pull_request'

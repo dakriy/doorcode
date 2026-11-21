@@ -9,3 +9,8 @@
 
 # IDE
 /.idea/
+
+# A local deployment copied from docker-compose.example.yml
+/docker-compose.yml
+/docker-compose.override.yml
+/.env

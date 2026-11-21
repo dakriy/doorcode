@@ -1,15 +1,17 @@
-# The doorcode server with Postgres and Mosquitto, and the services the slow
-# connector tests need.
+# The doorcode server built from this checkout with Postgres and Mosquitto,
+# and the services the slow connector tests need. For development: the
+# passwords are fixed and the broker listens without TLS.
+# docker-compose.example.yml is the starting point for a production one.
 #
 # The whole deployment (the app needs the key that encrypts stored secrets):
 #
 #   export DOORCODE_SECRET_KEY="$(openssl rand -base64 32)"   # keep it
-#   docker compose up -d --wait
-#   docker compose logs app    # the first administrator's password
+#   docker compose -f docker-compose.dev.yml up -d --wait
+#   docker compose -f docker-compose.dev.yml logs app    # the first administrator's password
 #
 # Only the services the slow connector tests need:
 #
-#   docker compose up -d --wait postgres mosquitto
+#   docker compose -f docker-compose.dev.yml up -d --wait postgres mosquitto
 #   export DOORCODE_TEST_DATABASE_URL=postgres://doorcode:doorcode@localhost:5432/doorcode?sslmode=disable
 #   export DOORCODE_TEST_BROKER_URL=mqtt://doorcode:doorcode@localhost:1883
 #   make verify-integration

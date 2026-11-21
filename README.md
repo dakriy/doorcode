@@ -106,44 +106,54 @@ it.
 
 ## Deploy with docker compose
 
-`docker-compose.yml` runs the server (`app`) with PostgreSQL 18 and
-Mosquitto 2 with its dynamic-security plugin. Migrations apply on start.
+`docker-compose.example.yml` runs the published server (`app`) with
+PostgreSQL 18 and Mosquitto 2 with its dynamic-security plugin. Migrations
+apply on start. Each release is published as `ghcr.io/dakriy/doorcode`,
+tagged with its version (`1.2.3`), its minor line (`1.2`), and `latest`; the
+example follows a minor line, and `docker compose pull` followed by `docker
+compose up -d --wait` upgrades within it. It expects a proxy on the same
+host that terminates TLS: the web server listens on `127.0.0.1:8080` and
+the broker on `127.0.0.1:1883`, and the proxy serves the broker over TLS
+(usually on 8883) with a certificate from the CA the doors trust.
 
-The compose file builds the server from the checkout. Each release is also
-published as `ghcr.io/dakriy/doorcode`, tagged with its version (`1.2.3`),
-its minor line (`1.2`), and `latest`. To run a release instead of building,
-name it under the `app` service in a `docker-compose.override.yml`:
-
-```yaml
-services:
-  app:
-    image: ghcr.io/dakriy/doorcode:1.2
-    pull_policy: always
-```
-
-1. Generate the key that encrypts stored secrets, and keep it: secrets
-   stored under one key cannot be read under another.
+1. In a checkout of this repository (the broker mounts files from
+   `deploy/mosquitto`), copy the example to the file compose reads. Git
+   ignores `docker-compose.yml` and `.env`, so a local deployment
+   never shows as a change:
 
    ```sh
-   export DOORCODE_SECRET_KEY="$(openssl rand -base64 32)"
+   cp docker-compose.example.yml docker-compose.yml
    ```
 
-   Put it in a `.env` file next to `docker-compose.yml` (as
-   `DOORCODE_SECRET_KEY=...`) to have compose read it every time. The server
+2. Generate the key that encrypts stored secrets and the database and broker
+   passwords, and put them in a `.env` file next to `docker-compose.yml`,
+   which compose reads every time:
+
+   ```sh
+   cat > .env <<EOF
+   DOORCODE_SECRET_KEY=$(openssl rand -base64 32)
+   DOORCODE_POSTGRES_PASSWORD=$(openssl rand -hex 24)
+   DOORCODE_BROKER_ADMIN_PASSWORD=$(openssl rand -hex 24)
+   EOF
+   ```
+
+   Keep the file. The passwords go into URLs, so they keep to URL-safe
+   characters, and take effect only when the volumes are new. The server
    refuses to start without a valid key. On its first start the server also
    makes the key it signs firmware with and stores it encrypted under this
-   one, so keep the key: a server started with another refuses to start
-   rather than make a new signing key. The firmware page shows the signing
-   key's fingerprint, and every door is sent its public half to check
-   firmware with.
+   one, so keep the key: secrets stored under one key cannot be read under
+   another, and a server started with another refuses to start rather than
+   make a new signing key. The firmware page shows the signing key's
+   fingerprint, and every door is sent its public half to check firmware
+   with.
 
-2. Start everything and wait for it to be healthy:
+3. Start everything and wait for it to be healthy:
 
    ```sh
    docker compose up -d --wait
    ```
 
-3. Read the first administrator's password, and the generated enrollment
+4. Read the first administrator's password, and the generated enrollment
    password controllers enroll with, from the log:
 
    ```sh
@@ -153,7 +163,7 @@ services:
    Sign in at <http://localhost:8080> as `admin@example.com` (the
    `admin_email` setting) and change the password from the portal.
 
-4. In Settings, set `public_url` to the `https://` address people's
+5. In Settings, set `public_url` to the `https://` address people's
    browsers reach the server at (such as `https://doorcode.example.com`).
    Single sign-on needs it. An `http://` address is accepted for
    development only.
@@ -169,13 +179,17 @@ services:
    public CA. No firmware update is sent while `device_url` is empty;
    `public_url` is never used for doors.
 
-The compose file is a starting point: the broker listens without TLS on
-1883, and the database and broker passwords are `doorcode`. For production,
-put TLS in front of the web server and the broker, change the passwords,
-and keep the volumes backed up. Each door holds one broker connection
-open, so the compose file raises the broker's open file limit to 65536;
-a broker run elsewhere needs the same, since the usual default of 1024
-refuses connections short of 1000 doors.
+   Set `door_broker_ca_pem` to the certificate of the CA the proxy's
+   broker certificate comes from, and `door_broker_host` to the host name
+   doors reach the broker at. List the proxy in `trusted_proxies` (see below); a
+   proxy on the host reaches the server from the compose network's gateway
+   address.
+
+Keep the `postgres` and `mosquitto` volumes backed up. Each door holds one
+broker connection open, so the compose files raise the broker's open file
+limit to 65536; a broker run elsewhere, and the proxy in front of it, need
+the same, since the usual default of 1024 refuses connections short of 1000
+doors.
 
 The server answers two unauthenticated probes, which log nothing:
 
@@ -318,11 +332,12 @@ controller's start, and `update failed` on an update (see
 
 | Variable | Meaning | Default |
 | --- | --- | --- |
-| `DOORCODE_HTTP_PORT` | Host port the server is published on. | `8080` |
-| `DOORCODE_POSTGRES_PORT` | Host port Postgres is published on. | `5432` |
-| `DOORCODE_MQTT_PORT` | Host port the broker is published on. | `1883` |
+| `DOORCODE_POSTGRES_PASSWORD` | `docker-compose.example.yml` only: the database password; takes effect when the database's volume is new. | none, required |
 | `DOORCODE_BROKER_ADMIN_USERNAME` | The broker administrator the server connects as; takes effect when the broker's volume is new. | `doorcode` |
-| `DOORCODE_BROKER_ADMIN_PASSWORD` | Its password, likewise. | `doorcode` |
+| `DOORCODE_BROKER_ADMIN_PASSWORD` | Its password, likewise. | `doorcode` in `docker-compose.dev.yml`; required in `docker-compose.example.yml` |
+| `DOORCODE_HTTP_PORT` | `docker-compose.dev.yml` only: host port the server is published on. | `8080` |
+| `DOORCODE_POSTGRES_PORT` | `docker-compose.dev.yml` only: host port Postgres is published on. | `5432` |
+| `DOORCODE_MQTT_PORT` | `docker-compose.dev.yml` only: host port the broker is published on. | `1883` |
 
 ### Settings
 
@@ -541,15 +556,18 @@ make verify-mutation    # mutation testing of the application code
 make verify-mutation-diff  # the same, only on the lines changed since main
 ```
 
-The slow connector tests need a local Postgres and Mosquitto, which compose
-provides:
+The slow connector tests need a local Postgres and Mosquitto, which
+`docker-compose.dev.yml` provides. It also runs the server built from the
+checkout (`docker compose -f docker-compose.dev.yml up -d --wait`, with
+`DOORCODE_SECRET_KEY` set), with the passwords `doorcode` and the broker
+without TLS on 1883, for development only.
 
 ```sh
-docker compose up -d --wait postgres mosquitto
+docker compose -f docker-compose.dev.yml up -d --wait postgres mosquitto
 export DOORCODE_TEST_DATABASE_URL='postgres://doorcode:doorcode@localhost:5432/doorcode?sslmode=disable'
 export DOORCODE_TEST_BROKER_URL='mqtt://doorcode:doorcode@localhost:1883'
 make verify-integration
-docker compose down -v
+docker compose -f docker-compose.dev.yml down -v
 ```
 
 Set `DOORCODE_POSTGRES_PORT` and `DOORCODE_MQTT_PORT` before `docker compose
