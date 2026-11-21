@@ -66,16 +66,15 @@ another Wi-Fi network (`broker_host`, `broker_port`, `broker_tls`,
 when it is empty.
 
 The controller verifies the broker, and the server when it downloads
-firmware (section 15), against the same certificate: `broker_ca_pem`, or
-the one it was provisioned with. That is usually the certificate of an
-internal CA the site runs, while people reach the server's web pages with a
-certificate from a public CA. So the server needs a second entrypoint
-wherever TLS is terminated, serving a certificate chain from the internal
-CA the controllers trust, such as a second port or host name on the reverse
-proxy forwarding to the same server; the main entrypoint may use any public
-CA. The server's `device_url` setting is that second entrypoint's
-address, which controllers download firmware from; while it is empty no
-update is sent. The server's `public_url` is for browsers and single
+firmware (section 15), against the same certificates: `broker_ca_pem`, or
+the ones it was provisioned with, and trusts no others. The list may hold
+an internal CA the site runs, a public CA's root, or both. The server's
+`device_url` setting is the address controllers download firmware from;
+its certificate chain must lead to one of those certificates, so it may be
+the entrypoint people use when the list holds that entrypoint's CA, or a
+second entrypoint, such as a second port or host name on the reverse proxy
+forwarding to the same server, serving a chain from a CA the list holds.
+While `device_url` is empty no update is sent. The server's `public_url` is for browsers and single
 sign-on and is never given to controllers.
 
 ## 3. Provisioning
@@ -115,7 +114,7 @@ answer is `application/json` with `Content-Disposition: attachment`.
 | `format` | number | The version of the file's layout, 1. It changes only when a field changes meaning or goes away; new fields, in `door_config` too, come without a change. |
 | `generated_at` | number | When the server made the file, in Unix seconds. |
 | `broker.host`, `broker.port`, `broker.tls` | string, number, boolean | The broker to connect to: `broker_host`, `broker_port`, and `broker_tls` of the configuration. |
-| `broker.ca_pem` | string | The certificate to verify the broker against (`broker_ca_pem`), PEM with LF line ends; empty when `tls` is false. |
+| `broker.ca_pem` | string | The certificates to verify the broker against (`broker_ca_pem`), one or more PEM certificates with LF line ends; empty when `tls` is false. |
 | `server.device_url` | string | The address the server is reached at for firmware downloads: its `device_url` setting; empty while that is not set. Its certificate chains to the same CA as the broker's (section 2). The `update` command carries the full download address (section 15), so the controller need not keep this; it is there for setup tools and for checking the address. |
 | `enrollment.username`, `enrollment.password` | string, string | The enrollment credentials (section 6): the server's `enrollment_username` and `enrollment_password` settings. |
 | `wifi.ssid`, `wifi.password` | string, string | The Wi-Fi network to join: `wifi_ssid` and `wifi_password` of the configuration. |
@@ -385,7 +384,7 @@ below for a field it lacks.
 | `broker_host` | text | | empty, a host name of up to 253 letters, digits, dots, and hyphens, or an IP address, IPv6 included | empty | Controller: the host name or IP address of the broker to connect to. Empty keeps the broker the controller uses now. When it names another broker, store it in place of the provisioned host and connect there from the next connection on, with the same credentials and the port, TLS, and CA below. |
 | `broker_port` | uint | | 1 to 65535 | 8883 | Controller: the port of the broker to connect to, from the next connection on. |
 | `broker_tls` | bool | | | `true` | Controller: whether to connect to the broker over TLS, checking the broker against `broker_ca_pem`. `false` is for development brokers only. |
-| `broker_ca_pem` | text | | empty, or one or more PEM certificates (LF line ends) | empty | Controller: the certificate of the CA, or the broker's own certificate, to verify the broker against while `broker_tls` is true. Empty keeps the certificate the controller has. |
+| `broker_ca_pem` | text | | empty, or one or more PEM certificates (LF line ends) | empty | Controller: the certificates to verify the broker against while `broker_tls` is true, and the server when it downloads firmware over `https://` (section 15): the root CA certificate of each, or a host's own certificate, one after another. Every certificate takes the controller's memory on each connection, so the server operator gives only the ones those hosts need. Empty keeps the certificates the controller has. |
 | `wifi_ssid` | text | bytes | up to 32 | empty | Controller: the Wi-Fi network to join. Empty keeps the network the controller uses now. Keep the last credentials that worked and fall back to them when the new ones fail. |
 | `wifi_password` | text | bytes | up to 63 | empty | Controller: the Wi-Fi network's password. The server stores it encrypted and shows it to nobody; this message is the one place it travels in the clear, to the door alone. |
 | `wifi_roam_rssi` | int | dBm | -100 to 0 | -70 | Controller: when the signal to the current access point is below this, scan and move to an access point of the same network that is at least 8 dB stronger, if there is one. |
@@ -857,9 +856,9 @@ from the door page. The controller:
    verification. The address is the server's `device_url`, followed by
    `/api/v1/doors/<id>/firmware/<version>?token=<token>`; the token is for
    this one update and must not be logged. Verify the server against the
-   same certificate as the broker (`broker_ca_pem`, or the one provisioned):
-   `device_url` names the entrypoint whose certificate chain comes from
-   that CA (section 2). The server answers:
+   same certificates as the broker (`broker_ca_pem`, or the ones provisioned):
+   `device_url` names an entrypoint whose certificate chain leads to one of
+   them (section 2). The server answers:
    - `200` with the signed image as `application/octet-stream`: the image
      as uploaded followed by the server's 68-byte signature block, at most
      0x1F0000 bytes in all, the size of the smaller update slot;

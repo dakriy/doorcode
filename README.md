@@ -169,18 +169,19 @@ the broker on `127.0.0.1:1883`, and the proxy serves the broker over TLS
    development only.
 
    Doors verify the server, when they download firmware, against the same
-   CA certificate as the broker (`door_broker_ca_pem`), usually an internal
-   CA, while people's browsers want a certificate from a public CA. Give
-   the server a second entrypoint wherever TLS is terminated that serves a
-   certificate chain from the internal CA the doors trust, such as a second
-   port or host name on the reverse proxy forwarding to the same server,
-   and set `device_url` to it (such as
-   `https://devices.doorcode.example.com`). The main entrypoint may use any
-   public CA. No firmware update is sent while `device_url` is empty;
-   `public_url` is never used for doors.
+   certificates as the broker (`door_broker_ca_pem`), and trust no others.
+   Set `device_url` to the address doors download from (such as
+   `https://devices.doorcode.example.com`). It may be the entrypoint people
+   use, when `door_broker_ca_pem` holds the root of that entrypoint's CA,
+   or a second entrypoint wherever TLS is terminated, such as a second port
+   or host name on the reverse proxy forwarding to the same server, serving
+   a chain from an internal CA the doors trust. No firmware update is sent
+   while `device_url` is empty; `public_url` is never used for doors.
 
-   Set `door_broker_ca_pem` to the certificate of the CA the proxy's
-   broker certificate comes from, and `door_broker_host` to the host name
+   Set `door_broker_ca_pem` to the root CA certificates of the broker and
+   of `device_url` (see
+   [Choosing the certificates doors trust](#choosing-the-certificates-doors-trust)),
+   and `door_broker_host` to the host name
    doors reach the broker at. List the proxy in `trusted_proxies` (see below); a
    proxy on the host reaches the server from the compose network's gateway
    address.
@@ -210,6 +211,44 @@ the proxy's host name). The server believes `X-Forwarded-For` (the client
 address it logs for sign-ins, refused sign-ins, and failed requests) and
 `X-Forwarded-Proto` (whether cookies are marked `Secure`) only from a
 connection whose address is on that list, and ignores both from anyone else.
+
+### Choosing the certificates doors trust
+
+Doors trust exactly the certificates in `door_broker_ca_pem`, for the
+broker and for `device_url`, and nothing else: no list of public CAs is
+built in. Paste in, one after another, the root CA certificate that each
+of those hosts' certificate chains leads to. A host's certificate from
+your own CA needs that CA's certificate; one from a public CA needs that
+CA's root. Every certificate takes a door's memory on each connection, so
+give only the ones the hosts need, never a whole bundle of public roots.
+
+To find the root a host's chain leads to, connect to it and look at the
+chain it sends:
+
+```sh
+openssl s_client -connect broker.example.com:8883 -showcerts </dev/null
+```
+
+Each certificate is listed with its subject (`s:`) and issuer (`i:`). A
+server seldom sends its root, so the root is usually the issuer of the
+last certificate listed; when that certificate's subject and issuer are
+the same, it is the root itself. Get the root's PEM from its CA's website,
+or from Mozilla's root list, which curl publishes as one file at
+<https://curl.se/docs/caextract.html> with each certificate under its name.
+Copy everything from its `-----BEGIN CERTIFICATE-----` line through its
+`-----END CERTIFICATE-----` line.
+
+Before saving, check that the certificates verify each host:
+
+```sh
+openssl s_client -connect broker.example.com:8883 -CAfile roots.pem </dev/null
+```
+
+where `roots.pem` holds what you are about to paste. The output ends in
+`Verify return code: 0 (ok)` when a door would accept the host. When a CA
+announces new roots, add them alongside the ones in use before its
+certificates move to them, and remove an old one only once no host's chain
+leads to it.
 
 ## Monitoring with Prometheus
 
@@ -383,7 +422,7 @@ single sign-on and identity claims parts while `oidc_enabled` is off.
 | `telemetry_retention_days` | Days each telemetry report is kept. | `7` |
 | `telemetry_rollup_retention_days` | Days the hourly summaries of the reports are kept. | `730` |
 | `unresponsive_minutes` | Minutes a connected door may stay silent before it counts as unresponsive. | `5` |
-| `device_url` | The `https://` address, without a query, of the server's device-facing entrypoint, which presents a certificate from the managed CA controllers trust, the same CA as the broker's (`door_broker_ca_pem`); `http://` only for development, since doors verify the server's certificate only over https. Doors download firmware from it: sent in the `update` command and in the provisioning file's `server.device_url`. No update is sent while it is empty. | empty |
+| `device_url` | The `https://` address, without a query, of the server's device-facing entrypoint, which presents a certificate chain leading to one of the certificates doors trust (`door_broker_ca_pem`); `http://` only for development, since doors verify the server's certificate only over https. Doors download firmware from it: sent in the `update` command and in the provisioning file's `server.device_url`. No update is sent while it is empty. | empty |
 | `update_window_days` | `daily`, or weekdays separated by commas such as `sat,sun`. | `daily` |
 | `update_window_start` | When the update window opens, `HH:MM` in the site timezone. | `02:00` |
 | `update_window_minutes` | How long the update window lasts, in minutes. | `120` |
@@ -419,7 +458,7 @@ full table.
 | `door_broker_host` | The host name or IP address of the broker the door connects to, pushed with the rest of its configuration so doors can be moved to another broker; empty keeps the broker each door already uses. | empty |
 | `door_broker_port` | The broker port doors connect to, 1 to 65535. | `8883` |
 | `door_broker_tls` | `true` connects doors to the broker over TLS; `false` is for development brokers only. | `true` |
-| `door_broker_ca_pem` | The PEM certificate of the broker's CA, or of the broker itself, doors verify it against; empty keeps the one each door has. | empty |
+| `door_broker_ca_pem` | One or more PEM certificates doors trust over TLS, for the broker and for `device_url`: the root CA certificate of each, or a host's own certificate (see [Choosing the certificates doors trust](#choosing-the-certificates-doors-trust)); empty keeps the ones each door has. | empty |
 | `door_keepalive_s` | The doors' MQTT keep-alive, 10 to 300 s; a door shows offline after one and a half of these without a packet. | `30` |
 | `door_reconnect_max_s` | The longest pause between a door's attempts to connect again, 5 to 600 s. | `60` |
 | `door_wifi_ssid` | The Wi-Fi network doors join, up to 32 bytes; empty keeps the network each door uses. | empty |
