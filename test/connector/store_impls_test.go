@@ -16,7 +16,7 @@ import (
 )
 
 // testDatabaseEnv names the variable holding the URL of a disposable local
-// Postgres, such as the one docker-compose.dev.yml starts.
+// Postgres, such as the one docker-compose.yml starts.
 const testDatabaseEnv = "DOORCODE_TEST_DATABASE_URL"
 
 // storeImpl builds an empty store whose schema has not been migrated.

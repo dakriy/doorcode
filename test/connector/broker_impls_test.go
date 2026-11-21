@@ -19,7 +19,7 @@ import (
 
 // testBrokerEnv names the variable holding the URL, with the
 // administrator's credentials, of a disposable local broker with the
-// dynamic-security plugin, such as the one docker-compose.dev.yml starts.
+// dynamic-security plugin, such as the one docker-compose.yml starts.
 const testBrokerEnv = "DOORCODE_TEST_BROKER_URL"
 
 // brokerWait is how long a test waits for the broker to deliver.
