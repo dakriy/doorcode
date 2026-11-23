@@ -20,6 +20,11 @@ const (
 	// configuration in two reports in a row over one connection, both
 	// after the one last sent went out.
 	ConfigOlder = "older"
+	// ConfigRestarting is a controller that said it started at least
+	// twice since the configuration last sent went out, with no report
+	// naming that configuration since: a controller that cannot keep it
+	// may restart before its first report every time it comes online.
+	ConfigRestarting = "restarting"
 	// ConfigReverted is a controller that said, after the configuration
 	// last sent went out, that it gave that one up because it could not
 	// come online with it, and runs the one before.
@@ -30,15 +35,23 @@ const (
 // the configuration last sent.
 const (
 	BadgeMismatchedConfig = "Mismatched configuration"
+	BadgeRestartingConfig = "Restarting with configuration"
 	BadgeRevertedConfig   = "Reverted configuration"
 )
 
+// restartsFlagged is how many starts with no report naming the
+// configuration last sent make a controller ConfigRestarting. One is not
+// enough: a controller trying a configuration restarts once with it.
+const restartsFlagged = 2
+
 // ConfigCheck is how what the controller of a door runs stands against
-// the configuration it was last sent: its State and, for ConfigOlder and
-// ConfigReverted, Since when.
+// the configuration it was last sent: its State and, for ConfigOlder,
+// ConfigRestarting, and ConfigReverted, Since when; for ConfigRestarting
+// also how many Starts.
 type ConfigCheck struct {
-	State string
-	Since *time.Time
+	State  string
+	Since  *time.Time
+	Starts int
 }
 
 // Mismatched reports whether the controller runs a configuration other
@@ -53,6 +66,8 @@ func (c ConfigCheck) Badge() string {
 	switch c.State {
 	case ConfigOlder:
 		return BadgeMismatchedConfig
+	case ConfigRestarting:
+		return BadgeRestartingConfig
 	case ConfigReverted:
 		return BadgeRevertedConfig
 	}
@@ -69,7 +84,9 @@ func (c ConfigCheck) Badge() string {
 // nothing until it is online with it. Only a second report in a row
 // over the same connection that names another configuration makes it
 // older, since the door had a whole telemetry interval to take it. A
-// door that says it gave the configuration up is flagged at once.
+// door that says it gave the configuration up is flagged at once, and one
+// that keeps starting with no report naming it is flagged at its second
+// start.
 func ConfigOf(d connector.StoredDoor) ConfigCheck {
 	c, sent := d.Controller, d.SentConfig
 	if sent == nil {
@@ -80,6 +97,9 @@ func ConfigOf(d connector.StoredDoor) ConfigCheck {
 	}
 	if at := c.ConfigRevertedAt; sinceSent(*sent, at) && c.ConfigRevertedDigest == sent.Digest {
 		return ConfigCheck{State: ConfigReverted, Since: at}
+	}
+	if since := c.ConfigStartsSince; sinceSent(*sent, since) && c.ConfigStarts >= restartsFlagged {
+		return ConfigCheck{State: ConfigRestarting, Since: since, Starts: c.ConfigStarts}
 	}
 	if since := c.ConfigMismatchSince; sinceSent(*sent, since) && c.Telemetry.At.After(*since) {
 		return ConfigCheck{State: ConfigOlder, Since: since}
@@ -104,6 +124,22 @@ func mismatchSince(d connector.StoredDoor, held connector.StoredController, t co
 		return since
 	}
 	return &t.At
+}
+
+// startsAfter is the count of starts and the first of them that c, the
+// controller of d, has with no report naming the configuration d was last
+// sent, once it says at now that it started: one more when the starts it
+// has came since that configuration went out, else this one alone, and
+// none while d was sent none.
+func startsAfter(d connector.StoredDoor, c connector.StoredController, now time.Time) (int, *time.Time) {
+	sent := d.SentConfig
+	if sent == nil {
+		return 0, nil
+	}
+	if since := c.ConfigStartsSince; sinceSent(*sent, since) {
+		return c.ConfigStarts + 1, since
+	}
+	return 1, &now
 }
 
 // sameConnection reports whether the controller made report t over the

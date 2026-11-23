@@ -166,6 +166,9 @@ func configText(check telemetry.ConfigCheck, zone *time.Location) (string, strin
 	case telemetry.ConfigOlder:
 		return "Mismatched", "Running an older configuration since " + shownAt(zone, *check.Since, secondLayout) +
 			": the door has not taken up the configuration last sent yet."
+	case telemetry.ConfigRestarting:
+		return "Restarting", "Started " + strconv.Itoa(check.Starts) + " times since " + shownAt(zone, *check.Since, secondLayout) +
+			" without reporting the configuration last sent: the door may be unable to keep it."
 	case telemetry.ConfigReverted:
 		return "Reverted", "The door gave up the configuration last sent because it could not connect with it; it is running the previous one since " +
 			shownAt(zone, *check.Since, secondLayout) + ". It ignores that configuration if it is sent again. " +

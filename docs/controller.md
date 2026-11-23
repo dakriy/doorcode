@@ -460,6 +460,14 @@ does not run it:
   nothing until it is online with it. The flag dates from the first of
   the reports, and goes as soon as a report names the configuration last
   sent, names none, or a new configuration is sent.
+- **restarting with the configuration:** the controller said `started`
+  (section 12) at least twice since the configuration was sent, with no
+  report naming it in between. One start is not enough: a controller
+  trying a configuration restarts once with it. A controller that cannot
+  keep the configuration may restart before its first report every time
+  it comes online, so no report ever names another digest. The flag dates
+  from the first of the starts, and goes as soon as a report names the
+  configuration last sent or a new configuration is sent.
 - **reverted configuration:** the controller said `config_reverted`
   naming the configuration last sent, after it was sent. The flag holds,
   whatever the controller reports meanwhile, until a report names the

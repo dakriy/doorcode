@@ -624,7 +624,7 @@ read: every per-door series, `doorcode_events_total`, and
 | `doorcode_door_last_seen_timestamp_seconds` | gauge | `door`, `door_id` | When the server last heard from it, in Unix seconds. |
 | `doorcode_door_open` | gauge | `door`, `door_id` | 1 while the door is open, as its controller last said, else 0. |
 | `doorcode_door_held_open` | gauge | `door`, `door_id` | 1 while the door is *held open* (section 7), else 0. |
-| `doorcode_door_config_mismatch` | gauge | `door`, `door_id` | 1 while the controller runs a configuration other than the one last sent (older, or given up), else 0. |
+| `doorcode_door_config_mismatch` | gauge | `door`, `door_id` | 1 while the controller runs a configuration other than the one last sent (older, restarting with it, or given up), else 0. |
 | `doorcode_door_update_pending` | gauge | `door`, `door_id` | 1 while the door takes part in the rollout and does not run its target yet, else 0. |
 | `doorcode_door_firmware_info` | gauge | `door`, `door_id`, `version` | Always 1; `version` is the firmware the controller runs. |
 | `doorcode_door_signal_dbm` | gauge | `door`, `door_id` | Signal strength last reported, in dBm. Online only. |

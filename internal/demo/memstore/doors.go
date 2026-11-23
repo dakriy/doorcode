@@ -25,6 +25,7 @@ func controllerCopy(c *connector.StoredController) *connector.StoredController {
 func stateCopy(st connector.StoredDoorState) connector.StoredDoorState {
 	st.OpenedAt = clone(st.OpenedAt)
 	st.ConfigMismatchSince = clone(st.ConfigMismatchSince)
+	st.ConfigStartsSince = clone(st.ConfigStartsSince)
 	st.ConfigRevertedAt = clone(st.ConfigRevertedAt)
 	if st.Telemetry != nil {
 		t := *st.Telemetry

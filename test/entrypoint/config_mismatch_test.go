@@ -33,6 +33,14 @@ func (k *keypad) givesUp(at, digest string) {
 	k.publish("doorcode/doors/1/event", testsupport.CBOR(map[string]any{"v": 1, "event": "config_reverted", "config_digest": digest}))
 }
 
+// restarts has Lobby's controller say, at the RFC 3339 time at, that it
+// started because its firmware asked, and the server handle it.
+func (k *keypad) restarts(at string) {
+	k.t.Helper()
+	k.at(at)
+	k.starts("software")
+}
+
 // configState is what the state API says of the configuration Lobby's
 // controller runs: whether it is not the one last sent, whether the
 // controller gave that one up, and since when.
@@ -291,6 +299,97 @@ func TestADoorGivingUpAConfigurationOtherThanTheOneLastSentIsLoggedButNotFlagged
 	}
 }
 
+func TestADoorThatKeepsStartingWithoutReportingTheConfigurationIsFlaggedSinceItsFirstStart(t *testing.T) {
+	t.Parallel()
+	k := keypadSite(t, testsupport.NewFactory())
+	k.runs("2026-01-05T08:59:00Z", otherDigest)
+	k.restarts("2026-01-05T09:01:00Z")
+	k.restarts("2026-01-05T09:02:00Z")
+	k.restarts("2026-01-05T09:03:00Z")
+
+	got := []any{k.configState(), k.configShown(), doorPage(t, k.b, "/admin/doors/1").Notes}
+
+	want := []any{
+		[]any{true, false, "2026-01-05T09:01:00Z"},
+		[]any{"Online Restarting with configuration", "Restarting"},
+		[]string{"Started 3 times since Mon 5 Jan 2026 09:01:00 without reporting the configuration last sent: " +
+			"the door may be unable to keep it."},
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("state, shown, notes (-want +got):\n%s", diff)
+	}
+}
+
+func TestADoorIsNotFlaggedForRestartingUntilItStartsTwiceWithoutReportingTheConfiguration(t *testing.T) {
+	t.Parallel()
+	cases := map[string]struct {
+		arrange func(k *keypad)
+		shown   string
+	}{
+		"one start": {func(k *keypad) {
+			k.restarts("2026-01-05T09:01:00Z")
+		}, "Not reported yet"},
+		"a start, a report of the configuration last sent, and a start": {func(k *keypad) {
+			k.restarts("2026-01-05T09:01:00Z")
+			k.runs("2026-01-05T09:02:00Z", k.sentDigest())
+			k.restarts("2026-01-05T09:03:00Z")
+		}, "Up to date"},
+		"two starts and a report of the configuration last sent": {func(k *keypad) {
+			k.restarts("2026-01-05T09:01:00Z")
+			k.restarts("2026-01-05T09:02:00Z")
+			k.runs("2026-01-05T09:03:00Z", k.sentDigest())
+		}, "Up to date"},
+		"two starts, a new configuration, and a start": {func(k *keypad) {
+			k.restarts("2026-01-05T09:01:00Z")
+			k.restarts("2026-01-05T09:02:00Z")
+			k.changeConfig("2026-01-05T09:03:00Z")
+			k.restarts("2026-01-05T09:04:00Z")
+		}, "Not reported yet"},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			k := keypadSite(t, testsupport.NewFactory())
+			c.arrange(k)
+
+			got := []any{k.configState(), k.configShown()}
+
+			want := []any{[]any{false, false, nil}, []any{"Online", c.shown}}
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Errorf("state, shown (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestStartsAfterANewConfigurationCountFromTheFirstOfThem(t *testing.T) {
+	t.Parallel()
+	k := keypadSite(t, testsupport.NewFactory())
+	k.restarts("2026-01-05T09:01:00Z")
+	k.changeConfig("2026-01-05T09:02:00Z")
+	k.restarts("2026-01-05T09:03:00Z")
+	k.restarts("2026-01-05T09:04:00Z")
+
+	if diff := cmp.Diff([]any{true, false, "2026-01-05T09:03:00Z"}, k.configState()); diff != "" {
+		t.Errorf("state (-want +got):\n%s", diff)
+	}
+}
+
+func TestADoorRestartingWhileReportingAnotherConfigurationStaysFlagged(t *testing.T) {
+	t.Parallel()
+	k := keypadSite(t, testsupport.NewFactory())
+	k.restarts("2026-01-05T09:01:00Z")
+	k.restarts("2026-01-05T09:02:00Z")
+	k.runs("2026-01-05T09:03:00Z", otherDigest)
+
+	got := []any{k.configState(), k.configShown()}
+
+	want := []any{[]any{true, false, "2026-01-05T09:01:00Z"}, []any{"Online Restarting with configuration", "Restarting"}}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("state, shown (-want +got):\n%s", diff)
+	}
+}
+
 func TestADoorWhoseSentConfigurationWasNotKeptIsNotJudged(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
@@ -300,6 +399,8 @@ func TestADoorWhoseSentConfigurationWasNotKeptIsNotJudged(t *testing.T) {
 	k.runs("2026-01-05T09:01:00Z", otherDigest)
 	k.runs("2026-01-05T09:02:00Z", otherDigest)
 	k.givesUp("2026-01-05T09:03:00Z", otherDigest)
+	k.restarts("2026-01-05T09:04:00Z")
+	k.restarts("2026-01-05T09:05:00Z")
 
 	got := []any{k.state("/config_sent_digest"), k.configState(), k.configShown()}
 

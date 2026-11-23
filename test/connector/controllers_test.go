@@ -354,6 +354,7 @@ func TestStoreKeepsADoorsStateWithItsController(t *testing.T) {
 				Totals: connector.StoredCounts{Reconnects: 5, Opens: 9, StoredLinkCounts: connector.StoredLinkCounts{ChecksSent: 12, Roams: 3}},
 			}
 			c.ConfigMismatchSince, c.ConfigRevertedDigest, c.ConfigRevertedAt = &opened, "aed54fd952c8d3a6", &controllerSeen
+			c.ConfigStarts, c.ConfigStartsSince = 3, &opened
 
 			mustSetController(t, store, id, c)
 

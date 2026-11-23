@@ -373,9 +373,12 @@ type StoredController struct {
 // controller the server has not heard from for too long. Telemetry is its
 // latest report, nil until its first. ConfigMismatchSince is when its
 // reports began naming a configuration other than the one the door was
-// last sent, nil while they do not. ConfigRevertedDigest is the digest of
-// the configuration it last said it gave up, at ConfigRevertedAt, empty
-// and nil until it has.
+// last sent, nil while they do not. ConfigStarts is how often it said it
+// started since the configuration the door was last sent went out with no
+// report naming that configuration since, the first of them at
+// ConfigStartsSince; 0 and nil while there are none.
+// ConfigRevertedDigest is the digest of the configuration it last said it
+// gave up, at ConfigRevertedAt, empty and nil until it has.
 type StoredDoorState struct {
 	FirmwareVersion      string
 	Signal               int
@@ -386,6 +389,8 @@ type StoredDoorState struct {
 	Unresponsive         bool
 	Telemetry            *StoredTelemetry
 	ConfigMismatchSince  *time.Time
+	ConfigStarts         int
+	ConfigStartsSince    *time.Time
 	ConfigRevertedDigest string
 	ConfigRevertedAt     *time.Time
 }

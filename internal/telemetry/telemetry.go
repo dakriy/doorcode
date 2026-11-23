@@ -93,6 +93,9 @@ func (s Service) report(ctx context.Context, doorID int64, payload []byte) error
 	c := heard(held, now)
 	c.Telemetry, c.FirmwareVersion, c.Signal = &t, m.FirmwareVersion, m.Signal
 	c.ConfigMismatchSince = mismatchSince(d, held, t)
+	if sent := d.SentConfig; sent != nil && t.ConfigDigest == sent.Digest {
+		c.ConfigStarts, c.ConfigStartsSince = 0, nil
+	}
 	if m.DoorOpen {
 		if err := s.checkOpened(ctx, d.ID, held, now); err != nil {
 			return err
@@ -139,6 +142,7 @@ func (s Service) doorEvent(ctx context.Context, doorID int64, payload []byte) er
 		if _, err := s.Events.Record(ctx, Started(now, d.ID, m.Reason)); err != nil {
 			return err
 		}
+		c.ConfigStarts, c.ConfigStartsSince = startsAfter(d, held, now)
 	case protocol.EventConfigReverted:
 		detail := "The door could not come online with configuration " + m.ConfigDigest + " and went back to the one it ran before."
 		if _, err := s.Events.Record(ctx, alarm(now, d.ID, event.ConfigReverted, detail)); err != nil {

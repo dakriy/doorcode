@@ -291,6 +291,7 @@ func TestStoreSetsADoorsStateLeavingItsControllerAsItIs(t *testing.T) {
 					StoredLinkCounts: connector.StoredLinkCounts{ChecksSent: 9, TCPRetransmits: 4}, StoredLink: connector.StoredLink{BSSID: "f09fc2a1e001", Channel: 6},
 					ConfigDigest: "0123456789abcdef"},
 				ConfigMismatchSince: &opened, ConfigRevertedDigest: "aed54fd952c8d3a6", ConfigRevertedAt: &controllerSeen,
+				ConfigStarts: 2, ConfigStartsSince: &controllerSeen,
 			}
 
 			found, err := store.SetDoorState(context.Background(), id, st)

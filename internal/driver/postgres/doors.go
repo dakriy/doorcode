@@ -18,7 +18,7 @@ const (
 	doors.created_at,
 	array(select zone_id from zone_doors where door_id = doors.id order by zone_id),
 	c.hardware_id, c.firmware_version, c.signal, c.online, c.last_seen_at, c.door_state, c.opened_at, c.held_open, c.unresponsive,
-	c.telemetry, c.config_mismatch_since, c.config_reverted_digest, c.config_reverted_at, doors.config, doors.firmware_id,
+	c.telemetry, c.config_mismatch_since, c.config_starts, c.config_starts_since, c.config_reverted_digest, c.config_reverted_at, doors.config, doors.firmware_id,
 	doors.sent_config_digest, doors.sent_config_at`
 	doorTables = `doors left join door_controllers c on c.door_id = doors.id`
 )
@@ -28,11 +28,11 @@ const (
 type scannedDoor struct {
 	connector.StoredDoor
 	controller struct {
-		hardwareID, firmwareVersion, doorState, revertedDigest *string
-		signal                                                 *int
-		online, heldOpen, unresponsive                         *bool
-		lastSeenAt, openedAt, mismatchSince, revertedAt        *time.Time
-		telemetry                                              *connector.StoredTelemetry
+		hardwareID, firmwareVersion, doorState, revertedDigest       *string
+		signal, starts                                               *int
+		online, heldOpen, unresponsive                               *bool
+		lastSeenAt, openedAt, mismatchSince, startsSince, revertedAt *time.Time
+		telemetry                                                    *connector.StoredTelemetry
 	}
 	sentDigest *string
 	sentAt     *time.Time
@@ -42,7 +42,7 @@ func doorFields(d *scannedDoor) []any {
 	c := &d.controller
 	return []any{&d.ID, &d.Name, &d.Location, &d.Notes, &d.Public, &d.PrimaryPictureID, &d.DeletedAt, &d.CreatedAt,
 		&d.ZoneIDs, &c.hardwareID, &c.firmwareVersion, &c.signal, &c.online, &c.lastSeenAt,
-		&c.doorState, &c.openedAt, &c.heldOpen, &c.unresponsive, &c.telemetry, &c.mismatchSince, &c.revertedDigest, &c.revertedAt,
+		&c.doorState, &c.openedAt, &c.heldOpen, &c.unresponsive, &c.telemetry, &c.mismatchSince, &c.starts, &c.startsSince, &c.revertedDigest, &c.revertedAt,
 		&d.Config, &d.FirmwareID, &d.sentDigest, &d.sentAt}
 }
 
@@ -54,7 +54,7 @@ func (d scannedDoor) door() connector.StoredDoor {
 		d.Controller = &connector.StoredController{HardwareID: *c.hardwareID, Online: *c.online, StoredDoorState: connector.StoredDoorState{
 			FirmwareVersion: *c.firmwareVersion, Signal: *c.signal, LastSeenAt: *c.lastSeenAt,
 			DoorState: *c.doorState, OpenedAt: c.openedAt, HeldOpen: *c.heldOpen, Unresponsive: *c.unresponsive, Telemetry: c.telemetry,
-			ConfigMismatchSince: c.mismatchSince, ConfigRevertedDigest: *c.revertedDigest, ConfigRevertedAt: c.revertedAt,
+			ConfigMismatchSince: c.mismatchSince, ConfigStarts: *c.starts, ConfigStartsSince: c.startsSince, ConfigRevertedDigest: *c.revertedDigest, ConfigRevertedAt: c.revertedAt,
 		}}
 	}
 	if d.sentDigest != nil {
@@ -132,10 +132,10 @@ func (s *Store) SetController(ctx context.Context, id int64, c *connector.Stored
 func (s *Store) SetDoorState(ctx context.Context, id int64, st connector.StoredDoorState) (bool, error) {
 	tag, err := s.pool.Exec(ctx, `
 		update door_controllers set firmware_version = $2, signal = $3, last_seen_at = $4, door_state = $5, opened_at = $6,
-			held_open = $7, unresponsive = $8, telemetry = $9, config_mismatch_since = $10, config_reverted_digest = $11,
-			config_reverted_at = $12
+			held_open = $7, unresponsive = $8, telemetry = $9, config_mismatch_since = $10, config_starts = $11,
+			config_starts_since = $12, config_reverted_digest = $13, config_reverted_at = $14
 		where door_id = $1`, id, st.FirmwareVersion, st.Signal, st.LastSeenAt, st.DoorState, st.OpenedAt, st.HeldOpen, st.Unresponsive, st.Telemetry,
-		st.ConfigMismatchSince, st.ConfigRevertedDigest, st.ConfigRevertedAt)
+		st.ConfigMismatchSince, st.ConfigStarts, st.ConfigStartsSince, st.ConfigRevertedDigest, st.ConfigRevertedAt)
 	return tag.RowsAffected() == 1, err
 }
 
@@ -167,10 +167,11 @@ func replaceController(ctx context.Context, tx pgx.Tx, id int64, c *connector.St
 	}
 	_, err := tx.Exec(ctx, `
 		insert into door_controllers (door_id, hardware_id, firmware_version, signal, online, last_seen_at,
-			door_state, opened_at, held_open, unresponsive, telemetry, config_mismatch_since, config_reverted_digest, config_reverted_at)
-		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`, id, c.HardwareID, c.FirmwareVersion, c.Signal, c.Online,
-		c.LastSeenAt, c.DoorState, c.OpenedAt, c.HeldOpen, c.Unresponsive, c.Telemetry, c.ConfigMismatchSince, c.ConfigRevertedDigest,
-		c.ConfigRevertedAt)
+			door_state, opened_at, held_open, unresponsive, telemetry, config_mismatch_since, config_starts, config_starts_since,
+			config_reverted_digest, config_reverted_at)
+		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`, id, c.HardwareID, c.FirmwareVersion, c.Signal,
+		c.Online, c.LastSeenAt, c.DoorState, c.OpenedAt, c.HeldOpen, c.Unresponsive, c.Telemetry, c.ConfigMismatchSince, c.ConfigStarts,
+		c.ConfigStartsSince, c.ConfigRevertedDigest, c.ConfigRevertedAt)
 	return err
 }
 

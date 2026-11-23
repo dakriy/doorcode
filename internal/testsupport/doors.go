@@ -181,6 +181,7 @@ func clonedController(c *connector.StoredController) *connector.StoredController
 	copied := *c
 	copied.OpenedAt, copied.Telemetry = cloned(c.OpenedAt), cloned(c.Telemetry)
 	copied.ConfigMismatchSince, copied.ConfigRevertedAt = cloned(c.ConfigMismatchSince), cloned(c.ConfigRevertedAt)
+	copied.ConfigStartsSince = cloned(c.ConfigStartsSince)
 	return &copied
 }
 

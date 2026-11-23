@@ -10958,12 +10958,12 @@
         "properties": {
           "config_mismatch": {
             "type": "boolean",
-            "description": "True when the controller runs a configuration other than the one last sent: two reports in a row after it was sent, with no restart or reconnection between them, named another, or the controller said it gave it up (config_reverted). False until the controller has reported since it was sent, and while its reports name no configuration (its defaults, or firmware that does not report one)."
+            "description": "True when the controller runs a configuration other than the one last sent: two reports in a row after it was sent, with no restart or reconnection between them, named another, the controller said it started twice or more since it was sent with no report naming it, or the controller said it gave it up (config_reverted). False until the controller has reported since it was sent, and while its reports name no configuration (its defaults, or firmware that does not report one)."
           },
           "config_mismatch_since": {
             "type": "string",
             "format": "date-time",
-            "description": "Since when config_mismatch holds: the first of the reports naming another configuration, or when the controller said it gave the configuration up; absent while it does not."
+            "description": "Since when config_mismatch holds: the first of the reports naming another configuration, the first of the starts with no report naming the configuration last sent, or when the controller said it gave the configuration up; absent while it does not."
           },
           "config_reverted": {
             "type": "boolean",
