@@ -885,6 +885,17 @@ the controller stays on its current firmware and publishes an ack with the comma
 `result: failed`, and a `detail`. The server records the update as failed
 and sends it again in the next update window.
 
+**A command that does not arrive.** Commands are not kept for a door
+that is away (section 13), and a controller that restarts can be away
+before the server hears it went, so an `update` sent then is lost. A
+controller that connects as its door during an update with a version
+other than the one it was sent, before anything has downloaded the
+image with the update's token, is sent the command again with a new
+`id` and token; the update keeps its expiry. A controller that has
+downloaded the image is not sent it again, whatever version it
+connects with: it is installing it, or it fails the update with its
+ack or by the timeout.
+
 **Signature.** The server signs every image as it serves it, with the
 site's firmware signing key; images are uploaded unsigned, and an
 administrator never signs one. The signature block is the last 68 bytes

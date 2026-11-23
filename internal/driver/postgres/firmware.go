@@ -22,10 +22,10 @@ func firmwareFields(f *connector.StoredFirmware) []any {
 
 // updateColumns lists the door_updates columns in the order updateFields
 // reads them.
-const updateColumns = `door_id, version, command_id, token_hash, sent_at, expires_at, state, finished_at, detail`
+const updateColumns = `door_id, version, command_id, token_hash, sent_at, expires_at, fetched_at, state, finished_at, detail`
 
 func updateFields(u *connector.StoredUpdate) []any {
-	return []any{&u.DoorID, &u.Version, &u.CommandID, &u.TokenHash, &u.SentAt, &u.ExpiresAt, &u.State, &u.FinishedAt, &u.Detail}
+	return []any{&u.DoorID, &u.Version, &u.CommandID, &u.TokenHash, &u.SentAt, &u.ExpiresAt, &u.FetchedAt, &u.State, &u.FinishedAt, &u.Detail}
 }
 
 // AddFirmware inserts f with its image and returns its id.
@@ -100,9 +100,9 @@ func (s *Store) DoorUpdates(ctx context.Context) ([]connector.StoredUpdate, erro
 
 // PutDoorUpdate stores u over its door's latest update.
 func (s *Store) PutDoorUpdate(ctx context.Context, u connector.StoredUpdate) error {
-	_, err := s.pool.Exec(ctx, `insert into door_updates (`+updateColumns+`) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	_, err := s.pool.Exec(ctx, `insert into door_updates (`+updateColumns+`) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		on conflict (door_id) do update set version = excluded.version, command_id = excluded.command_id,
-			token_hash = excluded.token_hash, sent_at = excluded.sent_at, expires_at = excluded.expires_at,
+			token_hash = excluded.token_hash, sent_at = excluded.sent_at, expires_at = excluded.expires_at, fetched_at = excluded.fetched_at,
 			state = excluded.state, finished_at = excluded.finished_at, detail = excluded.detail`, updateFields(&u)...)
 	return err
 }

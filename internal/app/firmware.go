@@ -60,7 +60,8 @@ type versionRef struct {
 type updateView struct {
 	Version    string     `json:"version" doc:"The version the door was told to install."`
 	State      string     `json:"state" doc:"updating until it succeeded (the door connected again with the version) or failed (the door said so, or did not come back with it in time)."`
-	SentAt     time.Time  `json:"sent_at" doc:"When the update was sent."`
+	SentAt     time.Time  `json:"sent_at" doc:"When the update was first sent. A door that connects again with another version before it has downloaded the image is sent it again, under the same expiry."`
+	FetchedAt  *time.Time `json:"fetched_at,omitempty" doc:"When the door first downloaded the image; absent until it does."`
 	FinishedAt *time.Time `json:"finished_at,omitempty" doc:"When it succeeded or failed; absent while it is under way."`
 	Detail     string     `json:"detail,omitempty" doc:"Why it failed."`
 }
@@ -249,7 +250,7 @@ func viewOfDoorFirmware(df firmware.DoorFirmware) doorFirmwareView {
 		view.Version = c.FirmwareVersion
 	}
 	if u := df.Update; u != nil {
-		view.LastUpdate = &updateView{Version: u.Version, State: u.State, SentAt: u.SentAt.UTC(), FinishedAt: utc(u.FinishedAt), Detail: u.Detail}
+		view.LastUpdate = &updateView{Version: u.Version, State: u.State, SentAt: u.SentAt.UTC(), FetchedAt: utc(u.FetchedAt), FinishedAt: utc(u.FinishedAt), Detail: u.Detail}
 	}
 	return view
 }

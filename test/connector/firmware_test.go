@@ -244,9 +244,9 @@ func TestStoreKeepsTheLatestUpdateOfEachDoor(t *testing.T) {
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {
 			store := firmwareWorld(t, impl)
-			finished := firmwareUploaded.Add(5 * time.Minute)
+			fetched, finished := firmwareUploaded.Add(time.Minute), firmwareUploaded.Add(5*time.Minute)
 			done := updateOf(2, "1.5.0")
-			done.State, done.FinishedAt, done.Detail = "failed", &finished, "It did not come back."
+			done.FetchedAt, done.State, done.FinishedAt, done.Detail = &fetched, "failed", &finished, "It did not come back."
 
 			for _, u := range []connector.StoredUpdate{updateOf(2, "1.4.3"), updateOf(1, "1.5.0"), done} {
 				if err := store.PutDoorUpdate(context.Background(), u); err != nil {

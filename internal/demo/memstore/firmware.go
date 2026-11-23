@@ -117,6 +117,7 @@ func (s *Store) DeleteFirmware(_ context.Context, id int64) (bool, error) {
 // updateCopy is a copy of u.
 func updateCopy(u connector.StoredUpdate) connector.StoredUpdate {
 	u.TokenHash = list(u.TokenHash)
+	u.FetchedAt = clone(u.FetchedAt)
 	u.FinishedAt = clone(u.FinishedAt)
 	return u
 }

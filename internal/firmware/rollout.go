@@ -286,6 +286,23 @@ func (s Service) UpdateNow(ctx context.Context, id, by int64) (DoorFirmware, err
 // download token of its own, and logs it, naming the user whose id is by
 // when there is one.
 func (s Service) send(ctx context.Context, df DoorFirmware, current settings.Current, by *int64) error {
+	return s.command(ctx, df, current, sending{by: by})
+}
+
+// sending is how command sends an update: on behalf of the user whose id
+// is by, when there is one; again, keeping when the update was first sent
+// and when it expires, when again holds that update; and with more for
+// its event to say besides the version.
+type sending struct {
+	by    *int64
+	again *connector.StoredUpdate
+	more  string
+}
+
+// command tells the controller of df's door to install its target with a
+// download token and command id of their own, and stores and logs the
+// update as how says.
+func (s Service) command(ctx context.Context, df DoorFirmware, current settings.Current, how sending) error {
 	if current.DeviceURL == "" {
 		return ErrNoAddress
 	}
@@ -302,13 +319,16 @@ func (s Service) send(ctx context.Context, df DoorFirmware, current settings.Cur
 		DoorID: df.Door.ID, Version: target.Version, CommandID: id, TokenHash: hash[:], SentAt: now, ExpiresAt: now.Add(current.UpdateTimeout),
 		State: Updating,
 	}
+	if how.again != nil {
+		u.SentAt, u.ExpiresAt = how.again.SentAt, how.again.ExpiresAt
+	}
 	if err := s.Store.PutDoorUpdate(ctx, u); err != nil {
 		return err
 	}
 	s.Changed()
 	_, err = s.Events.Record(ctx, connector.StoredEvent{
-		At: now, DoorID: df.Door.ID, Type: event.Update, Outcome: event.Info, Reason: event.UpdateSent, UserID: by,
-		Detail: versionDetail(target.Version, ""),
+		At: now, DoorID: df.Door.ID, Type: event.Update, Outcome: event.Info, Reason: event.UpdateSent, UserID: how.by,
+		Detail: versionDetail(target.Version, how.more),
 	})
 	return err
 }
@@ -336,18 +356,37 @@ func (s Service) Acked(ctx context.Context, doorID int64, payload []byte) error 
 }
 
 // Settle ends the update of the door whose id is id, whose controller has
-// just connected, when it connected with the version it was sent.
+// just connected, when it connected with the version it was sent. A
+// controller that connects with another version before it has downloaded
+// the image never received the command: the broker keeps no command for
+// a controller that is away, and a controller restarting can be away
+// before the server hears it went. Its target is sent again, with a new
+// token, keeping the update's expiry.
 func (s Service) Settle(ctx context.Context, id int64) error {
 	u, err := s.updating(ctx, id)
 	if err != nil || u == nil {
 		return err
 	}
-	d, err := s.Doors.Door(ctx, id)
-	if err != nil || d.Controller.FirmwareVersion != u.Version {
+	df, err := s.Door(ctx, id)
+	if err != nil {
 		return err
 	}
-	return s.finish(ctx, *u, Succeeded, "")
+	if df.Door.Controller.FirmwareVersion == u.Version {
+		return s.finish(ctx, *u, Succeeded, "")
+	}
+	if u.FetchedAt != nil || df.Target == nil {
+		return nil
+	}
+	current, err := s.Settings.Current(ctx)
+	if err != nil {
+		return err
+	}
+	return s.command(ctx, df, current, sending{again: u, more: resent})
 }
+
+// resent is what the event of an update sent again says besides the
+// version.
+const resent = " Sent again: the door connected again without having downloaded it."
 
 // updating is the update of the door whose id is doorID that is under
 // way, nil when none is.
@@ -380,10 +419,20 @@ func (s Service) finish(ctx context.Context, u connector.StoredUpdate, state, mo
 	return err
 }
 
+// fetched records that u's image was downloaded at now, when it was not
+// before.
+func (s Service) fetched(ctx context.Context, u connector.StoredUpdate, now time.Time) error {
+	if u.FetchedAt != nil {
+		return nil
+	}
+	u.FetchedAt = &now
+	return s.Store.PutDoorUpdate(ctx, u)
+}
+
 // Download returns the image of version, signed, for the controller of
 // the door whose id is doorID, which token must let it download: the
 // token it was sent with its update to version, under way and not
-// expired.
+// expired. The update records when its image was first downloaded.
 func (s Service) Download(ctx context.Context, doorID int64, version, token string) ([]byte, error) {
 	u, err := s.updating(ctx, doorID)
 	if err != nil {
@@ -393,8 +442,9 @@ func (s Service) Download(ctx context.Context, doorID int64, version, token stri
 		return nil, ErrNotAllowed
 	}
 	hash := sha256.Sum256([]byte(token))
+	now := s.Clock.Now()
 	fits := u.Version == version && subtle.ConstantTimeCompare(hash[:], u.TokenHash) == 1
-	live := s.Clock.Now().Before(u.ExpiresAt)
+	live := now.Before(u.ExpiresAt)
 	if !fits || !live {
 		return nil, ErrNotAllowed
 	}
@@ -408,6 +458,9 @@ func (s Service) Download(ctx context.Context, doorID int64, version, token stri
 	}
 	image, _, err := s.Store.FirmwareImage(ctx, all[i].ID)
 	if err != nil {
+		return nil, err
+	}
+	if err := s.fetched(ctx, *u, now); err != nil {
 		return nil, err
 	}
 	return s.Key.Sign(image), nil

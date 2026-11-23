@@ -1031,9 +1031,10 @@ type StoredFirmware struct {
 // controller of the door whose id is DoorID: the version it was told to
 // install, the id of the command that told it, a hash of the token that
 // lets it download the image, when it was sent, and when the update stops
-// counting as under way and the token stops working. State is "updating"
-// until it "succeeded" or "failed", at FinishedAt, nil until then; Detail
-// says why it failed.
+// counting as under way and the token stops working. FetchedAt is when
+// the controller first downloaded the image with the token, nil until it
+// does. State is "updating" until it "succeeded" or "failed", at
+// FinishedAt, nil until then; Detail says why it failed.
 type StoredUpdate struct {
 	DoorID     int64
 	Version    string
@@ -1041,6 +1042,7 @@ type StoredUpdate struct {
 	TokenHash  []byte
 	SentAt     time.Time
 	ExpiresAt  time.Time
+	FetchedAt  *time.Time
 	State      string
 	FinishedAt *time.Time
 	Detail     string

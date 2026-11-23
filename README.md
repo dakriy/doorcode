@@ -580,7 +580,12 @@ valid only for that update until it times out, so nothing is sent while
 checks the image against `sha256`, installs it, and reconnects reporting the new version, which ends
 the update as succeeded. A door that cannot install it answers `failed` on
 its ack topic; one that does not come back within `update_timeout_minutes`
-fails too. A door that failed is sent its target again in the next window.
+fails too. A door that connects again on another version before it has
+downloaded the image never received the command, which the broker does
+not keep for a door that is away, and is sent it again under the same
+timeout; the API shows when the image was first downloaded
+(`last_update.fetched_at`). A door that failed is sent its target again in
+the next window.
 A door that cannot reconnect on the new version reverts on its own and
 reappears on the old.
 

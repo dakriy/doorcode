@@ -87,6 +87,7 @@ func TestFirmwareOperationsAnswerAFailureWithARequestID(t *testing.T) {
 		"downloading, when updates cannot be read":          {updatesFail, call("GET", "/api/v1/doors/1/firmware/1.5.0?token=x", "")},
 		"downloading, when firmware cannot be read":         {both(updateSentToLobby, firmwareFails), downloading},
 		"downloading, when the image cannot be read":        {both(updateSentToLobby, imageReadsFail), downloading},
+		"downloading, when the download cannot be recorded": {both(updateSentToLobby, firmwareWritesFail), downloading},
 		"uploading, when firmware cannot be read":           {firmwareFails, uploading},
 		"uploading, when the upload cannot be stored":       {firmwareWritesFail, uploading},
 		"the firmware page, when settings cannot be read":   {settingsFail, call("GET", "/admin/firmware", "")},
@@ -217,6 +218,7 @@ func TestAControllerMessageAboutAnUpdateThatCannotBeHandledIsLogged(t *testing.T
 	t.Parallel()
 	failed := func(fl *fleet) { fl.acks(1, "failed", "") }
 	back := func(fl *fleet) { fl.reconnects(1, "1.5.0") }
+	behind := func(fl *fleet) { fl.reconnects(1, "1.4.3") }
 	unavailable := "stub: unavailable"
 	cases := map[string]struct {
 		fail   fleetFailure
@@ -224,10 +226,12 @@ func TestAControllerMessageAboutAnUpdateThatCannotBeHandledIsLogged(t *testing.T
 		topic  string
 		error  string
 	}{
-		"an answer, when updates cannot be read":            {updatesFail, failed, "doorcode/doors/1/ack", unavailable},
-		"an answer, when the failure cannot be logged":      {eventWritesFail, failed, "doorcode/doors/1/ack", unavailable},
-		"a reconnection, when updates cannot be read":       {updatesFail, back, "doorcode/doors/1/online", unavailable},
-		"a reconnection, when the success cannot be stored": {firmwareWritesFail, back, "doorcode/doors/1/online", unavailable},
+		"an answer, when updates cannot be read":              {updatesFail, failed, "doorcode/doors/1/ack", unavailable},
+		"an answer, when the failure cannot be logged":        {eventWritesFail, failed, "doorcode/doors/1/ack", unavailable},
+		"a reconnection, when updates cannot be read":         {updatesFail, back, "doorcode/doors/1/online", unavailable},
+		"a reconnection, when the success cannot be stored":   {firmwareWritesFail, back, "doorcode/doors/1/online", unavailable},
+		"a reconnection behind, when firmware cannot be read": {firmwareFails, behind, "doorcode/doors/1/online", unavailable},
+		"a reconnection behind, when settings cannot be read": {settingsFail, behind, "doorcode/doors/1/online", unavailable},
 		"an answer that is not one": {func(*fleet) {}, func(fl *fleet) {
 			fl.publish(1, "ack", testsupport.CBOR(map[string]any{"v": 2}))
 		}, "doorcode/doors/1/ack", "unsupported protocol version 2"},

@@ -13543,6 +13543,11 @@
             "type": "string",
             "description": "Why it failed."
           },
+          "fetched_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the door first downloaded the image; absent until it does."
+          },
           "finished_at": {
             "type": "string",
             "format": "date-time",
@@ -13551,7 +13556,7 @@
           "sent_at": {
             "type": "string",
             "format": "date-time",
-            "description": "When the update was sent."
+            "description": "When the update was first sent. A door that connects again with another version before it has downloaded the image is sent it again, under the same expiry."
           },
           "state": {
             "type": "string",

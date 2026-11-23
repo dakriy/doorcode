@@ -179,10 +179,8 @@ func (s *Store) PutDoorUpdate(_ context.Context, u connector.StoredUpdate) error
 // cloneUpdate is a copy of u sharing nothing with it.
 func cloneUpdate(u connector.StoredUpdate) connector.StoredUpdate {
 	u.TokenHash = slices.Clone(u.TokenHash)
-	if u.FinishedAt != nil {
-		at := *u.FinishedAt
-		u.FinishedAt = &at
-	}
+	u.FetchedAt = cloned(u.FetchedAt)
+	u.FinishedAt = cloned(u.FinishedAt)
 	return u
 }
 

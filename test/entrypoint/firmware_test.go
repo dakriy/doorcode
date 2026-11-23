@@ -441,15 +441,114 @@ func TestADoorThatReconnectsWithTheNewVersionHasUpdated(t *testing.T) {
 	}
 }
 
-func TestADoorThatReconnectsStillOnTheOldVersionIsStillUpdating(t *testing.T) {
+// resentDetail is what the event of an update sent again to Lobby says.
+const resentDetail = "Version 1.5.0. Sent again: the door connected again without having downloaded it."
+
+// lastUpdateURL is the target of the URL of the last update command the
+// controller of the door whose id is door received.
+func lastUpdateURL(fl *fleet, door int) string {
+	fl.t.Helper()
+	received := fl.conns[door-1].Received()
+	for i := len(received) - 1; i >= 0; i-- {
+		if received[i].Topic == doorTopic(testsupport.Itoa(door), "command") {
+			m, _ := testsupport.Decoded(received[i].Payload).(map[string]any)
+			url, _ := m["url"].(string)
+			return testsupport.Target(url)
+		}
+	}
+	fl.t.Fatal("the controller received no command")
+	return ""
+}
+
+// lastUpdate is the latest update of the door whose id is door, as the
+// API shows it.
+func (fl *fleet) lastUpdate(door int) any {
+	fl.t.Helper()
+	return testsupport.JSONAt(send(fl.t, fl.b, "GET", "/api/v1/doors/"+testsupport.Itoa(door)+"/firmware", "", 200).Body, "/last_update")
+}
+
+func TestADoorThatReconnectsOnTheOldVersionBeforeDownloadingIsSentItsUpdateAgain(t *testing.T) {
 	t.Parallel()
 	fl := fleetSite(t, testsupport.NewFactory())
 	fl.at("2026-01-06T02:00:00Z")
+	first := lastUpdateURL(fl, 1)
+
+	fl.f.ClockStub.Set("2026-01-06T02:01:00Z")
+	fl.reconnects(1, "1.4.3")
+
+	browser := testsupport.NewBrowser(fl.a.Handler())
+	got := []any{fl.commands(), fl.updateEvents()[0], browser.Get(first).Status, browser.Get(lastUpdateURL(fl, 1)).Status, fl.lastUpdate(1)}
+	want := []any{
+		topicsOf("command", "1", "2", "1"),
+		[]any{float64(1), "info", "update sent", resentDetail},
+		403, 200,
+		testsupport.JSON(`{"version":"1.5.0","state":"updating","sent_at":"2026-01-06T02:00:00Z","fetched_at":"2026-01-06T02:01:00Z"}`),
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("commands, newest event, first and second download, last update (-want +got):\n%s", diff)
+	}
+}
+
+func TestAnUpdateSentAgainKeepsItsExpiry(t *testing.T) {
+	t.Parallel()
+	fl := fleetSite(t, testsupport.NewFactory())
+	fl.at("2026-01-06T02:00:00Z")
+	fl.f.ClockStub.Set("2026-01-06T02:20:00Z")
+	fl.reconnects(1, "1.4.3")
+
+	fl.at("2026-01-06T02:30:00Z")
+
+	want := []any{"failed", []any{float64(1), "alert", "update failed", "Version 1.5.0. It did not connect again with it within 30 minutes."}}
+	if diff := cmp.Diff(want, []any{fl.status(1), fl.updateEvents()[2]}); diff != "" {
+		t.Errorf("status, Lobby's failure (-want +got):\n%s", diff)
+	}
+}
+
+func TestADoorThatReconnectsOnTheOldVersionAfterDownloadingIsStillUpdating(t *testing.T) {
+	t.Parallel()
+	fl := fleetSite(t, testsupport.NewFactory())
+	fl.at("2026-01-06T02:00:00Z")
+	fl.f.ClockStub.Set("2026-01-06T02:00:30Z")
+	fl.download(1)
 
 	fl.reconnects(1, "1.4.3")
 
-	if diff := cmp.Diff("updating", fl.status(1)); diff != "" {
-		t.Errorf("status (-want +got):\n%s", diff)
+	want := []any{
+		topicsOf("command", "1", "2"),
+		testsupport.JSON(`{"version":"1.5.0","state":"updating","sent_at":"2026-01-06T02:00:00Z","fetched_at":"2026-01-06T02:00:30Z"}`),
+	}
+	if diff := cmp.Diff(want, []any{fl.commands(), fl.lastUpdate(1)}); diff != "" {
+		t.Errorf("commands, last update (-want +got):\n%s", diff)
+	}
+}
+
+func TestADownloadedImageKeepsWhenItWasFirstDownloaded(t *testing.T) {
+	t.Parallel()
+	fl := fleetSite(t, testsupport.NewFactory())
+	fl.at("2026-01-06T02:00:00Z")
+	fl.f.ClockStub.Set("2026-01-06T02:00:30Z")
+	fl.download(1)
+	fl.f.ClockStub.Set("2026-01-06T02:00:40Z")
+
+	again := fl.download(1)
+
+	want := []any{200, "2026-01-06T02:00:30Z"}
+	if diff := cmp.Diff(want, []any{again.Status, testsupport.JSONAt(send(t, fl.b, "GET", "/api/v1/doors/1/firmware", "", 200).Body, "/last_update/fetched_at")}); diff != "" {
+		t.Errorf("second download, fetched at (-want +got):\n%s", diff)
+	}
+}
+
+func TestADoorThatLostItsTargetIsNotSentItsUpdateAgain(t *testing.T) {
+	t.Parallel()
+	fl := fleetSite(t, testsupport.NewFactory())
+	fl.at("2026-01-06T02:00:00Z")
+	send(t, fl.b, "PUT", "/api/v1/firmware/default", `{"firmware_id":null}`, 204)
+
+	fl.reconnects(1, "1.4.3")
+
+	want := []any{topicsOf("command", "1", "2"), "updating"}
+	if diff := cmp.Diff(want, []any{fl.commands(), testsupport.JSONAt(send(t, fl.b, "GET", "/api/v1/doors/1/firmware", "", 200).Body, "/last_update/state")}); diff != "" {
+		t.Errorf("commands, update state (-want +got):\n%s", diff)
 	}
 }
 
