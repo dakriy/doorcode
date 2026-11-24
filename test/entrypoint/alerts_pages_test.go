@@ -8,8 +8,8 @@ import (
 	"github.com/dakriy/doorcode/internal/testsupport"
 )
 
-// kindRows is how the Alerts page lists the kinds of alert, after its
-// head.
+// kindRows is how the Alerts tab of the settings page lists the kinds of
+// alert.
 var kindRows = [][]string{
 	{"Alert", "Raised and cleared"},
 	{"Door forced open forced_open", "A door opened while nothing unlocked it. It clears when the door closes."},
@@ -31,34 +31,36 @@ var kindRows = [][]string{
 	{"Certificate certificate", certificateAbout},
 }
 
-// alertMailRows is how the Alerts page lists the alert mail settings,
-// with the cell of each setting's value.
-func alertMailRows(recipients, cleared, holdDown string) [][]string {
+// alertMailRows is how the Alerts tab of the settings page lists the
+// alert mail settings, with the cell of each setting's value and the
+// recipients' source.
+func alertMailRows(recipients, cleared, holdDown, source string) [][]string {
 	return [][]string{
-		{"Setting", "Value"},
+		{"Setting", "Value", "Source"},
 		{"Recipients alert_recipients The addresses every enabled alert mails, separated by commas or new lines, such as ops@example.com. " +
-			"Nothing is mailed while it is empty.", recipients},
-		{"Mail when cleared alert_mail_cleared Mails the recipients once more when a condition an alert mailed about clears.", cleared},
+			"Nothing is mailed while it is empty.", recipients, source},
+		{"Mail when cleared alert_mail_cleared Mails the recipients once more when a condition an alert mailed about clears.", cleared, "default"},
 		{"Quiet after clearing alert_hold_down_minutes Minutes a cleared condition must stay clear before it mails again when it comes back; " +
-			"one that comes back sooner is followed without mail.", holdDown},
+			"one that comes back sooner is followed without mail.", holdDown, "default"},
 	}
 }
 
-// certificateCheckRows is how the Alerts page lists the certificate
-// check settings, with the cell of each setting's value.
-func certificateCheckRows(enabled, interval string) [][]string {
-	return [][]string{
-		{"Setting", "Value"},
-		{"Check certificates certificate_check_enabled Checks each endpoint again once the interval has passed since its last check. " +
-			"Check now works while it is off.", enabled},
-		{"Check interval certificate_check_interval_hours Hours, from 1 to 720, between two checks of an endpoint.", interval},
-		{"Runway alert certificate_runway_days Days, from 1 to 3650: the certificate alert is raised when the earliest expiry along a chain " +
-			"after its leaf, the trust anchor included, is fewer days away.", "1 to 3650 days"},
-		{"Leaf alert certificate_leaf_days Days, from 1 to 365: the certificate alert is raised when the leaf expires in fewer days.", "1 to 365 days"},
-		{"Unreachable alert certificate_unreachable_checks Checks, from 1 to 100: the certificate alert is raised when this many checks " +
-			"in a row reach no server.", "1 to 100 checks"},
-	}
+// certificateCheckRows is how the Alerts tab of the settings page lists
+// the certificate check settings, at their defaults.
+var certificateCheckRows = [][]string{
+	{"Setting", "Value", "Source"},
+	{"Check certificates certificate_check_enabled Checks each endpoint again once the interval has passed since its last check. " +
+		"Check now works while it is off.", "On", "default"},
+	{"Check interval certificate_check_interval_hours Hours, from 1 to 720, between two checks of an endpoint.", "1 to 720 hours", "default"},
+	{"Runway alert certificate_runway_days Days, from 1 to 3650: the certificate alert is raised when the earliest expiry along a chain " +
+		"after its leaf, the trust anchor included, is fewer days away.", "1 to 3650 days", "default"},
+	{"Leaf alert certificate_leaf_days Days, from 1 to 365: the certificate alert is raised when the leaf expires in fewer days.", "1 to 365 days", "default"},
+	{"Unreachable alert certificate_unreachable_checks Checks, from 1 to 100: the certificate alert is raised when this many checks " +
+		"in a row reach no server.", "1 to 100 checks", "default"},
 }
+
+// alertsTabPath is the address of the Alerts tab of the settings page.
+const alertsTabPath = "/admin/settings?tab=alerts"
 
 // mailNotSetUpNote is the note the Alerts page shows while mail is not set
 // up.
@@ -72,7 +74,7 @@ var raisedHead = []string{"Alert", "About", "Since", "Mail"}
 // outboxHead heads the Alerts page's outbox.
 var outboxHead = []string{"Queued", "Subject", "To", "Status", "Attempts", "Last error"}
 
-func TestTheAlertsPageShowsTheKindsTheAlertMailSettingsAndAnEmptyOutbox(t *testing.T) {
+func TestTheAlertsPageShowsNothingRaisedNothingToCheckAnEmptyOutboxAndWhereTheSettingsAre(t *testing.T) {
 	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 
@@ -80,15 +82,8 @@ func TestTheAlertsPageShowsTheKindsTheAlertMailSettingsAndAnEmptyOutbox(t *testi
 
 	want := testsupport.Page{
 		Title: "Alerts · doorcode", Heading: "Alerts", Nav: mainNav("Site: Alerts", ""), Messages: []string{"You are signed in."},
-		Notes: []string{mailNotSetUpNote, nothingToCheck},
-		Values: map[string]string{"alert_recipients": "", "alert_mail_cleared": "false", "alert_hold_down_minutes": "15",
-			"certificate_check_enabled": "false", "certificate_check_interval_hours": "24",
-			"certificate_runway_days": "548", "certificate_leaf_days": "14", "certificate_unreachable_checks": "3"},
-		Checked: []string{"alert_mail_cleared=true"},
+		Notes: []string{mailNotSetUpNote, nothingToCheck}, LinkTargets: map[string]string{"Alert settings": alertsTabPath},
 		Tables: map[string][][]string{
-			"Kinds of alert":     kindRows,
-			"Alert mail":         alertMailRows("", "On", "0 to 10080 minutes"),
-			"Certificate check":  certificateCheckRows("On", "1 to 720 hours"),
 			"Raised now":         {raisedHead, {"Nothing is raised."}},
 			"Certificate checks": {certificatesHead},
 			"Outbox":             {outboxHead, {"No alert mail yet."}},
@@ -99,11 +94,33 @@ func TestTheAlertsPageShowsTheKindsTheAlertMailSettingsAndAnEmptyOutbox(t *testi
 	}
 }
 
-func TestTheAlertsPageAsksForEachAlertMailSettingWithItsControl(t *testing.T) {
+func TestTheAlertsTabOfTheSettingsPageShowsTheKindsAndTheAlertSettings(t *testing.T) {
 	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 
-	page := testsupport.ParsePage(b.Get("/admin/alerts").Body)
+	got := pageOf(b.Get(alertsTabPath))
+
+	want := settingsTab("Alerts")
+	want.Messages = []string{"You are signed in."}
+	want.Values = map[string]string{"kind": "", "alert_recipients": "", "alert_mail_cleared": "false", "alert_hold_down_minutes": "15",
+		"certificate_check_enabled": "false", "certificate_check_interval_hours": "24",
+		"certificate_runway_days": "548", "certificate_leaf_days": "14", "certificate_unreachable_checks": "3"}
+	want.Checked = []string{"alert_mail_cleared=true"}
+	want.Tables = map[string][][]string{
+		"Kinds of alert":    kindRows,
+		"Alert mail":        alertMailRows("", "On", "0 to 10080 minutes", "default"),
+		"Certificate check": certificateCheckRows,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("page (-want +got):\n%s", diff)
+	}
+}
+
+func TestTheAlertsTabAsksForEachAlertMailSettingWithItsControl(t *testing.T) {
+	t.Parallel()
+	b := signedInAdmin(t, testsupport.NewFactory())
+
+	page := testsupport.ParsePage(b.Get(alertsTabPath).Body)
 
 	keys := []string{"alert_recipients", "alert_mail_cleared", "alert_hold_down_minutes"}
 	want := []any{
@@ -118,11 +135,11 @@ func TestTheAlertsPageAsksForEachAlertMailSettingWithItsControl(t *testing.T) {
 	}
 }
 
-func TestTheAlertsPageAsksForEachCertificateCheckSettingWithItsControl(t *testing.T) {
+func TestTheAlertsTabAsksForEachCertificateCheckSettingWithItsControl(t *testing.T) {
 	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 
-	page := testsupport.ParsePage(b.Get("/admin/alerts").Body)
+	page := testsupport.ParsePage(b.Get(alertsTabPath).Body)
 
 	keys := []string{"certificate_check_enabled", "certificate_check_interval_hours", "certificate_runway_days", "certificate_leaf_days", "certificate_unreachable_checks"}
 	want := []any{
@@ -179,18 +196,18 @@ func (k *keypad) inZone(zone string) {
 	k.setting("site_timezone", zone)
 }
 
-func TestSavingTheAlertsPageStoresTheKindsTickedAndTheAlertMailSettings(t *testing.T) {
+func TestSavingTheAlertsTabStoresTheKindsTickedAndTheAlertMailSettings(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	b := signedInAdmin(t, f)
 	send(t, b, "PUT", "/api/v1/alerts/kinds/forced_open", `{"enabled":true}`, 200)
 
-	saved := b.Post("/admin/alerts", "kind", "held_open", "alert_recipients", "ops@example.com\r\ndesk@example.com",
+	saved := b.Post("/admin/settings", "kind", "", "kind", "held_open", "alert_recipients", "ops@example.com\r\ndesk@example.com",
 		"alert_mail_cleared", "false", "alert_hold_down_minutes", "30")
 	shown := pageOf(b.Get(saved.Location))
 	api := send(t, b, "GET", "/api/v1/alerts", "", 200).Body
 
-	want := []any{303, "/admin/alerts", []string{"The alerts have been saved."}, []string{"kind=held_open"}, testsupport.JSON(`[false,true]`),
+	want := []any{303, alertsTabPath, []string{"The settings have been saved. Doors receive changed configuration defaults right away."}, []string{"kind=held_open"}, testsupport.JSON(`[false,true]`),
 		testsupport.JSON(`["ops@example.com","desk@example.com"]`), false, 30.0}
 	got := []any{saved.Status, saved.Location, shown.Messages, shown.Checked,
 		[]any{testsupport.JSONAt(api, "/kinds/0/enabled"), testsupport.JSONAt(api, "/kinds/1/enabled")},
@@ -200,12 +217,12 @@ func TestSavingTheAlertsPageStoresTheKindsTickedAndTheAlertMailSettings(t *testi
 	}
 }
 
-func TestARefusedAlertsFormShowsWhatIsWrongAndStoresNothing(t *testing.T) {
+func TestARefusedAlertsTabShowsWhatIsWrongAndStoresNothing(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	b := signedInAdmin(t, f)
 
-	refusedForm := b.Post("/admin/alerts", "kind", "held_open", "alert_recipients", "nobody", "alert_mail_cleared", "true",
+	refusedForm := b.Post("/admin/settings", "kind", "", "kind", "held_open", "alert_recipients", "nobody", "alert_mail_cleared", "true",
 		"alert_hold_down_minutes", "-5")
 	page := pageOf(refusedForm)
 	api := send(t, b, "GET", "/api/v1/alerts", "", 200).Body
@@ -213,7 +230,7 @@ func TestARefusedAlertsFormShowsWhatIsWrongAndStoresNothing(t *testing.T) {
 	want := []any{422, map[string]string{
 		"alert_recipients":        "Must be email addresses separated by commas or new lines, such as ops@example.com, Front desk <desk@example.com>.",
 		"alert_hold_down_minutes": "Must be a whole number of minutes from 0 to 10080.",
-	}, map[string]string{"alert_recipients": "nobody", "alert_mail_cleared": "false", "alert_hold_down_minutes": "-5",
+	}, map[string]string{"kind": "", "alert_recipients": "nobody", "alert_mail_cleared": "false", "alert_hold_down_minutes": "-5",
 		"certificate_check_enabled": "false", "certificate_check_interval_hours": "24",
 		"certificate_runway_days": "548", "certificate_leaf_days": "14", "certificate_unreachable_checks": "3"},
 		false, testsupport.JSON(`[]`), 15.0}
@@ -224,18 +241,18 @@ func TestARefusedAlertsFormShowsWhatIsWrongAndStoresNothing(t *testing.T) {
 	}
 }
 
-func TestTheAlertsPageShowsAnAlertMailSettingTheEnvironmentGivesAsReadOnly(t *testing.T) {
+func TestTheAlertsTabShowsAnAlertMailSettingTheEnvironmentGivesAsReadOnly(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	f.EnvStub["DOORCODE_ALERT_RECIPIENTS"] = "ops@example.com"
 	b := signedInAdmin(t, f)
 
-	saved := b.Post("/admin/alerts", "kind", "forced_open", "alert_mail_cleared", "false", "alert_hold_down_minutes", "15")
-	page := pageOf(b.Get("/admin/alerts"))
+	saved := b.Post("/admin/settings", "kind", "", "kind", "forced_open", "alert_mail_cleared", "false", "alert_hold_down_minutes", "15")
+	page := pageOf(b.Get(alertsTabPath))
 
 	note := "Set by DOORCODE_ALERT_RECIPIENTS in the environment; change it there."
-	want := []any{303, []string{mailNotSetUpNote, note, nothingToCheck},
-		alertMailRows("ops@example.com "+note, "On", "")[1], []string{"kind=forced_open"}}
+	want := []any{303, []string{settingsNote, note},
+		alertMailRows("ops@example.com "+note, "On", "", "environment, read-only")[1], []string{"kind=forced_open"}}
 	if diff := cmp.Diff(want, []any{saved.Status, page.Notes, page.Tables["Alert mail"][1], page.Checked}); diff != "" {
 		t.Errorf("save, notes, recipients row, checked (-want +got):\n%s", diff)
 	}
@@ -251,11 +268,14 @@ func TestTheAlertsPageFailsWhenTheStoreDoes(t *testing.T) {
 		"showing the settings": {(*testsupport.Store).FailSettings, func(b *testsupport.Browser) testsupport.Response {
 			return b.Get("/admin/alerts")
 		}},
-		"saving the kinds": {(*testsupport.Store).FailAlertWrites, func(b *testsupport.Browser) testsupport.Response {
-			return b.Post("/admin/alerts", "kind", "held_open")
+		"showing the kinds on the settings page": {(*testsupport.Store).FailAlerts, func(b *testsupport.Browser) testsupport.Response {
+			return b.Get(alertsTabPath)
 		}},
-		"saving the settings": {(*testsupport.Store).FailSettingWrites, func(b *testsupport.Browser) testsupport.Response {
-			return b.Post("/admin/alerts", "alert_hold_down_minutes", "20")
+		"saving the kinds": {(*testsupport.Store).FailAlertWrites, func(b *testsupport.Browser) testsupport.Response {
+			return b.Post("/admin/settings", "kind", "held_open")
+		}},
+		"saving the settings and the kinds": {(*testsupport.Store).FailSettingWrites, func(b *testsupport.Browser) testsupport.Response {
+			return b.Post("/admin/settings", "kind", "", "alert_hold_down_minutes", "20")
 		}},
 	}
 	for name, c := range cases {

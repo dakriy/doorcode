@@ -354,7 +354,7 @@ func TestATestEmailTheMailTabCannotSendShowsItWithWhy(t *testing.T) {
 
 			page := pageOf(got)
 			want := []any{c.status, "Mail (current)", []string{"No test email was sent: " + c.refusal + "."}}
-			if diff := cmp.Diff(want, []any{got.Status, page.Nav[len(page.Nav)-2], page.Messages}); diff != "" {
+			if diff := cmp.Diff(want, []any{got.Status, page.Nav[len(page.Nav)-3], page.Messages}); diff != "" {
 				t.Errorf("status, tab, messages (-want +got):\n%s", diff)
 			}
 		})

@@ -12,6 +12,36 @@
 </div>
 {{with $c.Alert}}<div class="mt-6">{{template "alert" .}}</div>{{end}}
 <form method="post" action="/admin/settings" novalidate hx-disabled-elt="find button[type=submit]" class="mt-6 space-y-6">
+  {{with $c.Kinds}}
+  <section aria-labelledby="kinds-heading" class="overflow-hidden {{template "card-class"}}">
+    <div class="px-6 pt-6">
+      <h2 id="kinds-heading" class="text-sm font-semibold">Kinds of alert</h2>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Every kind is off until it is turned on here; nothing is mailed while no recipient is given. A condition raised while its kind is off, no recipient is given, or mail is not set up is mailed once all three allow it, if it is still raised then. The Alerts page lists what is raised now.</p>
+    </div>
+    <input type="hidden" name="kind" value="">
+    <div class="mt-4 overflow-x-auto">
+      <table aria-label="Kinds of alert" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+        <thead class="{{template "table-head-class"}}">
+          <tr>
+            <th scope="col" class="px-6 py-2">Alert</th>
+            <th scope="col" class="px-6 py-2">Raised and cleared</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+          {{range .}}
+          <tr>
+            <td class="w-2/5 px-6 py-3 align-top">
+              <label class="inline-flex items-center gap-2 font-medium"><input name="kind" type="checkbox" value="{{.Key}}"{{if .Enabled}} checked{{end}} class="size-4 rounded border-zinc-300 accent-brand-600 dark:border-zinc-700">{{.Name}}</label>
+              <span class="block font-mono text-xs text-zinc-500 dark:text-zinc-400">{{.Key}}</span>
+            </td>
+            <td class="px-6 py-3 align-top text-zinc-600 dark:text-zinc-400">{{.About}}</td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {{end}}
   {{range $i, $s := $c.Sections}}
   <section aria-labelledby="section-{{$i}}" class="overflow-hidden {{template "card-class"}}">
     {{/* A section a setting toggles folds away while it is off. */}}

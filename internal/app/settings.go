@@ -1,11 +1,14 @@
 package app
 
 import (
+	"context"
+	"errors"
 	"maps"
 	"net/http"
 	"slices"
 	"time"
 
+	"github.com/dakriy/doorcode/internal/alert"
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/openapi"
 	"github.com/dakriy/doorcode/internal/picture"
@@ -156,7 +159,10 @@ type settingsContent struct {
 	Pictures bool
 	// MailTo is the viewer's own address, which the Mail tab's test email
 	// goes to; empty on the other tabs.
-	MailTo         string
+	MailTo string
+	// Kinds is every kind of alert, ticked when enabled, on the Alerts
+	// tab; nil on the others.
+	Kinds          []alert.KindState
 	Errors         map[string]string
 	SignInImage    string
 	Favicon        string
@@ -224,16 +230,26 @@ func (a *App) showSettings(w http.ResponseWriter, r *http.Request, status int, v
 	if pictures {
 		signIn, favicon, err = a.lookImages(r)
 	}
-	if err != nil {
+	kinds, kindsErr := a.kindsOn(r.Context(), tab)
+	if err = errors.Join(err, kindsErr); err != nil {
 		a.pageError(w, r, err)
 		return
 	}
 	content := settingsContent{
 		Tabs: stripOf("Settings tabs", settingsPath, settings.Tabs, tab), Sections: a.sectionsOf(all, tab, entered, errs), Pictures: pictures,
-		MailTo: mailTo(tab, viewer), Errors: errs, SignInImage: signIn, Favicon: favicon, Alert: alert,
+		MailTo: mailTo(tab, viewer), Kinds: kinds, Errors: errs, SignInImage: signIn, Favicon: favicon, Alert: alert,
 		MaxPictureMB: picture.Megabytes(), MaxPictureSide: picture.MaxSide, MaxLogoSide: picture.LogoSide,
 	}
 	a.render(w, r, status, settingsTemplate, "Settings", &viewer, content)
+}
+
+// kindsOn is every kind of alert with whether it is enabled when tab is
+// the Alerts tab, and none otherwise.
+func (a *App) kindsOn(ctx context.Context, tab settings.Tab) ([]alert.KindState, error) {
+	if tab != settings.TabAlerts {
+		return nil, nil
+	}
+	return a.alerts.States(ctx)
 }
 
 // mailTo is the address the Mail tab's test email goes to, viewer's own
@@ -343,8 +359,10 @@ func (a *App) settingsPage(w http.ResponseWriter, r *http.Request, viewer auth.U
 
 // saveSettingsFromForm stores every setting the form changed, and clears
 // every secret it ticks, or none when one is refused, and sends the doors
-// what that changes for them. It goes back to the tab that shows what the
-// form sent, or shows the tab with the first value refused.
+// what that changes for them. A form that sends kind, as the Alerts tab
+// does, then enables exactly the kinds of alert it ticks. It goes back to
+// the tab that shows what the form sent, or shows the tab with the first
+// value refused.
 func (a *App) saveSettingsFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	_ = r.ParseForm()
 	entered := settings.FormValues(r.PostForm)
@@ -354,9 +372,26 @@ func (a *App) saveSettingsFromForm(w http.ResponseWriter, r *http.Request, viewe
 		a.showSettings(w, r, http.StatusUnprocessableEntity, viewer, tab, entered, errs, "")
 		return
 	}
+	tab := settings.TabHolding(append(slices.Collect(maps.Keys(entered)), r.PostForm["clear"]...))
+	if kinds, sent := r.PostForm["kind"]; sent {
+		tab = settings.TabAlerts
+		if err == nil {
+			err = a.enableTicked(r.Context(), kinds)
+		}
+	}
 	if err == nil {
 		a.settingsChanged(r.Context(), changed)
 	}
-	sent := append(slices.Collect(maps.Keys(entered)), r.PostForm["clear"]...)
-	a.changed(w, r, err, settingsTabPath(settings.TabHolding(sent)), "settings-saved")
+	a.changed(w, r, err, settingsTabPath(tab), "settings-saved")
+}
+
+// enableTicked enables the kinds of alert whose keys are ticked and
+// disables the others.
+func (a *App) enableTicked(ctx context.Context, ticked []string) error {
+	for _, kind := range alert.Kinds {
+		if _, err := a.alerts.Enable(ctx, kind.Key, slices.Contains(ticked, kind.Key)); err != nil {
+			return err
+		}
+	}
+	return nil
 }

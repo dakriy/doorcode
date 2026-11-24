@@ -365,7 +365,7 @@ func settingWarning(page *testsupport.Page, held map[string]string, key string) 
 }
 
 // settingsTabs is each tab of the settings page, in order.
-var settingsTabs = []string{"Site setup", "Sign-in", "Look and feel", "Mail", "Doors"}
+var settingsTabs = []string{"Site setup", "Sign-in", "Look and feel", "Mail", "Alerts", "Doors"}
 
 // settingsTabOf is the tab of the settings page that shows each section.
 var settingsTabOf = map[string]string{
@@ -494,7 +494,7 @@ func TestTheSettingsPageTabsAreLinksToTheirAddresses(t *testing.T) {
 
 	nav := testsupport.ParsePage(b.Get("/admin/settings?tab=doors").Body).NavTargets
 
-	want := []string{"/admin/settings?tab=site", "/admin/settings?tab=sign-in", "/admin/settings?tab=look", "/admin/settings?tab=mail", "/admin/settings?tab=doors"}
+	want := []string{"/admin/settings?tab=site", "/admin/settings?tab=sign-in", "/admin/settings?tab=look", "/admin/settings?tab=mail", "/admin/settings?tab=alerts", "/admin/settings?tab=doors"}
 	if diff := cmp.Diff(want, nav[len(nav)-len(want):]); diff != "" {
 		t.Errorf("tab addresses (-want +got):\n%s", diff)
 	}

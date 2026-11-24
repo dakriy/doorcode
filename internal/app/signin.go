@@ -60,7 +60,6 @@ var flashes = map[string]string{
 	"door-config-saved":      "The door's configuration has been saved and sent to its controller.",
 	"door-config-defaults":   "The door follows the site defaults again, and its configuration has been sent to its controller.",
 	"settings-saved":         "The settings have been saved. Doors receive changed configuration defaults right away.",
-	"alerts-saved":           "The alerts have been saved.",
 	"certificates-checked":   "The certificates have been checked.",
 	"mail-test-sent":         "The mail server took the test email. It should reach your address shortly; if it does not, look in your spam folder and in the mail server's log.",
 	"sign-in-image-saved":    "The sign-in page shows the new picture.",

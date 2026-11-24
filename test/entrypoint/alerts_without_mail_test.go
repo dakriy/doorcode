@@ -35,9 +35,9 @@ var unsendable = map[string]struct {
 		allow:   func(k *keypad) { k.enable("forced_open", true) },
 		waiting: "Not mailed: this alert is off",
 	},
-	"its kind disabled, then ticked on the Alerts page": {
+	"its kind disabled, then ticked on the settings page": {
 		block:   func(k *keypad) { k.enable("forced_open", false) },
-		allow:   func(k *keypad) { k.saved(k.b.Post("/admin/alerts", "kind", "forced_open")) },
+		allow:   func(k *keypad) { k.saved(k.b.Post("/admin/settings", "kind", "forced_open")) },
 		waiting: "Not mailed: this alert is off",
 	},
 }

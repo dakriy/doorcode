@@ -124,7 +124,6 @@ func (a *App) alertRoutes() []route {
 	enabled := true
 	return []route{
 		pageRoute(http.MethodGet, alertsPath, admin, a.alertsPage),
-		pageRoute(http.MethodPost, alertsPath, admin, a.saveAlertsFromForm),
 		apiRoute(http.MethodGet, "/alerts", admin, a.getAlerts, apiDoc{
 			id: "getAlerts", summary: "Read the kinds of alert, the recipients, and the outbox", tag: "alerts",
 			responses: []openapi.Response{{Status: http.StatusOK, Description: "Every kind of alert, whom and when they mail, and the newest messages of the outbox. The settings API changes the recipients and when they are mailed.", Body: alertsView{}}},

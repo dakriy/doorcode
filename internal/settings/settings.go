@@ -183,11 +183,12 @@ var (
 	TabSignIn = Tab{Slug: "sign-in", Name: "Sign-in"}
 	TabLook   = Tab{Slug: "look", Name: "Look and feel"}
 	TabMail   = Tab{Slug: "mail", Name: "Mail"}
+	TabAlerts = Tab{Slug: "alerts", Name: "Alerts"}
 	TabDoors  = Tab{Slug: "doors", Name: "Doors"}
 )
 
 // Tabs is every tab of the settings page, in display order.
-var Tabs = []Tab{TabSite, TabSignIn, TabLook, TabMail, TabDoors}
+var Tabs = []Tab{TabSite, TabSignIn, TabLook, TabMail, TabAlerts, TabDoors}
 
 // TabHolding is the tab that shows the first setting, in display order,
 // that keys name, or the first tab when they name none.
@@ -1112,17 +1113,6 @@ func (s Service) valuesOf(sec section, stored map[string]connector.StoredSetting
 		values[def.key] = s.resolve(def, stored).Value
 	}
 	return values
-}
-
-// KeysOn is the key of every setting tab shows, in display order.
-func KeysOn(tab Tab) []string {
-	var keys []string
-	for _, def := range definitions {
-		if def.section.Tab == tab {
-			keys = append(keys, def.key)
-		}
-	}
-	return keys
 }
 
 // fromStore is the setting as an administrator saved it.

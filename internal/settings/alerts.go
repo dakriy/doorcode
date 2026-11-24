@@ -16,10 +16,6 @@ const (
 	recipientsExample  = "ops@example.com, Front desk <desk@example.com>"
 )
 
-// TabAlerts is where the alert mail settings are shown: the Alerts page,
-// apart from the settings page's tabs.
-var TabAlerts = Tab{Slug: "alerts", Name: "Alerts"}
-
 // alertHoldDown parses how long a cleared alert condition stays quiet.
 var alertHoldDown = length{whole{0, 10080, "minutes"}, minutesOf}
 

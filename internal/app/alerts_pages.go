@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -18,19 +17,13 @@ import (
 // alertsPath is the Alerts page's address.
 const alertsPath = "/admin/alerts"
 
-// alertSettingKeys are the settings the Alerts page shows and saves.
-var alertSettingKeys = settings.KeysOn(settings.TabAlerts)
-
-// alertsContent is the Alerts page's content: every kind of alert, the
-// sections of the alert mail and certificate check settings, each
-// setting with what was entered for it and what is wrong with it when it
-// was refused, a note while mail is not set up, the conditions raised and
+// alertsContent is the Alerts page's content: a note while mail is not
+// set up, where the alert settings are changed, the conditions raised and
 // the events owed mail, each endpoint's latest certificate check, and the
 // newest messages of the outbox.
 type alertsContent struct {
-	Kinds        []alert.KindState
-	Sections     []settingSection
 	MailNote     string
+	SettingsPath string
 	Raised       []raisedRow
 	Certificates []certificateRow
 	Outbox       []outboxRow
@@ -89,17 +82,6 @@ const mailNotSetUp = "Mail is not set up, so no alert mail is sent. Alerts are s
 const waitingForMail = "Waiting for mail to be set up"
 
 func (a *App) alertsPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	a.showAlerts(w, r, http.StatusOK, viewer, nil, nil)
-}
-
-// showAlerts shows the Alerts page with status, the alert mail settings'
-// inputs holding entered, or each setting's value where entered has none.
-func (a *App) showAlerts(w http.ResponseWriter, r *http.Request, status int, viewer auth.User, entered, errs map[string]string) {
-	all, err := a.settings.List(r.Context())
-	if err != nil {
-		a.pageError(w, r, err)
-		return
-	}
 	zone, ok := a.siteZone(w, r)
 	if !ok {
 		return
@@ -115,10 +97,7 @@ func (a *App) showAlerts(w http.ResponseWriter, r *http.Request, status int, vie
 		a.pageError(w, r, err)
 		return
 	}
-	content := alertsContent{
-		Kinds: now.kinds, Sections: a.sectionsOf(all, settings.TabAlerts, entered, errs), MailNote: a.mailNote(r.Context()),
-		Outbox: []outboxRow{},
-	}
+	content := alertsContent{MailNote: a.mailNote(r.Context()), SettingsPath: settingsTabPath(settings.TabAlerts), Outbox: []outboxRow{}}
 	enabled := map[string]bool{}
 	for _, k := range now.kinds {
 		enabled[k.Key] = k.Enabled
@@ -132,7 +111,7 @@ func (a *App) showAlerts(w http.ResponseWriter, r *http.Request, status int, vie
 	for _, m := range now.recent {
 		content.Outbox = append(content.Outbox, outboxRowOf(m, zone, content.MailNote == ""))
 	}
-	a.render(w, r, status, alertsTemplate, "Alerts", &viewer, content)
+	a.render(w, r, http.StatusOK, alertsTemplate, "Alerts", &viewer, content)
 }
 
 // mailNote is what the Alerts page says of the mail settings: that mail
@@ -164,39 +143,4 @@ func outboxRowOf(m connector.StoredMail, zone *time.Location, setUp bool) outbox
 		row.Status = "Failed"
 	}
 	return row
-}
-
-// saveAlertsFromForm stores the alert mail settings the form changed, or
-// none when one is refused, and then which kinds of alert are enabled:
-// those the form ticks. It goes back to the Alerts page, or shows it with
-// the values refused.
-func (a *App) saveAlertsFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
-	_ = r.ParseForm()
-	entered := map[string]string{}
-	for _, key := range alertSettingKeys {
-		if r.PostForm.Has(key) {
-			entered[key] = r.PostForm.Get(key)
-		}
-	}
-	_, err := a.settings.UpdateAll(r.Context(), entered, nil)
-	if errs, rejected := fieldErrors(err); rejected {
-		a.showAlerts(w, r, http.StatusUnprocessableEntity, viewer, entered, errs)
-		return
-	}
-	if err == nil {
-		err = a.enableTicked(r.Context(), r.PostForm["kind"])
-	}
-	a.wakeDelivery()
-	a.changed(w, r, err, alertsPath, "alerts-saved")
-}
-
-// enableTicked enables the kinds of alert whose keys are ticked and
-// disables the others.
-func (a *App) enableTicked(ctx context.Context, ticked []string) error {
-	for _, kind := range alert.Kinds {
-		if _, err := a.alerts.Enable(ctx, kind.Key, slices.Contains(ticked, kind.Key)); err != nil {
-			return err
-		}
-	}
-	return nil
 }
