@@ -50,15 +50,20 @@ type raisedRow struct {
 const (
 	raisedMailed = "Mailed"
 	raisedOwed   = "Waiting: mailed once it can be"
+	raisedOff    = "Not mailed: this alert is off"
 	raisedQuiet  = "Not mailed: raised again within the hold-down"
 )
 
-// raisedRowOf is c as the Alerts page lists it, its time in zone.
-func raisedRowOf(c connector.StoredCondition, zone *time.Location) raisedRow {
+// raisedRowOf is c as the Alerts page lists it, its time in zone, owed
+// mail waiting only while c's kind is among enabled.
+func raisedRowOf(c connector.StoredCondition, zone *time.Location, enabled map[string]bool) raisedRow {
 	row := raisedRow{Alert: alert.KindName(c.Kind), About: c.Name, Since: shownAt(zone, c.ChangedAt, secondLayout), Mail: raisedQuiet}
+	off := c.Owed && !enabled[c.Kind]
 	switch {
 	case c.Mailed:
 		row.Mail = raisedMailed
+	case off:
+		row.Mail = raisedOff
 	case c.Owed:
 		row.Mail = raisedOwed
 	}
@@ -114,8 +119,12 @@ func (a *App) showAlerts(w http.ResponseWriter, r *http.Request, status int, vie
 		Kinds: now.kinds, Sections: a.sectionsOf(all, settings.TabAlerts, entered, errs), MailNote: a.mailNote(r.Context()),
 		Outbox: []outboxRow{},
 	}
+	enabled := map[string]bool{}
+	for _, k := range now.kinds {
+		enabled[k.Key] = k.Enabled
+	}
 	for _, c := range held {
-		content.Raised = append(content.Raised, raisedRowOf(c, zone))
+		content.Raised = append(content.Raised, raisedRowOf(c, zone, enabled))
 	}
 	for _, c := range checks {
 		content.Certificates = append(content.Certificates, certificateRowOf(c, zone))

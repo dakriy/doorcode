@@ -9,27 +9,36 @@ import (
 )
 
 // unsendable is each way alertSite's mail about Lobby forced open cannot
-// be sent, block, and the save that lets it be sent again, allow.
-var unsendable = map[string]struct{ block, allow func(k *keypad) }{
+// be sent, block, the save that lets it be sent again, allow, and what the
+// Alerts page says of the raise's mail in between, waiting.
+var unsendable = map[string]struct {
+	block, allow func(k *keypad)
+	waiting      string
+}{
 	"mail not set up, then set up through the API": {
-		block: func(k *keypad) { k.setting("mail_host", "") },
-		allow: func(k *keypad) { k.setting("mail_host", "smtp.example.com") },
+		block:   func(k *keypad) { k.setting("mail_host", "") },
+		allow:   func(k *keypad) { k.setting("mail_host", "smtp.example.com") },
+		waiting: "Waiting: mailed once it can be",
 	},
 	"mail not set up, then set up on the settings page": {
-		block: func(k *keypad) { k.setting("mail_host", "") },
-		allow: func(k *keypad) { k.saved(k.b.Post("/admin/settings", "mail_host", "smtp.example.com")) },
+		block:   func(k *keypad) { k.setting("mail_host", "") },
+		allow:   func(k *keypad) { k.saved(k.b.Post("/admin/settings", "mail_host", "smtp.example.com")) },
+		waiting: "Waiting: mailed once it can be",
 	},
 	"no recipients, then recipients given": {
-		block: func(k *keypad) { k.setting("alert_recipients", "") },
-		allow: func(k *keypad) { k.setting("alert_recipients", "ops@example.com,\nFront desk <desk@example.com>") },
+		block:   func(k *keypad) { k.setting("alert_recipients", "") },
+		allow:   func(k *keypad) { k.setting("alert_recipients", "ops@example.com,\nFront desk <desk@example.com>") },
+		waiting: "Waiting: mailed once it can be",
 	},
 	"its kind disabled, then enabled through the API": {
-		block: func(k *keypad) { k.enable("forced_open", false) },
-		allow: func(k *keypad) { k.enable("forced_open", true) },
+		block:   func(k *keypad) { k.enable("forced_open", false) },
+		allow:   func(k *keypad) { k.enable("forced_open", true) },
+		waiting: "Not mailed: this alert is off",
 	},
 	"its kind disabled, then ticked on the Alerts page": {
-		block: func(k *keypad) { k.enable("forced_open", false) },
-		allow: func(k *keypad) { k.saved(k.b.Post("/admin/alerts", "kind", "forced_open")) },
+		block:   func(k *keypad) { k.enable("forced_open", false) },
+		allow:   func(k *keypad) { k.saved(k.b.Post("/admin/alerts", "kind", "forced_open")) },
+		waiting: "Not mailed: this alert is off",
 	},
 }
 
@@ -78,7 +87,7 @@ func TestARaiseThatCouldNotBeMailedIsListedAndMailedOnceMailCanBeSent(t *testing
 			// The door standing open raises more by 09:30, listed after
 			// forced_open; only its row is compared at the end.
 			want := []any{
-				[][]string{raisedHead, {"Door forced open", "Lobby", "Mon 5 Jan 2026 09:00:00", "Waiting: mailed once it can be"}},
+				[][]string{raisedHead, {"Door forced open", "Lobby", "Mon 5 Jan 2026 09:00:00", c.waiting}},
 				[][]any{{recipients, forcedSubject, forcedText("Mon 5 Jan 2026 09:00:00 UTC")}},
 				"2026-01-05T09:30:00Z",
 				[][]string{raisedHead, {"Door forced open", "Lobby", "Mon 5 Jan 2026 09:00:00", "Mailed"}},
