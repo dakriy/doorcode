@@ -10,8 +10,10 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/dakriy/doorcode/internal/alert"
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/controller"
@@ -74,6 +76,15 @@ type App struct {
 	identity identity.Service
 	// mail sends the site's mail.
 	mail email.Service
+	// alerts follows the alert conditions and delivers their mail. queued
+	// says a message was put in the outbox since the delivery last looked,
+	// and wake wakes the delivery to look; nextDelivery is when it next
+	// looks otherwise, nil while nothing waits. Only the delivery reads and
+	// changes nextDelivery while Run runs.
+	alerts       alert.Service
+	queued       atomic.Bool
+	wake         chan struct{}
+	nextDelivery *time.Time
 	// proxies decides whom to believe about where a request came from.
 	proxies proxy.Service
 	// traffic counts the HTTP requests answered, for the metrics.
@@ -139,7 +150,11 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 		traffic:    traffic.New(),
 		enrollment: &push.Enrollment{},
 		mail:       email.Service{Mailer: f.Mailer(), Clock: clock, Entropy: entropy},
+		wake:       make(chan struct{}, 1),
+		// The first Run delivers what the outbox holds from before.
+		nextDelivery: &time.Time{},
 	}
+	a.alerts = alert.Service{Store: store, Settings: s, Mail: a.mail, Clock: clock, Log: log, Queued: a.wakeDelivery, Lock: &sync.Mutex{}}
 	if err := a.auth.CreateFirstAdmin(ctx); err != nil {
 		return nil, fmt.Errorf("create first administrator: %w", err)
 	}
@@ -161,7 +176,8 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 		Providers: &identity.Providers{},
 	}
 	a.telemetry = telemetry.Service{
-		Store: store, Doors: a.doors, Events: a.events, Settings: s, Clock: clock, Changed: a.live.notify, Reported: a.live.report,
+		Store: store, Doors: a.doors, Events: a.events, Settings: s, Clock: clock, Alerts: a.alerts,
+		Changed: a.live.notify, Reported: a.live.report,
 	}
 	a.firmware = firmware.Service{
 		Store: store, Doors: a.doors, Controllers: a.controllers, Events: a.events, Settings: s, Clock: clock, Entropy: entropy,

@@ -312,8 +312,8 @@ func TestTheEventsPageIsPagedKeepingItsFilters(t *testing.T) {
 	second := testsupport.ParsePage(b.Get("/admin/events?type=open&page=2").Body)
 
 	want := []any{
-		[]string{"Showing 1 to 50 of 51"}, []string{"Site: Settings", "Older"}, "/admin/events?page=2&type=open",
-		[]string{"Showing 51 to 51 of 51"}, []string{"Site: Settings", "Newer"}, "/admin/events?page=1&type=open",
+		[]string{"Showing 1 to 50 of 51"}, []string{"Site: Alerts", "Older"}, "/admin/events?page=2&type=open",
+		[]string{"Showing 51 to 51 of 51"}, []string{"Site: Alerts", "Newer"}, "/admin/events?page=1&type=open",
 	}
 	got := []any{
 		first.Tables["Events"][51], first.Nav[len(first.Nav)-2:], first.NavTargets[len(first.NavTargets)-1],

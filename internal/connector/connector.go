@@ -1085,6 +1085,68 @@ type FirmwareStore interface {
 	PutDoorUpdate(ctx context.Context, u StoredUpdate) error
 }
 
+// StoredCondition is the state of one alert condition: the Kind of alert
+// and the Subject it is about, such as one door, whether it is Active,
+// whether its latest raise was Mailed, and when it was last raised or
+// resolved, ChangedAt.
+type StoredCondition struct {
+	Kind      string
+	Subject   string
+	Active    bool
+	Mailed    bool
+	ChangedAt time.Time
+}
+
+// StoredMail is one message of the mail outbox: the Kind of alert it is
+// about, its Subject and Text, the bare addresses it goes To, its Status,
+// how many Attempts were made to send it, when it was queued
+// (CreatedAt), when it is next tried (NextAttemptAt), when it was last
+// tried and sent, nil before, and the error of its latest failed attempt,
+// LastError.
+type StoredMail struct {
+	ID            int64
+	Kind          string
+	Subject       string
+	Text          string
+	To            []string
+	Status        string
+	Attempts      int
+	CreatedAt     time.Time
+	NextAttemptAt time.Time
+	LastAttemptAt *time.Time
+	SentAt        *time.Time
+	LastError     string
+}
+
+// AlertsStore holds the alerts aggregate: which kinds of alert are
+// enabled, the state of each alert condition, and the mail outbox.
+type AlertsStore interface {
+	// AlertKinds returns whether each kind of alert stored is enabled, by
+	// kind.
+	AlertKinds(ctx context.Context) (map[string]bool, error)
+	// SetAlertKind stores whether the kind of alert named kind is enabled.
+	SetAlertKind(ctx context.Context, kind string, enabled bool) error
+	// AlertCondition returns the condition of kind about subject, and
+	// whether there is one.
+	AlertCondition(ctx context.Context, kind, subject string) (StoredCondition, bool, error)
+	// PutAlertCondition stores c over the condition of its kind and
+	// subject, or as a new one.
+	PutAlertCondition(ctx context.Context, c StoredCondition) error
+	// AddMail stores m in the outbox, ignoring m.ID, and returns the id it
+	// was given.
+	AddMail(ctx context.Context, m StoredMail) (int64, error)
+	// MailWithStatus returns the messages of the outbox whose status is
+	// status, oldest first by id.
+	MailWithStatus(ctx context.Context, status string) ([]StoredMail, error)
+	// UpdateMail stores m's status, attempts, next attempt, last attempt,
+	// sending time, and last error over the message whose id is m.ID, and
+	// reports whether there is one.
+	UpdateMail(ctx context.Context, m StoredMail) (bool, error)
+	// RecentMail returns at most limit messages of the outbox, newest
+	// first by id.
+	RecentMail(ctx context.Context, limit int) ([]StoredMail, error)
+}
+
 // Store is the application's persistent state, one interface per aggregate.
 type Store interface {
 	// Migrate brings the schema up to date. It runs once at startup, before
@@ -1109,6 +1171,7 @@ type Store interface {
 	TelemetryStore
 	FirmwareStore
 	RequestsStore
+	AlertsStore
 }
 
 // Message is one message the broker carries: its topic, its payload, and

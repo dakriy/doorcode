@@ -10,8 +10,10 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"time"
 
+	"github.com/dakriy/doorcode/internal/alert"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/controller"
 	"github.com/dakriy/doorcode/internal/door"
@@ -50,6 +52,9 @@ type Service struct {
 	Events   event.Service
 	Settings settings.Service
 	Clock    connector.Clock
+	// Alerts is told when a door is forced open or held open, and when it
+	// closes.
+	Alerts alert.Service
 	// Changed is called whenever what door lists show of a door's state
 	// changes, and Reported with the id of a door whose state changed
 	// otherwise.
@@ -107,7 +112,7 @@ func (s Service) report(ctx context.Context, doorID int64, payload []byte) error
 		}
 		c = closed(c)
 	}
-	return s.save(ctx, d, held, c)
+	return s.save(ctx, d, held, c, now)
 }
 
 // doorEvent handles what the controller of the door whose id is doorID
@@ -152,7 +157,7 @@ func (s Service) doorEvent(ctx context.Context, doorID int64, payload []byte) er
 	default:
 		return fmt.Errorf("%w %q", ErrUnknownEvent, m.Event)
 	}
-	return s.save(ctx, d, held, c)
+	return s.save(ctx, d, held, c, now)
 }
 
 // startedWhy is, in words, each reason a controller gives for why it
@@ -214,11 +219,18 @@ func closed(c connector.StoredController) connector.StoredController {
 }
 
 // save stores the state of c as that of the controller of d, which was
-// held, and says what changed. It stores only the state, so a change to
-// the controller's credentials or connection made meanwhile stands.
-func (s Service) save(ctx context.Context, d connector.StoredDoor, held, c connector.StoredController) error {
+// held, at now, resolves the alerts its door closing clears, and says
+// what changed. It stores only the state, so a change to the
+// controller's credentials or connection made meanwhile stands.
+func (s Service) save(ctx context.Context, d connector.StoredDoor, held, c connector.StoredController, now time.Time) error {
 	if _, err := s.Store.SetDoorState(ctx, d.ID, c.StoredDoorState); err != nil {
 		return err
+	}
+	if held.HeldOpen && !c.HeldOpen {
+		s.Alerts.Resolve(ctx, doorCondition(alert.HeldOpen, d), now)
+	}
+	if held.DoorState == Open && c.DoorState != Open {
+		s.Alerts.Resolve(ctx, doorCondition(alert.ForcedOpen, d), now)
 	}
 	if slices.Equal(badgesAs(d, held), badgesAs(d, c)) && MeshOf(held) == MeshOf(c) {
 		s.Reported(d.ID)
@@ -226,6 +238,11 @@ func (s Service) save(ctx context.Context, d connector.StoredDoor, held, c conne
 		s.Changed()
 	}
 	return nil
+}
+
+// doorCondition is the alert condition of kind about d.
+func doorCondition(kind alert.Kind, d connector.StoredDoor) alert.Condition {
+	return alert.Condition{Kind: kind, Subject: "door " + strconv.FormatInt(d.ID, 10), Name: d.Name}
 }
 
 // badgesAs is what door lists show of d with c as its controller.
@@ -293,7 +310,7 @@ func (s Service) checkForced(ctx context.Context, d connector.StoredDoor, held c
 	if *said {
 		return nil
 	}
-	return s.forced(ctx, d.ID, now, "Its controller says it was locked when it opened.")
+	return s.forced(ctx, d, now, "Its controller says it was locked when it opened.")
 }
 
 // checkWindow logs d as forced open at now unless something unlocked it
@@ -312,14 +329,17 @@ func (s Service) checkWindow(ctx context.Context, d connector.StoredDoor, now ti
 	if err != nil || unlocked {
 		return err
 	}
-	return s.forced(ctx, d.ID, now, fmt.Sprintf("Nothing unlocked it in the %g seconds before it opened.", window.Seconds()))
+	return s.forced(ctx, d, now, fmt.Sprintf("Nothing unlocked it in the %g seconds before it opened.", window.Seconds()))
 }
 
-// forced logs the door whose id is doorID as forced open at now, with
-// detail.
-func (s Service) forced(ctx context.Context, doorID int64, now time.Time, detail string) error {
-	_, err := s.Events.Record(ctx, alarm(now, doorID, event.ForcedOpen, detail))
-	return err
+// forced logs d as forced open at now, with detail, and raises its
+// alert.
+func (s Service) forced(ctx context.Context, d connector.StoredDoor, now time.Time, detail string) error {
+	if _, err := s.Events.Record(ctx, alarm(now, d.ID, event.ForcedOpen, detail)); err != nil {
+		return err
+	}
+	s.Alerts.Raise(ctx, doorCondition(alert.ForcedOpen, d), now, detail)
+	return nil
 }
 
 // unlocked reports whether something unlocked the door whose id is doorID
@@ -421,7 +441,7 @@ func (s Service) watch(ctx context.Context, current settings.Current, defaults s
 // shown offline instead.
 func (s Service) watchDoor(ctx context.Context, d connector.StoredDoor, heldOpen time.Duration, current settings.Current, now time.Time) error {
 	held := *d.Controller
-	c, err := s.checkHeld(ctx, d.ID, held, heldOpen, current.Zone, now)
+	c, err := s.checkHeld(ctx, d, held, heldOpen, current.Zone, now)
 	if err != nil {
 		return err
 	}
@@ -431,20 +451,20 @@ func (s Service) watchDoor(ctx context.Context, d connector.StoredDoor, heldOpen
 	if c == held {
 		return nil
 	}
-	return s.save(ctx, d, held, c)
+	return s.save(ctx, d, held, c, now)
 }
 
-// checkHeld is c, the controller of the door whose id is doorID, with its
-// door held open at now or not. Only time it should be locked counts: in
+// checkHeld is c, the controller of d, with its door held open at now or
+// not. Only time it should be locked counts: in
 // an open span of its timeline, in zone, it is not held open, and after
 // one the time counts from the span's end. Once it has been open that
-// long for heldOpen, it is logged as held open, once until a span or a
-// closing starts the count again.
-func (s Service) checkHeld(ctx context.Context, doorID int64, c connector.StoredController, heldOpen time.Duration, zone *time.Location, now time.Time) (connector.StoredController, error) {
+// long for heldOpen, it is logged as held open and its alert raised, once
+// until a span or a closing starts the count again.
+func (s Service) checkHeld(ctx context.Context, d connector.StoredDoor, c connector.StoredController, heldOpen time.Duration, zone *time.Location, now time.Time) (connector.StoredController, error) {
 	if c.DoorState != Open {
 		return c, nil
 	}
-	since, err := s.lockedSince(ctx, doorID, *c.OpenedAt, zone, now)
+	since, err := s.lockedSince(ctx, d.ID, *c.OpenedAt, zone, now)
 	if err != nil {
 		return c, err
 	}
@@ -456,9 +476,10 @@ func (s Service) checkHeld(ctx context.Context, doorID int64, c connector.Stored
 		return c, nil
 	}
 	detail := fmt.Sprintf("Open for longer than %g seconds.", heldOpen.Seconds())
-	if _, err := s.Events.Record(ctx, alarm(now, doorID, event.HeldOpen, detail)); err != nil {
+	if _, err := s.Events.Record(ctx, alarm(now, d.ID, event.HeldOpen, detail)); err != nil {
 		return c, err
 	}
+	s.Alerts.Raise(ctx, doorCondition(alert.HeldOpen, d), now, detail)
 	c.HeldOpen = true
 	return c, nil
 }

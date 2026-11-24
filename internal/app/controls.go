@@ -107,6 +107,14 @@ func overrideOptions(f settings.DoorField, def, entered string) []selectOption {
 	return options
 }
 
+// settingCell is a setting's row as a table of settings shows its value,
+// with the site's accent color, which a color picker starts at while its
+// setting is empty.
+type settingCell struct {
+	settingRow
+	Accent string
+}
+
 // numberRange is the range of a bounded number beside the input ID names,
 // which asks with Input.
 type numberRange struct {

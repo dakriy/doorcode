@@ -435,6 +435,169 @@
         }
       }
     },
+    "/alerts": {
+      "get": {
+        "operationId": "getAlerts",
+        "summary": "Read the kinds of alert, the recipients, and the outbox",
+        "tags": [
+          "alerts"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every kind of alert, whom and when they mail, and the newest messages of the outbox. The settings API changes the recipients and when they are mailed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertsView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the admin role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/alerts/kinds/{kind}": {
+      "put": {
+        "operationId": "updateAlertKind",
+        "summary": "Enable or disable a kind of alert",
+        "tags": [
+          "alerts"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "description": "The kind's key.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "held_open"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlertKindUpdate"
+              },
+              "example": {
+                "enabled": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The kind with whether it is enabled now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertKindView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON object with enabled true or false.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the admin role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No kind of alert has this key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/doors": {
       "get": {
         "operationId": "listDoors",
@@ -10678,6 +10841,86 @@
           "updated_at"
         ]
       },
+      "AlertKindUpdate": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether the kind mails the recipients."
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "AlertKindView": {
+        "type": "object",
+        "properties": {
+          "about": {
+            "type": "string",
+            "description": "What raises and clears it."
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "True when it mails the recipients; every kind is disabled until an administrator enables it."
+          },
+          "key": {
+            "type": "string",
+            "description": "The kind's key."
+          },
+          "name": {
+            "type": "string",
+            "description": "The kind's name, which its mail's subject starts with."
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "about",
+          "enabled"
+        ]
+      },
+      "AlertsView": {
+        "type": "object",
+        "properties": {
+          "hold_down_minutes": {
+            "type": "integer",
+            "description": "Minutes a cleared condition must stay clear before it mails again, from the setting alert_hold_down_minutes."
+          },
+          "kinds": {
+            "type": "array",
+            "description": "Every kind of alert, with whether it is enabled.",
+            "items": {
+              "$ref": "#/components/schemas/AlertKindView"
+            }
+          },
+          "mail_cleared": {
+            "type": "boolean",
+            "description": "True when a condition that was mailed about mails again once it clears, from the setting alert_mail_cleared."
+          },
+          "outbox": {
+            "type": "array",
+            "description": "The newest messages of the outbox, at most 50, newest first.",
+            "items": {
+              "$ref": "#/components/schemas/OutboxView"
+            }
+          },
+          "recipients": {
+            "type": "array",
+            "description": "The addresses every enabled kind mails, from the setting alert_recipients.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "kinds",
+          "recipients",
+          "mail_cleared",
+          "hold_down_minutes",
+          "outbox"
+        ]
+      },
       "ApprovalRequest": {
         "type": "object",
         "properties": {
@@ -12335,6 +12578,76 @@
         "required": [
           "start",
           "end"
+        ]
+      },
+      "OutboxView": {
+        "type": "object",
+        "properties": {
+          "attempts": {
+            "type": "integer",
+            "description": "How many times it was tried."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it was queued."
+          },
+          "id": {
+            "type": "integer",
+            "description": "The message's id."
+          },
+          "kind": {
+            "type": "string",
+            "description": "The key of the kind of alert it is about."
+          },
+          "last_attempt_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it was last tried; absent before its first attempt."
+          },
+          "last_error": {
+            "type": "string",
+            "description": "What its latest failed attempt reported; absent once it is sent."
+          },
+          "next_attempt_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it is tried next; only while it is pending."
+          },
+          "sent_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the mail server took it; absent until it did."
+          },
+          "status": {
+            "type": "string",
+            "description": "pending while it waits to be sent, sent once the mail server took it, or failed once it was tried six times."
+          },
+          "subject": {
+            "type": "string",
+            "description": "The message's subject."
+          },
+          "text": {
+            "type": "string",
+            "description": "The message's text."
+          },
+          "to": {
+            "type": "array",
+            "description": "The addresses it goes to.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "subject",
+          "text",
+          "to",
+          "status",
+          "attempts",
+          "created_at"
         ]
       },
       "OverrideList": {

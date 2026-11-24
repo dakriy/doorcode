@@ -95,6 +95,7 @@ var (
 	errorTemplate     = barePage("error.html")
 	homeTemplate      = shellPage("home.html")
 	settingsTemplate  = shellPage("settings.html")
+	alertsTemplate    = shellPage("alerts.html")
 	forbiddenTemplate = shellPage("forbidden.html")
 	tokensTemplate    = shellPage("tokens.html")
 	apiDocsTemplate   = shellPage("api-docs.html")
@@ -207,6 +208,9 @@ var templateFuncs = template.FuncMap{
 			v.NoneSelected = v.NoneSelected && !o.Selected
 		}
 		return v
+	},
+	"settingcell": func(row settingRow, accent string) settingCell {
+		return settingCell{settingRow: row, Accent: accent}
 	},
 	"numberrange": func(id string, in settings.Input) numberRange {
 		return numberRange{ID: id, Input: in}

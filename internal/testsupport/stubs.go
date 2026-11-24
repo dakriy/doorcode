@@ -221,6 +221,10 @@ type Store struct {
 	updates      []connector.StoredUpdate
 	requests     []connector.StoredRequest
 	nextRequest  int64
+	alertKinds   map[string]bool
+	conditions   map[conditionKey]connector.StoredCondition
+	outbox       []connector.StoredMail
+	nextMail     int64
 	migrateErr   error
 	pingErr      error
 	failing      map[aggregate]bool
@@ -271,16 +275,20 @@ const (
 	requestWrites
 	emailLookups
 	doorLookups
+	alertsAggregate
+	alertWrites
 )
 
 // NewStore returns an empty, unmigrated stub store.
 func NewStore() *Store {
 	return &Store{
-		settings: map[string]connector.StoredSetting{},
-		images:   map[connector.ImageKind]connector.StoredImage{},
-		sessions: map[string]connector.StoredSession{},
-		failing:  map[aggregate]bool{},
-		holds:    map[int64]chan struct{}{},
+		settings:   map[string]connector.StoredSetting{},
+		images:     map[connector.ImageKind]connector.StoredImage{},
+		sessions:   map[string]connector.StoredSession{},
+		failing:    map[aggregate]bool{},
+		holds:      map[int64]chan struct{}{},
+		alertKinds: map[string]bool{},
+		conditions: map[conditionKey]connector.StoredCondition{},
 	}
 }
 
@@ -697,6 +705,7 @@ func (s *Store) Fail() {
 	s.FailFirmware()
 	s.FailUpdates()
 	s.FailRequests()
+	s.FailAlerts()
 }
 
 // Recover makes every method a Fail method made fail work again.

@@ -64,7 +64,13 @@ var mailSettingsJSON = defaultSetting("mail_host", "") + `,` +
 	defaultSetting("mail_username", "") + `,` +
 	`{"key":"mail_password","value":"","source":"default","read_only":false,"env_var":"DOORCODE_MAIL_PASSWORD","secret":true},` +
 	defaultSetting("mail_from", "") + `,` +
-	defaultSetting("mail_reply_to", "")
+	defaultSetting("mail_reply_to", "") + `,` + alertSettingsJSON
+
+// alertSettingsJSON is how the settings API shows the alert mail settings
+// when nothing sets them.
+var alertSettingsJSON = defaultSetting("alert_recipients", "") + `,` +
+	defaultSetting("alert_mail_cleared", "true") + `,` +
+	defaultSetting("alert_hold_down_minutes", "15")
 
 // brokerSettingsJSON is how the settings API shows the broker settings
 // and the door configuration defaults when nothing sets them.

@@ -62,6 +62,10 @@ type Store struct {
 	updates  map[int64]connector.StoredUpdate
 	requests map[int64]connector.StoredRequest
 
+	alertKinds map[string]bool
+	conditions map[conditionKey]connector.StoredCondition
+	outbox     []connector.StoredMail
+
 	// last holds the last id each aggregate gave, keyed by its name.
 	last map[string]int64
 }
@@ -94,6 +98,8 @@ func New() *Store {
 		firmware:    map[int64]firmwareRow{},
 		updates:     map[int64]connector.StoredUpdate{},
 		requests:    map[int64]connector.StoredRequest{},
+		alertKinds:  map[string]bool{},
+		conditions:  map[conditionKey]connector.StoredCondition{},
 		last:        map[string]int64{},
 	}
 }

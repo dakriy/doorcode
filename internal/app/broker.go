@@ -47,9 +47,10 @@ const enrollmentPasswordBytes = 18
 // Run serves the door controllers: it lets them enroll with the enrollment
 // credentials, hands every message they publish to its lane as the broker
 // delivers it, and does the periodic work whenever the clock reaches its
-// next turn. It returns when the broker stops delivering and the lanes
-// have handled what they were handed, and with an error when it cannot
-// start. The first Run sets up the enrollment credentials; a later
+// next turn, while the outbox's mail is delivered beside it. It returns
+// when the broker stops delivering, the lanes have handled what they were
+// handed, and the mail due by then has been tried, and with an error when
+// it cannot start. The first Run sets up the enrollment credentials; a later
 // one keeps them, so controllers enrolling stay connected.
 func (a *App) Run(ctx context.Context) error {
 	if !a.enrolling {
@@ -64,6 +65,8 @@ func (a *App) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("subscribe: %w", err)
 	}
+	stopDelivery := a.startDelivery(ctx)
+	defer stopDelivery()
 	queues, wait := a.startLanes(ctx)
 	defer wait()
 	for {
