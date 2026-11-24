@@ -9,6 +9,9 @@
 #   docker compose -f docker-compose.dev.yml up -d --wait
 #   docker compose -f docker-compose.dev.yml logs app    # the first administrator's password
 #
+# The app sends its mail to mailpit, whose web page at
+# http://localhost:8025 (DOORCODE_MAILPIT_PORT) lists every message.
+#
 # Only the services the slow connector tests need:
 #
 #   docker compose -f docker-compose.dev.yml up -d --wait postgres mosquitto mailpit mailpit-starttls mailpit-tls
@@ -133,12 +136,20 @@ services:
       # server refuses to start without it; keep it, since stored secrets
       # cannot be read under another key.
       DOORCODE_SECRET_KEY: ${DOORCODE_SECRET_KEY:-}
+      # Mail goes to the mailpit, which takes it in the clear without a
+      # password; the Mail tab shows these as set by the deployment.
+      DOORCODE_MAIL_HOST: mailpit
+      DOORCODE_MAIL_PORT: "1025"
+      DOORCODE_MAIL_SECURITY: none
+      DOORCODE_MAIL_FROM: doorcode dev <doorcode@example.com>
     ports:
       - "${DOORCODE_HTTP_PORT:-8080}:8080"
     depends_on:
       postgres:
         condition: service_healthy
       mosquitto:
+        condition: service_healthy
+      mailpit:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/readyz"]

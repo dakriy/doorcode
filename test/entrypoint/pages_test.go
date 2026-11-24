@@ -377,9 +377,8 @@ var settingsTabOf = map[string]string{
 
 // settingsTab is the tab of the settings page before its settings: the
 // note, the main navigation and then the tabs, current marked, the
-// searchable timezone on Site setup, the upload of the sign-in page's
-// picture on Look and feel, and the test email to the first
-// administrator on Mail.
+// searchable timezone on Site setup and the upload of the sign-in
+// page's picture on Look and feel.
 func settingsTab(current string) testsupport.Page {
 	page := testsupport.Page{
 		Title: "Settings · doorcode", Heading: "Settings", Notes: []string{settingsNote}, Values: map[string]string{},
@@ -395,8 +394,6 @@ func settingsTab(current string) testsupport.Page {
 	switch current {
 	case "Site setup":
 		page.Comboboxes = []string{"site_timezone"}
-	case "Mail":
-		page.Notes = append(page.Notes, testMailNote(adminEmail))
 	case "Look and feel":
 		page.Values["sign-in-image"] = ""
 		page.Values["logo"] = ""
@@ -410,9 +407,9 @@ func settingsTab(current string) testsupport.Page {
 // settings it names, entered the value an input holds, and refused what
 // is wrong with a value; a read-only setting shows its value in place of
 // an input, and a secret that has a value offers to clear it. The
-// sections of single sign-on are open while it is enabled, and the
-// broker's certificate warns while it is missing though controllers
-// connect over TLS.
+// sections of single sign-on are open while it is enabled, the broker's
+// certificate warns while it is missing though controllers connect over
+// TLS, and Mail ends with the test email to the first administrator.
 func settingsPage(tab string, shown []shownSetting, changed map[string]shownSetting, entered, refused map[string]string) testsupport.Page {
 	page := settingsTab(tab)
 	held := map[string]string{}
@@ -441,6 +438,9 @@ func settingsPage(tab string, shown []shownSetting, changed map[string]shownSett
 	}
 	if refused != nil {
 		page.FieldErrors = refused
+	}
+	if tab == "Mail" {
+		page.Notes = append(page.Notes, testMailNote(adminEmail))
 	}
 	return page
 }

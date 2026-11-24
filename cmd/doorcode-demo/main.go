@@ -113,12 +113,17 @@ func serveDoors(ctx context.Context, a *app.App) error {
 }
 
 // newFactory builds the stand-ins and a throwaway key for the secret
-// settings, which nothing outlives anyway.
+// settings, which nothing outlives anyway, and presets the mail settings
+// to a local Mailpit unless the process's environment sets them.
 func newFactory() (factory, error) {
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
 		return factory{}, err
 	}
-	env := demo.Environment{Process: osenv.Environment{}, Set: map[string]string{"DOORCODE_SECRET_KEY": base64.StdEncoding.EncodeToString(key)}}
+	env := demo.Environment{
+		Process: osenv.Environment{},
+		Set:     map[string]string{"DOORCODE_SECRET_KEY": base64.StdEncoding.EncodeToString(key)},
+		Preset:  demo.Mailpit,
+	}
 	return factory{env: env, log: demo.NewLog(slogjson.New(os.Stderr)), store: memstore.New(), broker: demo.NewBroker()}, nil
 }

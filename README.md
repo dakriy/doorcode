@@ -88,7 +88,7 @@ it.
 
 ```sh
 docker build --target doorcode-demo -t doorcode-demo .
-docker run --rm -p 8080:8080 doorcode-demo
+docker run --rm -p 8080:8080 --add-host=host.docker.internal:host-gateway doorcode-demo
 ```
 
 or, with Go installed, `go run ./cmd/doorcode-demo`. Open
@@ -110,6 +110,18 @@ Settings work as in the server: a `DOORCODE_` variable such as
 value instead of seeding its own, logging each setting it leaves alone. With
 `DOORCODE_ENROLLMENT_PASSWORD` set, the simulated controllers enroll with
 it.
+
+The demo sends its mail to a [Mailpit](https://mailpit.axllent.org) on the
+same machine, which catches every message and delivers none: it presets
+`DOORCODE_MAIL_HOST` (`localhost`, or `host.docker.internal` in the image,
+the Docker host), `DOORCODE_MAIL_PORT` (`1025`), `DOORCODE_MAIL_SECURITY`
+(`none`), and `DOORCODE_MAIL_FROM` (`doorcode demo <doorcode@example.com>`),
+which the Mail tab shows as set by the deployment, and a variable the demo
+is started with wins over its preset. Start one first with
+`docker compose -f docker-compose.dev.yml up -d --wait mailpit` (or
+`docker run -d -p 1025:1025 -p 8025:8025 axllent/mailpit:v1.29.6`); Send
+test email on the Mail tab, and alert mails once alerts are enabled, then
+show at <http://localhost:8025>.
 
 ## Deploy with docker compose
 
@@ -384,6 +396,14 @@ controller's start, and `update failed` on an update (see
 | `DOORCODE_HTTP_PORT` | `docker-compose.dev.yml` only: host port the server is published on. | `8080` |
 | `DOORCODE_POSTGRES_PORT` | `docker-compose.dev.yml` only: host port Postgres is published on. | `5432` |
 | `DOORCODE_MQTT_PORT` | `docker-compose.dev.yml` only: host port the broker is published on. | `1883` |
+| `DOORCODE_SMTP_PORT` | `docker-compose.dev.yml` only: host port the `mailpit` SMTP catcher, which the server's mail goes to, is published on. | `1025` |
+| `DOORCODE_MAILPIT_PORT` | `docker-compose.dev.yml` only: host port `mailpit`'s web page, listing every message it caught, is published on. | `8025` |
+| `DOORCODE_SMTP_STARTTLS_PORT`, `DOORCODE_MAILPIT_STARTTLS_PORT` | `docker-compose.dev.yml` only: host ports of `mailpit-starttls`'s SMTP and web page. | `1587`, `8026` |
+| `DOORCODE_SMTP_TLS_PORT`, `DOORCODE_MAILPIT_TLS_PORT` | `docker-compose.dev.yml` only: host ports of `mailpit-tls`'s SMTP and web page. | `1465`, `8027` |
+| `DOORCODE_MAIL_HOST` | The `mail_host` setting (see Settings). `docker-compose.dev.yml` sets it to its `mailpit`, the demo to `localhost` (`host.docker.internal` in its image); `docker-compose.example.yml` leaves it unset. | `mailpit` in `docker-compose.dev.yml` |
+| `DOORCODE_MAIL_PORT` | The `mail_port` setting, likewise. | `1025` in `docker-compose.dev.yml` and the demo |
+| `DOORCODE_MAIL_SECURITY` | The `mail_security` setting, likewise. | `none` in `docker-compose.dev.yml` and the demo |
+| `DOORCODE_MAIL_FROM` | The `mail_from` setting, likewise. | `doorcode dev <doorcode@example.com>` in `docker-compose.dev.yml`, `doorcode demo <doorcode@example.com>` in the demo |
 
 ### Settings
 
@@ -689,7 +709,10 @@ mailpit SMTP catchers (in the clear, STARTTLS, and TLS from the start),
 which `docker-compose.dev.yml` provides; the mailpits deliver nothing. It also runs the server built from the
 checkout (`docker compose -f docker-compose.dev.yml up -d --wait`, with
 `DOORCODE_SECRET_KEY` set), with the passwords `doorcode` and the broker
-without TLS on 1883, for development only.
+without TLS on 1883, for development only. That server's mail goes to the
+plain mailpit, whose web page <http://localhost:8025> lists every message,
+so Send test email works with nothing typed in; the slow tests send to
+recipients of their own and delete nothing there.
 
 ```sh
 docker compose -f docker-compose.dev.yml up -d --wait postgres mosquitto mailpit mailpit-starttls mailpit-tls

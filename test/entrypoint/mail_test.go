@@ -310,6 +310,37 @@ func TestATestEmailFromTheMailTabGoesBackToItSayingSo(t *testing.T) {
 	}
 }
 
+func TestATestEmailGoesThroughTheMailSettingsTheEnvironmentGivesWhichTheMailTabShowsAsReadOnly(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	given := map[string]string{
+		"mail_host": "mailpit", "mail_port": "1025", "mail_security": "none", "mail_from": "doorcode dev <doorcode@example.com>",
+	}
+	shown := map[string]shownSetting{}
+	for key, value := range given {
+		f.EnvStub["DOORCODE_"+testsupport.Upper(key)] = value
+		shown[key] = shownSetting{key, value, "environment, read-only"}
+	}
+	b := signedInAdmin(t, f)
+
+	sent := b.Post("/admin/settings/mail/test")
+	page := pageOf(b.Get(sent.Location))
+
+	want := settingsPage("Mail", defaultSettings, shown, nil, nil)
+	want.Messages = []string{testMailSentFlash}
+	wantSent := []testsupport.SentMail{{
+		Server:   testsupport.MailServer("mailpit", 1025, "none", "", ""),
+		Envelope: testsupport.Envelope("doorcode@example.com", "admin@example.com"),
+	}}
+	got := f.MailerStub.Sent()
+	for i := range got {
+		got[i].Message = ""
+	}
+	if diff := cmp.Diff([]any{303, want, wantSent}, []any{sent.Status, page, got}); diff != "" {
+		t.Errorf("status, page, sent (-want +got):\n%s", diff)
+	}
+}
+
 func TestATestEmailTheMailTabCannotSendShowsItWithWhy(t *testing.T) {
 	t.Parallel()
 	for name, c := range unsendableTestMails {

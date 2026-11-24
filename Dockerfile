@@ -30,8 +30,11 @@ ENV DOORCODE_LISTEN_ADDR=:8080
 HEALTHCHECK --interval=5s --timeout=3s --retries=12 CMD wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1
 
 # The demo: the real application over seeded in-memory data and simulated
-# doors. Needs neither Postgres nor a broker; nothing outlives it.
+# doors. Needs neither Postgres nor a broker; nothing outlives it. Its mail
+# goes to a Mailpit on the Docker host, reached as host.docker.internal
+# (docker run --add-host=host.docker.internal:host-gateway on Linux).
 FROM runtime AS doorcode-demo
+ENV DOORCODE_MAIL_HOST=host.docker.internal
 COPY --from=build-demo /out/doorcode-demo /usr/local/bin/doorcode-demo
 ENTRYPOINT ["/usr/local/bin/doorcode-demo"]
 
