@@ -129,8 +129,8 @@ func TestTheEventsPageFiltersByOpenings(t *testing.T) {
 		[][]string{eventsHead, {"Mon 5 Jan 2026 09:00:00", "Lobby", "No one", "Info Opened", "Door activity"}, {"Showing 1 to 1 of 1"}},
 		[]string{
 			"Every reason", "Access rule", "Open mode", "Open override", "Door commander", "Command",
-			"No rule", "Locked", "Expired", "Rate limited", "Not a commander", "Bad command", "Command failed", "Unreachable",
-			"Keypad open", "Keypad locked", "Keypad cancel", "Reboot sent", "Admin UI", "Forced open", "Held open", "Configuration reverted",
+			"No rule", "Locked", "Expired", "Rate limited", "Not a commander", "Bad command", "Command failed", "Reboot too soon", "Update under way", "Unreachable",
+			"Keypad open", "Keypad locked", "Keypad cancel", "Keypad reboot", "Reboot sent", "Admin UI", "Forced open", "Held open", "Configuration reverted",
 			"Opened (selected)", "Closed", "Started", "Update sent", "Update succeeded", "Update failed",
 		},
 	}

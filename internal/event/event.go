@@ -79,6 +79,11 @@ const (
 	// CommandFailed is a valid keypad command the server could not carry
 	// out.
 	CommandFailed = "command failed"
+	// RebootTooSoon is a keypad reboot of a door rebooted from its keypad
+	// a short while before.
+	RebootTooSoon = "reboot too soon"
+	// UpdateUnderWay is a keypad reboot of a door installing firmware.
+	UpdateUnderWay = "update under way"
 	// Locked is a locked override in force.
 	Locked = "locked"
 	// NoRule is nothing letting the person in.
@@ -96,6 +101,8 @@ const (
 	KeypadLocked = "keypad locked"
 	// KeypadCancel ended the overrides in force.
 	KeypadCancel = "keypad cancel"
+	// KeypadReboot told the door's controller to restart.
+	KeypadReboot = "keypad reboot"
 )
 
 // FromUI is the reason of an opening from the admin UI or the API.
@@ -148,8 +155,8 @@ const (
 var Reasons = slices.Concat(
 	[]string{
 		AccessRule, OpenMode, OpenOverride, Commander, Commanded,
-		NoRule, Locked, Expired, RateLimited, NotCommander, BadCommand, CommandFailed, Unreachable,
-		KeypadOpen, KeypadLocked, KeypadCancel, RebootSent, FromUI,
+		NoRule, Locked, Expired, RateLimited, NotCommander, BadCommand, CommandFailed, RebootTooSoon, UpdateUnderWay, Unreachable,
+		KeypadOpen, KeypadLocked, KeypadCancel, KeypadReboot, RebootSent, FromUI,
 	},
 	AlarmReasons,
 	[]string{Opened, Closed, Started, UpdateSent, UpdateSucceeded, UpdateFailed},

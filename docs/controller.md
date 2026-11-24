@@ -576,16 +576,53 @@ The entry is `<code>` or `<code>*<command>`:
   commander is carried out and the door opens; anything else, an unknown
   command or one from someone who is not a door commander, is denied.
 
-Keypad commands all start with the opcode `00`:
+The controller sends the entry as typed and reads nothing into it; the
+server parses and authorises every command. A keypad command is one
+opcode digit, then the argument that opcode takes:
 
 | Entry | Effect |
 | --- | --- |
-| `<code>*001<minutes>` | An open override from now for `<minutes>`, 1 to 1440. |
-| `<code>*002<minutes>` | A locked override from now for `<minutes>`, 1 to 1440. |
-| `<code>*000` | Ends every override of the door in force now. |
+| `<code>*1<minutes>` | An open override from now for `<minutes>`, 1 to 1440. |
+| `<code>*2<minutes>` | A locked override from now for `<minutes>`, 1 to 1440. |
+| `<code>*0` | Ends every override of the door in force now. |
+| `<code>*9` | Restarts the door's controller (below). |
 
-For example, `4211234*00130` keeps the door open for 30 minutes. A command
+For example, `4211234*130` keeps the door open for 30 minutes. A command
 that changes the door's overrides is followed by a new timeline.
+
+The grammar, with `code` the digits before the first `*`:
+
+```
+entry    = code [ "*" command ]
+code     = 1*DIGIT
+command  = "0" / "1" minutes / "2" minutes / "9"
+minutes  = %x31-39 *3DIGIT        ; 1 to 1440, no leading zero
+```
+
+It is unambiguous for codes of every length. A code holds no `*`, so the
+first `*` ends the code whatever its length, and an entry without one is
+an ordinary code, even one ending in an opcode digit. The first digit
+after the `*` alone names the command, and `0` and `9` take nothing after
+them, so no command is the start of another. Every other text after the
+`*` is denied as a bad command: an empty one, another opcode digit, `0`
+or `9` followed by anything, minutes with a leading zero or out of range,
+a second `*`, and the three-digit forms `000`, `001<minutes>`, and
+`002<minutes>`. The entry, command included, must fit within
+`max_code_length`.
+
+**Reboot from the keypad.** The server allows `<code>*9` from a door
+commander unless a firmware update of the door is under way (denied,
+reason `update under way`, since a restart would cut it short) or the
+door was rebooted from its keypad within the last 10 minutes (denied,
+reason `reboot too soon`, so a keypad cannot hold its door in a loop of
+restarts). Allowed, it replies as to any allowed command, releasing the
+strike, and then sends the door a `reboot` command (section 13), logged
+as a `command` event, reason `keypad reboot`, naming the commander; a
+command it cannot send is logged as denied, reason `unreachable`. A
+controller offline denies the entry without asking, so a door never
+restarts from its keypad offline. A controller that restarts while its
+strike is released, which a power cycle would do too, comes up with it
+locked.
 
 ### Check
 
@@ -809,7 +846,7 @@ door.
 | `open` (`CommandOpen`) | Release the strike for `strike_ms`, as a reply allowing someone in would. An administrator sent it from the door page; the server has logged it. |
 | `credentials` (`CommandCredentials`) | Rotate to the new credentials (section 14). |
 | `update` (`CommandUpdate`) | Install the firmware (section 15). |
-| `reboot` (`CommandReboot`) | Restart, as below. An administrator sent it from the door page or the API; the server has logged it. |
+| `reboot` (`CommandReboot`) | Restart, as below. An administrator sent it from the door page or the API, or a door commander from the keypad (section 11); the server has logged it. |
 
 An unknown command should be answered with a `failed` ack.
 
@@ -821,7 +858,11 @@ controller must not expect any other field. The controller:
    lost in the restart.
 2. Restarts, as a power cycle would: the connection ends without a clean
    disconnect, so the broker publishes the last will and the server shows
-   the door offline.
+   the door offline. A controller whose strike is released should first
+   let the release run out, or end as the door opens, so that a reboot
+   from the keypad, which follows the reply that released it, does not
+   cut the release short; a controller that restarts at once comes up
+   with the strike locked.
 3. Connects again with the credentials it holds and goes on as in section
    6: last will, subscribe, online status. Its uptime and reconnect count
    start again from zero, and it keeps its stored timeline and

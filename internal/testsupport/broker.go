@@ -57,6 +57,8 @@ type Broker struct {
 	filters  []string
 	queue    []connector.Message
 	failing  map[brokerMethod]bool
+	// failingLeaves is the last levels of the topics Publish refuses.
+	failingLeaves []string
 	// lost says the application's connection to the broker is down.
 	lost bool
 	// Published is every message the application published, in order.
@@ -72,7 +74,7 @@ func NewBroker() *Broker {
 func (b *Broker) Publish(_ context.Context, m connector.Message) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if b.failing[publishing] {
+	if b.failing[publishing] || slices.Contains(b.failingLeaves, m.Topic[strings.LastIndex(m.Topic, "/")+1:]) {
 		return ErrUnavailable
 	}
 	m.Payload = slices.Clone(m.Payload)
@@ -244,6 +246,12 @@ func (b *Broker) Disconnect() { b.lost = true }
 
 // FailPublishing makes Publish report ErrUnavailable.
 func (b *Broker) FailPublishing() { b.failing[publishing] = true }
+
+// FailPublishingOn makes Publish report ErrUnavailable for a topic whose
+// last level is leaf, such as "command", and publish every other.
+func (b *Broker) FailPublishingOn(leaf string) {
+	b.failingLeaves = append(b.failingLeaves, leaf)
+}
 
 // FailSubscribing makes Subscribe report ErrUnavailable.
 func (b *Broker) FailSubscribing() { b.failing[subscribing] = true }

@@ -53,9 +53,14 @@ and the rule that decided. Unknown codes are logged without a user. While a
 door is in open mode it unlocks locally on any keypress and asks the server
 nothing, so open-mode use is measured only by the telemetry open count.
 
-Keypad commands (opcode `00`): `001<minutes>` creates an open override,
-`002<minutes>` a locked override, `000` cancels all active overrides on this
-door. Commands are logged as events naming the commander.
+Keypad commands are one opcode digit after the `*`: `1<minutes>` creates
+an open override and `2<minutes>` a locked override, for 1 to 1440 minutes
+written without a leading zero; `0` cancels all active overrides on this
+door; `9` reboots the door's controller once the reply is sent, refused
+while a firmware update of the door is under way (`update under way`) and
+within 10 minutes of the door's last keypad reboot (`reboot too soon`).
+Anything else after the `*` is a `bad command`; docs/controller.md section
+11 has the grammar. Commands are logged as events naming the commander.
 
 ## 3. Users and codes
 
@@ -688,8 +693,9 @@ The event labels take the events page's values: `type` is `check`,
 `denied`, `alert`, or `info`; `reason` is one of `access rule`,
 `open mode`, `open override`, `door commander`, `command`, `no rule`,
 `locked`, `expired`, `rate limited`, `not a commander`, `bad command`,
-`command failed`, `unreachable`, `keypad open`, `keypad locked`,
-`keypad cancel`, `reboot sent`, `admin UI`, `forced open`, `held open`,
+`command failed`, `reboot too soon`, `update under way`, `unreachable`,
+`keypad open`, `keypad locked`, `keypad cancel`, `keypad reboot`,
+`reboot sent`, `admin UI`, `forced open`, `held open`,
 `configuration reverted`, `opened`, `closed`, `started`, `update sent`,
 `update succeeded`, `update failed`. `start_reason` is set only on a
 controller's start (`type="door"`, `reason="started"`), as the controller

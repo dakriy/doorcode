@@ -12,6 +12,7 @@ import (
 	"github.com/dakriy/doorcode/internal/controller"
 	"github.com/dakriy/doorcode/internal/decision"
 	"github.com/dakriy/doorcode/internal/event"
+	"github.com/dakriy/doorcode/internal/firmware"
 	"github.com/dakriy/doorcode/internal/override"
 	"github.com/dakriy/doorcode/internal/protocol"
 	"github.com/dakriy/doorcode/internal/timeline"
@@ -51,7 +52,7 @@ func (a *App) checkCode(ctx context.Context, doorID int64, payload []byte) error
 		return err
 	}
 	if v.Command != nil {
-		v = a.carryOut(ctx, d.ID, v)
+		v = a.carryOut(ctx, d, v)
 	}
 	reply := protocol.Reply{RequestID: m.RequestID, Allow: v.Allow}
 	if v.Allow {
@@ -61,6 +62,9 @@ func (a *App) checkCode(ctx context.Context, doorID int64, payload []byte) error
 		// The door never heard the decision, so nobody got in; the rule
 		// that decided it stays on the event.
 		v.Allow, v.Reason = false, event.Unreachable
+	}
+	if err := a.rebootIfCommanded(ctx, d, v); err != nil {
+		return err
 	}
 	_, err = a.events.Record(ctx, checkEvent(a.clock.Now(), d.ID, m.RequestID, v))
 	return err
@@ -86,11 +90,15 @@ func outcome(allowed bool) string {
 	return event.Denied
 }
 
-// carryOut carries out the keypad command v allows at the door whose id is
-// doorID, as v's user, and logs it as an event. It returns v, or v denied
-// when the command could not be carried out, which is logged.
-func (a *App) carryOut(ctx context.Context, doorID int64, v decision.Verdict) decision.Verdict {
-	commander := v.User.ID
+// carryOut carries out the keypad command v allows at d, as v's user, and
+// logs it as an event. It returns v, or v denied when the command could
+// not be carried out, which is logged. A reboot is only checked here; it
+// is sent once the door has its reply.
+func (a *App) carryOut(ctx context.Context, d connector.StoredDoor, v decision.Verdict) decision.Verdict {
+	if v.Command.Kind == decision.Reboot {
+		return a.mayReboot(ctx, d.ID, v)
+	}
+	doorID, commander := d.ID, v.User.ID
 	reason, detail, err := a.keypadCommand(ctx, doorID, commander, *v.Command)
 	if err == nil {
 		_, err = a.events.Record(ctx, connector.StoredEvent{
@@ -98,11 +106,66 @@ func (a *App) carryOut(ctx context.Context, doorID int64, v decision.Verdict) de
 		})
 	}
 	if err != nil {
-		a.log.Error("could not carry out a keypad command",
-			connector.Field{Key: "door", Value: fmt.Sprint(doorID)}, connector.Field{Key: "error", Value: err.Error()})
-		return v.Denied(event.CommandFailed)
+		return a.commandFailed(doorID, v, err)
 	}
 	return v
+}
+
+// commandFailed is v denied, its keypad command at the door whose id is
+// doorID not carried out for err, which is logged.
+func (a *App) commandFailed(doorID int64, v decision.Verdict, err error) decision.Verdict {
+	a.log.Error("could not carry out a keypad command",
+		connector.Field{Key: "door", Value: fmt.Sprint(doorID)}, connector.Field{Key: "error", Value: err.Error()})
+	return v.Denied(event.CommandFailed)
+}
+
+// keypadRebootMinutes is how long after a reboot from its keypad a door
+// can be rebooted from its keypad again, so that a keypad cannot hold its
+// door in a loop of restarts.
+const keypadRebootMinutes = 10
+
+// mayReboot is v, a keypad reboot of the door whose id is doorID, denied
+// while the door is installing firmware, which a restart would cut
+// short, or when it was rebooted from its keypad no more than
+// keypadRebootMinutes ago.
+func (a *App) mayReboot(ctx context.Context, doorID int64, v decision.Verdict) decision.Verdict {
+	df, err := a.firmware.Door(ctx, doorID)
+	if err != nil {
+		return a.commandFailed(doorID, v, err)
+	}
+	if df.Status == firmware.Updating {
+		return v.Denied(event.UpdateUnderWay)
+	}
+	since := a.clock.Now().Add(-keypadRebootMinutes * time.Minute)
+	recent, err := a.events.Find(ctx, event.Query{
+		EventQuery: connector.EventQuery{DoorID: doorID, Type: event.Command, Reason: event.KeypadReboot, From: &since}, Page: 1, PerPage: 1,
+	})
+	if err != nil {
+		return a.commandFailed(doorID, v, err)
+	}
+	if recent.Total > 0 {
+		return v.Denied(event.RebootTooSoon)
+	}
+	return v
+}
+
+// rebootIfCommanded tells d's controller to restart when v allowed a
+// keypad reboot and the door was told so, and logs it as an event naming
+// the commander: a reboot that could not be sent as denied, the door
+// being unreachable.
+func (a *App) rebootIfCommanded(ctx context.Context, d connector.StoredDoor, v decision.Verdict) error {
+	if !v.Allow || v.Command == nil || v.Command.Kind != decision.Reboot {
+		return nil
+	}
+	e := connector.StoredEvent{
+		At: a.clock.Now(), DoorID: d.ID, Type: event.Command, Outcome: event.Allowed, Reason: event.KeypadReboot,
+		UserID: &v.User.ID, Detail: "Told to restart and connect again.",
+	}
+	if err := a.controllers.Reboot(ctx, d); err != nil {
+		e.Outcome, e.Reason, e.Detail = event.Denied, event.Unreachable, "Could not be told to restart: "+err.Error()
+	}
+	_, err := a.events.Record(ctx, e)
+	return err
 }
 
 // keypadCommand carries out c at the door whose id is doorID as the user

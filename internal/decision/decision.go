@@ -227,42 +227,46 @@ func groupsOf(u *connector.StoredUser) []connector.UserGroup {
 	return u.Groups
 }
 
-// Cancel is the kind of keypad command that ends the overrides in force.
-const Cancel = "cancel"
+// The kinds of keypad command besides the overrides, whose kinds are
+// timeline.Open and timeline.Locked.
+const (
+	// Cancel ends the door's overrides in force.
+	Cancel = "cancel"
+	// Reboot restarts the door's controller.
+	Reboot = "reboot"
+)
 
-// opcode starts every keypad command.
-const opcode = "00"
-
-// maxMinutes is the longest override a keypad command makes: a day.
-const maxMinutes = 1440
+// MaxMinutes is the longest override a keypad command makes: a day.
+const MaxMinutes = 1440
 
 // Command is a keypad command: an override of Kind (timeline.Open or
-// timeline.Locked) for Minutes from now, or, when Kind is Cancel, the end
-// of the door's overrides in force.
+// timeline.Locked) for Minutes from now, the end of the door's overrides
+// in force when Kind is Cancel, or a restart of the door's controller
+// when Kind is Reboot.
 type Command struct {
 	Kind    string
 	Minutes int
 }
 
-// commandKinds maps the digit after the opcode to the override a command
-// makes.
-var commandKinds = map[string]string{"1": timeline.Open, "2": timeline.Locked}
+// opcodes maps the one digit that starts a keypad command to its kind.
+var opcodes = map[string]string{"0": Cancel, "1": timeline.Open, "2": timeline.Locked, "9": Reboot}
 
 // parseCommand reads text, what follows the "*" of a keypad entry, as a
-// command, and reports whether it is one: "001" and a number of minutes
-// from 1 to 1440 for an open override, "002" and one for a locked
-// override, and "000" to cancel the overrides in force.
+// command, and reports whether it is one: "1" and a number of minutes
+// from 1 to 1440, written without leading zeros, for an open override,
+// "2" and one for a locked override, "0" alone to cancel the overrides in
+// force, and "9" alone to reboot the door. Its first digit alone says
+// which command it is, so no command is the start of another.
 func parseCommand(text string) (Command, bool) {
-	rest, ok := strings.CutPrefix(text, opcode)
-	if !ok || rest == "" {
+	if text == "" {
 		return Command{}, false
 	}
-	op, minutes := rest[:1], rest[1:]
-	if op == "0" {
-		return Command{Kind: Cancel}, minutes == ""
+	kind, known := opcodes[text[:1]]
+	argument := text[1:]
+	if kind == Cancel || kind == Reboot {
+		return Command{Kind: kind}, argument == ""
 	}
-	kind, known := commandKinds[op]
-	n, err := strconv.Atoi(minutes)
-	inRange := err == nil && n >= 1 && n <= maxMinutes
-	return Command{Kind: kind, Minutes: n}, known && inRange
+	n, err := strconv.Atoi(argument)
+	written := err == nil && strconv.Itoa(n) == argument
+	return Command{Kind: kind, Minutes: n}, known && written && n >= 1 && n <= MaxMinutes
 }

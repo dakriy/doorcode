@@ -123,15 +123,12 @@ func TestEachStepOfTheDecisionChainDecidesInItsOrder(t *testing.T) {
 		}, "222222", denied, checked("1", "denied", "expired", byCid)},
 		"a deleted door commander's keypad command is denied": {func(k *keypad) {
 			k.f.StoreStub.DeleteUser("cid@example.com", "2026-01-05T08:00:00Z")
-		}, "222222*00130", denied, checked("1", "denied", "expired", byCid)},
-		"a keypad command from someone not a door commander is denied": {staffRule, "111111*00130", denied, checked("1", "denied", "not a commander", byAnn)},
-		"a keypad command from an unknown code is denied":              {nil, "999999*00130", denied, checked("1", "denied", "not a commander", "")},
-		"a door commander's command that means nothing is denied":      {nil, "222222*00399", denied, checked("1", "denied", "bad command", byCid)},
-		"a door commander's command without the opcode is denied":      {nil, "222222*1130", denied, checked("1", "denied", "bad command", byCid)},
-		"a door commander's opcode alone is denied":                    {nil, "222222*00", denied, checked("1", "denied", "bad command", byCid)},
-		"a door commander's command for no minutes is denied":          {nil, "222222*0010", denied, checked("1", "denied", "bad command", byCid)},
-		"a door commander's command for over a day is denied":          {nil, "222222*0021441", denied, checked("1", "denied", "bad command", byCid)},
-		"a door commander's command for a minute is carried out":       {nil, "222222*0011", allowed, checked("2", "allowed", "command", byCid)},
+		}, "222222*130", denied, checked("1", "denied", "expired", byCid)},
+		"a keypad command from someone not a door commander is denied": {staffRule, "111111*130", denied, checked("1", "denied", "not a commander", byAnn)},
+		"a keypad reboot from someone not a door commander is denied":  {staffRule, "111111*9", denied, checked("1", "denied", "not a commander", byAnn)},
+		"a keypad command from an unknown code is denied":              {nil, "999999*130", denied, checked("1", "denied", "not a commander", "")},
+		"a door commander's command that means nothing is denied":      {nil, "222222*399", denied, checked("1", "denied", "bad command", byCid)},
+		"a door commander's command for a minute is carried out":       {nil, "222222*11", allowed, checked("2", "allowed", "command", byCid)},
 		"a door commander gets in at a door no rule reaches":           {nil, "222222", allowed, checked("1", "allowed", "door commander", byCid)},
 		"a door commander under a locked override gets in": {func(k *keypad) {
 			createOverride(k.t, k.b, "1", lockedNow)
@@ -238,8 +235,8 @@ func TestAKeypadCommandCreatesAnOverrideAndIsLoggedNamingTheCommander(t *testing
 		state                        string
 		ends                         int64
 	}{
-		"an open override":  {"222222*00130", "open", "keypad open", "Open for 30 minutes.", "2026-01-05T09:30:00Z", "open", mon0900 + 30*60},
-		"a locked override": {"222222*0021440", "locked", "keypad locked", "Locked for 1440 minutes.", "2026-01-06T09:00:00Z", "locked", mon0900 + 1440*60},
+		"an open override":  {"222222*130", "open", "keypad open", "Open for 30 minutes.", "2026-01-05T09:30:00Z", "open", mon0900 + 30*60},
+		"a locked override": {"222222*21440", "locked", "keypad locked", "Locked for 1440 minutes.", "2026-01-06T09:00:00Z", "locked", mon0900 + 1440*60},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -276,7 +273,7 @@ func TestTheCancelCommandEndsTheOverridesInForceAndKeepsThoseToCome(t *testing.T
 	createOverride(t, k.b, "1", openNow)
 	createOverride(t, k.b, "1", lockedToday)
 
-	reply := k.enter("222222*000")
+	reply := k.enter("222222*0")
 
 	overrides, _ := testsupport.JSONAt(send(t, k.b, "GET", "/api/v1/doors/1/overrides", "", 200).Body, "/overrides").([]any)
 	want := []any{allowed, 1, testsupport.JSON(`"2026-01-05T10:00:00Z"`), "Overrides in force ended: 2.", "keypad cancel"}
@@ -293,9 +290,10 @@ func TestAKeypadCommandThatCannotBeCarriedOutIsDeniedAndLogged(t *testing.T) {
 		digits string
 		fail   func(f *testsupport.Factory)
 	}{
-		"an override that cannot be stored": {"222222*00130", func(f *testsupport.Factory) { f.StoreStub.FailOverrideWrites() }},
-		"overrides that cannot be read":     {"222222*000", func(f *testsupport.Factory) { f.StoreStub.FailOverrides() }},
-		"an override that cannot be ended":  {"222222*000", func(f *testsupport.Factory) { f.StoreStub.FailOverrideWrites() }},
+		"an override that cannot be stored":        {"222222*130", func(f *testsupport.Factory) { f.StoreStub.FailOverrideWrites() }},
+		"overrides that cannot be read":            {"222222*0", func(f *testsupport.Factory) { f.StoreStub.FailOverrides() }},
+		"an override that cannot be ended":         {"222222*0", func(f *testsupport.Factory) { f.StoreStub.FailOverrideWrites() }},
+		"a reboot whose door's updates are unread": {"222222*9", func(f *testsupport.Factory) { f.StoreStub.FailUpdates() }},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
