@@ -1201,3 +1201,40 @@ func TestCalendarKeysNameWhoseCodeTheyShow(t *testing.T) {
 		t.Errorf("door calendar, user's access calendar keys (-want +got):\n%s", diff)
 	}
 }
+
+func TestTheDoorCodePageTeachesADoorCommanderEveryKeypadCommand(t *testing.T) {
+	t.Parallel()
+	admin, ann := portalSite(t, testsupport.NewFactory())
+	created := send(t, admin, "POST", "/api/v1/groups", `{"slug":"commanders","name":"Commanders","roles":["door-commander"]}`, 201)
+	join(t, admin, testsupport.Itoa(int(testsupport.JSONAt(created.Body, "/id").(float64))), "2")
+
+	page := testsupport.ParsePage(ann.Get("/me/code").Body)
+
+	want := []any{
+		[][]string{
+			{"Digit", "Type", "What it does"},
+			{"1", "code *1 minutes #", "Open mode: the door unlocks for anyone at a keypress, from now for 1 to 1440 minutes."},
+			{"2", "code *2 minutes #", "Locked mode: only door commanders get in, from now for 1 to 1440 minutes. Locked mode wins over open mode while both are set."},
+			{"0", "code *0 #", "Clear: ends every open or locked mode set on this door that is in force now, from the keypad or the door’s page. The door goes back to its schedules."},
+			{"9", "code *9 #", "Reboot: restarts the door’s controller, as below."},
+		},
+		[][]string{
+			{"You type", "What happens"},
+			{"your code *130#", "Open mode for 30 minutes."},
+			{"your code *2120#", "Locked mode for 120 minutes, two hours."},
+			{"your code *11440#", "Open mode for a day, the longest there is."},
+			{"your code *0#", "Ends the open or locked mode in force now."},
+			{"your code *9#", "Reboots the door."},
+		},
+		[]string{
+			"The strike releases to show it was accepted, then the controller restarts and connects again, usually within a minute. It stays locked while it restarts.",
+			"It comes back following its schedules, with any open or locked mode still in force.",
+			"A door can be rebooted from its keypad once in 10 minutes, and not while it is installing a firmware update.",
+			"A door that cannot reach the server cannot be rebooted from its keypad.",
+		},
+	}
+	got := []any{page.Tables["Door commands"], page.Tables["Examples"], page.Lists["Reboot"]}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("commands, examples, reboot (-want +got):\n%s", diff)
+	}
+}

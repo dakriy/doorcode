@@ -39,7 +39,74 @@
       <li>Type your whole code{{with $code.Prefix}}, starting with {{.}}{{end}}.</li>
       <li>Press the submit key, usually #.</li>
       <li>The door unlocks for a few seconds when your access allows it. <a href="/me/access" class="{{template "link-class"}}">See when it does.</a></li>
+      {{if $c.Commands}}<li>As a door commander, your code also gives the door commands. <a href="#commands" class="{{template "link-class"}}">See how.</a></li>{{end}}
     </ol>
   </aside>
 </div>
+{{if $c.Commands}}{{template "door-commands" $c}}{{end}}
+{{end}}
+
+{{define "door-commands"}}
+<section id="commands" aria-labelledby="commands-heading" class="mt-8 p-6 {{template "card-class"}}">
+  <h2 id="commands-heading" class="text-sm font-semibold">Door commands</h2>
+  <p class="mt-2 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">As a door commander you can change what a door does from its keypad. Type your whole code, then <span class="font-mono font-semibold text-zinc-900 dark:text-zinc-100">*</span>, then one digit that says which command, then any minutes it takes, then the submit key, usually #. The door asks the server, which carries out the command only for a door commander’s code and logs it under your name. A code never holds a *, so everything after the first * is the command, whatever the length of your code.</p>
+
+  <div class="mt-6 overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
+    <table aria-label="Door commands" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+      <thead class="{{template "table-head-class"}}"><tr><th scope="col" class="px-4 py-2">Digit</th><th scope="col" class="px-4 py-2">Type</th><th scope="col" class="px-4 py-2">What it does</th></tr></thead>
+      <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
+        <tr><td class="px-4 py-3 align-top font-mono font-semibold">1</td><td class="px-4 py-3 align-top font-mono whitespace-nowrap">code *1 minutes #</td><td class="px-4 py-3 align-top">Open mode: the door unlocks for anyone at a keypress, from now for 1 to {{.MaxMinutes}} minutes.</td></tr>
+        <tr><td class="px-4 py-3 align-top font-mono font-semibold">2</td><td class="px-4 py-3 align-top font-mono whitespace-nowrap">code *2 minutes #</td><td class="px-4 py-3 align-top">Locked mode: only door commanders get in, from now for 1 to {{.MaxMinutes}} minutes. Locked mode wins over open mode while both are set.</td></tr>
+        <tr><td class="px-4 py-3 align-top font-mono font-semibold">0</td><td class="px-4 py-3 align-top font-mono whitespace-nowrap">code *0 #</td><td class="px-4 py-3 align-top">Clear: ends every open or locked mode set on this door that is in force now, from the keypad or the door’s page. The door goes back to its schedules.</td></tr>
+        <tr><td class="px-4 py-3 align-top font-mono font-semibold">9</td><td class="px-4 py-3 align-top font-mono whitespace-nowrap">code *9 #</td><td class="px-4 py-3 align-top">Reboot: restarts the door’s controller, as below.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">Minutes are written as a plain number with no leading zero: 30, not 030. 0 and 9 take nothing after them. Any other digit, or anything else after the *, is refused.</p>
+
+  <h3 class="mt-6 text-sm font-semibold">Examples</h3>
+  <div class="mt-3 overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
+    <table aria-label="Examples" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+      <thead class="{{template "table-head-class"}}"><tr><th scope="col" class="px-4 py-2">You type</th><th scope="col" class="px-4 py-2">What happens</th></tr></thead>
+      <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
+        <tr><td class="px-4 py-3 align-top font-mono whitespace-nowrap">your code *130#</td><td class="px-4 py-3 align-top">Open mode for 30 minutes.</td></tr>
+        <tr><td class="px-4 py-3 align-top font-mono whitespace-nowrap">your code *2120#</td><td class="px-4 py-3 align-top">Locked mode for 120 minutes, two hours.</td></tr>
+        <tr><td class="px-4 py-3 align-top font-mono whitespace-nowrap">your code *1{{.MaxMinutes}}#</td><td class="px-4 py-3 align-top">Open mode for a day, the longest there is.</td></tr>
+        <tr><td class="px-4 py-3 align-top font-mono whitespace-nowrap">your code *0#</td><td class="px-4 py-3 align-top">Ends the open or locked mode in force now.</td></tr>
+        <tr><td class="px-4 py-3 align-top font-mono whitespace-nowrap">your code *9#</td><td class="px-4 py-3 align-top">Reboots the door.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">“your code” is the whole door code you type to get in{{with .Code.Prefix}}, starting with {{.}}{{end}}.</p>
+
+  <div class="mt-6 grid gap-6 text-sm text-zinc-600 lg:grid-cols-3 dark:text-zinc-400">
+    <div>
+      <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">What the door does</h3>
+      <ul aria-label="What the door does" class="mt-3 space-y-2">
+        <li>Accepted: the strike releases for a few seconds, as when your code lets you in.</li>
+        <li>Refused: the door stays locked and nothing else happens: a mistyped command, minutes out of range, or a reboot too soon. The server logs why, and your entries list it.</li>
+        <li>A door that cannot reach the server refuses every entry, commands included, and none is carried out later.</li>
+        <li>The door has no display or sound of its own, so the strike is the only sign.</li>
+      </ul>
+    </div>
+    <div>
+      <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">How long it lasts</h3>
+      <ul aria-label="How long it lasts" class="mt-3 space-y-2">
+        <li>Open or locked mode starts when the server accepts it and ends by itself once its minutes are up, at most {{.MaxMinutes}} minutes, a day.</li>
+        <li>It ends sooner with *0 at the door, or from the door’s page under Overrides, where it is listed as a keypad command.</li>
+        <li>While a door is in open mode, from a command or a schedule, any key unlocks it and nothing typed reaches the server, so no command can be given there: end an open mode early from the door’s page.</li>
+        <li>To swap locked mode for open mode, clear it with *0 first.</li>
+      </ul>
+    </div>
+    <div>
+      <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Reboot</h3>
+      <ul aria-label="Reboot" class="mt-3 space-y-2">
+        <li>The strike releases to show it was accepted, then the controller restarts and connects again, usually within a minute. It stays locked while it restarts.</li>
+        <li>It comes back following its schedules, with any open or locked mode still in force.</li>
+        <li>A door can be rebooted from its keypad once in {{.RebootGapMinutes}} minutes, and not while it is installing a firmware update.</li>
+        <li>A door that cannot reach the server cannot be rebooted from its keypad.</li>
+      </ul>
+    </div>
+  </div>
+</section>
 {{end}}

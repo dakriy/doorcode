@@ -209,6 +209,14 @@ func (a *App) home(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 type codeContent struct {
 	Code  ownCodeView
 	Error string
+	// Commands is true when the viewer is a door commander, whose code
+	// also gives the doors keypad commands, which the page explains.
+	Commands bool
+	// MaxMinutes is the longest override a keypad command makes, and
+	// RebootGapMinutes how long after a keypad reboot a door takes the
+	// next.
+	MaxMinutes       int
+	RebootGapMinutes int
 }
 
 func (a *App) codePage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
@@ -221,7 +229,10 @@ func (a *App) renderCode(w http.ResponseWriter, r *http.Request, status int, vie
 		a.pageError(w, r, err)
 		return
 	}
-	a.render(w, r, status, codeTemplate, "Door code", &viewer, codeContent{Code: ownCode(u), Error: problem})
+	a.render(w, r, status, codeTemplate, "Door code", &viewer, codeContent{
+		Code: ownCode(u), Error: problem,
+		Commands: viewer.Has(auth.RoleDoorCommander), MaxMinutes: decision.MaxMinutes, RebootGapMinutes: keypadRebootMinutes,
+	})
 }
 
 func (a *App) setCodeFromPortal(w http.ResponseWriter, r *http.Request, viewer auth.User) {

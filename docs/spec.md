@@ -543,6 +543,11 @@ navigation groups the door code, access, entries, and requests under Doors,
 and password, API tokens, and API docs under Account; the administration's
 navigation links back to the portal and to API tokens.
 
+For a door commander the door code page also teaches the keypad commands:
+each opcode, worked examples with "your code" standing for the code, what
+the door does when a command is accepted or refused, how long an override
+lasts and how it ends, and what a reboot does. Nobody else is shown it.
+
 The access page lists every public door the user can ever get into: one an
 access rule of theirs reaches (or every door, for a door commander), or one
 a zone of which has an open mode schedule. A public door that is neither is
