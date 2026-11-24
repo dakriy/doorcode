@@ -42,7 +42,7 @@ var mailSection = section{Section{Name: "Mail", About: "The SMTP server the site
 		help: "Usually 465 for TLS, 587 for STARTTLS, and 25 for none."},
 	{key: keyMailSecurity, fallback: string(connector.MailTLS), validate: accepting(mailSecurity).askedWith(Input{Kind: KindChoice, Choices: mailSecurities}),
 		label: "Connection security",
-		help:  "tls speaks TLS from the start; starttls connects in the clear and refuses to send unless the server takes STARTTLS; none stays in the clear, and then signs in only to a server on this machine. The server's certificate is verified against the system's trusted roots."},
+		help:  "tls speaks TLS from the start; starttls connects in the clear and refuses to send unless the server takes STARTTLS; none stays in the clear, so the mail password is sent unencrypted. The server's certificate is verified against the system's trusted roots."},
 	{key: keyMailUsername, fallback: "", label: "Mail username", help: "The user to sign in to the server as, or empty to send without signing in."},
 	{key: keyMailPassword, fallback: "", secret: true, label: "Mail password", help: "The password of the mail username."},
 	{key: keyMailFrom, fallback: "", validate: accepting(optionalAddress).askedWith(Input{Example: mailFromExample}), label: "Sent from",

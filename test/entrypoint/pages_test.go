@@ -107,7 +107,7 @@ var settingRows = map[string]struct{ section, label, help string }{
 	"mail_host":                {"Mail", "Mail server", "The host name or IP address of the SMTP server, such as smtp.example.com."},
 	"mail_port":                {"Mail", "Mail server port", "Usually 465 for TLS, 587 for STARTTLS, and 25 for none."},
 	"mail_security": {"Mail", "Connection security", "tls speaks TLS from the start; starttls connects in the clear and refuses to send unless the server takes STARTTLS; " +
-		"none stays in the clear, and then signs in only to a server on this machine. The server's certificate is verified against the system's trusted roots."},
+		"none stays in the clear, so the mail password is sent unencrypted. The server's certificate is verified against the system's trusted roots."},
 	"mail_username": {"Mail", "Mail username", "The user to sign in to the server as, or empty to send without signing in."},
 	"mail_password": {"Mail", "Mail password", "The password of the mail username."},
 	"mail_from": {"Mail", "Sent from",

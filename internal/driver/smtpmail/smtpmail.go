@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"net"
 	"net/smtp"
 	"strconv"
@@ -99,7 +100,28 @@ func authenticate(c *smtp.Client, server connector.MailServer) error {
 	if server.Username == "" {
 		return nil
 	}
-	return c.Auth(smtp.PlainAuth("", server.Username, server.Password, server.Host))
+	return c.Auth(plainAuth{username: server.Username, password: server.Password})
+}
+
+// plainAuth is PLAIN authentication (RFC 4616) over whatever connection
+// the client holds, protected or not; smtp.PlainAuth refuses a
+// connection in the clear to any host but localhost.
+type plainAuth struct {
+	username string
+	password string
+}
+
+// Start sends the username and password in the initial response.
+func (a plainAuth) Start(*smtp.ServerInfo) (string, []byte, error) {
+	return "PLAIN", []byte("\x00" + a.username + "\x00" + a.password), nil
+}
+
+// Next fails on a challenge, which PLAIN never has.
+func (a plainAuth) Next(_ []byte, more bool) ([]byte, error) {
+	if more {
+		return nil, errors.New("unexpected server challenge")
+	}
+	return nil, nil
 }
 
 // recipients names each of to to the server.

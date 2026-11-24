@@ -1326,8 +1326,8 @@ const (
 
 // MailServer is an SMTP server and how to reach it. TLS verifies the
 // server's certificate for Host. Username, when not empty, signs in with
-// PLAIN authentication, which is refused over a connection in the clear
-// to any host but this machine.
+// PLAIN authentication, over a connection in the clear too when Security
+// is MailNone.
 type MailServer struct {
 	Host     string
 	Port     int

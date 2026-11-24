@@ -456,7 +456,7 @@ page folds away the single sign-on and identity claims parts while
 | `portal_door_pictures` | `true` shows each public door's primary picture in the user portal and lets anyone signed in load that door's pictures; `false` shows none there and serves pictures only to holders of manage-doors, door-commander, or manage-firmware. The administration always shows them. | `false` |
 | `mail_host` | The host name or IP address of the SMTP server the site sends mail through. Nothing is sent while it or `mail_from` is empty. | empty |
 | `mail_port` | The SMTP server's port, 1 to 65535: usually 465 for `tls`, 587 for `starttls`, 25 for `none`. | `465` |
-| `mail_security` | `tls` speaks TLS from the start (implicit TLS); `starttls` connects in the clear and refuses to send unless the server takes STARTTLS; `none` stays in the clear and then signs in only to a server on this machine (`localhost`). The server's certificate is verified against the system's trusted roots, TLS 1.2 or later. | `tls` |
+| `mail_security` | `tls` speaks TLS from the start (implicit TLS); `starttls` connects in the clear and refuses to send unless the server takes STARTTLS; `none` stays in the clear, so the password is sent unencrypted. The server's certificate is verified against the system's trusted roots, TLS 1.2 or later. | `tls` |
 | `mail_username` | The user to sign in to the SMTP server as (PLAIN authentication); empty sends without signing in. | empty |
 | `mail_password` | Its password. Secret: stored encrypted. | empty |
 | `mail_from` | The address mail comes from, alone or after a name, such as `Doorcode <doorcode@example.com>`. | empty |

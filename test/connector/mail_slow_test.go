@@ -13,7 +13,8 @@ import (
 
 func TestMailerDeliversAMessageEachWayItCanReachAServer(t *testing.T) {
 	cases := map[string]mailCase{
-		"in the clear":            {server: plainMailpit, security: connector.MailNone, accepted: true},
+		"in the clear": {server: plainMailpit, security: connector.MailNone, accepted: true},
+		"in the clear signing in to a host other than localhost": {server: plainMailpit, security: connector.MailNone, password: "doorcode", accepted: true, elsewhere: true},
 		"over STARTTLS":           {server: startTLSMailpit, security: connector.MailStartTLS, password: "doorcode", trusted: true, accepted: true},
 		"over TLS from the start": {server: tlsMailpit, security: connector.MailTLS, password: "doorcode", trusted: true, accepted: true},
 	}

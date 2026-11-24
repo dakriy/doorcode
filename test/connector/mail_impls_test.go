@@ -28,14 +28,16 @@ const mailTimeout = 5 * time.Second
 // whose address the environment variable server names (plain, which
 // offers no STARTTLS, STARTTLS, or TLS), how the connection is
 // protected, the password the user doorcode signs in with (none when
-// empty), whether the mailer trusts the server's certificate, and whether
-// the server takes the message.
+// empty), whether the mailer trusts the server's certificate, whether
+// the server takes the message, and whether the real mailer names the
+// server by a host net/smtp does not count as localhost.
 type mailCase struct {
-	server   string
-	security connector.MailSecurity
-	password string
-	trusted  bool
-	accepted bool
+	server    string
+	security  connector.MailSecurity
+	password  string
+	trusted   bool
+	accepted  bool
+	elsewhere bool
 }
 
 // The mailpits the slow tests reach, by the variable naming each.
@@ -78,6 +80,9 @@ var mailerImpls = []mailerImpl{
 			t.Fatal(err)
 		}
 		n, _ := strconv.Atoi(port)
+		if c.elsewhere {
+			host = notLocalhost(host)
+		}
 		server := connector.MailServer{Host: host, Port: n, Security: c.security}
 		if c.password != "" {
 			server.Username, server.Password = "doorcode", c.password
@@ -88,6 +93,16 @@ var mailerImpls = []mailerImpl{
 		}
 		return smtpmail.New(mailTimeout, roots), server, func(to string) []string { return caught(t, web, to) }
 	}},
+}
+
+// notLocalhost is a name for host that net/smtp does not count as
+// localhost: 127.0.0.2, another address of the loopback network, for
+// localhost and 127.0.0.1, and host itself otherwise.
+func notLocalhost(host string) string {
+	if host == "localhost" || host == "127.0.0.1" {
+		return "127.0.0.2"
+	}
+	return host
 }
 
 // mailpitAt is the SMTP address and the web address of the mailpit the
