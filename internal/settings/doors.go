@@ -131,9 +131,19 @@ func meshWarning(found check.List) string {
 	return "Controllers are sent mesh_enabled false: " + found[0].Message + "."
 }
 
-// DoorConfig is the configuration a door runs with. Durations are whole
-// numbers of the unit their name ends in.
+// DoorConfig is the configuration a door runs with: what its controller
+// is sent, and what only the server acts on, which the controller never
+// sees, so changing it changes nothing the controller is sent.
 type DoorConfig struct {
+	ControllerConfig
+	// AutoCredentialRotation is whether the server rotates the door's
+	// credentials on its own once they are CredentialRotationDays old.
+	AutoCredentialRotation bool
+}
+
+// ControllerConfig is the part of a door's configuration its controller
+// is sent. Durations are whole numbers of the unit their name ends in.
+type ControllerConfig struct {
 	StrikePulseMS          int
 	KeypadIdleClearMS      int
 	MinCodeLength          int
@@ -277,6 +287,9 @@ var DoorFields = grouped(
 		wholeField("credential_rotation_days", "Credential rotation",
 			"How many days the door's broker credentials work before the server issues it new ones.",
 			"30", 1, 3650, "days", func(c *DoorConfig) *int { return &c.CredentialRotationDays }),
+		yesNoField("auto_credential_rotation", "Automatic credential rotation",
+			"Whether the server issues the door new broker credentials on its own once its credential rotation days have passed. Off, they change only when someone rotates them from the door's page or the API.",
+			"true", func(c *DoorConfig) *bool { return &c.AutoCredentialRotation }),
 		wholeField("rate_limit_per_minute", "Code checks a minute",
 			"How many codes a minute the server checks from the door once its burst is spent; an entry over the limit is denied without being looked at and logged as rate limited.",
 			"30", 1, 6000, "checks", func(c *DoorConfig) *int { return &c.RateLimitPerMinute }),

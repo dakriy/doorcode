@@ -63,7 +63,8 @@ var defaultSettings = []shownSetting{
 	{"door_keypad_idle_clear_ms", "10000", "default"}, {"door_min_code_length", "4", "default"},
 	{"door_max_code_length", "32", "default"}, {"door_reply_timeout_ms", "3000", "default"},
 	{"door_telemetry_interval_s", "60", "default"}, {"door_timeline_refresh_hours", "6", "default"},
-	{"door_credential_rotation_days", "30", "default"}, {"door_rate_limit_per_minute", "30", "default"},
+	{"door_credential_rotation_days", "30", "default"}, {"door_auto_credential_rotation", "true", "default"},
+	{"door_rate_limit_per_minute", "30", "default"},
 	{"door_rate_limit_burst", "10", "default"}, {"door_log_level", "info", "default"}, {"door_ntp_server", "pool.ntp.org", "default"},
 	{"door_broker_host", "", "default"}, {"door_broker_port", "8883", "default"}, {"door_broker_tls", "true", "default"},
 	{"door_broker_ca_pem", "", "default"}, {"door_keepalive_s", "30", "default"}, {"door_reconnect_max_s", "60", "default"},
@@ -132,6 +133,8 @@ var settingRows = map[string]struct{ section, label, help string }{
 		"How often the server sends the door its timeline of when to stay open and locked, even when nothing changed it."},
 	"door_credential_rotation_days": {"Door defaults", "Credential rotation",
 		"How many days the door's broker credentials work before the server issues it new ones."},
+	"door_auto_credential_rotation": {"Door defaults", "Automatic credential rotation",
+		"Whether the server issues the door new broker credentials on its own once its credential rotation days have passed. Off, they change only when someone rotates them from the door's page or the API."},
 	"door_rate_limit_per_minute": {"Door defaults", "Code checks a minute",
 		"How many codes a minute the server checks from the door once its burst is spent; an entry over the limit is denied without being looked at and logged as rate limited."},
 	"door_rate_limit_burst": {"Door defaults", "Code checks in a burst",
@@ -184,8 +187,8 @@ var doorGroups = []struct {
 	fields []string
 }{
 	{"Keypad and strike", []string{"strike_pulse_ms", "held_open_s", "keypad_idle_clear_ms", "min_code_length", "max_code_length", "reply_timeout_ms"}},
-	{"Server", []string{"telemetry_interval_s", "timeline_refresh_hours", "credential_rotation_days", "rate_limit_per_minute", "rate_limit_burst",
-		"log_level", "ntp_server"}},
+	{"Server", []string{"telemetry_interval_s", "timeline_refresh_hours", "credential_rotation_days", "auto_credential_rotation",
+		"rate_limit_per_minute", "rate_limit_burst", "log_level", "ntp_server"}},
 	{"Broker", []string{"broker_host", "broker_port", "broker_tls", "broker_ca_pem", "keepalive_s", "reconnect_max_s"}},
 	{"Wi-Fi", []string{"wifi_ssid", "wifi_password", "wifi_roam_rssi", "wifi_11b_disabled"}},
 	{"Mesh", []string{"mesh_enabled", "mesh_ssid", "mesh_password", "mesh_min_router_rssi", "mesh_max_layer"}},
@@ -249,7 +252,7 @@ var settingChoices = map[string][]string{
 // checkbox.
 var yesNoSettings = map[string]bool{
 	"oidc_enabled": true, "oidc_auto_sign_in": true, "portal_door_pictures": true,
-	"door_broker_tls": true, "door_wifi_11b_disabled": true, "door_mesh_enabled": true, "door_accept_unsigned_firmware": true,
+	"door_auto_credential_rotation": true, "door_broker_tls": true, "door_wifi_11b_disabled": true, "door_mesh_enabled": true, "door_accept_unsigned_firmware": true,
 }
 
 // settingCell adds what page reads from the cell showing the setting s

@@ -253,10 +253,23 @@ func TestOpenAPIDerivesBodySchemasFromTheWireTypes(t *testing.T) {
 	}
 }
 
-func TestOpenAPIDescribesAProvisioningConfigurationAsTheDoorsFieldsAndTheSigningKey(t *testing.T) {
+func TestOpenAPIDescribesAProvisioningConfigurationAsTheDoorsControllerFieldsAndTheSigningKey(t *testing.T) {
 	t.Parallel()
 	doc := openAPIDocument(t)
 	door := testsupport.JSONAt(doc, "/components/schemas/DoorConfigView").(map[string]any)
+	serverOnly := "auto_credential_rotation"
+	properties := map[string]any{}
+	for name, schema := range door["properties"].(map[string]any) {
+		if name != serverOnly {
+			properties[name] = schema
+		}
+	}
+	var required []any
+	for _, name := range door["required"].([]any) {
+		if name != serverOnly {
+			required = append(required, name)
+		}
+	}
 	key := testsupport.JSON(`{"type": "string", "description": "The public key every firmware image must be signed with: ` +
 		`the P-256 point x || y, each 32 bytes big-endian, in 128 lowercase hex characters."}`)
 
@@ -264,8 +277,8 @@ func TestOpenAPIDescribesAProvisioningConfigurationAsTheDoorsFieldsAndTheSigning
 
 	want := map[string]any{
 		"type":       "object",
-		"required":   append(door["required"].([]any), "firmware_signing_key"),
-		"properties": with(door["properties"].(map[string]any), map[string]any{"firmware_signing_key": key}),
+		"required":   append(required, "firmware_signing_key"),
+		"properties": with(properties, map[string]any{"firmware_signing_key": key}),
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("schema (-want +got):\n%s", diff)

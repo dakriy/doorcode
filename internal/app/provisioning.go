@@ -41,7 +41,7 @@ type provisioningServer struct {
 // the configuration message carries it: the door's fields and the site's
 // firmware signing key.
 type provisioningConfig struct {
-	doorConfigView
+	controllerConfigView
 	FirmwareSigningKey string `json:"firmware_signing_key" doc:"The public key every firmware image must be signed with: the P-256 point x || y, each 32 bytes big-endian, in 128 lowercase hex characters."`
 }
 
@@ -115,7 +115,7 @@ func (a *App) writeProvisioning(w http.ResponseWriter, r *http.Request, d connec
 		Server:     provisioningServer{DeviceURL: current.DeviceURL},
 		Enrollment: provisioningEnrollment{Username: username, Password: password},
 		Wifi:       provisioningWifi{SSID: config.WifiSSID, Password: config.WifiPassword},
-		DoorConfig: provisioningConfig{doorConfigView: doorConfigView(config), FirmwareSigningKey: a.signingKey.PublicText()},
+		DoorConfig: provisioningConfig{controllerConfigView: controllerConfigView(config.ControllerConfig), FirmwareSigningKey: a.signingKey.PublicText()},
 	}
 	if config.BrokerTLS {
 		file.Broker.CAPEM = config.BrokerCAPEM

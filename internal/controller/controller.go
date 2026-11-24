@@ -479,7 +479,9 @@ func (s Service) Purge(ctx context.Context, id int64) error {
 // Sweep does what time makes due: a door whose newest credentials were
 // issued its credential rotation interval ago or longer, by defaults and
 // its own overrides, gets new ones when its controller is connected and
-// has connected with the newest it was sent.
+// has connected with the newest it was sent, unless automatic rotation is
+// off for it. A rotation already sent finishes as any other: the door's
+// old credentials work until it connects with the new ones.
 func (s Service) Sweep(ctx context.Context, defaults settings.DoorDefaults) error {
 	live, err := s.Store.LiveCredentials(ctx)
 	if err != nil {
@@ -498,7 +500,11 @@ func (s Service) Sweep(ctx context.Context, defaults settings.DoorDefaults) erro
 		byDoor[c.DoorID] = append(byDoor[c.DoorID], c)
 	}
 	for _, id := range doors {
-		if err := s.sweepDoor(ctx, byDoor[id], rotateAfter[id]); err != nil {
+		after, automatic := rotateAfter[id]
+		if !automatic {
+			continue
+		}
+		if err := s.sweepDoor(ctx, byDoor[id], after); err != nil {
 			return err
 		}
 	}
@@ -506,8 +512,9 @@ func (s Service) Sweep(ctx context.Context, defaults settings.DoorDefaults) erro
 }
 
 // rotationIntervals is how long each door's credentials work before it
-// gets new ones, by door id, by defaults and the door's own overrides. A
-// deleted door holds no live credentials, so it needs none.
+// gets new ones, by door id, by defaults and the door's own overrides,
+// for the doors whose credentials rotate automatically. A deleted door
+// holds no live credentials, so it needs none.
 func (s Service) rotationIntervals(ctx context.Context, defaults settings.DoorDefaults) (map[int64]time.Duration, error) {
 	doors, err := s.Store.CurrentDoors(ctx)
 	if err != nil {
@@ -519,7 +526,9 @@ func (s Service) rotationIntervals(ctx context.Context, defaults settings.DoorDe
 		if err != nil {
 			return nil, err
 		}
-		intervals[d.ID] = config.RotateAfter()
+		if config.AutoCredentialRotation {
+			intervals[d.ID] = config.RotateAfter()
+		}
 	}
 	return intervals, nil
 }

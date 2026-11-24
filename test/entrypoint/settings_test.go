@@ -79,6 +79,7 @@ var brokerSettingsJSON = `{"key":"enrollment_username","value":"doorcode-enroll"
 	defaultSetting("door_telemetry_interval_s", "60") + `,` +
 	defaultSetting("door_timeline_refresh_hours", "6") + `,` +
 	defaultSetting("door_credential_rotation_days", "30") + `,` +
+	defaultSetting("door_auto_credential_rotation", "true") + `,` +
 	defaultSetting("door_rate_limit_per_minute", "30") + `,` +
 	defaultSetting("door_rate_limit_burst", "10") + `,` +
 	defaultSetting("door_log_level", "info") + `,` +

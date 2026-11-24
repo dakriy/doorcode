@@ -14,8 +14,8 @@ import (
 // to connect.
 const (
 	strikePulseRow    = 2
-	wifiPasswordRow   = 25
-	connectTimeoutRow = 35
+	wifiPasswordRow   = 26
+	connectTimeoutRow = 36
 )
 
 // sentConfig is the value of field in the configuration the door whose id

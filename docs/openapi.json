@@ -10630,6 +10630,10 @@
             "type": "boolean",
             "description": "Whether the door installs firmware without a valid signature; for bench and development boards only."
           },
+          "auto_credential_rotation": {
+            "type": "boolean",
+            "description": "Whether the server issues the door new broker credentials on its own once they are credential_rotation_days old; false leaves rotating them to an administrator. The controller is never sent it."
+          },
           "broker_ca_pem": {
             "type": "string",
             "description": "The PEM certificate of the CA, or of the broker itself, the door verifies the broker against; empty keeps the one it has."
@@ -10777,7 +10781,8 @@
           "mesh_max_layer",
           "update_connect_timeout_s",
           "accept_unsigned_firmware",
-          "log_level"
+          "log_level",
+          "auto_credential_rotation"
         ]
       },
       "DoorEntriesView": {

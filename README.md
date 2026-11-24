@@ -459,6 +459,7 @@ full table.
 | `door_telemetry_interval_s` | How often the door reports telemetry, 5 to 86400 s. | `60` |
 | `door_timeline_refresh_hours` | How often the server sends a door its timeline when nothing changed it, 1 to 24 hours. | `6` |
 | `door_credential_rotation_days` | How old a door's credentials get before the server rotates them, 1 to 3650 days. | `30` |
+| `door_auto_credential_rotation` | Whether the server rotates a door's credentials on its own once they are that old; `false` leaves rotating them to an administrator. | `true` |
 | `door_rate_limit_per_minute` | Code checks a minute the door's token bucket refills, 1 to 6000. | `30` |
 | `door_rate_limit_burst` | Code checks the bucket holds, 1 to 1000. | `10` |
 | `door_log_level` | `error`, `warn`, `info`, or `debug`. | `info` |
@@ -554,7 +555,8 @@ implementation. In short:
 7. **Obey commands.** A command carries an `id` and a `command`: `open` with
    `strike_ms`; `credentials` with a new `username` and `token` (connect
    with them, publish the online status, then close the old connection;
-   credentials rotate automatically, the old ones keep working until the
+   credentials rotate automatically, unless automatic rotation is off
+   for the door, and on demand; the old ones keep working until the
    door connects with the new ones and stop working then, and a door that
    has not yet connected with the newest it was sent is sent no more);
    `update` with `version`, `sha256`, and `url`; `reboot` with nothing

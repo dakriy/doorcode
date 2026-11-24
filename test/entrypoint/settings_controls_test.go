@@ -115,7 +115,7 @@ func TestTheUpdateDaysAreAskedForWithABoxForEachWeekday(t *testing.T) {
 			saved := b.Post("/admin/settings", c.form...)
 			page := testsupport.ParsePage(b.Get("/admin/settings?tab=doors").Body)
 
-			want := []any{303, c.stored, append(c.checked, "door_broker_tls=true"), "checkbox"}
+			want := []any{303, c.stored, append(c.checked, "door_auto_credential_rotation=true", "door_broker_tls=true"), "checkbox"}
 			if diff := cmp.Diff(want, []any{saved.Status, f.StoreStub.StoredSetting("update_window_days"), page.Checked, page.Inputs["update_window_days"]}); diff != "" {
 				t.Errorf("status, stored, ticked, input (-want +got):\n%s", diff)
 			}
@@ -132,7 +132,7 @@ func TestUpdateDaysWithNoBoxTickedAreRefusedBesideTheBoxes(t *testing.T) {
 	got := b.Post("/admin/settings", "update_window_days", "")
 
 	page := testsupport.ParsePage(got.Body)
-	want := []any{422, "Must be daily or weekdays separated by commas, such as sat,sun.", []string{"door_broker_tls=true"}, ""}
+	want := []any{422, "Must be daily or weekdays separated by commas, such as sat,sun.", []string{"door_auto_credential_rotation=true", "door_broker_tls=true"}, ""}
 	if diff := cmp.Diff(want, []any{got.Status, page.FieldErrors["update_window_days"], page.Checked, f.StoreStub.StoredSetting("update_window_days")}); diff != "" {
 		t.Errorf("status, field error, ticked, stored (-want +got):\n%s", diff)
 	}

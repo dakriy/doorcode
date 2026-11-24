@@ -183,7 +183,8 @@ whatever is connected with the enrollment credentials right now, so an
 unwanted controller is powered off or, if it is not the site's, shut out by
 changing the enrollment password.
 
-Credentials rotate automatically at a configurable interval and on demand
+Credentials rotate automatically at a configurable interval, unless
+automatic rotation is turned off for the site or the door, and on demand
 from the door page. A door has at most two live credentials: the server
 issues the new one over the existing connection and keeps the old one valid
 until the door connects with the new one, which revokes the old. While a
@@ -217,7 +218,7 @@ tab and a door's configuration table show in this order, each under a
 heading row: Keypad and strike (strike pulse duration, held-open duration,
 keypad idle clear time, minimum and maximum code length, reply timeout);
 Server (telemetry interval, timeline refresh interval, credential rotation
-interval, rate limit (checks per minute and burst), log level, NTP server);
+interval, whether credentials rotate automatically, rate limit (checks per minute and burst), log level, NTP server);
 Broker (host, the host name or IP address of the broker the door connects
 to, empty keeping the one it has; port, TLS, and CA certificate; MQTT
 keep-alive; longest reconnect pause); Wi-Fi (network and password, an

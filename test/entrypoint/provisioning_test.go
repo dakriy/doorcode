@@ -12,8 +12,8 @@ import (
 // and the headings of the groups before them:
 // the broker's host and its certificate.
 const (
-	brokerHostRow = 17
-	brokerCARow   = 20
+	brokerHostRow = 18
+	brokerCARow   = 21
 )
 
 // provisioningLink is the links of a page that offers the provisioning
@@ -42,7 +42,7 @@ func provisioningSite(t *testing.T, f *testsupport.Factory) (testsupport.Handler
 // provisioningSite, made now, with the broker, the Wi-Fi network, and the
 // door configuration's fields changed as changed says.
 func provisioningFile(broker, wifi, changed map[string]any) any {
-	config := testsupport.JSON(defaultConfigJSON).(map[string]any)
+	config := testsupport.JSON(controllerConfigJSON).(map[string]any)
 	config["broker_host"], config["broker_ca_pem"] = "mqtt.example.com", testsupport.Certificate
 	config["wifi_ssid"], config["wifi_password"] = "Example", "wifi-secret"
 	config["firmware_signing_key"] = signingPublicKey

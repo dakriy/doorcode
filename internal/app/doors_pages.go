@@ -286,6 +286,9 @@ type doorContent struct {
 	// and Credentials the credentials its controllers were issued.
 	Controller  *controllerRow
 	Credentials []credentialRow
+	// ManualRotation is true when the server does not rotate the door's
+	// credentials on its own.
+	ManualRotation bool
 	// Config is each field of the door's configuration, and Overridden
 	// how many of them the door has its own value for.
 	Config     []configRow
@@ -406,7 +409,7 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 		Door: d.StoredDoor, Row: n.rowOfDoor(d.StoredDoor), Form: form, Alert: alert,
 		Entrants: []entrantRow{}, Overrides: []overrideRow{},
 		Zones:      zoneChoices(n.zones, form.ZoneIDs),
-		Controller: rowOfController(d.Controller), Credentials: credentialRows(creds, zone),
+		Controller: rowOfController(d.Controller), Credentials: credentialRows(creds, zone), ManualRotation: !config.AutoCredentialRotation,
 		Config: rows, Overridden: overridden,
 		MaxPictureMB: picture.Megabytes(), MaxPictureSide: picture.MaxSide, PortalPictures: current.PortalDoorPictures,
 	}

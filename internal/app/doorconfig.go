@@ -13,7 +13,7 @@ import (
 	"github.com/dakriy/doorcode/internal/settings"
 )
 
-type doorConfigView struct {
+type controllerConfigView struct {
 	StrikePulseMS          int    `json:"strike_pulse_ms" doc:"How long the strike is released for an entry, in milliseconds."`
 	KeypadIdleClearMS      int    `json:"keypad_idle_clear_ms" doc:"How long a half-typed code waits for the next key before the keypad clears it, in milliseconds."`
 	MinCodeLength          int    `json:"min_code_length" doc:"The fewest digits the keypad sends as a code."`
@@ -44,6 +44,18 @@ type doorConfigView struct {
 	UpdateConnectTimeoutS  int    `json:"update_connect_timeout_s" doc:"How long a door on newly installed firmware tries to connect as its door before it goes back to its previous image, in seconds."`
 	AcceptUnsignedFirmware bool   `json:"accept_unsigned_firmware" doc:"Whether the door installs firmware without a valid signature; for bench and development boards only."`
 	LogLevel               string `json:"log_level" doc:"How much the door logs: error, warn, info, or debug."`
+}
+
+// doorConfigView is the configuration a door runs with as the API shows
+// it: what its controller is sent, and what only the server acts on.
+type doorConfigView struct {
+	controllerConfigView
+	AutoCredentialRotation bool `json:"auto_credential_rotation" doc:"Whether the server issues the door new broker credentials on its own once they are credential_rotation_days old; false leaves rotating them to an administrator. The controller is never sent it."`
+}
+
+// viewOfConfig is c as the API shows it.
+func viewOfConfig(c settings.DoorConfig) doorConfigView {
+	return doorConfigView{controllerConfigView: controllerConfigView(c.ControllerConfig), AutoCredentialRotation: c.AutoCredentialRotation}
 }
 
 type doorConfigBody struct {
@@ -101,7 +113,7 @@ func (a *App) writeDoorConfig(w http.ResponseWriter, r *http.Request, d connecto
 		a.internalError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, doorConfigBody{Effective: doorConfigView(config.Masked()), Overrides: settings.ShownOverrides(d.Config)})
+	writeJSON(w, http.StatusOK, doorConfigBody{Effective: viewOfConfig(config.Masked()), Overrides: settings.ShownOverrides(d.Config)})
 }
 
 func (a *App) getDoorConfig(w http.ResponseWriter, r *http.Request, _ auth.User) {

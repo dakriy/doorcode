@@ -184,7 +184,7 @@ func (s Service) doors(ctx context.Context, ids []int64) ([]connector.StoredDoor
 // the one the door was last sent, keeps its digest, over the payload as
 // published, and when it was sent.
 func sendConfig(s Service, ctx context.Context, t target) error {
-	payload := protocol.Encode(&protocol.Config{DoorConfig: protocol.DoorConfig(t.config), FirmwareSigningKey: s.SigningKey})
+	payload := protocol.Encode(&protocol.Config{DoorConfig: protocol.DoorConfig(t.config.ControllerConfig), FirmwareSigningKey: s.SigningKey})
 	if err := s.publish(ctx, t.door.ID, protocol.LeafConfig, payload); err != nil {
 		return err
 	}

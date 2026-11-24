@@ -8,14 +8,20 @@ import (
 	"github.com/dakriy/doorcode/internal/testsupport"
 )
 
-// defaultConfigJSON is the effective configuration of a door that follows
-// the site's defaults, as the API shows it.
-const defaultConfigJSON = `{"strike_pulse_ms":3000,"keypad_idle_clear_ms":10000,"min_code_length":4,"max_code_length":32,` +
+// controllerConfigJSON is the configuration a controller is sent, and
+// starts with from its provisioning file, while its door follows the
+// site's defaults, as JSON.
+const controllerConfigJSON = `{"strike_pulse_ms":3000,"keypad_idle_clear_ms":10000,"min_code_length":4,"max_code_length":32,` +
 	`"reply_timeout_ms":3000,"telemetry_interval_s":60,"held_open_s":60,"timeline_refresh_hours":6,` +
 	`"credential_rotation_days":30,"rate_limit_per_minute":30,"rate_limit_burst":10,"ntp_server":"pool.ntp.org","broker_host":"",` +
 	`"broker_port":8883,"broker_tls":true,"broker_ca_pem":"","wifi_ssid":"","wifi_password":"","wifi_roam_rssi":-70,"wifi_11b_disabled":false,` +
 	`"keepalive_s":30,"reconnect_max_s":60,"mesh_enabled":false,"mesh_ssid":"","mesh_password":"","mesh_min_router_rssi":-75,"mesh_max_layer":4,` +
 	`"update_connect_timeout_s":300,"accept_unsigned_firmware":false,"log_level":"info"}`
+
+// defaultConfigJSON is the effective configuration of a door that follows
+// the site's defaults, as the API shows it: what its controller is sent,
+// and what only the server acts on.
+var defaultConfigJSON = controllerConfigJSON[:len(controllerConfigJSON)-1] + `,"auto_credential_rotation":true}`
 
 func TestADoorWithoutOverridesHasTheSitesDefaultConfiguration(t *testing.T) {
 	t.Parallel()
@@ -335,6 +341,8 @@ func configTable(changed map[string][2]string) [][]string {
 			"How often the server sends the door its timeline of when to stay open and locked, even when nothing changed it.", "6"},
 		{"credential_rotation_days", "Credential rotation",
 			"How many days the door's broker credentials work before the server issues it new ones.", "30"},
+		{"auto_credential_rotation", "Automatic credential rotation",
+			"Whether the server issues the door new broker credentials on its own once its credential rotation days have passed. Off, they change only when someone rotates them from the door's page or the API.", "On"},
 		{"rate_limit_per_minute", "Code checks a minute",
 			"How many codes a minute the server checks from the door once its burst is spent; an entry over the limit is denied without being looked at and logged as rate limited.", "30"},
 		{"rate_limit_burst", "Code checks in a burst",
@@ -489,7 +497,7 @@ func TestADoorsPageCountsTheSettingsItOverrides(t *testing.T) {
 		"none": {`{"overrides":{}}`, "configuration",
 			[]any{doorNav("Configuration", true), []string{"Follows the site defaults", hostNote, brokerNote}}},
 		"three": {threeOverrides, "configuration",
-			[]any{countingThree(doorNav("Configuration", true)), []string{"3 of 30 settings overridden", hostNote, brokerNote}}},
+			[]any{countingThree(doorNav("Configuration", true)), []string{"3 of 31 settings overridden", hostNote, brokerNote}}},
 		"three, from another tab": {threeOverrides, "details",
 			[]any{countingThree(doorNav("Details", true)), []string{picturesNote,
 				"Never in open mode: none of its zones has an open-mode schedule. Open-mode schedules are set on each zone's page.",

@@ -819,9 +819,15 @@ the new version, not by an ack.
 
 A door normally has one live credential, and never more than two: the old
 and the new during a rotation. The server rotates automatically once the
-only live one is `credential_rotation_days` old and the door is connected;
-an administrator can rotate from the door page or the API while it is
-connected. Until the controller connects with the new credentials, the
+only live one is `credential_rotation_days` old and the door is connected,
+unless automatic rotation is off for the door (the server's
+`door_auto_credential_rotation` setting or the door's own
+`auto_credential_rotation`, which the configuration message does not
+carry); an administrator can rotate from the door page or the API while
+it is connected either way. A rotation already sent when automatic
+rotation turns off finishes as any other. Every rotation starts with the
+server's `credentials` command, so the controller does the same whether
+automatic rotation is on or off. Until the controller connects with the new credentials, the
 door is handing over and no further rotation is issued: the automatic one
 waits, and an administrator's is refused.
 
