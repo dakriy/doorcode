@@ -265,6 +265,11 @@ func (s Service) PrepareEnrollment(ctx context.Context, username, password strin
 	})
 }
 
+// EndEnrollment stops the enrollment credentials under username working.
+func (s Service) EndEnrollment(ctx context.Context, username string) error {
+	return s.Broker.DeleteClient(ctx, username)
+}
+
 // Approve makes the waiting controller e the door whose id is doorID: it
 // issues the door credentials and sends them to the controller, which
 // connects with them as the door. A controller the door had before stops

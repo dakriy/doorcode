@@ -40,6 +40,31 @@ type Service struct {
 	// SigningKey is the site's public firmware signing key as every
 	// configuration message carries it.
 	SigningKey string
+	// Enrollment is the enrollment account every configuration message
+	// carries.
+	Enrollment *Enrollment
+}
+
+// Enrollment holds the enrollment account the broker accepts, empty
+// until the broker has been given one. Requests and the broker loop
+// share it.
+type Enrollment struct {
+	mu                 sync.Mutex
+	username, password string
+}
+
+// Set makes username and password the account the broker accepts.
+func (e *Enrollment) Set(username, password string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.username, e.password = username, password
+}
+
+// Get returns the account the broker accepts.
+func (e *Enrollment) Get() (username, password string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.username, e.password
 }
 
 // Sent remembers when each door was last sent its timeline. Requests and
@@ -180,11 +205,16 @@ func (s Service) doors(ctx context.Context, ids []int64) ([]connector.StoredDoor
 	return doors, nil
 }
 
-// sendConfig sends the door its configuration and, when it differs from
-// the one the door was last sent, keeps its digest, over the payload as
-// published, and when it was sent.
+// sendConfig sends the door its configuration, with the enrollment
+// account the broker accepts, and, when it differs from the one the door
+// was last sent, keeps its digest, over the payload as published, and
+// when it was sent.
 func sendConfig(s Service, ctx context.Context, t target) error {
-	payload := protocol.Encode(&protocol.Config{DoorConfig: protocol.DoorConfig(t.config.ControllerConfig), FirmwareSigningKey: s.SigningKey})
+	username, password := s.Enrollment.Get()
+	payload := protocol.Encode(&protocol.Config{
+		DoorConfig: protocol.DoorConfig(t.config.ControllerConfig), FirmwareSigningKey: s.SigningKey,
+		EnrollmentUsername: username, EnrollmentPassword: password,
+	})
 	if err := s.publish(ctx, t.door.ID, protocol.LeafConfig, payload); err != nil {
 		return err
 	}

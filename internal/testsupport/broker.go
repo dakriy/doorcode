@@ -254,6 +254,9 @@ func (b *Broker) FailCreating() { b.failing[creating] = true }
 // FailDeleting makes DeleteClient report ErrUnavailable.
 func (b *Broker) FailDeleting() { b.failing[deleting] = true }
 
+// Recover makes every call the Fail methods made fail succeed again.
+func (b *Broker) Recover() { clear(b.failing) }
+
 // Connect opens a connection as a controller would, with clientID,
 // username, password, and a last will the broker publishes, retained, on
 // willTopic if the connection drops; an empty willTopic sets none. The

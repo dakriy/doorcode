@@ -14,7 +14,7 @@ import (
 )
 
 // enrollmentUsername is the enrollment_username setting's default, which
-// the demo leaves as it is.
+// a controller enrolls with until a configuration gives it another.
 const enrollmentUsername = "doorcode-enroll"
 
 // leafOnline ends the topic a door says whether it is online on.
@@ -29,7 +29,7 @@ var errDropped = errors.New("the broker ended the connection")
 // the enrollment credentials exist. The controllers play until ctx ends.
 func Start(ctx context.Context, h http.Handler, broker *Broker, site Site, log connector.Log) error {
 	for _, d := range append([]SimulatedDoor{site.Waiting}, site.Doors...) {
-		c := &controller{broker: broker, log: log, door: d, codes: site.Codes, enrollment: site.EnrollmentPassword, started: time.Now(),
+		c := &controller{broker: broker, log: log, door: d, codes: site.Codes, enrollUsername: enrollmentUsername, enrollment: site.EnrollmentPassword, started: time.Now(),
 			startedBy: protocol.StartPowerOn}
 		go c.run(ctx)
 	}
@@ -82,10 +82,12 @@ type controller struct {
 	log    connector.Log
 	door   SimulatedDoor
 	codes  []string
-	// enrollment is the enrollment password.
-	enrollment string
-	creds      protocol.Credentials
-	started    time.Time
+	// enrollUsername and enrollment are the enrollment credentials: the
+	// provisioned ones until a configuration carries others.
+	enrollUsername string
+	enrollment     string
+	creds          protocol.Credentials
+	started        time.Time
 	// startedBy is why it started, until it has said so as its door.
 	startedBy string
 	// connects is how often it connected as its door since it started.
@@ -144,7 +146,7 @@ func (c *controller) connect(ctx context.Context) error {
 func (c *controller) enroll(ctx context.Context) error {
 	hwid := c.door.HardwareID
 	will := connector.Message{Topic: protocol.EnrollTopic(hwid), Payload: protocol.Encode(&protocol.Enrollment{Online: false}), Retained: true}
-	conn, err := c.broker.Connect(hwid, enrollmentUsername, c.enrollment, will)
+	conn, err := c.broker.Connect(hwid, c.enrollUsername, c.enrollment, will)
 	if err != nil {
 		return err
 	}
@@ -282,6 +284,9 @@ func (c *controller) receive(d *door, m connector.Message) bool {
 		var config protocol.Config
 		if protocol.Decode(m.Payload, &config) == nil {
 			d.config, d.digest = config.DoorConfig, protocol.Digest(m.Payload)
+			if config.EnrollmentUsername != "" && config.EnrollmentPassword != "" {
+				c.enrollUsername, c.enrollment = config.EnrollmentUsername, config.EnrollmentPassword
+			}
 		}
 	case protocol.LeafTimeline:
 		var timeline protocol.Timeline

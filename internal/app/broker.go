@@ -53,7 +53,7 @@ const enrollmentPasswordBytes = 18
 // one keeps them, so controllers enrolling stay connected.
 func (a *App) Run(ctx context.Context) error {
 	if !a.enrolling {
-		if err := a.prepareEnrollment(ctx); err != nil {
+		if _, err := a.prepareEnrollment(ctx); err != nil {
 			return err
 		}
 		a.enrolling = true
@@ -119,26 +119,53 @@ func lane(topic string) int {
 }
 
 // prepareEnrollment makes the broker accept the enrollment credentials the
-// settings give. Without a password it generates one, stores it as the
+// settings give, and no others, when it does not already, reporting
+// whether it changed them: the account it accepted before under another
+// username goes. Without a password it generates one, stores it as the
 // setting, and logs it, so the operator can give it to the controllers.
-func (a *App) prepareEnrollment(ctx context.Context) error {
+func (a *App) prepareEnrollment(ctx context.Context) (bool, error) {
+	a.enrollmentMu.Lock()
+	defer a.enrollmentMu.Unlock()
 	username, password, err := a.settings.Enrollment(ctx)
 	if err != nil {
-		return err
+		return false, err
+	}
+	before, held := a.enrollment.Get()
+	if before == username && held == password {
+		return false, nil
 	}
 	if password == "" {
 		password = base64.RawURLEncoding.EncodeToString(a.entropy.Bytes(enrollmentPasswordBytes))
 		if err := a.settings.SetEnrollmentPassword(ctx, password); err != nil {
-			return fmt.Errorf("store the generated enrollment password: %w", err)
+			return false, fmt.Errorf("store the generated enrollment password: %w", err)
 		}
 		a.log.Info("generated the enrollment password; controllers enroll with these credentials, and the enrollment_password setting changes the password",
 			connector.Field{Key: "username", Value: username},
 			connector.Field{Key: "password", Value: password})
 	}
 	if err := a.controllers.PrepareEnrollment(ctx, username, password); err != nil {
-		return fmt.Errorf("create the enrollment client: %w", err)
+		return false, fmt.Errorf("create the enrollment client: %w", err)
 	}
-	return nil
+	a.enrollment.Set(username, password)
+	if before == "" || before == username {
+		return true, nil
+	}
+	if err := a.controllers.EndEnrollment(ctx, before); err != nil {
+		return true, fmt.Errorf("remove the enrollment client %s: %w", before, err)
+	}
+	return true, nil
+}
+
+// applyEnrollment makes the broker accept the enrollment credentials the
+// settings give, when it does not already, and then sends every door its
+// configuration, which carries them, so a door that has to enroll again
+// enrolls with them.
+func (a *App) applyEnrollment(ctx context.Context) error {
+	changed, err := a.prepareEnrollment(ctx)
+	if !changed {
+		return err
+	}
+	return errors.Join(err, a.pushes.AllConfigs(ctx))
 }
 
 // receive handles one message from a controller, logging why it was
@@ -187,8 +214,10 @@ func (a *App) sweepIfDue(ctx context.Context) {
 // sweep does the periodic work: it rotates door credentials,
 // sends doors their timelines again when they are due, removes the
 // sessions that have expired, watches the doors' state and keeps their
-// telemetry history, rolls firmware updates out, and looks up the trusted
-// proxies named by host name. A part that fails does not stop the others.
+// telemetry history, rolls firmware updates out, looks up the trusted
+// proxies named by host name, and gives the broker the enrollment
+// credentials when a change of them has not reached it yet. A part that
+// fails does not stop the others.
 func (a *App) sweep(ctx context.Context) error {
 	defaults, err := a.settings.DoorDefaults(ctx)
 	if err != nil {
@@ -205,6 +234,7 @@ func (a *App) sweep(ctx context.Context) error {
 		a.telemetry.Sweep(ctx, current, defaults),
 		a.firmware.Rollout(ctx, current),
 		a.proxies.Resolve(ctx, current.TrustedProxies),
+		a.applyEnrollment(ctx),
 	)
 }
 

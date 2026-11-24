@@ -281,12 +281,18 @@ type DoorConfig struct {
 
 // Config is what the server publishes, retained, on a door's config
 // topic: the configuration it runs with, the site's defaults with the
-// door's own overrides, and the site's firmware signing key, the public
-// point x || y in lowercase hex, that the door checks every image against.
+// door's own overrides, the site's firmware signing key, the public
+// point x || y in lowercase hex, that the door checks every image
+// against, and the enrollment credentials the broker accepts now, which
+// the door keeps to enroll with should it have to enroll again. The
+// enrollment password travels in the clear here, as the Wi-Fi password
+// does.
 type Config struct {
 	Header
 	DoorConfig
 	FirmwareSigningKey string `cbor:"firmware_signing_key"`
+	EnrollmentUsername string `cbor:"enrollment_username"`
+	EnrollmentPassword string `cbor:"enrollment_password"`
 }
 
 // Span is a time from Start up to, but not including, End, both in Unix

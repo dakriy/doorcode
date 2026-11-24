@@ -133,8 +133,16 @@ func (a *App) configureDoor(ctx context.Context, id int64, overrides map[string]
 
 // settingsChanged sends every door its configuration when one of the
 // settings whose keys are keys is a door configuration default, and its
-// timeline when one is the site timezone.
+// timeline when one is the site timezone. When one is the enrollment
+// username or password, the broker accepts the new credentials and no
+// longer the old ones at once, and every door is sent its configuration,
+// which carries them.
 func (a *App) settingsChanged(ctx context.Context, keys []string) {
+	if slices.ContainsFunc(keys, settings.Enrolls) {
+		if err := a.applyEnrollment(ctx); err != nil {
+			a.log.Error("could not change the enrollment credentials", connector.Field{Key: "error", Value: err.Error()})
+		}
+	}
 	var errs []error
 	if slices.ContainsFunc(keys, settings.Configures) {
 		errs = append(errs, a.pushes.AllConfigs(ctx))

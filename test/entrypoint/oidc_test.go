@@ -939,8 +939,8 @@ func TestClearingTheClientSecretSignsInWithoutOne(t *testing.T) {
 func TestTickingClearOnTheSettingsPageEmptiesASecret(t *testing.T) {
 	t.Parallel()
 	cases := map[string][]string{
-		"left blank":       {"clear", "enrollment_password", "enrollment_password", "", "enrollment_username", "doorcode-enroll"},
-		"with a new value": {"clear", "enrollment_password", "enrollment_password", "n3w", "enrollment_username", "doorcode-enroll"},
+		"left blank":       {"clear", "door_wifi_password", "door_wifi_password", "", "door_wifi_ssid", ""},
+		"with a new value": {"clear", "door_wifi_password", "door_wifi_password", "n3w", "door_wifi_ssid", ""},
 	}
 	for name, form := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -948,14 +948,14 @@ func TestTickingClearOnTheSettingsPageEmptiesASecret(t *testing.T) {
 			f := testsupport.NewFactory()
 			b := signedInAdmin(t, f)
 			b.Get("/")
-			send(t, b, "PUT", "/api/v1/settings/enrollment_password", `{"value":"s3cret"}`, 200)
+			send(t, b, "PUT", "/api/v1/settings/door_wifi_password", `{"value":"s3cret"}`, 200)
 
 			saved := b.Post("/admin/settings", form...)
 			page := pageOf(b.Get(saved.Location))
 
-			wantPage := settingsPage("Doors", defaultSettings, map[string]shownSetting{"enrollment_password": {"enrollment_password", "", "database"}}, nil, nil)
+			wantPage := settingsPage("Doors", defaultSettings, map[string]shownSetting{"door_wifi_password": {"door_wifi_password", "", "database"}}, nil, nil)
 			wantPage.Messages = []string{"The settings have been saved. Doors receive changed configuration defaults right away."}
-			if diff := cmp.Diff([]any{303, "", wantPage}, []any{saved.Status, f.StoreStub.StoredSetting("enrollment_password"), page}); diff != "" {
+			if diff := cmp.Diff([]any{303, "", wantPage}, []any{saved.Status, f.StoreStub.StoredSetting("door_wifi_password"), page}); diff != "" {
 				t.Errorf("status, stored, page (-want +got):\n%s", diff)
 			}
 		})

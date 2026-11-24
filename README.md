@@ -426,8 +426,8 @@ page folds away the single sign-on and identity claims parts while
 | `oidc_claim_entitlements` | The claim listing the slugs of a person's groups. A sign-in that carries it makes them a member of exactly the existing groups it names (values naming no group are ignored; groups are never created); one without it leaves their groups unchanged. While set, new users join no default or pre-assigned groups. Empty reads none. | empty |
 | `oidc_default_groups` | Group slugs, separated by commas, that users created by signing in join, together with the groups whose pre-assigned list holds their user id; only while `oidc_claim_entitlements` is empty. | empty |
 | `portal_door_pictures` | `true` shows each public door's primary picture in the user portal and lets anyone signed in load that door's pictures; `false` shows none there and serves pictures only to holders of manage-doors, door-commander, or manage-firmware. The administration always shows them. | `false` |
-| `enrollment_username` | The broker username every new controller enrolls with. Takes effect on the next start. | `doorcode-enroll` |
-| `enrollment_password` | Its password. Generated, stored, and logged on first start when empty. Secret: stored encrypted. Takes effect on the next start. | empty |
+| `enrollment_username` | The broker username every new controller enrolls with. A change takes effect at once and reaches every door in its configuration (see below). | `doorcode-enroll` |
+| `enrollment_password` | Its password. Generated, stored, and logged on first start when empty. Secret: stored encrypted. A change takes effect at once and reaches every door in its configuration (see below). | empty |
 | `telemetry_retention_days` | Days each telemetry report is kept. | `7` |
 | `telemetry_rollup_retention_days` | Days the hourly summaries of the reports are kept. | `730` |
 | `unresponsive_minutes` | Minutes a connected door may stay silent before it counts as unresponsive. | `5` |
@@ -535,6 +535,20 @@ implementation. In short:
    no rejection: the list is what is connected and waiting right now. Power
    off a controller that should not be there, or, if it is not yours, change
    `enrollment_password` so nothing holding the old one can enroll.
+
+   **Changing the enrollment credentials.** A change of
+   `enrollment_username` or `enrollment_password` takes effect at once:
+   the broker accepts the new credentials and stops accepting the old
+   ones, and every door is sent them in its configuration
+   (`enrollment_username`, `enrollment_password`), an offline door when
+   it next connects with its own credentials, so a door that is revoked
+   later enrolls again with them. A door's own credentials are not
+   touched. Anything that is not a door and still holds the old
+   credentials cannot enroll until it is provisioned again: a controller
+   provisioned earlier and not yet enrolled, a firmware image that has
+   them built in (build it again and replace it wherever it is served),
+   and a door revoked before it received the new ones. Download a new
+   provisioning file after a change; it carries the current ones.
 3. **Connect as the door.** Reconnect with that username and token as the
    password. The door may use only `doorcode/doors/<id>/#`. Publish,
    retained, on `doorcode/doors/<id>/online` `online: true` with the

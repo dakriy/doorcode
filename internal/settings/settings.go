@@ -446,7 +446,7 @@ var sections = []section{
 		{key: keyPortalDoorPictures, fallback: "false", validate: accepting(boolean), label: "Door pictures in the portal",
 			help: "Shows each public door's primary picture in the portal; while it is off the portal shows none. The administration always shows them."},
 	}},
-	{Section{Name: "Door enrollment", About: "The broker account every new controller enrolls with. A door's old credentials keep working until its controller connects with the new ones, which stops the old ones working. A changed enrollment username or password takes effect when the server next starts.", Tab: TabDoors}, []definition{
+	{Section{Name: "Door enrollment", About: "The broker account every new controller enrolls with. A changed enrollment username or password takes effect at once: the broker accepts the new credentials and no longer the old ones, and every door is sent them in its configuration (a door that is offline, when it next connects), so it can enroll again should it have to. A controller that is not a door and still holds the old credentials, such as one provisioned or built earlier, or a revoked door that never received the new ones, cannot enroll until it is provisioned again.", Tab: TabDoors}, []definition{
 		{key: keyEnrollmentUsername, fallback: "doorcode-enroll", label: "Enrollment username"},
 		{key: keyEnrollmentPassword, fallback: "", secret: true, label: "Enrollment password",
 			help: "The password a new door controller signs in to the broker with, beside the enrollment username, until an administrator approves it and it gets credentials of its own. Enter both in the settings of each controller you install. When it is empty on first start, the server makes one up and writes it to its log."},
@@ -901,6 +901,12 @@ func (s Service) Enrollment(ctx context.Context) (username, password string, err
 	def, _ := lookup(keyEnrollmentUsername)
 	password, err = s.secret(keyEnrollmentPassword, stored)
 	return s.resolve(def, stored).Value, password, err
+}
+
+// Enrolls reports whether the setting named key is part of the
+// enrollment credentials.
+func Enrolls(key string) bool {
+	return key == keyEnrollmentUsername || key == keyEnrollmentPassword
 }
 
 // ClientSecret returns the secret the site was registered with at its

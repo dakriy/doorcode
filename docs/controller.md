@@ -60,10 +60,13 @@ The broker address, the CA certificate, the Wi-Fi network, and the
 enrollment credentials are the controller's provisioning (section 3); a door's
 configuration can later move it to another broker host, port, or CA, or
 another Wi-Fi network (`broker_host`, `broker_port`, `broker_tls`,
-`broker_ca_pem`, `wifi_ssid`, `wifi_password`, section 9). The enrollment username is the server's
+`broker_ca_pem`, `wifi_ssid`, `wifi_password`, section 9), and gives it
+the enrollment credentials in use (`enrollment_username`,
+`enrollment_password`, section 9). The enrollment username is the server's
 `enrollment_username` setting (default `doorcode-enroll`); its password is
 `enrollment_password`, which the server generates and logs on first start
-when it is empty.
+when it is empty. A change of either takes effect at the broker at once:
+the broker accepts the new credentials and no longer the old ones.
 
 The controller verifies the broker, and the server when it downloads
 firmware (section 15), against the same certificates: `broker_ca_pem`, or
@@ -260,7 +263,11 @@ tell it so: the pending list is simply every controller connected with the
 enrollment credentials and waiting right now. A controller that should not
 be there is powered off, or, if it is not the site's own, the enrollment
 password is changed (`enrollment_password`, section 2), which closes the
-enrollment account to everything still holding the old one.
+enrollment account to everything still holding the old one. Doors are
+sent the new credentials in their configuration (section 9) and keep
+them; anything else that holds the old ones, such as a controller
+provisioned earlier or a firmware image with them built in, cannot enroll
+until it is provisioned again.
 
 Approval also revokes any credentials the door had before, and, if this
 hardware id was enrolled as another door, takes it off that door and
@@ -360,8 +367,9 @@ On `doorcode/doors/<id>/online`, retained.
 ## 9. Configuration
 
 On `doorcode/doors/<id>/config`, retained (`Config`). The message is one
-flat map: `v`, every field below (`DoorConfig`), and
-`firmware_signing_key`, never omitted. Each field below is the site's
+flat map: `v`, every field below (`DoorConfig`),
+`firmware_signing_key`, `enrollment_username`, and `enrollment_password`,
+never omitted. Each field below is the site's
 default (setting `door_` + the field's name) unless the door overrides it. Replace the whole configuration on every message, store it in
 non-volatile memory, and use it until the next one. Before the first one,
 use the `door_config` of the provisioning file (section 3), or the defaults
@@ -419,6 +427,29 @@ point. Store the key with the configuration and check every update with
 the one in the configuration in use. Firmware has no key of its own, so a
 controller that has none (it has not received a configuration or
 provisioning file that carries one) cannot check an image (section 15).
+
+### Enrollment credentials
+
+| Field | CBOR type | Meaning |
+| --- | --- | --- |
+| `enrollment_username` | text | The username of the enrollment account the broker accepts now (section 6). |
+| `enrollment_password` | text | Its password, in the clear, to the door alone, as `wifi_password` travels. |
+
+They are not settings a door overrides: every door's message carries the
+same, the server's `enrollment_username` and `enrollment_password` as the
+broker accepts them, and each change of either sends every door its
+configuration. When both are non-empty and differ from the enrollment
+credentials the controller holds, it stores them in place of those, from
+whichever configuration message carries them, whether it runs the
+message, tries it, or ignores it as given up, since the broker accepts
+these and no others; it keeps them when it forgets its door, and enrolls
+with them whenever it enrolls again (section 14). Storing them does not
+touch the door's own credentials and does not restart the controller.
+Either one empty keeps the credentials the controller holds.
+
+A door that runs a configuration (its telemetry names its digest, section
+12) is not thereby known to hold these: firmware that does not know the
+fields runs the message and ignores them.
 
 Pin mappings and other hardware matters are the firmware's own and are not
 here.
@@ -855,7 +886,9 @@ ones have worked, forget the old.
 door, or approving this hardware as another door deletes the accounts,
 which disconnects the controller. Its next connection is refused as not
 authorized; it then forgets its credentials, its stored timeline, and its
-stored configuration, and enrolls again.
+stored configuration, and enrolls again, with the enrollment credentials
+the last configuration it received carried (section 9), or its
+provisioned ones when none did.
 
 ## 15. Firmware updates
 
@@ -957,7 +990,7 @@ configuration and timeline bring it up to date at once.
 
 | What | Why |
 | --- | --- |
-| Hardware id, broker address and CA, Wi-Fi network and password, enrollment username and password | Provisioning (section 3), to enroll. |
+| Hardware id, broker address and CA, Wi-Fi network and password, enrollment username and password | Provisioning (section 3), to enroll; the enrollment credentials are replaced by those a configuration carries (section 9). |
 | `door_id`, `username`, `token` | To connect as the door after a restart. During a rotation, both pairs. |
 | The last configuration, its `firmware_signing_key` included | To run offline and after a restart, and to check firmware updates. |
 | The last timeline | To follow open and locked spans offline. |
@@ -1002,7 +1035,7 @@ it.
 | `Check` (`RequestID`, `Digits`) | message | `request_id`, `digits`. | 11 |
 | `Reply` (`RequestID`, `Allow`, `StrikeMS`) | message | `request_id`, `allow`, `strike_ms`. | 11 |
 | `DoorConfig` (`StrikePulseMS`, `KeypadIdleClearMS`, `MinCodeLength`, `MaxCodeLength`, `ReplyTimeoutMS`, `TelemetryIntervalS`, `HeldOpenS`, `TimelineRefreshHours`, `CredentialRotationDays`, `RateLimitPerMinute`, `RateLimitBurst`, `NTPServer`, `BrokerHost`, `BrokerPort`, `BrokerTLS`, `BrokerCAPEM`, `WifiSSID`, `WifiPassword`, `WifiRoamRSSI`, `Wifi11bDisabled`, `KeepaliveS`, `ReconnectMaxS`, `MeshEnabled`, `MeshSSID`, `MeshPassword`, `MeshMinRouterRSSI`, `MeshMaxLayer`, `UpdateConnectTimeoutS`, `AcceptUnsignedFirmware`, `LogLevel`) | type | The configuration fields, `strike_pulse_ms` through `log_level`. | 9 |
-| `Config` (`Header`, `DoorConfig`, `FirmwareSigningKey`) | message | `v`, the configuration fields, and `firmware_signing_key` in one map. | 9 |
+| `Config` (`Header`, `DoorConfig`, `FirmwareSigningKey`, `EnrollmentUsername`, `EnrollmentPassword`) | message | `v`, the configuration fields, `firmware_signing_key`, `enrollment_username`, and `enrollment_password` in one map. | 9 |
 | `Span` (`Start`, `End`, `State`) | type | `start`, `end`, `state`. | 10 |
 | `Timeline` (`From`, `To`, `Spans`) | message | `from`, `to`, `spans`. | 10 |
 | `Telemetry` (`Signal`, `LatencyMS`, `UptimeS`, `FreeBytes`, `FirmwareVersion`, `Reconnects`, `DoorOpen`, `Opens`, `MeshLayer`, `MeshParent`, `MeshChildren`, `ChecksSent`, `ChecksLost`, `TCPSent`, `TCPRetransmits`, `TCPDrops`, `WifiDrops`, `WifiDropReason`, `Roams`, `BSSID`, `Channel`, `ConfigDigest`) | message | `signal`, `latency_ms`, `uptime_s`, `free_bytes`, `firmware_version`, `reconnects`, `door_open`, `opens`, `mesh_layer`, `mesh_parent`, `mesh_children`, `checks_sent`, `checks_lost`, `tcp_sent`, `tcp_retransmits`, `tcp_drops`, `wifi_drops`, `wifi_drop_reason`, `roams`, `bssid`, `channel`, `config_digest`. | 12 |

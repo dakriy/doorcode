@@ -75,6 +75,10 @@ type App struct {
 	proxies proxy.Service
 	// traffic counts the HTTP requests answered, for the metrics.
 	traffic *traffic.Requests
+	// enrollment is the enrollment account the broker accepts, which
+	// enrollmentMu keeps one change of it at a time.
+	enrollment   *push.Enrollment
+	enrollmentMu sync.Mutex
 	// enrolling says Run has set up the enrollment credentials, and
 	// nextSweep is when it next does the periodic work. Only Run reads and
 	// changes them.
@@ -112,24 +116,25 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 	authService := auth.Service{Store: store, Settings: s, Clock: clock, Entropy: entropy, Log: log}
 	live := newHub()
 	a := &App{
-		log:       log,
-		entropy:   entropy,
-		clock:     clock,
-		settings:  s,
-		auth:      authService,
-		directory: directory.Service{Store: store, Auth: authService, Clock: clock},
-		schedules: schedule.Service{Store: store},
-		doors:     door.Service{Store: store, Clock: clock},
-		rules:     rule.Service{Store: store},
-		events:    event.Service{Store: store, Counts: event.NewCounts()},
-		stats:     stats.Service{Store: store},
-		requests:  request.Service{Store: store, Clock: clock, Changed: live.requested},
-		decisions: decision.Service{Store: store, Auth: authService, Settings: s, Clock: clock, Limits: decision.NewLimiter()},
-		broker:    f.Broker(),
-		store:     store,
-		live:      live,
-		proxies:   proxy.Service{Resolver: f.Resolver(), Resolved: proxy.NewResolved()},
-		traffic:   traffic.New(),
+		log:        log,
+		entropy:    entropy,
+		clock:      clock,
+		settings:   s,
+		auth:       authService,
+		directory:  directory.Service{Store: store, Auth: authService, Clock: clock},
+		schedules:  schedule.Service{Store: store},
+		doors:      door.Service{Store: store, Clock: clock},
+		rules:      rule.Service{Store: store},
+		events:     event.Service{Store: store, Counts: event.NewCounts()},
+		stats:      stats.Service{Store: store},
+		requests:   request.Service{Store: store, Clock: clock, Changed: live.requested},
+		decisions:  decision.Service{Store: store, Auth: authService, Settings: s, Clock: clock, Limits: decision.NewLimiter()},
+		broker:     f.Broker(),
+		store:      store,
+		live:       live,
+		proxies:    proxy.Service{Resolver: f.Resolver(), Resolved: proxy.NewResolved()},
+		traffic:    traffic.New(),
+		enrollment: &push.Enrollment{},
 	}
 	if err := a.auth.CreateFirstAdmin(ctx); err != nil {
 		return nil, fmt.Errorf("create first administrator: %w", err)
@@ -140,6 +145,7 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 	a.overrides = override.Service{Store: store, Doors: a.doors, Clock: clock}
 	a.pushes = push.Service{
 		Store: store, Settings: s, Broker: a.broker, Clock: clock, Sent: push.NewSent(), SigningKey: a.signingKey.PublicText(),
+		Enrollment: a.enrollment,
 	}
 	a.controllers = controller.Service{
 		Store: store, Doors: a.doors, Broker: a.broker, Clock: clock, Entropy: entropy, Pending: controller.NewPending(),
