@@ -18,6 +18,7 @@ import (
 	"github.com/dakriy/doorcode/internal/decision"
 	"github.com/dakriy/doorcode/internal/directory"
 	"github.com/dakriy/doorcode/internal/door"
+	"github.com/dakriy/doorcode/internal/email"
 	"github.com/dakriy/doorcode/internal/event"
 	"github.com/dakriy/doorcode/internal/firmware"
 	"github.com/dakriy/doorcode/internal/identity"
@@ -71,6 +72,8 @@ type App struct {
 	stats stats.Service
 	// identity signs people in through the OpenID Connect provider.
 	identity identity.Service
+	// mail sends the site's mail.
+	mail email.Service
 	// proxies decides whom to believe about where a request came from.
 	proxies proxy.Service
 	// traffic counts the HTTP requests answered, for the metrics.
@@ -135,6 +138,7 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 		proxies:    proxy.Service{Resolver: f.Resolver(), Resolved: proxy.NewResolved()},
 		traffic:    traffic.New(),
 		enrollment: &push.Enrollment{},
+		mail:       email.Service{Mailer: f.Mailer(), Clock: clock, Entropy: entropy},
 	}
 	if err := a.auth.CreateFirstAdmin(ctx); err != nil {
 		return nil, fmt.Errorf("create first administrator: %w", err)

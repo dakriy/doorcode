@@ -37,6 +37,9 @@ jobs:
     env:
       DOORCODE_TEST_DATABASE_URL: postgres://doorcode:doorcode@localhost:5432/doorcode?sslmode=disable
       DOORCODE_TEST_BROKER_URL: mqtt://doorcode:doorcode@localhost:1883
+      DOORCODE_TEST_MAILPIT_URL: smtp://localhost:1025?web=http://localhost:8025
+      DOORCODE_TEST_MAILPIT_STARTTLS_URL: smtp://localhost:1587?web=http://localhost:8026
+      DOORCODE_TEST_MAILPIT_TLS_URL: smtp://localhost:1465?web=http://localhost:8027
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -44,10 +47,10 @@ jobs:
           go-version-file: go.mod
       # The broker mounts its configuration from the checkout, so it starts
       # from the compose file rather than as a job service.
-      - run: docker compose -f docker-compose.dev.yml up -d --wait postgres mosquitto
+      - run: docker compose -f docker-compose.dev.yml up -d --wait postgres mosquitto mailpit mailpit-starttls mailpit-tls
       - run: make verify-integration
       - if: failure()
-        run: docker compose -f docker-compose.dev.yml logs postgres mosquitto
+        run: docker compose -f docker-compose.dev.yml logs postgres mosquitto mailpit mailpit-starttls mailpit-tls
 
   mutation-diff:
     if: github.event_name == 'pull_request'

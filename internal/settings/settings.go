@@ -182,11 +182,12 @@ var (
 	TabSite   = Tab{Slug: "site", Name: "Site setup"}
 	TabSignIn = Tab{Slug: "sign-in", Name: "Sign-in"}
 	TabLook   = Tab{Slug: "look", Name: "Look and feel"}
+	TabMail   = Tab{Slug: "mail", Name: "Mail"}
 	TabDoors  = Tab{Slug: "doors", Name: "Doors"}
 )
 
 // Tabs is every tab of the settings page, in display order.
-var Tabs = []Tab{TabSite, TabSignIn, TabLook, TabDoors}
+var Tabs = []Tab{TabSite, TabSignIn, TabLook, TabMail, TabDoors}
 
 // TabHolding is the tab that shows the first setting, in display order,
 // that keys name, or the first tab when they name none.
@@ -446,6 +447,7 @@ var sections = []section{
 		{key: keyPortalDoorPictures, fallback: "false", validate: accepting(boolean), label: "Door pictures in the portal",
 			help: "Shows each public door's primary picture in the portal; while it is off the portal shows none. The administration always shows them."},
 	}},
+	mailSection,
 	{Section{Name: "Door enrollment", About: "The broker account every new controller enrolls with. A changed enrollment username or password takes effect at once: the broker accepts the new credentials and no longer the old ones, and every door is sent them in its configuration (a door that is offline, when it next connects), so it can enroll again should it have to. A controller that is not a door and still holds the old credentials, such as one provisioned or built earlier, or a revoked door that never received the new ones, cannot enroll until it is provisioned again.", Tab: TabDoors}, []definition{
 		{key: keyEnrollmentUsername, fallback: "doorcode-enroll", label: "Enrollment username"},
 		{key: keyEnrollmentPassword, fallback: "", secret: true, label: "Enrollment password",

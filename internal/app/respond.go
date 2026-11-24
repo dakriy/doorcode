@@ -69,11 +69,20 @@ func (a *App) refuse(w http.ResponseWriter, r *http.Request, err error, known []
 		writeError(w, http.StatusBadRequest, problems.Error())
 		return
 	}
-	for _, k := range known {
-		if errors.Is(err, k.err) {
-			writeError(w, k.status, err.Error())
-			return
-		}
+	if status, ok := statusOf(err, known); ok {
+		writeError(w, status, err.Error())
+		return
 	}
 	a.internalError(w, r, err)
+}
+
+// statusOf is the status of the refusal among known that err is, and
+// whether it is one.
+func statusOf(err error, known []refusalStatus) (int, bool) {
+	for _, k := range known {
+		if errors.Is(err, k.err) {
+			return k.status, true
+		}
+	}
+	return 0, false
 }

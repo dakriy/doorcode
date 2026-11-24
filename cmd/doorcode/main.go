@@ -21,6 +21,7 @@ import (
 	"github.com/dakriy/doorcode/internal/driver/osenv"
 	"github.com/dakriy/doorcode/internal/driver/postgres"
 	"github.com/dakriy/doorcode/internal/driver/slogjson"
+	"github.com/dakriy/doorcode/internal/driver/smtpmail"
 	"github.com/dakriy/doorcode/internal/driver/systemclock"
 	"github.com/dakriy/doorcode/internal/driver/tzdb"
 )
@@ -38,6 +39,7 @@ func (factory) TimeZones() connector.TimeZones     { return tzdb.Zones{} }
 func (factory) Log() connector.Log                 { return slogjson.New(os.Stderr) }
 func (f factory) Store() connector.Store           { return f.store }
 func (f factory) Broker() connector.Broker         { return f.broker }
+func (factory) Mailer() connector.Mailer           { return smtpmail.New(mailTimeout, nil) }
 func (factory) Identity() connector.Identity {
 	return oidcprovider.New(&http.Client{Timeout: identityTimeout})
 }
@@ -57,6 +59,10 @@ const brokerCommandTimeout = 10 * time.Second
 // identityTimeout is how long an identity provider has to answer each
 // request: discovery, a code exchange, or a userinfo request.
 const identityTimeout = 10 * time.Second
+
+// mailTimeout is how long a mail server has to take each message, from
+// connecting to its last answer.
+const mailTimeout = 30 * time.Second
 
 func main() {
 	if err := run(context.Background()); err != nil {

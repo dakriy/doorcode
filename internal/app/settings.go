@@ -151,9 +151,12 @@ func (a *App) settingError(w http.ResponseWriter, r *http.Request, err error) {
 // of one tab, and the sign-in page's picture, the logo, and the favicon
 // with them when Pictures says so.
 type settingsContent struct {
-	Tabs           tabStrip
-	Sections       []settingSection
-	Pictures       bool
+	Tabs     tabStrip
+	Sections []settingSection
+	Pictures bool
+	// MailTo is the viewer's own address, which the Mail tab's test email
+	// goes to; empty on the other tabs.
+	MailTo         string
 	Errors         map[string]string
 	SignInImage    string
 	Favicon        string
@@ -227,10 +230,19 @@ func (a *App) showSettings(w http.ResponseWriter, r *http.Request, status int, v
 	}
 	content := settingsContent{
 		Tabs: stripOf("Settings tabs", settingsPath, settings.Tabs, tab), Sections: a.sectionsOf(all, tab, entered, errs), Pictures: pictures,
-		Errors: errs, SignInImage: signIn, Favicon: favicon, Alert: alert,
+		MailTo: mailTo(tab, viewer), Errors: errs, SignInImage: signIn, Favicon: favicon, Alert: alert,
 		MaxPictureMB: picture.Megabytes(), MaxPictureSide: picture.MaxSide, MaxLogoSide: picture.LogoSide,
 	}
 	a.render(w, r, status, settingsTemplate, "Settings", &viewer, content)
+}
+
+// mailTo is the address the Mail tab's test email goes to, viewer's own
+// email, when tab is the Mail tab.
+func mailTo(tab settings.Tab, viewer auth.User) string {
+	if tab != settings.TabMail {
+		return ""
+	}
+	return viewer.Email
 }
 
 // lookImages is where the sign-in page's picture and the favicon are

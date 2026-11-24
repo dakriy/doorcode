@@ -11,13 +11,26 @@
 #
 # Only the services the slow connector tests need:
 #
-#   docker compose -f docker-compose.dev.yml up -d --wait postgres mosquitto
+#   docker compose -f docker-compose.dev.yml up -d --wait postgres mosquitto mailpit mailpit-starttls mailpit-tls
 #   export DOORCODE_TEST_DATABASE_URL=postgres://doorcode:doorcode@localhost:5432/doorcode?sslmode=disable
 #   export DOORCODE_TEST_BROKER_URL=mqtt://doorcode:doorcode@localhost:1883
+#   export DOORCODE_TEST_MAILPIT_URL='smtp://localhost:1025?web=http://localhost:8025'
+#   export DOORCODE_TEST_MAILPIT_STARTTLS_URL='smtp://localhost:1587?web=http://localhost:8026'
+#   export DOORCODE_TEST_MAILPIT_TLS_URL='smtp://localhost:1465?web=http://localhost:8027'
 #   make verify-integration
 #
-# Set DOORCODE_POSTGRES_PORT, DOORCODE_MQTT_PORT, or DOORCODE_HTTP_PORT to
-# publish on other host ports when the defaults are taken.
+# Set DOORCODE_POSTGRES_PORT, DOORCODE_MQTT_PORT, DOORCODE_HTTP_PORT, or
+# the mailpits' DOORCODE_SMTP_PORT, DOORCODE_SMTP_STARTTLS_PORT,
+# DOORCODE_SMTP_TLS_PORT, DOORCODE_MAILPIT_PORT,
+# DOORCODE_MAILPIT_STARTTLS_PORT, and DOORCODE_MAILPIT_TLS_PORT to publish
+# on other host ports when the defaults are taken.
+#
+# The three mailpits catch every message and deliver none: mailpit speaks
+# in the clear and offers no STARTTLS, mailpit-starttls requires STARTTLS,
+# and mailpit-tls speaks TLS from the start. Both TLS ones make a
+# self-signed certificate for localhost when they start and take only the
+# user doorcode with the password doorcode; their web addresses list what
+# each caught.
 # DOORCODE_BROKER_ADMIN_USERNAME and DOORCODE_BROKER_ADMIN_PASSWORD name the
 # broker's administrator, which the server connects as; they take effect
 # when the broker's volume is new.
@@ -58,6 +71,52 @@ services:
       - mosquitto:/mosquitto/data
     healthcheck:
       test: ["CMD-SHELL", "mosquitto_sub -u \"$$DOORCODE_BROKER_ADMIN_USERNAME\" -P \"$$DOORCODE_BROKER_ADMIN_PASSWORD\" -t '$$SYS/broker/version' -C 1 -W 3"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  mailpit:
+    image: axllent/mailpit:v1.29.6
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+    ports:
+      - "${DOORCODE_SMTP_PORT:-1025}:1025"
+      - "${DOORCODE_MAILPIT_PORT:-8025}:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  mailpit-starttls:
+    image: axllent/mailpit:v1.29.6
+    environment:
+      MP_SMTP_AUTH: "doorcode:doorcode"
+      MP_SMTP_TLS_CERT: "sans:localhost"
+      MP_SMTP_TLS_KEY: "sans:localhost"
+      MP_SMTP_REQUIRE_STARTTLS: "true"
+    ports:
+      - "${DOORCODE_SMTP_STARTTLS_PORT:-1587}:1025"
+      - "${DOORCODE_MAILPIT_STARTTLS_PORT:-8026}:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  mailpit-tls:
+    image: axllent/mailpit:v1.29.6
+    environment:
+      MP_SMTP_AUTH: "doorcode:doorcode"
+      MP_SMTP_TLS_CERT: "sans:localhost"
+      MP_SMTP_TLS_KEY: "sans:localhost"
+      MP_SMTP_REQUIRE_TLS: "true"
+    ports:
+      - "${DOORCODE_SMTP_TLS_PORT:-1465}:1025"
+      - "${DOORCODE_MAILPIT_TLS_PORT:-8027}:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
       interval: 2s
       timeout: 5s
       retries: 30

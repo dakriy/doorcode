@@ -56,6 +56,16 @@ var signInSettingsJSON = defaultSetting("password_min_length", "12") + `,` +
 	defaultSetting("oidc_default_groups", "") + `,` +
 	defaultSetting("portal_door_pictures", "false")
 
+// mailSettingsJSON is how the settings API shows the mail settings when
+// nothing sets them.
+var mailSettingsJSON = defaultSetting("mail_host", "") + `,` +
+	defaultSetting("mail_port", "465") + `,` +
+	defaultSetting("mail_security", "tls") + `,` +
+	defaultSetting("mail_username", "") + `,` +
+	`{"key":"mail_password","value":"","source":"default","read_only":false,"env_var":"DOORCODE_MAIL_PASSWORD","secret":true},` +
+	defaultSetting("mail_from", "") + `,` +
+	defaultSetting("mail_reply_to", "")
+
 // brokerSettingsJSON is how the settings API shows the broker settings
 // and the door configuration defaults when nothing sets them.
 var brokerSettingsJSON = `{"key":"enrollment_username","value":"doorcode-enroll","source":"default","read_only":false,` +
@@ -116,7 +126,7 @@ func TestSettingsListShowsDefaultsAndTheEnvironmentWhenNothingIsStored(t *testin
 		`{"key":"site_name","value":"doorcode","source":"default","read_only":false,"env_var":"DOORCODE_SITE_NAME"},` +
 		`{"key":"site_timezone","value":"UTC","source":"default","read_only":false,"env_var":"DOORCODE_SITE_TIMEZONE"},` +
 		`{"key":"admin_email","value":"admin@example.com","source":"default","read_only":false,"env_var":"DOORCODE_ADMIN_EMAIL"},` +
-		defaultSetting("public_url", "") + `,` + proxySettingJSON + `,` + themeSettingsJSON + `,` + hashMemoryJSON + `,` + signInSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
+		defaultSetting("public_url", "") + `,` + proxySettingJSON + `,` + themeSettingsJSON + `,` + hashMemoryJSON + `,` + signInSettingsJSON + `,` + mailSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}
@@ -134,7 +144,7 @@ func TestSettingsListShowsStoredAndEnvironmentValuesWithTheirSources(t *testing.
 		`{"key":"site_name","value":"Main Building","source":"database","read_only":false,"env_var":"DOORCODE_SITE_NAME","updated_at":"2026-01-02T08:00:00Z"},` +
 		`{"key":"site_timezone","value":"Europe/Berlin","source":"environment","read_only":true,"env_var":"DOORCODE_SITE_TIMEZONE"},` +
 		`{"key":"admin_email","value":"admin@example.com","source":"default","read_only":false,"env_var":"DOORCODE_ADMIN_EMAIL"},` +
-		defaultSetting("public_url", "") + `,` + proxySettingJSON + `,` + themeSettingsJSON + `,` + hashMemoryJSON + `,` + signInSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
+		defaultSetting("public_url", "") + `,` + proxySettingJSON + `,` + themeSettingsJSON + `,` + hashMemoryJSON + `,` + signInSettingsJSON + `,` + mailSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
 	}

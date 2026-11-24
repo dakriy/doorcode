@@ -773,6 +773,7 @@ type Factory struct {
 	BrokerStub   *Broker
 	IdentityStub *Identity
 	ResolverStub *Resolver
+	MailerStub   *Mailer
 }
 
 // DefaultNow is the stub clock's time until a test sets another.
@@ -796,6 +797,7 @@ func NewFactory() *Factory {
 		BrokerStub:   NewBroker(),
 		IdentityStub: NewIdentity(),
 		ResolverStub: &Resolver{},
+		MailerStub:   &Mailer{},
 	}
 }
 
@@ -825,6 +827,9 @@ func (f *Factory) Identity() connector.Identity { return f.IdentityStub }
 
 // Resolver returns the stub resolver.
 func (f *Factory) Resolver() connector.Resolver { return f.ResolverStub }
+
+// Mailer returns the stub mailer.
+func (f *Factory) Mailer() connector.Mailer { return f.MailerStub }
 
 func mustTime(rfc3339 string) time.Time {
 	t, err := time.Parse(time.RFC3339, rfc3339)

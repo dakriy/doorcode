@@ -586,6 +586,22 @@ func Confirmations(body string) map[string]string {
 	return found
 }
 
+// Forms maps the address each form on the page posts to to the label of
+// its first button.
+func Forms(body string) map[string]string {
+	doc, err := html.Parse(strings.NewReader(body))
+	if err != nil {
+		panic(err)
+	}
+	found := map[string]string{}
+	for n := range doc.Descendants() {
+		if n.Type == html.ElementNode && n.Data == "form" {
+			found[attr(n, "action")] = buttonText(n)
+		}
+	}
+	return found
+}
+
 // buttonText is the text of the first button in form.
 func buttonText(form *html.Node) string {
 	for d := range form.Descendants() {

@@ -107,6 +107,16 @@
   </div>
 </form>
 
+{{with $c.MailTo}}
+<section aria-labelledby="mail-test-heading" class="mt-6 p-6 {{template "card-class"}}">
+  <h2 id="mail-test-heading" class="text-sm font-semibold">Test email</h2>
+  <p role="note" class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Sends a test email to your own address, {{.}}, through the mail settings as they are saved, and says what the mail server answered. Save any change above first.</p>
+  <form method="post" action="/admin/settings/mail/test" hx-disabled-elt="find button[type=submit]" class="mt-5">
+    <button type="submit" class="{{template "secondary-class"}}">Send test email</button>
+  </form>
+</section>
+{{end}}
+
 {{if $c.Pictures}}
 <section aria-labelledby="logo-heading" class="mt-6 p-6 {{template "card-class"}}">
   <h2 id="logo-heading" class="text-sm font-semibold">Logo</h2>

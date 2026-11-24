@@ -77,6 +77,7 @@ func (a *App) routes() []route {
 	table = append(table, a.providerRoutes()...)
 	table = append(table, assetRoutes()...)
 	table = append(table, a.settingsRoutes()...)
+	table = append(table, a.mailRoutes()...)
 	table = append(table, a.tokenRoutes()...)
 	table = append(table, a.userRoutes()...)
 	table = append(table, a.userPageRoutes()...)

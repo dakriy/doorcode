@@ -24,6 +24,12 @@ const doorPrefix = "door_"
 // the broker it connects to.
 var brokerHint = fmt.Sprintf("%s, an IP address, or nothing to keep the door's broker", check.HostHint)
 
+// portHint is what a TCP port must be.
+const portHint = "a port from 1 to 65535"
+
+// port is a TCP port.
+var port = whole{1, 65535, ""}
+
 // caHint is what the broker's CA certificate must be.
 const caHint = "the PEM certificate of the broker's CA or of the broker itself, or nothing"
 
@@ -305,7 +311,7 @@ var DoorFields = grouped(
 		{Name: "broker_host", Label: "Broker host", Help: "The broker the door connects to, from its next connection on; empty keeps the broker it uses now.",
 			Hint: brokerHint, Input: Input{Kind: KindHost, Example: "broker.example.com"}, fallback: "", set: setBrokerHost},
 		numberField("broker_port", "Broker port", "The port of the broker the door connects to, from its next connection on.",
-			"8883", "a port from 1 to 65535", whole{1, 65535, ""}, func(c *DoorConfig) *int { return &c.BrokerPort }),
+			"8883", portHint, port, func(c *DoorConfig) *int { return &c.BrokerPort }),
 		yesNoField("broker_tls", "Broker over TLS", "Whether the door connects to the broker over TLS, checking the broker against the broker CA certificate. Turn it off for a development broker only.",
 			"true", func(c *DoorConfig) *bool { return &c.BrokerTLS }),
 		{Name: "broker_ca_pem", Label: "Broker CA certificate",
@@ -451,11 +457,17 @@ func setHost(c *DoorConfig, value string) error {
 // empty, a host name, or an IP address.
 func setBrokerHost(c *DoorConfig, value string) error {
 	c.BrokerHost = value
-	_, notAddress := netip.ParseAddr(value)
-	if value != "" && !check.HostName(value) && notAddress != nil {
+	if !optionalHost(value) {
 		return errors.New("must be " + brokerHint)
 	}
 	return nil
+}
+
+// optionalHost reports whether value is empty, a host name, or an IP
+// address.
+func optionalHost(value string) bool {
+	_, notAddress := netip.ParseAddr(value)
+	return value == "" || check.HostName(value) || notAddress == nil
 }
 
 // setBrokerCA keeps value, with its line ends as a browser's CR LF made

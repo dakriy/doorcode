@@ -7659,6 +7659,85 @@
         }
       }
     },
+    "/settings/mail/test": {
+      "post": {
+        "operationId": "sendTestMail",
+        "summary": "Send a test email to yourself",
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The mail server took the test email, sent to the caller's own address through the mail settings as saved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestMailSent"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the admin role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The caller's account has no email address mail can be sent to, or mail is not set up or is set up with a value it does not take.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The mail server could not be reached or did not take the test email; the error says what it reported.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/settings/{key}": {
       "get": {
         "operationId": "getSetting",
@@ -13544,6 +13623,33 @@
           "channel",
           "config_digest",
           "totals"
+        ]
+      },
+      "TestMailSent": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "description": "The mail server it went through."
+          },
+          "port": {
+            "type": "integer",
+            "description": "The mail server's port."
+          },
+          "security": {
+            "type": "string",
+            "description": "How the connection to the mail server was protected: tls, starttls, or none."
+          },
+          "sent_to": {
+            "type": "string",
+            "description": "The address the test email went to: the caller's own."
+          }
+        },
+        "required": [
+          "sent_to",
+          "host",
+          "port",
+          "security"
         ]
       },
       "TimelineView": {

@@ -1202,6 +1202,47 @@ type IdentityProvider interface {
 	EndSessionURL() string
 }
 
+// MailSecurity is how a connection to a mail server is protected.
+type MailSecurity string
+
+// The ways a connection to a mail server is protected.
+const (
+	// MailTLS speaks TLS from the first byte (implicit TLS, SMTPS).
+	MailTLS MailSecurity = "tls"
+	// MailStartTLS connects in the clear and upgrades with STARTTLS before
+	// anything else is said, failing when the server refuses it.
+	MailStartTLS MailSecurity = "starttls"
+	// MailNone stays in the clear.
+	MailNone MailSecurity = "none"
+)
+
+// MailServer is an SMTP server and how to reach it. TLS verifies the
+// server's certificate for Host. Username, when not empty, signs in with
+// PLAIN authentication, which is refused over a connection in the clear
+// to any host but this machine.
+type MailServer struct {
+	Host     string
+	Port     int
+	Security MailSecurity
+	Username string
+	Password string
+}
+
+// Envelope is who a message is from and whom it is delivered to, as the
+// SMTP conversation names them: bare addresses.
+type Envelope struct {
+	From string
+	To   []string
+}
+
+// Mailer hands messages to mail servers.
+type Mailer interface {
+	// Send delivers message, an Internet message with CR LF line ends, to
+	// envelope's recipients through server, or returns what the
+	// connection or the server reported.
+	Send(ctx context.Context, server MailServer, envelope Envelope, message []byte) error
+}
+
 // Factory constructs connectors. It has one method per connector.
 type Factory interface {
 	Clock() Clock
@@ -1213,4 +1254,5 @@ type Factory interface {
 	Broker() Broker
 	Identity() Identity
 	Resolver() Resolver
+	Mailer() Mailer
 }

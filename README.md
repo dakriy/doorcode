@@ -386,14 +386,14 @@ case, such as `DOORCODE_SITE_TIMEZONE=Europe/Berlin`. A variable that is set,
 even to the empty value, wins over the value stored in the database and makes
 the setting read-only in the UI. Without one, the value saved on the settings
 page applies, and without that the default. The settings page splits its
-parts into four tabs (Site setup, Sign-in, Look and feel, and Doors, at
-`/admin/settings?tab=site`, `sign-in`, `look`, and `doors`) and asks for each
-setting with an input of its kind: a checkbox for yes or no, a number bounded
-to its range with the range and unit beside it, a select of the choices, a box
-per weekday for `update_window_days`, a color picker, a time of day, a
-searchable list of zones for the timezone, address and email inputs with an
-example as placeholder, a password field for a secret, and a text area for
-PEM certificates that lists each certificate stored with its subject, its
+parts into five tabs (Site setup, Sign-in, Look and feel, Mail, and Doors,
+at `/admin/settings?tab=site`, `sign-in`, `look`, `mail`, and `doors`) and
+asks for each setting with an input of its kind: a checkbox for yes or no, a
+number bounded to its range with the range and unit beside it, a select of the
+choices, a box per weekday for `update_window_days`, a color picker, a time of
+day, a searchable list of zones for the timezone, address and email inputs
+with an example as placeholder, a password field for a secret, and a text area
+for PEM certificates that lists each certificate stored with its subject, its
 validity in UTC, and whether it has expired or is not yet valid. A setting
 the environment gives is shown read-only with the variable that sets it. A
 refused value is shown, as typed, with what is wrong beside its input. The
@@ -426,6 +426,13 @@ page folds away the single sign-on and identity claims parts while
 | `oidc_claim_entitlements` | The claim listing the slugs of a person's groups. A sign-in that carries it makes them a member of exactly the existing groups it names (values naming no group are ignored; groups are never created); one without it leaves their groups unchanged. While set, new users join no default or pre-assigned groups. Empty reads none. | empty |
 | `oidc_default_groups` | Group slugs, separated by commas, that users created by signing in join, together with the groups whose pre-assigned list holds their user id; only while `oidc_claim_entitlements` is empty. | empty |
 | `portal_door_pictures` | `true` shows each public door's primary picture in the user portal and lets anyone signed in load that door's pictures; `false` shows none there and serves pictures only to holders of manage-doors, door-commander, or manage-firmware. The administration always shows them. | `false` |
+| `mail_host` | The host name or IP address of the SMTP server the site sends mail through. Nothing is sent while it or `mail_from` is empty. | empty |
+| `mail_port` | The SMTP server's port, 1 to 65535: usually 465 for `tls`, 587 for `starttls`, 25 for `none`. | `465` |
+| `mail_security` | `tls` speaks TLS from the start (implicit TLS); `starttls` connects in the clear and refuses to send unless the server takes STARTTLS; `none` stays in the clear and then signs in only to a server on this machine (`localhost`). The server's certificate is verified against the system's trusted roots, TLS 1.2 or later. | `tls` |
+| `mail_username` | The user to sign in to the SMTP server as (PLAIN authentication); empty sends without signing in. | empty |
+| `mail_password` | Its password. Secret: stored encrypted. | empty |
+| `mail_from` | The address mail comes from, alone or after a name, such as `Doorcode <doorcode@example.com>`. | empty |
+| `mail_reply_to` | The address replies go to; empty for `mail_from`. | empty |
 | `enrollment_username` | The broker username every new controller enrolls with. A change takes effect at once and reaches every door in its configuration (see below). | `doorcode-enroll` |
 | `enrollment_password` | Its password. Generated, stored, and logged on first start when empty. Secret: stored encrypted. A change takes effect at once and reaches every door in its configuration (see below). | empty |
 | `telemetry_retention_days` | Days each telemetry report is kept. | `7` |
@@ -482,6 +489,18 @@ full table.
 | `door_mesh_max_layer` | The most hops a door may be from its access point in the mesh, 1 to 10. | `4` |
 | `door_update_connect_timeout_s` | How long a door on new firmware tries to connect before it goes back to its old image, 60 to 1800 s. The settings page and a door's page warn when it is longer than `update_timeout_minutes`. | `300` |
 | `door_accept_unsigned_firmware` | `true` lets doors install firmware without a valid signature; for bench and development boards only. | `false` |
+
+## Mail
+
+The site sends mail through one SMTP server, set on the Mail tab of the
+settings (`mail_host`, `mail_port`, `mail_security`, `mail_username`,
+`mail_password`, `mail_from`, `mail_reply_to`). Nothing is sent while
+`mail_host` or `mail_from` is empty. Once the settings are saved, the tab's
+Send test email button (or `POST /api/v1/settings/mail/test`) mails your own
+address through them while you wait and shows what the server answered: that
+it took the message, or the error it gave, such as a refused password or a
+certificate that does not verify. It is refused while mail is not set up or
+your account has no email address mail can be sent to.
 
 ## Single sign-on
 
@@ -625,22 +644,29 @@ make verify-mutation    # mutation testing of the application code
 make verify-mutation-diff  # the same, only on the lines changed since main
 ```
 
-The slow connector tests need a local Postgres and Mosquitto, which
-`docker-compose.dev.yml` provides. It also runs the server built from the
+The slow connector tests need a local Postgres, Mosquitto, and three
+mailpit SMTP catchers (in the clear, STARTTLS, and TLS from the start),
+which `docker-compose.dev.yml` provides; the mailpits deliver nothing. It also runs the server built from the
 checkout (`docker compose -f docker-compose.dev.yml up -d --wait`, with
 `DOORCODE_SECRET_KEY` set), with the passwords `doorcode` and the broker
 without TLS on 1883, for development only.
 
 ```sh
-docker compose -f docker-compose.dev.yml up -d --wait postgres mosquitto
+docker compose -f docker-compose.dev.yml up -d --wait postgres mosquitto mailpit mailpit-starttls mailpit-tls
 export DOORCODE_TEST_DATABASE_URL='postgres://doorcode:doorcode@localhost:5432/doorcode?sslmode=disable'
 export DOORCODE_TEST_BROKER_URL='mqtt://doorcode:doorcode@localhost:1883'
+export DOORCODE_TEST_MAILPIT_URL='smtp://localhost:1025?web=http://localhost:8025'
+export DOORCODE_TEST_MAILPIT_STARTTLS_URL='smtp://localhost:1587?web=http://localhost:8026'
+export DOORCODE_TEST_MAILPIT_TLS_URL='smtp://localhost:1465?web=http://localhost:8027'
 make verify-integration
 docker compose -f docker-compose.dev.yml down -v
 ```
 
-Set `DOORCODE_POSTGRES_PORT` and `DOORCODE_MQTT_PORT` before `docker compose
-up` when the default ports are taken, and use those ports in the URLs.
+Set `DOORCODE_POSTGRES_PORT`, `DOORCODE_MQTT_PORT`, and the mailpits'
+`DOORCODE_SMTP_PORT`, `DOORCODE_SMTP_STARTTLS_PORT`, `DOORCODE_SMTP_TLS_PORT`,
+`DOORCODE_MAILPIT_PORT`, `DOORCODE_MAILPIT_STARTTLS_PORT`, and
+`DOORCODE_MAILPIT_TLS_PORT` before `docker compose up` when the default ports
+are taken, and use those ports in the URLs.
 `make verify-all` runs all three. AGENTS.md describes what each gate
 enforces and how the code is laid out.
 

@@ -54,6 +54,8 @@ var defaultSettings = []shownSetting{
 	{"oidc_claim_first_name", "given_name", "default"}, {"oidc_claim_last_name", "family_name", "default"},
 	{"oidc_claim_display_name", "name", "default"}, {"oidc_claim_entitlements", "", "default"},
 	{"oidc_default_groups", "", "default"}, {"portal_door_pictures", "false", "default"},
+	{"mail_host", "", "default"}, {"mail_port", "465", "default"}, {"mail_security", "tls", "default"},
+	{"mail_username", "", "default"}, {"mail_password", "", "default"}, {"mail_from", "", "default"}, {"mail_reply_to", "", "default"},
 	{"enrollment_username", "doorcode-enroll", "default"}, {"enrollment_password", "", "default"},
 	{"telemetry_retention_days", "7", "default"}, {"telemetry_rollup_retention_days", "730", "default"},
 	{"unresponsive_minutes", "5", "default"},
@@ -83,25 +85,34 @@ var settingRows = map[string]struct{ section, label, help string }{
 	"admin_email":   {"Site", "First administrator's email", "The account created on first start when there are no users."},
 	"trusted_proxies": {"Proxies", "Trusted proxies", "IP addresses, CIDR ranges, and host names separated by commas, such as 10.0.0.0/8,proxy.example.com. " +
 		"A host name is looked up by the periodic work, about once a minute, and trusts nobody until then."},
-	"theme_accent":                    {"Theme", "Accent color", "A color as #rrggbb, such as #4f39f6."},
-	"theme_accent_dark":               {"Theme", "Accent color in the dark theme", "A color as #rrggbb, or empty to use the accent color."},
-	"password_hash_memory_kib":        {"Accounts and passwords", "Password hashing memory", "KiB of memory hashing one password takes, from 8 to 1048576. More is slower to guess."},
-	"password_min_length":             {"Accounts and passwords", "Shortest password", "How many characters a password chosen in the portal or set by an administrator has at least, from 8 to 128."},
-	"new_user_expiry_days":            {"Accounts and passwords", "New account lifetime", "Days until the account of a user created by signing in at the provider expires."},
-	"oidc_enabled":                    {"Single sign-on", "Single sign-on enabled", "Offers signing in at the provider set up here, beside signing in with a password."},
-	"oidc_auto_sign_in":               {"Single sign-on", "Automatic sign-in", "Sends the sign-in page straight on to the provider and hides the password forms; add ?auto_sign_in=false to reach the sign-in form. Administrators, and anyone who signed in with a password, keep the form for changing their own password."},
-	"oidc_issuer":                     {"Single sign-on", "Issuer", "The provider's https:// address, exactly as it names itself."},
-	"oidc_client_id":                  {"Single sign-on", "Client id", "The id the site is registered with at the provider."},
-	"oidc_client_secret":              {"Single sign-on", "Client secret", "The secret the site is registered with, if the provider gave one."},
-	"oidc_scopes":                     {"Single sign-on", "Scopes", "Scopes asked for, separated by spaces, openid among them."},
-	"oidc_claim_user_id":              {"Identity claims", "User id claim", "The claim holding the user id people are matched by first."},
-	"oidc_claim_email":                {"Identity claims", "Email claim", "Required."},
-	"oidc_claim_first_name":           {"Identity claims", "First name claim", ""},
-	"oidc_claim_last_name":            {"Identity claims", "Last name claim", ""},
-	"oidc_claim_display_name":         {"Identity claims", "Display name claim", ""},
-	"oidc_claim_entitlements":         {"Identity claims", "Entitlements claim", "The claim listing the slugs of someone's groups. A sign-in that carries it makes them a member of exactly the groups it names, ignoring slugs no group has; one without it leaves their groups alone. While it is set, new users join no default or pre-assigned groups."},
-	"oidc_default_groups":             {"Identity claims", "Groups new users join", "Group slugs separated by commas. New users join these, and the groups whose pre-assigned list holds their user id, only while the entitlements claim is empty."},
-	"portal_door_pictures":            {"User portal", "Door pictures in the portal", "Shows each public door's primary picture in the portal; while it is off the portal shows none. The administration always shows them."},
+	"theme_accent":             {"Theme", "Accent color", "A color as #rrggbb, such as #4f39f6."},
+	"theme_accent_dark":        {"Theme", "Accent color in the dark theme", "A color as #rrggbb, or empty to use the accent color."},
+	"password_hash_memory_kib": {"Accounts and passwords", "Password hashing memory", "KiB of memory hashing one password takes, from 8 to 1048576. More is slower to guess."},
+	"password_min_length":      {"Accounts and passwords", "Shortest password", "How many characters a password chosen in the portal or set by an administrator has at least, from 8 to 128."},
+	"new_user_expiry_days":     {"Accounts and passwords", "New account lifetime", "Days until the account of a user created by signing in at the provider expires."},
+	"oidc_enabled":             {"Single sign-on", "Single sign-on enabled", "Offers signing in at the provider set up here, beside signing in with a password."},
+	"oidc_auto_sign_in":        {"Single sign-on", "Automatic sign-in", "Sends the sign-in page straight on to the provider and hides the password forms; add ?auto_sign_in=false to reach the sign-in form. Administrators, and anyone who signed in with a password, keep the form for changing their own password."},
+	"oidc_issuer":              {"Single sign-on", "Issuer", "The provider's https:// address, exactly as it names itself."},
+	"oidc_client_id":           {"Single sign-on", "Client id", "The id the site is registered with at the provider."},
+	"oidc_client_secret":       {"Single sign-on", "Client secret", "The secret the site is registered with, if the provider gave one."},
+	"oidc_scopes":              {"Single sign-on", "Scopes", "Scopes asked for, separated by spaces, openid among them."},
+	"oidc_claim_user_id":       {"Identity claims", "User id claim", "The claim holding the user id people are matched by first."},
+	"oidc_claim_email":         {"Identity claims", "Email claim", "Required."},
+	"oidc_claim_first_name":    {"Identity claims", "First name claim", ""},
+	"oidc_claim_last_name":     {"Identity claims", "Last name claim", ""},
+	"oidc_claim_display_name":  {"Identity claims", "Display name claim", ""},
+	"oidc_claim_entitlements":  {"Identity claims", "Entitlements claim", "The claim listing the slugs of someone's groups. A sign-in that carries it makes them a member of exactly the groups it names, ignoring slugs no group has; one without it leaves their groups alone. While it is set, new users join no default or pre-assigned groups."},
+	"oidc_default_groups":      {"Identity claims", "Groups new users join", "Group slugs separated by commas. New users join these, and the groups whose pre-assigned list holds their user id, only while the entitlements claim is empty."},
+	"portal_door_pictures":     {"User portal", "Door pictures in the portal", "Shows each public door's primary picture in the portal; while it is off the portal shows none. The administration always shows them."},
+	"mail_host":                {"Mail", "Mail server", "The host name or IP address of the SMTP server, such as smtp.example.com."},
+	"mail_port":                {"Mail", "Mail server port", "Usually 465 for TLS, 587 for STARTTLS, and 25 for none."},
+	"mail_security": {"Mail", "Connection security", "tls speaks TLS from the start; starttls connects in the clear and refuses to send unless the server takes STARTTLS; " +
+		"none stays in the clear, and then signs in only to a server on this machine. The server's certificate is verified against the system's trusted roots."},
+	"mail_username": {"Mail", "Mail username", "The user to sign in to the server as, or empty to send without signing in."},
+	"mail_password": {"Mail", "Mail password", "The password of the mail username."},
+	"mail_from": {"Mail", "Sent from",
+		"The address mail comes from, with a name if you like, such as Doorcode <doorcode@example.com>. The server must let the mail username send from it."},
+	"mail_reply_to":                   {"Mail", "Replies to", "The address replies go to, or empty for the address mail is sent from."},
 	"enrollment_username":             {"Door enrollment", "Enrollment username", ""},
 	"enrollment_password":             {"Door enrollment", "Enrollment password", "The password a new door controller signs in to the broker with, beside the enrollment username, until an administrator approves it and it gets credentials of its own. Enter both in the settings of each controller you install. When it is empty on first start, the server makes one up and writes it to its log."},
 	"telemetry_retention_days":        {"Telemetry", "Reports kept", "Days each telemetry report is kept."},
@@ -209,7 +220,7 @@ func groupStarted(key string) ([]string, bool) {
 
 // secretSettings are the settings the settings page offers as password
 // fields, which are left blank.
-var secretSettings = map[string]bool{"oidc_client_secret": true, "enrollment_password": true, "door_wifi_password": true, "door_mesh_password": true}
+var secretSettings = map[string]bool{"mail_password": true, "oidc_client_secret": true, "enrollment_password": true, "door_wifi_password": true, "door_mesh_password": true}
 
 // storedSecret and unsetSecret are what the settings page says of a
 // secret that has a value and of one that has none.
@@ -230,6 +241,7 @@ var numberRanges = map[string]string{
 	"door_rate_limit_per_minute": "1 to 6000 checks", "door_rate_limit_burst": "1 to 1000 checks", "door_broker_port": "1 to 65535",
 	"door_keepalive_s": "10 to 300 seconds", "door_reconnect_max_s": "5 to 600 seconds", "door_wifi_roam_rssi": "-100 to 0 dBm",
 	"door_mesh_min_router_rssi": "-100 to 0 dBm", "door_mesh_max_layer": "1 to 10 hops", "door_update_connect_timeout_s": "60 to 1800 seconds",
+	"mail_port": "1 to 65535",
 }
 
 // chosenDays is the days each value of update_window_days the tests use
@@ -246,6 +258,7 @@ var chosenDays = map[string][]string{
 var settingChoices = map[string][]string{
 	"site_timezone":  {"America/New_York", "Asia/Tokyo", "Europe/Berlin", "UTC"},
 	"door_log_level": {"error", "warn", "info", "debug"},
+	"mail_security":  {"tls", "starttls", "none"},
 }
 
 // yesNoSettings are the settings the settings page asks for with a
@@ -352,20 +365,21 @@ func settingWarning(page *testsupport.Page, held map[string]string, key string) 
 }
 
 // settingsTabs is each tab of the settings page, in order.
-var settingsTabs = []string{"Site setup", "Sign-in", "Look and feel", "Doors"}
+var settingsTabs = []string{"Site setup", "Sign-in", "Look and feel", "Mail", "Doors"}
 
 // settingsTabOf is the tab of the settings page that shows each section.
 var settingsTabOf = map[string]string{
 	"Site": "Site setup", "Proxies": "Site setup",
 	"Accounts and passwords": "Sign-in", "Single sign-on": "Sign-in", "Identity claims": "Sign-in",
-	"Theme": "Look and feel", "User portal": "Look and feel",
+	"Theme": "Look and feel", "User portal": "Look and feel", "Mail": "Mail",
 	"Door enrollment": "Doors", "Telemetry": "Doors", "Firmware updates": "Doors", "Door defaults": "Doors",
 }
 
 // settingsTab is the tab of the settings page before its settings: the
 // note, the main navigation and then the tabs, current marked, the
-// searchable timezone on Site setup, and the upload of the sign-in page's
-// picture on Look and feel.
+// searchable timezone on Site setup, the upload of the sign-in page's
+// picture on Look and feel, and the test email to the first
+// administrator on Mail.
 func settingsTab(current string) testsupport.Page {
 	page := testsupport.Page{
 		Title: "Settings · doorcode", Heading: "Settings", Notes: []string{settingsNote}, Values: map[string]string{},
@@ -381,6 +395,8 @@ func settingsTab(current string) testsupport.Page {
 	switch current {
 	case "Site setup":
 		page.Comboboxes = []string{"site_timezone"}
+	case "Mail":
+		page.Notes = append(page.Notes, testMailNote(adminEmail))
 	case "Look and feel":
 		page.Values["sign-in-image"] = ""
 		page.Values["logo"] = ""
@@ -450,6 +466,7 @@ func TestEachTabOfTheSettingsPageShowsOnlyItsSections(t *testing.T) {
 		"site":           {"/admin/settings?tab=site", "Site setup"},
 		"sign-in":        {"/admin/settings?tab=sign-in", "Sign-in"},
 		"look":           {"/admin/settings?tab=look", "Look and feel"},
+		"mail":           {"/admin/settings?tab=mail", "Mail"},
 		"doors":          {"/admin/settings?tab=doors", "Doors"},
 	}
 	for name, c := range cases {
@@ -477,7 +494,7 @@ func TestTheSettingsPageTabsAreLinksToTheirAddresses(t *testing.T) {
 
 	nav := testsupport.ParsePage(b.Get("/admin/settings?tab=doors").Body).NavTargets
 
-	want := []string{"/admin/settings?tab=site", "/admin/settings?tab=sign-in", "/admin/settings?tab=look", "/admin/settings?tab=doors"}
+	want := []string{"/admin/settings?tab=site", "/admin/settings?tab=sign-in", "/admin/settings?tab=look", "/admin/settings?tab=mail", "/admin/settings?tab=doors"}
 	if diff := cmp.Diff(want, nav[len(nav)-len(want):]); diff != "" {
 		t.Errorf("tab addresses (-want +got):\n%s", diff)
 	}
