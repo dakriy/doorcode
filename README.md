@@ -567,8 +567,9 @@ The periodic work, at most once a minute, raises and clears `offline`,
 `unresponsive`, the three configuration kinds, and `update_failed` from
 each door's state and firmware status as they stand then, so they may be
 raised or cleared up to a minute after they changed; `forced_open` and
-`held_open` are raised and cleared as the server handles what happens. A door that is deleted or loses its controller keeps
-its conditions as they were.
+`held_open` are raised and cleared as the server handles what happens. A
+door that is deleted or loses its controller keeps its conditions as they
+were.
 
 Every kind is off until it is turned on, and nothing is mailed while
 `alert_recipients` is empty or mail is not set up (`mail_host` or
@@ -804,9 +805,9 @@ make verify-mutation-diff  # the same, only on the lines changed since main
 
 The slow connector tests need a local Postgres, Mosquitto, and three
 mailpit SMTP catchers (in the clear, STARTTLS, and TLS from the start),
-which `docker-compose.dev.yml` provides; the mailpits deliver nothing. It also runs the server built from the
-checkout (`docker compose -f docker-compose.dev.yml up -d --wait`, with
-`DOORCODE_SECRET_KEY` set), with the passwords `doorcode` and the broker
+which `docker-compose.dev.yml` provides; the mailpits deliver nothing. It
+also runs the server built from the checkout (`docker compose -f
+docker-compose.dev.yml up -d --wait`, with `DOORCODE_SECRET_KEY` set), with the passwords `doorcode` and the broker
 without TLS on 1883, for development only. That server's mail goes to the
 plain mailpit, whose web page <http://localhost:8025> lists every message,
 so Send test email works with nothing typed in; the slow tests send to

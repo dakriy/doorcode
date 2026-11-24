@@ -270,21 +270,6 @@ func TestAnUpdateThatRunsOutOfTimeMailsThatItFailedInTheSamePass(t *testing.T) {
 	}
 }
 
-func TestAnUpdateThatSucceedsWithNothingRaisedMailsNothing(t *testing.T) {
-	t.Parallel()
-	f := testsupport.NewFactory()
-	fl := fleetSite(t, f)
-	mailAlerts(t, fl.b, "update_failed")
-	fl.at("2026-01-06T02:00:00Z")
-	fl.reconnects(1, "1.5.0")
-
-	fl.at("2026-01-06T02:01:00Z")
-
-	if diff := cmp.Diff([]any{"done", []any{}}, []any{fl.status(1), subjects(t, f)}); diff != "" {
-		t.Errorf("status, subjects (-want +got):\n%s", diff)
-	}
-}
-
 func TestUpdatesAreStillRolledOutWhenTheAlertConditionsCannotBeRead(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()

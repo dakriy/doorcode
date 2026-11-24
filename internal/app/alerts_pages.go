@@ -19,10 +19,7 @@ import (
 const alertsPath = "/admin/alerts"
 
 // alertSettingKeys are the settings the Alerts page shows and saves.
-var alertSettingKeys = []string{
-	settings.KeyAlertRecipients, settings.KeyAlertCleared, settings.KeyAlertHoldDown, settings.KeyCertificateCheck, settings.KeyCertificateInterval,
-	settings.KeyCertificateRunway, settings.KeyCertificateLeaf, settings.KeyCertificateFailures,
-}
+var alertSettingKeys = settings.KeysOn(settings.TabAlerts)
 
 // alertsContent is the Alerts page's content: every kind of alert, the
 // sections of the alert mail and certificate check settings, each

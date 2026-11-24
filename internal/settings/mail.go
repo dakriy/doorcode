@@ -69,10 +69,7 @@ func (s Service) Mail(ctx context.Context) (Mail, error) {
 	if err != nil {
 		return Mail{}, err
 	}
-	values := map[string]string{}
-	for _, def := range mailSection.definitions {
-		values[def.key] = s.resolve(def, stored).Value
-	}
+	values := s.valuesOf(mailSection, stored)
 	if values[keyMailHost] == "" || values[keyMailFrom] == "" {
 		return Mail{}, ErrMailNotConfigured
 	}

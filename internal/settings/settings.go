@@ -1104,6 +1104,27 @@ func (s Service) resolve(def definition, stored map[string]connector.StoredSetti
 	return shown(def, Setting{Key: def.key, Value: def.fallback, Source: SourceDefault, EnvVar: envVar})
 }
 
+// valuesOf is the value of each setting of sec, by key, as stored holds
+// it or the environment or the fallback gives it.
+func (s Service) valuesOf(sec section, stored map[string]connector.StoredSetting) map[string]string {
+	values := map[string]string{}
+	for _, def := range sec.definitions {
+		values[def.key] = s.resolve(def, stored).Value
+	}
+	return values
+}
+
+// KeysOn is the key of every setting tab shows, in display order.
+func KeysOn(tab Tab) []string {
+	var keys []string
+	for _, def := range definitions {
+		if def.section.Tab == tab {
+			keys = append(keys, def.key)
+		}
+	}
+	return keys
+}
+
 // fromStore is the setting as an administrator saved it.
 func fromStore(def definition, row connector.StoredSetting) Setting {
 	return shown(def, Setting{Key: def.key, Value: row.Value, Source: SourceDatabase, EnvVar: envVarFor(def.key), UpdatedAt: row.UpdatedAt})

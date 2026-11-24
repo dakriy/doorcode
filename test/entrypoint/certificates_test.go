@@ -63,7 +63,7 @@ func certificatesOf(t *testing.T, f *testsupport.Factory, a *app.App, b *testsup
 // set stores a setting through the API.
 func (c *certificates) set(key, value string) {
 	c.t.Helper()
-	send(c.t, c.api, "PUT", "/api/v1/settings/"+key, `{"value":`+testsupport.Quoted(value)+`}`, 200)
+	putSetting(c.t, c.api, key, value)
 }
 
 // trust has the doors trust roots, and nothing else.
@@ -353,7 +353,7 @@ func TestTheEndpointsComeFromTheBrokerAndDeviceAddressSettings(t *testing.T) {
 			f := testsupport.NewFactory()
 			b := signedInAdmin(t, f)
 			for i := 0; i < len(tc.settings); i += 2 {
-				send(t, b, "PUT", "/api/v1/settings/"+tc.settings[i], `{"value":`+testsupport.Quoted(tc.settings[i+1])+`}`, 200)
+				putSetting(t, b, tc.settings[i], tc.settings[i+1])
 			}
 
 			got := testsupport.JSONAt(send(t, b, "GET", "/api/v1/alerts/certificates", "", 200).Body, "/endpoints")

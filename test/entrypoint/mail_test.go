@@ -32,7 +32,7 @@ func mailSite(t *testing.T, f *testsupport.Factory, more ...string) *testsupport
 		"mail_username", "doorcode", "mail_password", "s3cret", "mail_from", "Doorcode <doorcode@example.com>",
 	}, more...)
 	for i := 0; i < len(settings); i += 2 {
-		send(t, b, "PUT", "/api/v1/settings/"+settings[i], `{"value":`+testsupport.Quoted(settings[i+1])+`}`, 200)
+		putSetting(t, b, settings[i], settings[i+1])
 	}
 	return b
 }

@@ -28,17 +28,23 @@ func mailAlerts(t *testing.T, c *testsupport.Browser, kinds ...string) {
 		{"mail_from", "Doorcode <doorcode@example.com>"},
 		{"alert_recipients", "ops@example.com,\nFront desk <desk@example.com>"},
 	} {
-		send(t, c, "PUT", "/api/v1/settings/"+setting[0], `{"value":`+testsupport.Quoted(setting[1])+`}`, 200)
+		putSetting(t, c, setting[0], setting[1])
 	}
 	for _, kind := range kinds {
 		send(t, c, "PUT", "/api/v1/alerts/kinds/"+kind, `{"enabled":true}`, 200)
 	}
 }
 
+// putSetting stores value as the setting key through the API with c.
+func putSetting(t *testing.T, c *testsupport.Browser, key, value string) {
+	t.Helper()
+	send(t, c, "PUT", "/api/v1/settings/"+key, `{"value":`+testsupport.Quoted(value)+`}`, 200)
+}
+
 // setting stores value as the setting key through the API.
 func (k *keypad) setting(key, value string) {
 	k.t.Helper()
-	send(k.t, k.b, "PUT", "/api/v1/settings/"+key, `{"value":`+testsupport.Quoted(value)+`}`, 200)
+	putSetting(k.t, k.b, key, value)
 }
 
 // runAt sets the clock to the RFC 3339 time at and has the server run.
