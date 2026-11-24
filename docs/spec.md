@@ -227,7 +227,12 @@ joins through a neighbor, deepest hop); and Firmware (how long new
 firmware may take to connect before the door reverts it, whether unsigned
 firmware is accepted). The API's effective configuration keeps its own
 field order. The settings page and a door's page show under each
-field's label a sentence saying what it does, then the values it takes.
+field's label a sentence saying what it does, then the values it takes
+when its input does not show them: a yes or no and a choice offer their
+values, and a number shows its range and unit beside it. A door's page asks
+for its own value of a yes or no or a choice with a select whose first
+option, the empty value, follows the site default and names it ("Site
+default (On)"), and shows a yes or no as On or Off.
 The Wi-Fi and mesh passwords are secrets: stored
 encrypted as defaults and as a door's overrides, shown masked in the UI and
 the API, and sent in the clear only in the door's configuration message.
@@ -473,9 +478,13 @@ tabs are plain links that work without script and can be shared, the current
 one marked; saving goes back to the tab saved, a refused value shows on the
 tab that holds it, and at phone width the tabs scroll in one row; env-provided
 values are shown read-only; each asked for with an input of its kind: a color
-picker, a checkbox for yes or no, a number, a select of the choices, and a
-searchable select of every zone for the timezone; the single sign-on and
-identity claims parts fold away while single sign-on is off).
+picker, a checkbox for yes or no (an unticked box stores false), a number
+with its range and unit, a select of the choices, a checkbox per weekday for
+the update days (all seven store `daily`), a searchable select of every zone
+for the timezone, address, email, and host name inputs with an example as
+placeholder, a blank password field for a secret, and a text area for PEM
+certificates listing those stored; the single sign-on and identity claims
+parts fold away while single sign-on is off).
 
 A list page's actions (the doors list's pending enrollments, with how many
 wait as a badge, and new door; import and new user; new group, zone, or

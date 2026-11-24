@@ -25,8 +25,17 @@ type Page struct {
 	// offered, in order.
 	Notes []string
 	// FieldErrors maps each input marked invalid to the text of the message
-	// that describes it.
+	// that describes it last.
 	FieldErrors map[string]string
+	// Descriptions maps each named control that something describes to the
+	// text of what describes it, in order, as a screen reader reads it.
+	Descriptions map[string]string
+	// Placeholders maps each named control that shows a placeholder while
+	// empty to it.
+	Placeholders map[string]string
+	// Limits maps each named input that bounds its number to its least and
+	// greatest number and its step, as "min to max by step".
+	Limits map[string]string
 	// Values maps each named input and text area, other than passwords and
 	// checkboxes, to its value.
 	Values map[string]string
@@ -134,7 +143,7 @@ func ParsePage(body string) Page {
 	}
 	var p Page
 	byID := map[string]*html.Node{}
-	var invalid []*html.Node
+	var invalid, described []*html.Node
 	for n := range doc.Descendants() {
 		if n.Type != html.ElementNode {
 			continue
@@ -145,17 +154,37 @@ func ParsePage(body string) Page {
 		if attr(n, "aria-invalid") == "true" {
 			invalid = append(invalid, n)
 		}
+		if hasAttr(n, "aria-describedby") && attr(n, "name") != "" {
+			described = append(described, n)
+		}
 		p.readScripted(n)
 		p.readControl(n)
 		p.read(n)
 	}
+	p.readDescriptions(byID, invalid, described)
+	return p
+}
+
+// readDescriptions reads what describes each of described, and the
+// message that describes each of invalid last, by the ids byID finds.
+func (p *Page) readDescriptions(byID map[string]*html.Node, invalid, described []*html.Node) {
 	for _, n := range invalid {
 		if p.FieldErrors == nil {
 			p.FieldErrors = map[string]string{}
 		}
-		p.FieldErrors[attr(n, "name")] = text(byID[attr(n, "aria-describedby")])
+		ids := strings.Fields(attr(n, "aria-describedby"))
+		p.FieldErrors[attr(n, "name")] = text(byID[ids[len(ids)-1]])
 	}
-	return p
+	for _, n := range described {
+		if p.Descriptions == nil {
+			p.Descriptions = map[string]string{}
+		}
+		var texts []string
+		for _, id := range strings.Fields(attr(n, "aria-describedby")) {
+			texts = append(texts, text(byID[id]))
+		}
+		p.Descriptions[attr(n, "name")] = strings.Join(texts, " ")
+	}
 }
 
 // readScripted reads a control the search script enhances, and a part of
@@ -345,6 +374,25 @@ func (p *Page) readControl(n *html.Node) {
 			p.Inputs = map[string]string{}
 		}
 		p.Inputs[attr(n, "name")] = kind
+		p.readHints(n)
+	}
+}
+
+// readHints reads the placeholder of a named control and the bounds of
+// its number.
+func (p *Page) readHints(n *html.Node) {
+	name := attr(n, "name")
+	if hasAttr(n, "placeholder") {
+		if p.Placeholders == nil {
+			p.Placeholders = map[string]string{}
+		}
+		p.Placeholders[name] = attr(n, "placeholder")
+	}
+	if hasAttr(n, "min") {
+		if p.Limits == nil {
+			p.Limits = map[string]string{}
+		}
+		p.Limits[name] = attr(n, "min") + " to " + attr(n, "max") + " by " + attr(n, "step")
 	}
 }
 

@@ -286,18 +286,18 @@ var DoorFields = grouped(
 		choiceField("log_level", "Log level", "How much the door writes to its own log, from errors only to every detail.",
 			"info", []string{"error", "warn", "info", "debug"}, func(c *DoorConfig) *string { return &c.LogLevel }),
 		{Name: "ntp_server", Label: "Time server", Help: "The time server the door sets its clock from; the door keeps to its timeline by this clock.",
-			Hint: check.HostHint, fallback: "pool.ntp.org", set: setHost},
+			Hint: check.HostHint, Input: Input{Kind: KindHost, Example: "pool.ntp.org"}, fallback: "pool.ntp.org", set: setHost},
 	}},
 	doorGroup{"Broker", []DoorField{
 		{Name: "broker_host", Label: "Broker host", Help: "The broker the door connects to, from its next connection on; empty keeps the broker it uses now.",
-			Hint: brokerHint, fallback: "", set: setBrokerHost},
+			Hint: brokerHint, Input: Input{Kind: KindHost, Example: "broker.example.com"}, fallback: "", set: setBrokerHost},
 		numberField("broker_port", "Broker port", "The port of the broker the door connects to, from its next connection on.",
-			"8883", "a port from 1 to 65535", 1, 65535, func(c *DoorConfig) *int { return &c.BrokerPort }),
+			"8883", "a port from 1 to 65535", whole{1, 65535, ""}, func(c *DoorConfig) *int { return &c.BrokerPort }),
 		yesNoField("broker_tls", "Broker over TLS", "Whether the door connects to the broker over TLS, checking the broker against the broker CA certificate. Turn it off for a development broker only.",
 			"true", func(c *DoorConfig) *bool { return &c.BrokerTLS }),
 		{Name: "broker_ca_pem", Label: "Broker CA certificate",
 			Help: "The certificate the door checks the broker against while it connects over TLS: the broker's CA's, or the broker's own. Empty keeps the one the door has.",
-			Hint: caHint, Input: Input{Kind: KindLongText}, fallback: "", set: setBrokerCA},
+			Hint: caHint, Input: Input{Kind: KindCertificates}, fallback: "", set: setBrokerCA},
 		wholeField("keepalive_s", "Keep-alive",
 			"How often the door lets the broker know it is still there, from its next connection on; it shows offline once one and a half of these pass without a word from it.",
 			"30", 10, 300, "seconds", func(c *DoorConfig) *int { return &c.KeepaliveS }),
@@ -363,8 +363,8 @@ func grouped(groups ...doorGroup) []DoorField {
 // wholeField is a field, explained by help, that takes a whole number of
 // unit from lowest to highest, kept where at says.
 func wholeField(name, label, help, fallback string, lowest, highest int, unit string, at func(*DoorConfig) *int) DoorField {
-	hint := fmt.Sprintf("a whole number of %s from %d to %d", unit, lowest, highest)
-	return numberField(name, label, help, fallback, hint, lowest, highest, at)
+	w := whole{lowest, highest, unit}
+	return numberField(name, label, help, fallback, w.hint(), w, at)
 }
 
 // signalField is a field, explained by help, that takes a signal strength
@@ -373,11 +373,11 @@ func signalField(name, label, help, fallback string, weakest int, at func(*DoorC
 	return wholeField(name, label, help, fallback, -weakest, 0, "dBm", at)
 }
 
-// numberField is a field, explained by help, that takes a whole number
-// from lowest to highest, which hint says, kept where at says.
-func numberField(name, label, help, fallback, hint string, lowest, highest int, at func(*DoorConfig) *int) DoorField {
-	return DoorField{Name: name, Label: label, Help: help, Hint: hint, Input: Input{Kind: KindNumber}, fallback: fallback, set: func(c *DoorConfig, value string) error {
-		n, err := wholeNumber(value, lowest, highest, "must be "+hint)
+// numberField is a field, explained by help, that takes the whole numbers
+// w takes, which hint says, kept where at says.
+func numberField(name, label, help, fallback, hint string, w whole, at func(*DoorConfig) *int) DoorField {
+	return DoorField{Name: name, Label: label, Help: help, Hint: hint, Input: w.input(), fallback: fallback, set: func(c *DoorConfig, value string) error {
+		n, err := wholeNumber(value, w.lowest, w.highest, "must be "+hint)
 		*at(c) = n
 		return err
 	}}
@@ -472,6 +472,28 @@ func certificates(text string) bool {
 	return strings.TrimSpace(string(rest)) == ""
 }
 
+// Certificate is what a page says of a PEM certificate: whom it names
+// and when it is valid.
+type Certificate struct {
+	Subject   string
+	NotBefore time.Time
+	NotAfter  time.Time
+}
+
+// Certificates is each PEM certificate in text that can be read, in
+// order.
+func Certificates(text string) []Certificate {
+	var found []Certificate
+	block, rest := pem.Decode([]byte(text))
+	for block != nil {
+		if cert, err := x509.ParseCertificate(block.Bytes); err == nil {
+			found = append(found, Certificate{Subject: cert.Subject.String(), NotBefore: cert.NotBefore, NotAfter: cert.NotAfter})
+		}
+		block, rest = pem.Decode(rest)
+	}
+	return found
+}
+
 // doorDefinitions is the setting of each door field's default.
 func doorDefinitions() []definition {
 	var out []definition
@@ -486,8 +508,11 @@ func doorDefinitions() []definition {
 }
 
 // About is what pages say of f under its label: what it does, then what
-// values it takes.
+// values it takes, unless its input shows them.
 func (f DoorField) About() string {
+	if f.Input.ShowsValues() {
+		return f.Help
+	}
 	return f.Help + " " + sentence(f.Hint)
 }
 

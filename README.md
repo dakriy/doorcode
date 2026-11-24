@@ -387,9 +387,17 @@ the setting read-only in the UI. Without one, the value saved on the settings
 page applies, and without that the default. The settings page splits its
 parts into four tabs (Site setup, Sign-in, Look and feel, and Doors, at
 `/admin/settings?tab=site`, `sign-in`, `look`, and `doors`) and asks for each
-setting with an input of its kind (a color picker, a checkbox, a number, a
-select, and a searchable list of zones for the timezone) and folds away the
-single sign-on and identity claims parts while `oidc_enabled` is off.
+setting with an input of its kind: a checkbox for yes or no, a number bounded
+to its range with the range and unit beside it, a select of the choices, a box
+per weekday for `update_window_days`, a color picker, a time of day, a
+searchable list of zones for the timezone, address and email inputs with an
+example as placeholder, a password field for a secret, and a text area for
+PEM certificates that lists each certificate stored with its subject, its
+validity in UTC, and whether it has expired or is not yet valid. A setting
+the environment gives is shown read-only with the variable that sets it. A
+refused value is shown, as typed, with what is wrong beside its input. The
+page folds away the single sign-on and identity claims parts while
+`oidc_enabled` is off.
 
 | Setting | Meaning | Default |
 | --- | --- | --- |

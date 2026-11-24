@@ -21,7 +21,7 @@ const (
 const meshRow = 29
 
 // meshLabel is what the mesh row says of the field under its label.
-const meshLabel = "Mesh Whether the door may join or form a Wi-Fi mesh with other doors when its own access point's signal is poor. True or false."
+const meshLabel = "Mesh Whether the door may join or form a Wi-Fi mesh with other doors when its own access point's signal is poor."
 
 // meshWarning is what a page warns of a mesh left open for want of what
 // reason says.
@@ -174,7 +174,7 @@ func TestADoorWhoseMeshIsLeftOpenIsSentItOff(t *testing.T) {
 
 	send(t, b, "PUT", "/api/v1/settings/door_mesh_password", `{"clear":true}`, 200)
 
-	want := []any{true, false, false, false, []string{meshLabel, "false", "", "true Overridden " + meshWarning(noMeshPassword)}}
+	want := []any{true, false, false, false, []string{meshLabel, "Off", "Default (Off) On Off", "On Overridden " + meshWarning(noMeshPassword)}}
 	got := []any{on, sentConfig(f, "1", "mesh_enabled"), testsupport.JSONAt(b.Get("/api/v1/doors/1/config").Body, "/effective/mesh_enabled"),
 		testsupport.JSONAt(b.Get("/api/v1/doors/1/provisioning").Body, "/door_config/mesh_enabled"),
 		doorPage(t, b, "/admin/doors/1?tab=configuration").Tables["Configuration"][meshRow]}

@@ -109,41 +109,41 @@ var settingRows = map[string]struct{ section, label, help string }{
 	"public_url":                      {"Site", "Public address", "The https:// address browsers reach the server at, and single sign-on returns to; http:// only for development."},
 	"device_url": {"Firmware updates", "Device address", "The https:// address of the server's device-facing entrypoint, which presents a certificate from the managed CA controllers trust, " +
 		"the same CA as the broker's; doors download firmware from it. http:// only for development, since doors verify the server's certificate only over https. No update is sent to doors while it is empty."},
-	"update_window_days":     {"Firmware updates", "Update days", "daily, or weekdays separated by commas such as sat,sun."},
+	"update_window_days":     {"Firmware updates", "Update days", "The weekdays the window opens on; all seven is every day."},
 	"update_window_start":    {"Firmware updates", "Update window opens", "A time of day in the site timezone."},
 	"update_window_minutes":  {"Firmware updates", "Update window length", "Minutes."},
 	"update_concurrency":     {"Firmware updates", "Doors updating at once", ""},
 	"update_timeout_minutes": {"Firmware updates", "Update timeout", "Minutes a door may take to come back on its new version before the update fails."},
 	"door_strike_pulse_ms": {"Door defaults", "Strike pulse",
-		"How long the door's strike stays released each time it lets someone in. The door may open within this, plus the reply timeout, without counting as forced open. A whole number of milliseconds from 100 to 60000."},
+		"How long the door's strike stays released each time it lets someone in. The door may open within this, plus the reply timeout, without counting as forced open."},
 	"door_keypad_idle_clear_ms": {"Door defaults", "Keypad idle clear",
-		"How long a partly typed entry waits for the next key before the keypad discards it. A whole number of milliseconds from 1000 to 600000."},
+		"How long a partly typed entry waits for the next key before the keypad discards it."},
 	"door_min_code_length": {"Door defaults", "Shortest code",
-		"The fewest digits a code may have; the door discards a shorter entry without asking the server. A whole number of digits from 1 to 16."},
+		"The fewest digits a code may have; the door discards a shorter entry without asking the server."},
 	"door_max_code_length": {"Door defaults", "Longest code",
-		"The longest entry the keypad takes, a keypad command included; the door takes no more keys once an entry is this long. A whole number of digits from 16 to 64."},
+		"The longest entry the keypad takes, a keypad command included; the door takes no more keys once an entry is this long."},
 	"door_reply_timeout_ms": {"Door defaults", "Reply timeout",
-		"How long the door waits for the server's answer to a code before denying it. A whole number of milliseconds from 100 to 60000."},
+		"How long the door waits for the server's answer to a code before denying it."},
 	"door_telemetry_interval_s": {"Door defaults", "Telemetry interval",
-		"How often the door reports its health readings, such as its signal and uptime, to the server. A whole number of seconds from 5 to 86400."},
+		"How often the door reports its health readings, such as its signal and uptime, to the server."},
 	"door_held_open_s": {"Door defaults", "Held open after",
-		"How long a door may stand open, when it should be locked, before it counts as held open and an event is logged. A whole number of seconds from 5 to 86400."},
+		"How long a door may stand open, when it should be locked, before it counts as held open and an event is logged."},
 	"door_timeline_refresh_hours": {"Door defaults", "Timeline refresh",
-		"How often the server sends the door its timeline of when to stay open and locked, even when nothing changed it. A whole number of hours from 1 to 24."},
+		"How often the server sends the door its timeline of when to stay open and locked, even when nothing changed it."},
 	"door_credential_rotation_days": {"Door defaults", "Credential rotation",
-		"How many days the door's broker credentials work before the server issues it new ones. A whole number of days from 1 to 3650."},
+		"How many days the door's broker credentials work before the server issues it new ones."},
 	"door_rate_limit_per_minute": {"Door defaults", "Code checks a minute",
-		"How many codes a minute the server checks from the door once its burst is spent; an entry over the limit is denied without being looked at and logged as rate limited. A whole number of checks from 1 to 6000."},
+		"How many codes a minute the server checks from the door once its burst is spent; an entry over the limit is denied without being looked at and logged as rate limited."},
 	"door_rate_limit_burst": {"Door defaults", "Code checks in a burst",
-		"How many codes the server checks from the door in quick succession before the limit a minute applies. A whole number of checks from 1 to 1000."},
+		"How many codes the server checks from the door in quick succession before the limit a minute applies."},
 	"door_ntp_server": {"Door defaults", "Time server",
 		"The time server the door sets its clock from; the door keeps to its timeline by this clock. A host name of up to 253 letters, digits, dots, and hyphens."},
 	"door_broker_host": {"Door defaults", "Broker host",
 		"The broker the door connects to, from its next connection on; empty keeps the broker it uses now. A host name of up to 253 letters, digits, dots, and hyphens, an IP address, or nothing to keep the door's broker."},
 	"door_broker_port": {"Door defaults", "Broker port",
-		"The port of the broker the door connects to, from its next connection on. A port from 1 to 65535."},
+		"The port of the broker the door connects to, from its next connection on."},
 	"door_broker_tls": {"Door defaults", "Broker over TLS",
-		"Whether the door connects to the broker over TLS, checking the broker against the broker CA certificate. Turn it off for a development broker only. True or false."},
+		"Whether the door connects to the broker over TLS, checking the broker against the broker CA certificate. Turn it off for a development broker only."},
 	"door_broker_ca_pem": {"Door defaults", "Broker CA certificate",
 		"The certificate the door checks the broker against while it connects over TLS: the broker's CA's, or the broker's own. Empty keeps the one the door has. The PEM certificate of the broker's CA or of the broker itself, or nothing."},
 	"door_wifi_ssid": {"Door defaults", "Wi-Fi network",
@@ -151,29 +151,29 @@ var settingRows = map[string]struct{ section, label, help string }{
 	"door_wifi_password": {"Door defaults", "Wi-Fi password",
 		"The Wi-Fi network's password. It is stored encrypted and sent to nobody but the door. A password of up to 63 bytes."},
 	"door_wifi_roam_rssi": {"Door defaults", "Roam below",
-		"When the signal from its access point is weaker than this, the door moves to an access point of the same network at least 8 dB stronger, if it finds one. A whole number of dBm from -100 to 0."},
+		"When the signal from its access point is weaker than this, the door moves to an access point of the same network at least 8 dB stronger, if it finds one."},
 	"door_wifi_11b_disabled": {"Door defaults", "No 802.11b rates",
-		"Whether the door keeps off the slow 802.11b rates, 1 to 11 Mbps, instead of falling back to them when packets are lost. It helps a door with a strong signal that still loses many packets on a crowded 2.4 GHz network, where the slow rates make things worse, and hurts a door with a weak signal at the edge of coverage, which needs those rates to stay connected. Leave it off unless the door's telemetry shows a good signal together with many TCP retransmits. Changing it makes the door restart its Wi-Fi, dropping off the network for a moment; a door in the mesh restarts. True or false."},
+		"Whether the door keeps off the slow 802.11b rates, 1 to 11 Mbps, instead of falling back to them when packets are lost. It helps a door with a strong signal that still loses many packets on a crowded 2.4 GHz network, where the slow rates make things worse, and hurts a door with a weak signal at the edge of coverage, which needs those rates to stay connected. Leave it off unless the door's telemetry shows a good signal together with many TCP retransmits. Changing it makes the door restart its Wi-Fi, dropping off the network for a moment; a door in the mesh restarts."},
 	"door_keepalive_s": {"Door defaults", "Keep-alive",
-		"How often the door lets the broker know it is still there, from its next connection on; it shows offline once one and a half of these pass without a word from it. A whole number of seconds from 10 to 300."},
+		"How often the door lets the broker know it is still there, from its next connection on; it shows offline once one and a half of these pass without a word from it."},
 	"door_reconnect_max_s": {"Door defaults", "Longest reconnect pause",
-		"The longest the door waits between attempts to connect again; it waits 1, 2, 4 seconds and so on up to this. A whole number of seconds from 5 to 600."},
+		"The longest the door waits between attempts to connect again; it waits 1, 2, 4 seconds and so on up to this."},
 	"door_mesh_enabled": {"Door defaults", "Mesh",
-		"Whether the door may join or form a Wi-Fi mesh with other doors when its own access point's signal is poor. True or false."},
+		"Whether the door may join or form a Wi-Fi mesh with other doors when its own access point's signal is poor."},
 	"door_mesh_ssid": {"Door defaults", "Mesh network",
 		"The mesh network's name, the same at every door of the site. It is needed while the mesh is on, which would otherwise leave the mesh's soft-AP open. A network name of up to 32 bytes, or nothing."},
 	"door_mesh_password": {"Door defaults", "Mesh password",
 		"The mesh network's password, the same at every door of the site. It is needed while the mesh is on, which would otherwise leave the mesh's soft-AP open. It is stored encrypted and sent to nobody but the doors. A password of 8 to 63 bytes, or nothing."},
 	"door_mesh_min_router_rssi": {"Door defaults", "Mesh below",
-		"When the strongest access point a door with the mesh on can see is weaker than this, the door joins the mesh through a neighboring door instead. A whole number of dBm from -100 to 0."},
+		"When the strongest access point a door with the mesh on can see is weaker than this, the door joins the mesh through a neighboring door instead."},
 	"door_mesh_max_layer": {"Door defaults", "Deepest mesh hop",
-		"How many hops from the access point a door may sit in the mesh. A whole number of hops from 1 to 10."},
+		"How many hops from the access point a door may sit in the mesh."},
 	"door_update_connect_timeout_s": {"Door defaults", "Revert new firmware after",
-		"How long a door on newly installed firmware tries to connect before it goes back to its previous firmware. Keep it within the update timeout, after which the server counts the update failed. A whole number of seconds from 60 to 1800."},
+		"How long a door on newly installed firmware tries to connect before it goes back to its previous firmware. Keep it within the update timeout, after which the server counts the update failed."},
 	"door_accept_unsigned_firmware": {"Door defaults", "Unsigned firmware",
-		"Whether the door installs firmware that has no valid signature. Leave it off except on bench and development boards. True or false."},
+		"Whether the door installs firmware that has no valid signature. Leave it off except on bench and development boards."},
 	"door_log_level": {"Door defaults", "Log level",
-		"How much the door writes to its own log, from errors only to every detail. One of error, warn, info, debug."},
+		"How much the door writes to its own log, from errors only to every detail."},
 }
 
 // doorGroups is each group of door configuration fields that the settings
@@ -208,6 +208,35 @@ func groupStarted(key string) ([]string, bool) {
 // fields, which are left blank.
 var secretSettings = map[string]bool{"oidc_client_secret": true, "enrollment_password": true, "door_wifi_password": true, "door_mesh_password": true}
 
+// storedSecret and unsetSecret are what the settings page says of a
+// secret that has a value and of one that has none.
+const (
+	storedSecret = "A value is stored and never shown. Leave this blank to keep it, type a new one to replace it, or tick Clear to remove it."
+	unsetSecret  = "No value is stored. Type one to store it."
+)
+
+// numberRanges is the range each setting asked for with a number shows
+// beside its input.
+var numberRanges = map[string]string{
+	"password_hash_memory_kib": "8 to 1048576 KiB", "password_min_length": "8 to 128 characters", "new_user_expiry_days": "1 to 36500 days",
+	"telemetry_retention_days": "1 to 365 days", "telemetry_rollup_retention_days": "1 to 3650 days", "unresponsive_minutes": "1 to 10080 minutes",
+	"update_window_minutes": "1 to 1440 minutes", "update_concurrency": "1 to 1000 doors", "update_timeout_minutes": "1 to 1440 minutes",
+	"door_strike_pulse_ms": "100 to 60000 milliseconds", "door_held_open_s": "5 to 86400 seconds", "door_keypad_idle_clear_ms": "1000 to 600000 milliseconds",
+	"door_min_code_length": "1 to 16 digits", "door_max_code_length": "16 to 64 digits", "door_reply_timeout_ms": "100 to 60000 milliseconds",
+	"door_telemetry_interval_s": "5 to 86400 seconds", "door_timeline_refresh_hours": "1 to 24 hours", "door_credential_rotation_days": "1 to 3650 days",
+	"door_rate_limit_per_minute": "1 to 6000 checks", "door_rate_limit_burst": "1 to 1000 checks", "door_broker_port": "1 to 65535",
+	"door_keepalive_s": "10 to 300 seconds", "door_reconnect_max_s": "5 to 600 seconds", "door_wifi_roam_rssi": "-100 to 0 dBm",
+	"door_mesh_min_router_rssi": "-100 to 0 dBm", "door_mesh_max_layer": "1 to 10 hops", "door_update_connect_timeout_s": "60 to 1800 seconds",
+}
+
+// chosenDays is the days each value of update_window_days the tests use
+// names.
+var chosenDays = map[string][]string{
+	"daily":   {"mon", "tue", "wed", "thu", "fri", "sat", "sun"},
+	"sat,sun": {"sat", "sun"},
+	"":        nil,
+}
+
 // settingChoices is what the settings page offers to choose from for each
 // setting it asks for with a select: the zones the stub lists for the
 // timezone, which is searchable.
@@ -235,9 +264,9 @@ func settingCell(page *testsupport.Page, s shownSetting, value string) string {
 		return s.value + " " + note
 	case secretSettings[s.key] && s.value != "":
 		// A secret's input is a password field, whose value is not read.
-		return "Clear"
+		return storedSecret + " Clear"
 	case secretSettings[s.key]:
-		return ""
+		return unsetSecret
 	}
 	return settingInput(page, s.key, value)
 }
@@ -264,6 +293,16 @@ func settingInput(page *testsupport.Page, key, value string) string {
 		return "Use the accent color"
 	case settingChoices[key] != nil:
 		return optionsText(settingChoices[key], value)
+	case key == "update_window_days":
+		// The hidden empty value is what the form sends with no day ticked.
+		page.Values[key] = ""
+		for _, day := range chosenDays[value] {
+			page.Checked = append(page.Checked, key+"="+day)
+		}
+		return "Update days mon tue wed thu fri sat sun"
+	case numberRanges[key] != "":
+		page.Values[key] = value
+		return numberRanges[key]
 	}
 	page.Values[key] = value
 	return ""

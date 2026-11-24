@@ -397,7 +397,7 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 	}
 	tabs := doorTabsFor(viewer, d.StoredDoor)
 	tab = tabNamed(tabs, tab.Slug)
-	rows := configRows(d.StoredDoor, defaults, form.Config)
+	rows := configRows(d.StoredDoor, defaults, form.Config, form.Errors, a.clock.Now())
 	overridden := overriddenRows(rows)
 	content := doorContent{
 		Tab: tab.Slug, Tabs: stripOf("Door tabs", doorPath(d.ID), tabs, tab).counting(doorConfiguration, overridden, "overridden"), Here: doorHere(r, d.ID, tab),

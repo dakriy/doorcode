@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/dakriy/doorcode/internal/auth"
 	"github.com/dakriy/doorcode/internal/connector"
@@ -120,23 +121,30 @@ func (a *App) putDoorConfig(w http.ResponseWriter, r *http.Request, _ auth.User)
 
 // configRow is one field of a door's configuration as its page shows it:
 // the site's default, the door's own value as entered, empty to follow
-// the default, and the value in effect, each secret masked; whether the
-// door has its own value of a secret, which its page offers to clear; and
-// what the page warns of the value in effect; and the group the row
-// starts, empty when it starts none.
+// the default, and the value in effect, each secret masked and a yes or
+// no as On or Off; what is wrong with the value entered; the options of
+// a yes or no or a choice; the certificates in effect; whether the door
+// has its own value of a secret, which its page offers to clear; what the
+// page warns of the value in effect; the group the row starts, empty when
+// it starts none; and the ids of what describes its input.
 type configRow struct {
 	settings.DoorField
-	Default   string
-	Entered   string
-	Effective string
-	Set       bool
-	Warning   string
-	Heading   string
+	Default      string
+	Entered      string
+	Effective    string
+	Error        string
+	Options      []selectOption
+	Certificates []certificateView
+	Set          bool
+	Warning      string
+	Heading      string
+	Described    string
 }
 
-// configRows is each field of d's configuration, with the overrides
-// entered, or d's own when entered is nil.
-func configRows(d connector.StoredDoor, defaults settings.DoorDefaults, entered map[string]string) []configRow {
+// configRows is each field of d's configuration at now, with the
+// overrides entered, or d's own when entered is nil, and what errs says
+// is wrong with them.
+func configRows(d connector.StoredDoor, defaults settings.DoorDefaults, entered, errs map[string]string, now time.Time) []configRow {
 	if entered == nil {
 		entered = d.Config
 	}
@@ -144,8 +152,15 @@ func configRows(d connector.StoredDoor, defaults settings.DoorDefaults, entered 
 	previous := ""
 	for _, f := range settings.DoorFields {
 		_, set := d.Config[f.Name]
-		row := configRow{DoorField: f, Default: defaults.Default(f), Entered: entered[f.Name], Effective: defaults.Shown(d.Config, f), Set: set,
-			Heading: heading(f.Group, previous)}
+		def, effective := defaults.Default(f), defaults.Shown(d.Config, f)
+		row := configRow{DoorField: f, Default: shownAs(f.Input, def), Entered: entered[f.Name], Effective: shownAs(f.Input, effective),
+			Error: errs[f.Name], Certificates: certificatesOf(f.Input, effective, now), Set: set, Heading: heading(f.Group, previous)}
+		row.Options = overrideOptions(f, def, row.Entered)
+		errorID := ""
+		if row.Error != "" {
+			errorID = f.Name + "-error"
+		}
+		row.Described = describedBy("config-"+f.Name, f.Input, row.Certificates, f.Secret, errorID)
 		previous = f.Group
 		switch f.Name {
 		case settings.ConnectTimeoutField:

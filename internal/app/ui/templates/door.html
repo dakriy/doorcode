@@ -301,7 +301,6 @@
 </section>
 {{end}}
 {{else if eq $c.Tab "configuration"}}
-{{$errors := $c.Form.Errors}}
 <section aria-labelledby="config-heading" class="mt-6 overflow-hidden {{template "card-class"}}">
   <div class="flex flex-col gap-4 px-6 pt-6 sm:flex-row sm:items-start sm:justify-between">
     <div class="min-w-0">
@@ -309,7 +308,7 @@
         <h2 id="config-heading" class="text-sm font-semibold">Configuration</h2>
         <p role="note" class="text-xs font-medium {{if $c.Overridden}}text-brand-700 dark:text-brand-300{{else}}text-zinc-500 dark:text-zinc-400{{end}}">{{if $c.Overridden}}{{$c.Overridden}} of {{len $c.Config}} settings overridden{{else}}Follows the site defaults{{end}}</p>
       </div>
-      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">The controller runs with the site's defaults from the settings, except where a value is given here. Leave a field empty to follow the default. Saving sends the configuration to the controller.</p>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">The controller runs with the site's defaults from the settings, except where a value is given here. Leave a field empty, or choose Site default, to follow the default. Saving sends the configuration to the controller.</p>
     </div>
     {{if $c.Overridden}}
     <form method="post" action="/admin/doors/{{$d.ID}}/config/defaults" hx-confirm="Return {{$d.Name}} to the site defaults? Every setting overridden here is removed, secrets included, and its controller is sent the new configuration." hx-disabled-elt="find button" class="shrink-0">
@@ -329,23 +328,29 @@
         </tr>
       </thead>
       <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
-        {{range $c.Config}}{{$error := index $errors .Name}}
+        {{range $c.Config}}{{$id := printf "config-%s" .Name}}
         {{with .Heading}}<tr><th scope="colgroup" colspan="4" class="{{template "group-heading-class"}}">{{.}}</th></tr>{{end}}
         <tr>
-          <td class="min-w-64 px-6 py-3 align-top"><label for="config-{{.Name}}" class="font-medium">{{.Label}}</label><span class="mt-1 block max-w-sm text-xs text-zinc-500 dark:text-zinc-400">{{.About}}</span></td>
+          <td class="min-w-64 px-6 py-3 align-top"><label for="{{$id}}" class="font-medium">{{.Label}}</label><span class="mt-1 block max-w-sm text-xs text-zinc-500 dark:text-zinc-400">{{.About}}</span></td>
           <td class="px-6 py-3 align-top font-mono text-xs whitespace-nowrap text-zinc-600 dark:text-zinc-400"><span class="block max-w-48 truncate">{{.Default}}</span></td>
           <td class="w-48 px-6 py-3 align-top">
             {{if .Secret}}
-            <input id="config-{{.Name}}" name="{{.Name}}" type="password" value="" autocomplete="new-password" placeholder="{{if .Set}}Set; leave blank to keep it{{else}}Follows the default{{end}}"{{if $error}} aria-invalid="true" aria-describedby="{{.Name}}-error"{{end}} class="{{template "input-base"}} font-mono">
+            <input id="{{$id}}" name="{{.Name}}" type="password" value="" autocomplete="new-password"{{if .Error}} aria-invalid="true"{{end}} aria-describedby="{{.Described}}" class="{{template "input-base"}} font-mono">
+            <p id="{{$id}}-state" class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{if .Set}}This door has its own, never shown. Leave this blank to keep it, type a new one to replace it, or tick Clear to follow the default.{{else}}Follows the default. Type one to give this door its own.{{end}}</p>
             {{if .Set}}<label class="mt-2 inline-flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400"><input type="checkbox" name="clear" value="{{.Name}}" class="size-4 rounded border-zinc-300 accent-brand-600 dark:border-zinc-700">Clear</label>{{end}}
-            {{else if eq .Input.Kind "long-text"}}
-            <textarea id="config-{{.Name}}" name="{{.Name}}" rows="4" placeholder="{{if .Default}}The site default{{else}}-----BEGIN CERTIFICATE-----{{end}}" spellcheck="false"{{if $error}} aria-invalid="true" aria-describedby="{{.Name}}-error"{{end}} class="{{template "input-base"}} font-mono text-xs">{{.Entered}}</textarea>
+            {{else if .Options}}
+            <select id="{{$id}}" name="{{.Name}}"{{if .Error}} aria-invalid="true"{{end}}{{with .Described}} aria-describedby="{{.}}"{{end}} class="{{template "input-base"}}">
+              {{range .Options}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
+            </select>
+            {{else if eq .Input.Kind "certificates"}}
+            <textarea id="{{$id}}" name="{{.Name}}" rows="4" placeholder="{{if .Default}}The site default{{else}}-----BEGIN CERTIFICATE-----{{end}}" spellcheck="false"{{if .Error}} aria-invalid="true"{{end}}{{with .Described}} aria-describedby="{{.}}"{{end}} class="{{template "input-base"}} font-mono text-xs">{{.Entered}}</textarea>
             {{else}}
-            <input id="config-{{.Name}}" name="{{.Name}}" type="text" value="{{.Entered}}" placeholder="{{.Default}}" spellcheck="false"{{if $error}} aria-invalid="true" aria-describedby="{{.Name}}-error"{{end}} class="{{template "input-base"}} font-mono">
+            <input id="{{$id}}" name="{{.Name}}" type="{{template "input-type" .Input.Kind}}"{{if .Input.Bounded}} min="{{.Input.Min}}" max="{{.Input.Max}}" step="1"{{end}}{{if eq .Input.Kind "host"}} inputmode="url" autocapitalize="none"{{end}} value="{{.Entered}}" placeholder="{{.Default}}" spellcheck="false"{{if .Error}} aria-invalid="true"{{end}}{{with .Described}} aria-describedby="{{.}}"{{end}} class="{{template "input-base"}} font-mono">
+            {{if .Input.Bounded}}<p class="mt-1">{{template "number-range" (numberrange $id .Input)}}</p>{{end}}
             {{end}}
-            {{if $error}}<p id="{{.Name}}-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$error}}</p>{{end}}
+            {{if .Error}}<p id="{{.Name}}-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{.Error}}</p>{{end}}
           </td>
-          <td class="px-6 py-3 align-top font-mono text-xs whitespace-nowrap{{if .Set}} bg-brand-50 font-semibold text-brand-800 dark:bg-brand-950/40 dark:text-brand-200{{end}}"><span class="block max-w-48 truncate">{{.Effective}}</span>
+          <td class="px-6 py-3 align-top font-mono text-xs whitespace-nowrap{{if .Set}} bg-brand-50 font-semibold text-brand-800 dark:bg-brand-950/40 dark:text-brand-200{{end}}">{{if .Certificates}}<div class="max-w-64 font-sans font-normal whitespace-normal">{{template "certificate-list" (certificates $id .Certificates)}}</div>{{else}}<span class="block max-w-48 truncate">{{.Effective}}</span>{{end}}
             {{if .Set}}<span class="mt-1.5 inline-flex font-sans">{{template "badge" "Overridden"}}</span>{{end}}
             {{with .Warning}}<p role="note" class="mt-2 max-w-64 font-sans text-xs whitespace-normal text-amber-700 dark:text-amber-300">{{.}}</p>{{end}}
           </td>

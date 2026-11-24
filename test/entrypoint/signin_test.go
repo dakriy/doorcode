@@ -26,6 +26,9 @@ const (
 func pageOf(r testsupport.Response) testsupport.Page {
 	p := testsupport.ParsePage(r.Body)
 	p.Inputs = nil
+	p.Descriptions = nil
+	p.Placeholders = nil
+	p.Limits = nil
 	p.Assets = nil
 	p.Icon = ""
 	p.NavTargets = nil

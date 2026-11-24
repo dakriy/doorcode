@@ -180,16 +180,23 @@ type settingSection struct {
 	On   bool
 }
 
-// settingRow is one setting as the settings page shows it, with the value
-// its input holds and, for a choice, the options it offers.
+// settingRow is one setting as the settings page shows it, with its value
+// as the page shows it, the value its input holds, what is wrong with
+// that, and, for a choice, the options it offers.
 type settingRow struct {
 	settings.Setting
+	Shown   string
 	Entered string
+	Error   string
 	Options []selectOption
 	// Warning is what the page warns of the value entered.
 	Warning string
 	// Heading is the group the row starts, empty when it starts none.
 	Heading string
+	// Certificates is the certificates the setting holds, and Described
+	// the ids of what describes its input.
+	Certificates []certificateView
+	Described    string
 }
 
 // heading is the group a row of group starts after a row of previous:
@@ -219,7 +226,7 @@ func (a *App) showSettings(w http.ResponseWriter, r *http.Request, status int, v
 		return
 	}
 	content := settingsContent{
-		Tabs: stripOf("Settings tabs", settingsPath, settings.Tabs, tab), Sections: a.sectionsOf(all, tab, entered), Pictures: pictures,
+		Tabs: stripOf("Settings tabs", settingsPath, settings.Tabs, tab), Sections: a.sectionsOf(all, tab, entered, errs), Pictures: pictures,
 		Errors: errs, SignInImage: signIn, Favicon: favicon, Alert: alert,
 		MaxPictureMB: picture.Megabytes(), MaxPictureSide: picture.MaxSide, MaxLogoSide: picture.LogoSide,
 	}
@@ -240,9 +247,9 @@ func (a *App) lookImages(r *http.Request) (string, string, error) {
 // sectionsOf is the settings of all, listed section by section, that tab
 // shows, as the settings page's sections, each input holding entered or
 // the setting's value where entered has none or the setting is a secret,
-// which a page never shows again, and each section on as what its toggle
-// holds says.
-func (a *App) sectionsOf(all []settings.Setting, tab settings.Tab, entered map[string]string) []settingSection {
+// which a page never shows again, with what errs says is wrong with it,
+// and each section on as what its toggle holds says.
+func (a *App) sectionsOf(all []settings.Setting, tab settings.Tab, entered, errs map[string]string) []settingSection {
 	held := map[string]string{}
 	for _, s := range all {
 		value, given := entered[s.Key]
@@ -265,7 +272,7 @@ func (a *App) sectionsOf(all []settings.Setting, tab settings.Tab, entered map[s
 			sections = append(sections, settingSection{Section: s.Section, On: on})
 			last++
 		}
-		row := a.settingRowOf(s, held, previous)
+		row := a.settingRowOf(s, held, errs[s.Key], previous)
 		previous = s.Group
 		sections[last].Rows = append(sections[last].Rows, row)
 	}
@@ -273,12 +280,23 @@ func (a *App) sectionsOf(all []settings.Setting, tab settings.Tab, entered map[s
 }
 
 // settingRowOf is the settings page's row for s after a row of the group
-// previous, its input holding what held holds for it, with the choices it
-// offers and what the page warns of the value held.
-func (a *App) settingRowOf(s settings.Setting, held map[string]string, previous string) settingRow {
-	row := settingRow{Setting: s, Entered: held[s.Key], Heading: heading(s.Group, previous)}
+// previous, its input holding what held holds for it, refused for problem
+// when that is not empty, with the choices it offers, the certificates it
+// holds, and what the page warns of the value held.
+func (a *App) settingRowOf(s settings.Setting, held map[string]string, problem, previous string) settingRow {
+	id := "setting-" + s.Key
+	row := settingRow{Setting: s, Shown: shownAs(s.Input, s.Value), Entered: held[s.Key], Error: problem, Heading: heading(s.Group, previous),
+		Certificates: certificatesOf(s.Input, s.Value, a.clock.Now())}
+	errorID := ""
+	if problem != "" {
+		errorID = id + "-error"
+	}
+	row.Described = describedBy(id, s.Input, row.Certificates, s.Secret, errorID)
 	if choices := a.settings.Choices(s); len(choices) > 0 {
 		row.Options = choiceOptions(choices, row.Entered)
+	}
+	if s.Input.Kind == settings.KindSeveral {
+		row.Options = severalOptions(s.Input, row.Entered)
 	}
 	switch s.Key {
 	case settings.KeyConnectTimeout:
@@ -317,10 +335,7 @@ func (a *App) settingsPage(w http.ResponseWriter, r *http.Request, viewer auth.U
 // form sent, or shows the tab with the first value refused.
 func (a *App) saveSettingsFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	_ = r.ParseForm()
-	entered := map[string]string{}
-	for key := range r.PostForm {
-		entered[key] = r.PostForm.Get(key)
-	}
+	entered := settings.FormValues(r.PostForm)
 	changed, err := a.settings.UpdateAll(r.Context(), entered, r.PostForm["clear"])
 	if errs, rejected := fieldErrors(err); rejected {
 		tab := settings.TabHolding(slices.Collect(maps.Keys(errs)))

@@ -116,7 +116,7 @@ func TestADoorsPageMasksItsSecretAndOffersToClearIt(t *testing.T) {
 
 	page := doorPage(t, b, "/admin/doors/1?tab=configuration")
 
-	want := []any{[]string{"Wi-Fi password " + "The Wi-Fi network's password. It is stored encrypted and sent to nobody but the door. A password of up to 63 bytes.", "", "Clear", "******** Overridden"}, ""}
+	want := []any{[]string{"Wi-Fi password " + "The Wi-Fi network's password. It is stored encrypted and sent to nobody but the door. A password of up to 63 bytes.", "", ownSecret + " Clear", "******** Overridden"}, ""}
 	if diff := cmp.Diff(want, []any{page.Tables["Configuration"][wifiPasswordRow], page.Values["wifi_password"]}); diff != "" {
 		t.Errorf("row, input (-want +got):\n%s", diff)
 	}
@@ -229,13 +229,13 @@ func TestTheSettingsPageWarnsWhenNewFirmwareMayRevertAfterTheUpdateTimeout(t *te
 func TestADoorsPageWarnsWhenItsNewFirmwareMayRevertAfterTheUpdateTimeout(t *testing.T) {
 	t.Parallel()
 	label := "Revert new firmware after " +
-		"How long a door on newly installed firmware tries to connect before it goes back to its previous firmware. Keep it within the update timeout, after which the server counts the update failed. A whole number of seconds from 60 to 1800."
+		"How long a door on newly installed firmware tries to connect before it goes back to its previous firmware. Keep it within the update timeout, after which the server counts the update failed."
 	cases := map[string]struct {
 		override string
 		want     []string
 	}{
-		"as long as the update timeout":  {"1200", []string{label, "300", "", "1200 Overridden"}},
-		"longer than the update timeout": {"1201", []string{label, "300", "", "1201 Overridden " + revertWarning("20", "1200")}},
+		"as long as the update timeout":  {"1200", []string{label, "300", "60 to 1800 seconds", "1200 Overridden"}},
+		"longer than the update timeout": {"1201", []string{label, "300", "60 to 1800 seconds", "1201 Overridden " + revertWarning("20", "1200")}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

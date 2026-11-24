@@ -44,42 +44,34 @@ const envPrefix = "DOORCODE_"
 
 // The keys of the settings the application reads.
 const (
-	keySiteName            = "site_name"
-	keySiteTimezone        = "site_timezone"
-	keyThemeAccent         = "theme_accent"
-	keyThemeAccentDark     = "theme_accent_dark"
-	defaultAccent          = "#4f39f6"
-	colorHint              = "must be a color as #rrggbb, such as #4f39f6"
-	siteTimezoneHint       = "must be a time zone name from the tz database, such as UTC or Europe/Berlin"
-	keyAdminEmail          = "admin_email"
-	keyPasswordHashMemory  = "password_hash_memory_kib"
-	minPasswordHashMemory  = 8
-	maxPasswordHashMemory  = 1048576 // 1 GiB
-	passwordHashMemoryHint = "must be a whole number of KiB from 8 to 1048576"
-	keyPasswordMinLength   = "password_min_length"
-	minPasswordLength      = 8
-	maxPasswordLength      = 128
-	passwordMinLengthHint  = "must be a whole number of characters from 8 to 128"
-	keyEnrollmentUsername  = "enrollment_username"
-	keyEnrollmentPassword  = "enrollment_password"
-	keyTelemetryRetention  = "telemetry_retention_days"
-	keyRollupRetention     = "telemetry_rollup_retention_days"
-	keyUnresponsive        = "unresponsive_minutes"
-	keyPublicURL           = "public_url"
-	publicURLHint          = "must be empty or an https:// or http:// address without a query, such as https://doorcode.example.com"
-	keyDeviceURL           = "device_url"
-	deviceURLHint          = "must be empty or an https:// or http:// address without a query, such as https://devices.doorcode.example.com"
+	keySiteName           = "site_name"
+	keySiteTimezone       = "site_timezone"
+	keyThemeAccent        = "theme_accent"
+	keyThemeAccentDark    = "theme_accent_dark"
+	defaultAccent         = "#4f39f6"
+	colorHint             = "must be a color as #rrggbb, such as #4f39f6"
+	siteTimezoneHint      = "must be a time zone name from the tz database, such as UTC or Europe/Berlin"
+	keyAdminEmail         = "admin_email"
+	keyPasswordHashMemory = "password_hash_memory_kib"
+	keyPasswordMinLength  = "password_min_length"
+	keyEnrollmentUsername = "enrollment_username"
+	keyEnrollmentPassword = "enrollment_password"
+	keyTelemetryRetention = "telemetry_retention_days"
+	keyRollupRetention    = "telemetry_rollup_retention_days"
+	keyUnresponsive       = "unresponsive_minutes"
+	keyPublicURL          = "public_url"
+	publicURLExample      = "https://doorcode.example.com"
+	keyDeviceURL          = "device_url"
+	deviceURLExample      = "https://devices.doorcode.example.com"
 	// KeyUpdateDays is the key of the setting naming the weekdays the
 	// update window opens on, EveryDay when it opens daily.
-	KeyUpdateDays         = "update_window_days"
-	EveryDay              = "daily"
-	updateDaysHint        = "must be daily or weekdays separated by commas, such as sat,sun"
-	keyUpdateStart        = "update_window_start"
-	updateStartHint       = "must be a time of day as HH:MM, such as 02:00"
-	keyUpdateLength       = "update_window_minutes"
-	keyUpdateConcurrency  = "update_concurrency"
-	maxUpdateConcurrency  = 1000
-	updateConcurrencyHint = "must be a whole number of doors from 1 to 1000"
+	KeyUpdateDays        = "update_window_days"
+	EveryDay             = "daily"
+	updateDaysHint       = "must be daily or weekdays separated by commas, such as sat,sun"
+	keyUpdateStart       = "update_window_start"
+	updateStartHint      = "must be a time of day as HH:MM, such as 02:00"
+	keyUpdateLength      = "update_window_minutes"
+	keyUpdateConcurrency = "update_concurrency"
 	// KeyUpdateTimeout is the key of the setting of how long a door may
 	// take to come back on new firmware before its update fails.
 	KeyUpdateTimeout      = "update_timeout_minutes"
@@ -87,7 +79,7 @@ const (
 	keyOIDCEnabled        = "oidc_enabled"
 	keyOIDCAutoSignIn     = "oidc_auto_sign_in"
 	keyOIDCIssuer         = "oidc_issuer"
-	issuerHint            = "must be empty or the https:// address the provider names as its issuer, such as https://id.example.com"
+	issuerExample         = "https://id.example.com"
 	keyOIDCClientID       = "oidc_client_id"
 	keyOIDCClientSecret   = "oidc_client_secret"
 	keyOIDCScopes         = "oidc_scopes"
@@ -101,17 +93,34 @@ const (
 	keyDefaultGroups      = "oidc_default_groups"
 	keyPortalDoorPictures = "portal_door_pictures"
 	keyTrustedProxies     = "trusted_proxies"
-	slugsHint             = "must be group slugs separated by commas, such as staff,contractors"
+	slugsExample          = "staff,contractors"
+	proxiesExample        = "10.0.0.0/8,proxy.example.com"
+)
+
+// What the settings that are an address or a list of group slugs must be,
+// with the example an empty input shows.
+var (
+	publicURLHint = fmt.Sprintf("must be empty or an https:// or http:// address without a query, such as %s", publicURLExample)
+	deviceURLHint = fmt.Sprintf("must be empty or an https:// or http:// address without a query, such as %s", deviceURLExample)
+	issuerHint    = fmt.Sprintf("must be empty or the https:// address the provider names as its issuer, such as %s", issuerExample)
+	slugsHint     = fmt.Sprintf("must be group slugs separated by commas, such as %s", slugsExample)
+)
+
+// The settings that are a whole number of something.
+var (
+	passwordHashMemoryKiB = whole{8, 1048576, "KiB"} // up to 1 GiB
+	passwordLength        = whole{8, 128, "characters"}
+	updateDoors           = whole{1, 1000, "doors"}
 )
 
 // The settings that are a length of time, parsed.
 var (
-	telemetryRetention = durationSetting(1, 365, "days", daysOf)
-	rollupRetention    = durationSetting(1, 3650, "days", daysOf)
-	unresponsiveAfter  = durationSetting(1, 10080, "minutes", minutesOf)
-	updateLength       = durationSetting(1, 1440, "minutes", minutesOf)
-	updateTimeout      = durationSetting(1, 1440, "minutes", minutesOf)
-	newUserExpiry      = durationSetting(1, 36500, "days", daysOf)
+	telemetryRetention = length{whole{1, 365, "days"}, daysOf}
+	rollupRetention    = length{whole{1, 3650, "days"}, daysOf}
+	unresponsiveAfter  = length{whole{1, 10080, "minutes"}, minutesOf}
+	updateLength       = length{whole{1, 1440, "minutes"}, minutesOf}
+	updateTimeout      = length{whole{1, 1440, "minutes"}, minutesOf}
+	newUserExpiry      = length{whole{1, 36500, "days"}, daysOf}
 )
 
 // The lengths of time that are a number of minutes or days.
@@ -125,12 +134,12 @@ var durations = []struct {
 	parse func(string) (time.Duration, error)
 	at    func(c *Current) *time.Duration
 }{
-	{keyTelemetryRetention, telemetryRetention, func(c *Current) *time.Duration { return &c.TelemetryRetention }},
-	{keyRollupRetention, rollupRetention, func(c *Current) *time.Duration { return &c.RollupRetention }},
-	{keyUnresponsive, unresponsiveAfter, func(c *Current) *time.Duration { return &c.UnresponsiveAfter }},
-	{keyUpdateLength, updateLength, func(c *Current) *time.Duration { return &c.UpdateWindow.Length }},
-	{KeyUpdateTimeout, updateTimeout, func(c *Current) *time.Duration { return &c.UpdateTimeout }},
-	{keyNewUserExpiry, newUserExpiry, func(c *Current) *time.Duration { return &c.NewUserExpiry }},
+	{keyTelemetryRetention, telemetryRetention.parse, func(c *Current) *time.Duration { return &c.TelemetryRetention }},
+	{keyRollupRetention, rollupRetention.parse, func(c *Current) *time.Duration { return &c.RollupRetention }},
+	{keyUnresponsive, unresponsiveAfter.parse, func(c *Current) *time.Duration { return &c.UnresponsiveAfter }},
+	{keyUpdateLength, updateLength.parse, func(c *Current) *time.Duration { return &c.UpdateWindow.Length }},
+	{KeyUpdateTimeout, updateTimeout.parse, func(c *Current) *time.Duration { return &c.UpdateTimeout }},
+	{keyNewUserExpiry, newUserExpiry.parse, func(c *Current) *time.Duration { return &c.NewUserExpiry }},
 }
 
 type definition struct {
@@ -222,8 +231,15 @@ const (
 	KindTime   InputKind = "time"
 	KindChoice InputKind = "choice"
 	KindZone   InputKind = "zone"
-	// KindLongText is text of several lines, such as a certificate.
-	KindLongText InputKind = "long-text"
+	// KindSeveral is any number of Choices, stored separated by commas.
+	KindSeveral InputKind = "several"
+	KindURL     InputKind = "url"
+	KindEmail   InputKind = "email"
+	// KindHost is a host name, or an IP address where the setting takes
+	// one.
+	KindHost InputKind = "host"
+	// KindCertificates is PEM certificates, text of several lines.
+	KindCertificates InputKind = "certificates"
 )
 
 // The values of a yes or no setting.
@@ -233,13 +249,74 @@ const (
 )
 
 // Input is how a page asks for a setting's value: with an input of Kind,
-// offering Choices for a choice (a zone offers every zone the tz database
-// lists), and, for a setting that may be empty, the label of the choice
-// to leave it so, Empty.
+// offering Choices for a choice or several (a zone offers every zone the
+// tz database lists), and, for a setting that may be empty, the label of
+// the choice to leave it so, Empty. A number takes whole numbers of Unit
+// from Min to Max, both zero when it is not bounded. Example is a value
+// the setting takes, which an empty input shows. All is what several
+// choices store when every choice is chosen, empty when they are then
+// stored as any others are.
 type Input struct {
 	Kind    InputKind
 	Choices []string
 	Empty   string
+	Min     int
+	Max     int
+	Unit    string
+	Example string
+	All     string
+}
+
+// Bounded reports whether the input takes numbers from Min to Max.
+func (in Input) Bounded() bool {
+	return in.Min != in.Max
+}
+
+// ShowsValues reports whether the input itself shows the values it
+// takes: a yes or no, a choice, or a bounded number, whose range a page
+// shows beside it.
+func (in Input) ShowsValues() bool {
+	return in.Kind == KindYesNo || in.Kind == KindChoice || in.Bounded()
+}
+
+// Chosen is the choices value, a setting's value, chooses: every choice
+// for All, the values it lists separated by commas otherwise.
+func (in Input) Chosen(value string) []string {
+	if in.All != "" && value == in.All {
+		return in.Choices
+	}
+	var chosen []string
+	for _, v := range strings.Split(value, ",") {
+		chosen = append(chosen, strings.TrimSpace(v))
+	}
+	return chosen
+}
+
+// read is the value an input of in posts as given, every value a form
+// gives its name: the first, or for several choices the ones not empty
+// joined by commas, and All when they are every choice.
+func (in Input) read(given []string) string {
+	if in.Kind != KindSeveral {
+		return given[0]
+	}
+	chosen := slices.DeleteFunc(slices.Clone(given), func(v string) bool { return v == "" })
+	every := !slices.ContainsFunc(in.Choices, func(c string) bool { return !slices.Contains(chosen, c) })
+	if in.All != "" && every {
+		return in.All
+	}
+	return strings.Join(chosen, ",")
+}
+
+// FormValues is the value of each setting posted, a form's values by
+// name, gives, by key, read as the setting's input posts it.
+func FormValues(posted map[string][]string) map[string]string {
+	values := map[string]string{}
+	for _, def := range definitions {
+		if given, ok := posted[def.key]; ok {
+			values[def.key] = def.validate.input.read(given)
+		}
+	}
+	return values
 }
 
 // inputOf is how a page asks for a value parsed as T: a yes or no for a
@@ -254,6 +331,52 @@ func inputOf[T any]() Input {
 		return Input{Kind: KindNumber}
 	}
 	return Input{}
+}
+
+// whole is a whole number of unit from lowest to highest.
+type whole struct {
+	lowest, highest int
+	unit            string
+}
+
+// hint says what values w takes, to follow "must be" or "Enter".
+func (w whole) hint() string {
+	return fmt.Sprintf("a whole number of %s from %d to %d", w.unit, w.lowest, w.highest)
+}
+
+// parse parses value as w takes it.
+func (w whole) parse(value string) (int, error) {
+	return wholeNumber(value, w.lowest, w.highest, "must be "+w.hint())
+}
+
+// input is how a page asks for w: a number from lowest to highest, of
+// unit.
+func (w whole) input() Input {
+	return Input{Kind: KindNumber, Min: w.lowest, Max: w.highest, Unit: w.unit}
+}
+
+// rule is the rule taking the values w takes, asked for as w says.
+func (w whole) rule() rule {
+	return accepting(w.parse).askedWith(w.input())
+}
+
+// length is a length of time given as a whole number of units, which of
+// makes a length of time.
+type length struct {
+	whole
+	of func(n int) time.Duration
+}
+
+// parse parses value as l takes it.
+func (l length) parse(value string) (time.Duration, error) {
+	n, err := l.whole.parse(value)
+	return l.of(n), err
+}
+
+// rule is the rule taking the values l takes, asked for as its whole
+// number is.
+func (l length) rule() rule {
+	return accepting(l.parse).askedWith(l.input())
 }
 
 // section is a part of the settings page and the definitions of the
@@ -272,13 +395,13 @@ var sections = []section{
 			_, err := s.siteZone(value)
 			return err
 		}, input: Input{Kind: KindZone}}, label: "Timezone", help: "A zone of the tz database, such as Europe/Berlin; type to find one. Schedules, dates typed on pages, and every time shown are read in it."},
-		{key: keyAdminEmail, fallback: "admin@example.com", label: "First administrator's email",
+		{key: keyAdminEmail, fallback: "admin@example.com", validate: rule{input: Input{Kind: KindEmail}}, label: "First administrator's email",
 			help: "The account created on first start when there are no users."},
-		{key: keyPublicURL, fallback: "", validate: accepting(publicURL), label: "Public address",
+		{key: keyPublicURL, fallback: "", validate: accepting(publicURL).askedWith(Input{Kind: KindURL, Example: publicURLExample}), label: "Public address",
 			help: "The https:// address browsers reach the server at, and single sign-on returns to; http:// only for development."},
 	}},
 	{Section{Name: "Proxies", About: "The reverse proxies in front of the server. A listed proxy is believed when it says, in X-Forwarded-For and X-Forwarded-Proto, whom it passes a request on for and whether it was reached over HTTPS; those headers are ignored from anyone else.", Tab: TabSite}, []definition{
-		{key: keyTrustedProxies, fallback: "", validate: accepting(proxy.Parse), label: "Trusted proxies",
+		{key: keyTrustedProxies, fallback: "", validate: accepting(proxy.Parse).askedWith(Input{Example: proxiesExample}), label: "Trusted proxies",
 			help: "IP addresses, CIDR ranges, and host names separated by commas, such as 10.0.0.0/8,proxy.example.com. A host name is looked up by the periodic work, about once a minute, and trusts nobody until then."},
 	}},
 	{Section{Name: "Theme", About: "The accent color of buttons, links, and highlights. Lighter and darker tones are worked out from it for both the light and the dark theme.", Tab: TabLook}, []definition{
@@ -288,11 +411,11 @@ var sections = []section{
 			label: "Accent color in the dark theme", help: "A color as #rrggbb, or empty to use the accent color."},
 	}},
 	{Section{Name: "Accounts and passwords", About: "How passwords are hashed and chosen, and how long accounts made at sign-in last.", Tab: TabSignIn}, []definition{
-		{key: keyPasswordHashMemory, fallback: "19456", validate: accepting(passwordHashMemory), label: "Password hashing memory",
+		{key: keyPasswordHashMemory, fallback: "19456", validate: passwordHashMemoryKiB.rule(), label: "Password hashing memory",
 			help: "KiB of memory hashing one password takes, from 8 to 1048576. More is slower to guess."},
-		{key: keyPasswordMinLength, fallback: "12", validate: accepting(passwordMinLength), label: "Shortest password",
+		{key: keyPasswordMinLength, fallback: "12", validate: passwordLength.rule(), label: "Shortest password",
 			help: "How many characters a password chosen in the portal has at least, from 8 to 128."},
-		{key: keyNewUserExpiry, fallback: "1826", validate: accepting(newUserExpiry), label: "New account lifetime",
+		{key: keyNewUserExpiry, fallback: "1826", validate: newUserExpiry.rule(), label: "New account lifetime",
 			help: "Days until the account of a user created by signing in at the provider expires."},
 	}},
 	{Section{Name: "Single sign-on", About: "Signing in through an OpenID Connect provider. Register public_url followed by /sign-in/oidc/callback as the redirect address, and public_url followed by /sign-in as the address to return to after signing out.", Toggle: keyOIDCEnabled, Tab: TabSignIn}, []definition{
@@ -300,7 +423,7 @@ var sections = []section{
 			help: "Offers signing in at the provider set up here, beside signing in with a password."},
 		{key: keyOIDCAutoSignIn, fallback: "false", validate: accepting(boolean), label: "Automatic sign-in",
 			help: "Sends the sign-in page straight on to the provider and hides the password forms; add ?auto_sign_in=false to reach them."},
-		{key: keyOIDCIssuer, fallback: "", validate: accepting(issuer), label: "Issuer",
+		{key: keyOIDCIssuer, fallback: "", validate: accepting(issuer).askedWith(Input{Kind: KindURL, Example: issuerExample}), label: "Issuer",
 			help: "The provider's https:// address, exactly as it names itself."},
 		{key: keyOIDCClientID, fallback: "", label: "Client id", help: "The id the site is registered with at the provider."},
 		{key: keyOIDCClientSecret, fallback: "", secret: true, label: "Client secret",
@@ -316,7 +439,7 @@ var sections = []section{
 		{key: keyClaimDisplayName, fallback: "name", label: "Display name claim"},
 		{key: keyClaimEntitlements, fallback: "", label: "Entitlements claim",
 			help: "The claim listing the slugs of someone's groups. A sign-in that carries it makes them a member of exactly the groups it names, ignoring slugs no group has; one without it leaves their groups alone. While it is set, new users join no default or pre-assigned groups."},
-		{key: keyDefaultGroups, fallback: "", validate: accepting(slugs), label: "Groups new users join",
+		{key: keyDefaultGroups, fallback: "", validate: accepting(slugs).askedWith(Input{Example: slugsExample}), label: "Groups new users join",
 			help: "Group slugs separated by commas. New users join these, and the groups whose pre-assigned list holds their user id, only while the entitlements claim is empty."},
 	}},
 	{Section{Name: "User portal", About: "What people see of the doors when they sign in to the portal.", Tab: TabLook}, []definition{
@@ -329,22 +452,22 @@ var sections = []section{
 			help: "The password a new door controller signs in to the broker with, beside the enrollment username, until an administrator approves it and it gets credentials of its own. Enter both in the settings of each controller you install. When it is empty on first start, the server makes one up and writes it to its log."},
 	}},
 	{Section{Name: "Telemetry", About: "How long door reports are kept and when a silent door counts as unresponsive.", Tab: TabDoors}, []definition{
-		{key: keyTelemetryRetention, fallback: "7", validate: accepting(telemetryRetention), label: "Reports kept",
+		{key: keyTelemetryRetention, fallback: "7", validate: telemetryRetention.rule(), label: "Reports kept",
 			help: "Days each telemetry report is kept."},
-		{key: keyRollupRetention, fallback: "730", validate: accepting(rollupRetention), label: "Hourly summaries kept",
+		{key: keyRollupRetention, fallback: "730", validate: rollupRetention.rule(), label: "Hourly summaries kept",
 			help: "Days the hourly summaries of the reports are kept."},
-		{key: keyUnresponsive, fallback: "5", validate: accepting(unresponsiveAfter), label: "Unresponsive after",
+		{key: keyUnresponsive, fallback: "5", validate: unresponsiveAfter.rule(), label: "Unresponsive after",
 			help: "Minutes a connected door may stay silent before it counts as unresponsive."},
 	}},
 	{Section{Name: "Firmware updates", About: "Where doors download firmware from, and when and how fast updates roll out.", Tab: TabDoors}, []definition{
-		{key: keyDeviceURL, fallback: "", validate: accepting(deviceURL), label: "Device address",
+		{key: keyDeviceURL, fallback: "", validate: accepting(deviceURL).askedWith(Input{Kind: KindURL, Example: deviceURLExample}), label: "Device address",
 			help: "The https:// address of the server's device-facing entrypoint, which presents a certificate from the managed CA controllers trust, the same CA as the broker's; doors download firmware from it. http:// only for development, since doors verify the server's certificate only over https. No update is sent to doors while it is empty."},
-		{key: KeyUpdateDays, fallback: EveryDay, validate: accepting(updateDays), label: "Update days",
-			help: "daily, or weekdays separated by commas such as sat,sun."},
+		{key: KeyUpdateDays, fallback: EveryDay, validate: accepting(updateDays).askedWith(Input{Kind: KindSeveral, Choices: date.DayNames, All: EveryDay}), label: "Update days",
+			help: "The weekdays the window opens on; all seven is every day."},
 		{key: keyUpdateStart, fallback: "02:00", validate: accepting(timeOfDay).askedWith(Input{Kind: KindTime}), label: "Update window opens", help: "A time of day in the site timezone."},
-		{key: keyUpdateLength, fallback: "120", validate: accepting(updateLength), label: "Update window length", help: "Minutes."},
-		{key: keyUpdateConcurrency, fallback: "5", validate: accepting(updateConcurrency), label: "Doors updating at once"},
-		{key: KeyUpdateTimeout, fallback: "30", validate: accepting(updateTimeout), label: "Update timeout",
+		{key: keyUpdateLength, fallback: "120", validate: updateLength.rule(), label: "Update window length", help: "Minutes."},
+		{key: keyUpdateConcurrency, fallback: "5", validate: updateDoors.rule(), label: "Doors updating at once"},
+		{key: KeyUpdateTimeout, fallback: "30", validate: updateTimeout.rule(), label: "Update timeout",
 			help: "Minutes a door may take to come back on its new version before the update fails."},
 	}},
 	{Section{Name: "Door defaults", About: "The configuration every door runs with unless its own page overrides a field. Doors receive a changed default as soon as it is saved.", Tab: TabDoors}, doorDefinitions()},
@@ -591,11 +714,6 @@ func timeOfDay(value string) (int, error) {
 	return t.Hour()*60 + t.Minute(), nil
 }
 
-// updateConcurrency parses how many doors may be updating at once.
-func updateConcurrency(value string) (int, error) {
-	return wholeNumber(value, 1, maxUpdateConcurrency, updateConcurrencyHint)
-}
-
 // siteZone loads the site timezone a value names. The empty name and
 // "Local", which Go reads as UTC and as the server's own zone, name none.
 func (s Service) siteZone(value string) (*time.Location, error) {
@@ -621,25 +739,8 @@ func wholeNumber(value string, lowest, highest int, hint string) (int, error) {
 
 // passwordHashMemory parses a password hashing memory cost in KiB.
 func passwordHashMemory(value string) (uint32, error) {
-	n, err := wholeNumber(value, minPasswordHashMemory, maxPasswordHashMemory, passwordHashMemoryHint)
+	n, err := passwordHashMemoryKiB.parse(value)
 	return uint32(n), err
-}
-
-// passwordMinLength parses how many characters a chosen password must
-// have at least.
-func passwordMinLength(value string) (int, error) {
-	return wholeNumber(value, minPasswordLength, maxPasswordLength, passwordMinLengthHint)
-}
-
-// durationSetting parses a length of time given as a whole number of
-// units, named units, from lowest to highest, which of makes a length of
-// time.
-func durationSetting(lowest, highest int, units string, of func(n int) time.Duration) func(string) (time.Duration, error) {
-	hint := fmt.Sprintf("must be a whole number of %s from %d to %d", units, lowest, highest)
-	return func(value string) (time.Duration, error) {
-		n, err := wholeNumber(value, lowest, highest, hint)
-		return of(n), err
-	}
 }
 
 // Setting is a resolved setting.
@@ -718,7 +819,7 @@ func (s Service) Current(ctx context.Context) (Current, error) {
 	if err != nil {
 		return Current{}, err
 	}
-	minLength, err := parsed(values, keyPasswordMinLength, passwordMinLength)
+	minLength, err := parsed(values, keyPasswordMinLength, passwordLength.parse)
 	if err != nil {
 		return Current{}, err
 	}
@@ -780,7 +881,7 @@ func (c Current) withUpdates(values map[string]string) (Current, error) {
 	if c.UpdateWindow.Start, err = parsed(values, keyUpdateStart, timeOfDay); err != nil {
 		return Current{}, err
 	}
-	if c.UpdateConcurrency, err = parsed(values, keyUpdateConcurrency, updateConcurrency); err != nil {
+	if c.UpdateConcurrency, err = parsed(values, keyUpdateConcurrency, updateDoors.parse); err != nil {
 		return Current{}, err
 	}
 	return c, nil

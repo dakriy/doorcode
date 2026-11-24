@@ -576,3 +576,19 @@ the form with the id group-form, wherever on the page they sit. */}}
   </div>
 </nav>
 {{end}}
+
+{{/* The type of the input asking for a setting of an input kind with a text box of its own. */}}
+{{define "input-type"}}{{if eq . "number"}}number{{else if eq . "time"}}time{{else if eq . "url"}}url{{else if eq . "email"}}email{{else}}text{{end}}{{end}}
+
+{{/* The range of a bounded number beside its input, given a numberRange. */}}
+{{define "number-range"}}<span id="{{.ID}}-range" class="shrink-0 text-xs whitespace-nowrap text-zinc-500 dark:text-zinc-400">{{.Input.Min}} to {{.Input.Max}}{{with .Input.Unit}} {{.}}{{end}}</span>{{end}}
+
+{{/* The certificates a setting holds, given a certificateList; nothing when it holds none. */}}
+{{define "certificate-list"}}{{if .Certificates}}
+<div id="{{.ID}}-certificates" class="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
+  <p>Holds {{len .Certificates}} certificate{{if gt (len .Certificates) 1}}s{{end}}:</p>
+  <ul aria-label="Certificates of {{.ID}}" class="mt-1 space-y-1">
+    {{range .Certificates}}<li class="break-all">{{.Subject}}, valid {{.Valid}}{{with .State}}, <strong class="font-semibold text-amber-700 dark:text-amber-300">{{.}}</strong>{{end}}</li>{{end}}
+  </ul>
+</div>
+{{end}}{{end}}
