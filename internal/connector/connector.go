@@ -1132,6 +1132,9 @@ type AlertsStore interface {
 	// PutAlertCondition stores c over the condition of its kind and
 	// subject, or as a new one.
 	PutAlertCondition(ctx context.Context, c StoredCondition) error
+	// ActiveAlertConditions returns every condition that is active, by
+	// kind and then subject, in byte order.
+	ActiveAlertConditions(ctx context.Context) ([]StoredCondition, error)
 	// AddMail stores m in the outbox, ignoring m.ID, and returns the id it
 	// was given.
 	AddMail(ctx context.Context, m StoredMail) (int64, error)

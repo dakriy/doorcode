@@ -1,9 +1,11 @@
 package testsupport
 
 import (
+	"cmp"
 	"context"
 	"maps"
 	"slices"
+	"strings"
 
 	"github.com/dakriy/doorcode/internal/connector"
 )
@@ -55,6 +57,32 @@ func (s *Store) PutAlertCondition(_ context.Context, c connector.StoredCondition
 	}
 	s.conditions[conditionKey{c.Kind, c.Subject}] = c
 	return nil
+}
+
+// ActiveAlertConditions returns every active condition by kind and
+// subject.
+func (s *Store) ActiveAlertConditions(context.Context) ([]connector.StoredCondition, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.usable(alertsAggregate); err != nil {
+		return nil, err
+	}
+	return activeConditions(s.conditions), nil
+}
+
+// activeConditions is the active conditions among held, by kind and
+// subject.
+func activeConditions(held map[conditionKey]connector.StoredCondition) []connector.StoredCondition {
+	out := []connector.StoredCondition{}
+	for _, c := range held {
+		if c.Active {
+			out = append(out, c)
+		}
+	}
+	slices.SortFunc(out, func(a, b connector.StoredCondition) int {
+		return cmp.Or(strings.Compare(a.Kind, b.Kind), strings.Compare(a.Subject, b.Subject))
+	})
+	return out
 }
 
 // AddMail stores m in the outbox with the next id. It refuses nil

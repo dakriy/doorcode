@@ -14,22 +14,24 @@ import (
 func alertSite(t *testing.T, f *testsupport.Factory, kinds ...string) *keypad {
 	t.Helper()
 	k := keypadSite(t, f)
+	mailAlerts(t, k.b, kinds...)
+	return k
+}
+
+// mailAlerts has the administrator's client c send mail through
+// smtp.example.com, mail alerts to ops@example.com and Front desk
+// <desk@example.com>, and enable each kind of alert in kinds.
+func mailAlerts(t *testing.T, c *testsupport.Browser, kinds ...string) {
+	t.Helper()
 	for _, setting := range [][2]string{
 		{"mail_host", "smtp.example.com"}, {"mail_port", "587"}, {"mail_security", "starttls"},
 		{"mail_from", "Doorcode <doorcode@example.com>"},
 		{"alert_recipients", "ops@example.com,\nFront desk <desk@example.com>"},
 	} {
-		send(t, k.b, "PUT", "/api/v1/settings/"+setting[0], `{"value":`+testsupport.Quoted(setting[1])+`}`, 200)
+		send(t, c, "PUT", "/api/v1/settings/"+setting[0], `{"value":`+testsupport.Quoted(setting[1])+`}`, 200)
 	}
-	k.enable(kinds...)
-	return k
-}
-
-// enable enables the kinds of alert kinds through the API.
-func (k *keypad) enable(kinds ...string) {
-	k.t.Helper()
 	for _, kind := range kinds {
-		send(k.t, k.b, "PUT", "/api/v1/alerts/kinds/"+kind, `{"enabled":true}`, 200)
+		send(t, c, "PUT", "/api/v1/alerts/kinds/"+kind, `{"enabled":true}`, 200)
 	}
 }
 
@@ -107,7 +109,13 @@ func TestEveryKindOfAlertIsDisabledUntilEnabledAndMailsNobodyByDefault(t *testin
 
 	want := testsupport.JSON(`{"kinds":[
 		{"key":"forced_open","name":"Door forced open","about":"A door opened while nothing unlocked it. It clears when the door closes.","enabled":false},
-		{"key":"held_open","name":"Door held open","about":"A door stood open for longer than its held-open time while it should have been locked. It clears when the door closes or an open span of its timeline begins.","enabled":false}],
+		{"key":"held_open","name":"Door held open","about":"A door stood open for longer than its held-open time while it should have been locked. It clears when the door closes or an open span of its timeline begins.","enabled":false},
+		{"key":"offline","name":"Door offline","about":"A door's controller has not been connected to the broker for the minutes of the unresponsive_minutes setting. It clears once the controller connects again.","enabled":false},
+		{"key":"unresponsive","name":"Door unresponsive","about":"A door's controller has not been heard from for the minutes of the unresponsive_minutes setting while the broker says it is connected. It clears once the server hears from it or it is shown offline.","enabled":false},
+		{"key":"config_reverted","name":"Door configuration reverted","about":"A door gave up the configuration it was last sent, because it could not come online with it, and runs the one before. It clears once the door no longer shows the Reverted configuration badge: it reports the configuration it was last sent, or is sent another.","enabled":false},
+		{"key":"config_restarting","name":"Door restarting with its configuration","about":"A door's controller started at least twice since the configuration it was last sent went out, with no report naming that configuration. It clears once the door no longer shows the Restarting with configuration badge.","enabled":false},
+		{"key":"config_mismatch","name":"Door configuration mismatched","about":"A door's controller went on reporting a configuration other than the one it was last sent. It clears once the door no longer shows the Mismatched configuration badge.","enabled":false},
+		{"key":"update_failed","name":"Door firmware update failed","about":"A door's firmware update failed: the door said it could not install it, or it did not connect again with it in time. It clears once the door's firmware no longer shows Update failed: an update of it is under way again, it runs its target, or its target changes.","enabled":false}],
 		"recipients":[],"mail_cleared":true,"hold_down_minutes":15,"outbox":[]}`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("alerts (-want +got):\n%s", diff)
@@ -445,6 +453,18 @@ func TestAlertMailWaitsWithAClearErrorWhileMailIsNotSetUp(t *testing.T) {
 	}
 }
 
+// lastLogged is the newest line f's log holds with message, the zero
+// entry when it holds none.
+func lastLogged(f *testsupport.Factory, message string) testsupport.LogEntry {
+	var last testsupport.LogEntry
+	for _, e := range f.LogStub.Entries {
+		if e.Message == message {
+			last = e
+		}
+	}
+	return last
+}
+
 func TestADeliveryThatCannotReadTheOutboxIsLoggedAndTriedAgainAMinuteLater(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
@@ -456,7 +476,7 @@ func TestADeliveryThatCannotReadTheOutboxIsLoggedAndTriedAgainAMinuteLater(t *te
 	f.MailerStub.Fail(nil)
 	f.StoreStub.FailAlerts()
 	k.runAt("2026-01-05T09:01:00Z")
-	logged := lastLog(f)
+	logged := lastLogged(f, "mail delivery failed")
 	f.StoreStub.Recover()
 
 	k.runAt("2026-01-05T09:01:59Z")

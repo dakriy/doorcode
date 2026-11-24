@@ -1,9 +1,11 @@
 package memstore
 
 import (
+	"cmp"
 	"context"
 	"maps"
 	"slices"
+	"strings"
 
 	"github.com/dakriy/doorcode/internal/connector"
 )
@@ -43,6 +45,23 @@ func (s *Store) PutAlertCondition(_ context.Context, c connector.StoredCondition
 	defer s.mu.Unlock()
 	s.conditions[conditionKey{c.Kind, c.Subject}] = c
 	return nil
+}
+
+// ActiveAlertConditions returns every active condition by kind and
+// subject.
+func (s *Store) ActiveAlertConditions(_ context.Context) ([]connector.StoredCondition, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := []connector.StoredCondition{}
+	for _, c := range s.conditions {
+		if c.Active {
+			out = append(out, c)
+		}
+	}
+	slices.SortFunc(out, func(a, b connector.StoredCondition) int {
+		return cmp.Or(strings.Compare(a.Kind, b.Kind), strings.Compare(a.Subject, b.Subject))
+	})
+	return out, nil
 }
 
 // AddMail stores m in the outbox and returns its id.

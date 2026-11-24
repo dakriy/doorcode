@@ -463,7 +463,7 @@ var sections = []section{
 		{key: keyRollupRetention, fallback: "730", validate: rollupRetention.rule(), label: "Hourly summaries kept",
 			help: "Days the hourly summaries of the reports are kept."},
 		{key: keyUnresponsive, fallback: "5", validate: unresponsiveAfter.rule(), label: "Unresponsive after",
-			help: "Minutes a connected door may stay silent before it counts as unresponsive."},
+			help: "Minutes a connected door may stay silent before it counts as unresponsive, and a door may stay disconnected before it counts as offline for alerts."},
 	}},
 	{Section{Name: "Firmware updates", About: "Where doors download firmware from, and when and how fast updates roll out.", Tab: TabDoors}, []definition{
 		{key: keyDeviceURL, fallback: "", validate: accepting(deviceURL).askedWith(Input{Kind: KindURL, Example: deviceURLExample}), label: "Device address",

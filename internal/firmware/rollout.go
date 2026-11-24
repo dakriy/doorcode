@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dakriy/doorcode/internal/alert"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/door"
 	"github.com/dakriy/doorcode/internal/event"
@@ -179,9 +180,10 @@ func (s Service) Door(ctx context.Context, id int64) (DoorFirmware, error) {
 }
 
 // Rollout does what the rollout makes due: an update that has taken
-// longer than it may has failed, and, while the update window current
-// gives is open, doors waiting for their target are sent it until as
-// many are updating as current allows.
+// longer than it may has failed, the alert of each door's update failing
+// is followed, and, while the update window current gives is open, doors
+// waiting for their target are sent it until as many are updating as
+// current allows. Following the alerts failing does not stop the sending.
 func (s Service) Rollout(ctx context.Context, current settings.Current) error {
 	plan, err := s.Plan(ctx)
 	if err != nil {
@@ -192,6 +194,13 @@ func (s Service) Rollout(ctx context.Context, current settings.Current) error {
 	if err != nil {
 		return err
 	}
+	return errors.Join(s.followFailures(ctx, plan, now), s.sendDue(ctx, plan, current, updating, now))
+}
+
+// sendDue sends the doors of plan waiting for their target it, while the
+// update window current gives is open at now, until as many are updating
+// as current allows, updating of them already.
+func (s Service) sendDue(ctx context.Context, plan Plan, current settings.Current, updating int, now time.Time) error {
 	opened, open := windowOpened(current.UpdateWindow, current.Zone, now)
 	if !open {
 		return nil
@@ -212,10 +221,12 @@ func (s Service) Rollout(ctx context.Context, current settings.Current) error {
 }
 
 // expire fails every update in plan that has not ended by its expiry
-// before now, and returns how many doors are updating still.
+// before now, leaving plan showing where its door stands then, and
+// returns how many doors are updating still.
 func (s Service) expire(ctx context.Context, plan Plan, now time.Time) (int, error) {
 	updating := 0
-	for _, df := range plan.Doors {
+	for i := range plan.Doors {
+		df := &plan.Doors[i]
 		if df.Status != Updating {
 			continue
 		}
@@ -225,11 +236,41 @@ func (s Service) expire(ctx context.Context, plan Plan, now time.Time) (int, err
 			continue
 		}
 		why := fmt.Sprintf(" It did not connect again with it within %g minutes.", u.ExpiresAt.Sub(u.SentAt).Minutes())
-		if err := s.finish(ctx, u, Failed, why); err != nil {
+		if err := s.finish(ctx, &u, Failed, why); err != nil {
 			return 0, err
 		}
+		df.Update = &u
+		df.Status = status(*df)
 	}
 	return updating, nil
+}
+
+// followFailures keeps the alert of the update of each door of plan
+// failing as the alert conditions raised now say: raised while its
+// status in the rollout is Failed. A door without a controller keeps its
+// condition as it was.
+func (s Service) followFailures(ctx context.Context, plan Plan, now time.Time) error {
+	raised, err := s.Alerts.Raised(ctx)
+	if err != nil {
+		return fmt.Errorf("follow the alerts of updates failing: %w", err)
+	}
+	for _, df := range plan.Doors {
+		if !door.Enrolled(df.Door) {
+			continue
+		}
+		failed := df.Status == Failed
+		detail := ""
+		if failed {
+			detail = failedDetail(*df.Update)
+		}
+		s.Alerts.Follow(ctx, raised, alert.DoorCondition(alert.UpdateFailed, df.Door), failed, now, detail)
+	}
+	return nil
+}
+
+// failedDetail is what alert mail says of u, an update that failed.
+func failedDetail(u connector.StoredUpdate) string {
+	return fmt.Sprintf("Its update to version %s failed at %s. %s", u.Version, alert.Stamp(*u.FinishedAt), u.Detail)
 }
 
 // due reports whether the rollout sends df its target now, in a window
@@ -352,7 +393,7 @@ func (s Service) Acked(ctx context.Context, doorID int64, payload []byte) error 
 	if m.Detail != "" {
 		why = fmt.Sprintf(" The door could not install it: %s.", m.Detail)
 	}
-	return s.finish(ctx, *u, Failed, why)
+	return s.finish(ctx, u, Failed, why)
 }
 
 // Settle ends the update of the door whose id is id, whose controller has
@@ -372,7 +413,7 @@ func (s Service) Settle(ctx context.Context, id int64) error {
 		return err
 	}
 	if df.Door.Controller.FirmwareVersion == u.Version {
-		return s.finish(ctx, *u, Succeeded, "")
+		return s.finish(ctx, u, Succeeded, "")
 	}
 	if u.FetchedAt != nil || df.Target == nil {
 		return nil
@@ -404,10 +445,10 @@ func (s Service) updating(ctx context.Context, doorID int64) (*connector.StoredU
 }
 
 // finish ends u in state, which more explains, and logs it.
-func (s Service) finish(ctx context.Context, u connector.StoredUpdate, state, more string) error {
+func (s Service) finish(ctx context.Context, u *connector.StoredUpdate, state, more string) error {
 	now := s.Clock.Now()
 	u.State, u.FinishedAt, u.Detail = state, &now, strings.TrimSpace(more)
-	if err := s.Store.PutDoorUpdate(ctx, u); err != nil {
+	if err := s.Store.PutDoorUpdate(ctx, *u); err != nil {
 		return err
 	}
 	s.Changed()

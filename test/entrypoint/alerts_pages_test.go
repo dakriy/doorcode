@@ -15,6 +15,19 @@ var kindRows = [][]string{
 	{"Door forced open forced_open", "A door opened while nothing unlocked it. It clears when the door closes."},
 	{"Door held open held_open", "A door stood open for longer than its held-open time while it should have been locked. " +
 		"It clears when the door closes or an open span of its timeline begins."},
+	{"Door offline offline", "A door's controller has not been connected to the broker for the minutes of the unresponsive_minutes setting. " +
+		"It clears once the controller connects again."},
+	{"Door unresponsive unresponsive", "A door's controller has not been heard from for the minutes of the unresponsive_minutes setting " +
+		"while the broker says it is connected. It clears once the server hears from it or it is shown offline."},
+	{"Door configuration reverted config_reverted", "A door gave up the configuration it was last sent, because it could not come online with it, " +
+		"and runs the one before. It clears once the door no longer shows the Reverted configuration badge: " +
+		"it reports the configuration it was last sent, or is sent another."},
+	{"Door restarting with its configuration config_restarting", "A door's controller started at least twice since the configuration " +
+		"it was last sent went out, with no report naming that configuration. It clears once the door no longer shows the Restarting with configuration badge."},
+	{"Door configuration mismatched config_mismatch", "A door's controller went on reporting a configuration other than the one it was last sent. " +
+		"It clears once the door no longer shows the Mismatched configuration badge."},
+	{"Door firmware update failed update_failed", "A door's firmware update failed: the door said it could not install it, " +
+		"or it did not connect again with it in time. It clears once the door's firmware no longer shows Update failed: an update of it is under way again, it runs its target, or its target changes."},
 }
 
 // alertMailRows is how the Alerts page lists the alert mail settings,

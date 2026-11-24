@@ -90,6 +90,37 @@ func TestStoreKeepsEachAlertConditionByKindAndSubject(t *testing.T) {
 	}
 }
 
+func TestStoreListsTheActiveAlertConditionsByKindAndSubject(t *testing.T) {
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			store := migrated(t, impl)
+			ctx := context.Background()
+			none, noneErr := store.ActiveAlertConditions(ctx)
+			for _, c := range []connector.StoredCondition{
+				{Kind: "offline", Subject: "door 2", Active: true, Mailed: true, ChangedAt: alertsStart},
+				{Kind: "held_open", Subject: "door 1", ChangedAt: alertsStart},
+				{Kind: "offline", Subject: "door 10", Active: true, ChangedAt: alertsStart},
+				{Kind: "forced_open", Subject: "door 3", Active: true, ChangedAt: alertsStart},
+			} {
+				if err := store.PutAlertCondition(ctx, c); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			active, err := store.ActiveAlertConditions(ctx)
+
+			want := []any{[]connector.StoredCondition{}, nil, []connector.StoredCondition{
+				{Kind: "forced_open", Subject: "door 3", Active: true, ChangedAt: alertsStart},
+				{Kind: "offline", Subject: "door 10", Active: true, ChangedAt: alertsStart},
+				{Kind: "offline", Subject: "door 2", Active: true, Mailed: true, ChangedAt: alertsStart},
+			}, nil}
+			if diff := cmp.Diff(want, []any{none, noneErr, active, err}); diff != "" {
+				t.Errorf("none, error, active, error (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestStoreListsTheOutboxsMessagesOfAStatusOldestFirst(t *testing.T) {
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {

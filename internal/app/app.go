@@ -181,7 +181,7 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 	}
 	a.firmware = firmware.Service{
 		Store: store, Doors: a.doors, Controllers: a.controllers, Events: a.events, Settings: s, Clock: clock, Entropy: entropy,
-		Key: a.signingKey, DownloadPath: firmwareImagePath, Changed: a.live.notify,
+		Key: a.signingKey, DownloadPath: firmwareImagePath, Changed: a.live.notify, Alerts: a.alerts,
 	}
 
 	table := a.routes()

@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/dakriy/doorcode/internal/alert"
 	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/controller"
@@ -74,6 +75,8 @@ type Service struct {
 	// Changed is called whenever what a door should run or how far its
 	// update is changes.
 	Changed func()
+	// Alerts follows the alert of each door's update failing.
+	Alerts alert.Service
 }
 
 // Fields is what an uploader says about firmware. Text is trimmed before

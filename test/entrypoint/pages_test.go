@@ -117,7 +117,7 @@ var settingRows = map[string]struct{ section, label, help string }{
 	"enrollment_password":             {"Door enrollment", "Enrollment password", "The password a new door controller signs in to the broker with, beside the enrollment username, until an administrator approves it and it gets credentials of its own. Enter both in the settings of each controller you install. When it is empty on first start, the server makes one up and writes it to its log."},
 	"telemetry_retention_days":        {"Telemetry", "Reports kept", "Days each telemetry report is kept."},
 	"telemetry_rollup_retention_days": {"Telemetry", "Hourly summaries kept", "Days the hourly summaries of the reports are kept."},
-	"unresponsive_minutes":            {"Telemetry", "Unresponsive after", "Minutes a connected door may stay silent before it counts as unresponsive."},
+	"unresponsive_minutes":            {"Telemetry", "Unresponsive after", "Minutes a connected door may stay silent before it counts as unresponsive, and a door may stay disconnected before it counts as offline for alerts."},
 	"public_url":                      {"Site", "Public address", "The https:// address browsers reach the server at, and single sign-on returns to; http:// only for development."},
 	"device_url": {"Firmware updates", "Device address", "The https:// address of the server's device-facing entrypoint, which presents a certificate from the managed CA controllers trust, " +
 		"the same CA as the broker's; doors download firmware from it. http:// only for development, since doors verify the server's certificate only over https. No update is sent to doors while it is empty."},

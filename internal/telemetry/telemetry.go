@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strconv"
 	"time"
 
 	"github.com/dakriy/doorcode/internal/alert"
@@ -52,8 +51,9 @@ type Service struct {
 	Events   event.Service
 	Settings settings.Service
 	Clock    connector.Clock
-	// Alerts is told when a door is forced open or held open, and when it
-	// closes.
+	// Alerts is told when a door is forced open or held open and when it
+	// closes, and follows the conditions the periodic work finds a door
+	// in.
 	Alerts alert.Service
 	// Changed is called whenever what door lists show of a door's state
 	// changes, and Reported with the id of a door whose state changed
@@ -227,10 +227,10 @@ func (s Service) save(ctx context.Context, d connector.StoredDoor, held, c conne
 		return err
 	}
 	if held.HeldOpen && !c.HeldOpen {
-		s.Alerts.Resolve(ctx, doorCondition(alert.HeldOpen, d), now)
+		s.Alerts.Resolve(ctx, alert.DoorCondition(alert.HeldOpen, d), now)
 	}
 	if held.DoorState == Open && c.DoorState != Open {
-		s.Alerts.Resolve(ctx, doorCondition(alert.ForcedOpen, d), now)
+		s.Alerts.Resolve(ctx, alert.DoorCondition(alert.ForcedOpen, d), now)
 	}
 	if slices.Equal(badgesAs(d, held), badgesAs(d, c)) && MeshOf(held) == MeshOf(c) {
 		s.Reported(d.ID)
@@ -238,11 +238,6 @@ func (s Service) save(ctx context.Context, d connector.StoredDoor, held, c conne
 		s.Changed()
 	}
 	return nil
-}
-
-// doorCondition is the alert condition of kind about d.
-func doorCondition(kind alert.Kind, d connector.StoredDoor) alert.Condition {
-	return alert.Condition{Kind: kind, Subject: "door " + strconv.FormatInt(d.ID, 10), Name: d.Name}
 }
 
 // badgesAs is what door lists show of d with c as its controller.
@@ -338,7 +333,7 @@ func (s Service) forced(ctx context.Context, d connector.StoredDoor, now time.Ti
 	if _, err := s.Events.Record(ctx, alarm(now, d.ID, event.ForcedOpen, detail)); err != nil {
 		return err
 	}
-	s.Alerts.Raise(ctx, doorCondition(alert.ForcedOpen, d), now, detail)
+	s.Alerts.Raise(ctx, alert.DoorCondition(alert.ForcedOpen, d), now, detail)
 	return nil
 }
 
@@ -412,12 +407,19 @@ func (s Service) Sweep(ctx context.Context, current settings.Current, defaults s
 	return errors.Join(s.watch(ctx, current, defaults), s.rollUp(ctx), s.purge(ctx, current))
 }
 
-// watch logs the doors held open and marks the controllers that have gone
-// unresponsive, as current says.
+// watch logs the doors held open, marks the controllers that have gone
+// unresponsive, as current says, and follows the alert conditions each
+// door is in. The conditions raised now are read once, so a door whose
+// conditions stay as they were costs no store work for them; when they
+// cannot be read, the doors are watched without following them.
 func (s Service) watch(ctx context.Context, current settings.Current, defaults settings.DoorDefaults) error {
 	doors, err := s.Store.CurrentDoors(ctx)
 	if err != nil {
 		return err
+	}
+	raised, raisedErr := s.Alerts.Raised(ctx)
+	if raisedErr != nil {
+		raisedErr = fmt.Errorf("follow the doors' alert conditions: %w", raisedErr)
 	}
 	now := s.Clock.Now()
 	for _, d := range doors {
@@ -428,30 +430,91 @@ func (s Service) watch(ctx context.Context, current settings.Current, defaults s
 		if err != nil {
 			return err
 		}
-		if err := s.watchDoor(ctx, d, config.HeldOpen(), current, now); err != nil {
+		c, err := s.watchDoor(ctx, d, config.HeldOpen(), current, now)
+		if err != nil {
 			return err
 		}
+		if raisedErr == nil {
+			d.Controller = &c
+			s.follow(ctx, raised, d, current.UnresponsiveAfter, now)
+		}
 	}
-	return nil
+	return raisedErr
 }
 
 // watchDoor logs d held open at now as checkHeld says, and marks its
 // controller unresponsive when it has not been heard from for as long as
 // current says while the broker says it is connected; one that is not is
-// shown offline instead.
-func (s Service) watchDoor(ctx context.Context, d connector.StoredDoor, heldOpen time.Duration, current settings.Current, now time.Time) error {
+// shown offline instead. It returns the controller as it stands now.
+func (s Service) watchDoor(ctx context.Context, d connector.StoredDoor, heldOpen time.Duration, current settings.Current, now time.Time) (connector.StoredController, error) {
 	held := *d.Controller
 	c, err := s.checkHeld(ctx, d, held, heldOpen, current.Zone, now)
 	if err != nil {
-		return err
+		return c, err
 	}
 	if c.Online && !now.Before(c.LastSeenAt.Add(current.UnresponsiveAfter)) {
 		c.Unresponsive = true
 	}
 	if c == held {
-		return nil
+		return c, nil
 	}
-	return s.save(ctx, d, held, c, now)
+	return c, s.save(ctx, d, held, c, now)
+}
+
+// badgeKinds is the kind of alert raised while door lists show each
+// badge of a door.
+var badgeKinds = []struct {
+	badge string
+	kind  alert.Kind
+}{
+	{BadgeUnresponsive, alert.Unresponsive},
+	{BadgeRevertedConfig, alert.ConfigReverted},
+	{BadgeRestartingConfig, alert.ConfigRestarting},
+	{BadgeMismatchedConfig, alert.ConfigMismatch},
+}
+
+// follow keeps the alert conditions d is in at now as raised saw them:
+// offline once its controller has not been connected for silent, and
+// each kind of badgeKinds while door lists show its badge.
+func (s Service) follow(ctx context.Context, raised alert.Raised, d connector.StoredDoor, silent time.Duration, now time.Time) {
+	c := *d.Controller
+	offline := !c.Online && !now.Before(c.LastSeenAt.Add(silent))
+	s.Alerts.Follow(ctx, raised, alert.DoorCondition(alert.Offline, d), offline, now, heardFrom(c)+" and is not connected.")
+	badges := DoorBadges(d)
+	for _, k := range badgeKinds {
+		s.Alerts.Follow(ctx, raised, alert.DoorCondition(k.kind, d), slices.Contains(badges, k.badge), now, badgeDetail(d, k.badge))
+	}
+}
+
+// heardFrom is what alert mail says of when c was last heard from.
+func heardFrom(c connector.StoredController) string {
+	return "Its controller was last heard from " + alert.Stamp(c.LastSeenAt)
+}
+
+// badgeDetail is what alert mail says of d showing badge.
+func badgeDetail(d connector.StoredDoor, badge string) string {
+	if badge == BadgeUnresponsive {
+		return heardFrom(*d.Controller) + ", though the broker says it is connected."
+	}
+	return configDetail(d, ConfigOf(d))
+}
+
+// configDetail is what alert mail says of check, how what the controller
+// of d runs stands against the configuration d was last sent, when door
+// lists flag it, and nothing otherwise.
+func configDetail(d connector.StoredDoor, check ConfigCheck) string {
+	switch check.State {
+	case ConfigReverted:
+		return fmt.Sprintf("At %s it gave up configuration %s, the one it was last sent, because it could not come online with it, and went back to the one it ran before.",
+			alert.Stamp(*check.Since), d.SentConfig.Digest)
+	case ConfigRestarting:
+		return fmt.Sprintf("It started %d times from %s on without reporting configuration %s, the one it was last sent.",
+			check.Starts, alert.Stamp(*check.Since), d.SentConfig.Digest)
+	case ConfigOlder:
+		return fmt.Sprintf("It has reported configuration %s since %s, not %s, the one it was last sent.",
+			d.Controller.Telemetry.ConfigDigest, alert.Stamp(*check.Since), d.SentConfig.Digest)
+	}
+	return ""
 }
 
 // checkHeld is c, the controller of d, with its door held open at now or
@@ -479,7 +542,7 @@ func (s Service) checkHeld(ctx context.Context, d connector.StoredDoor, c connec
 	if _, err := s.Events.Record(ctx, alarm(now, d.ID, event.HeldOpen, detail)); err != nil {
 		return c, err
 	}
-	s.Alerts.Raise(ctx, doorCondition(alert.HeldOpen, d), now, detail)
+	s.Alerts.Raise(ctx, alert.DoorCondition(alert.HeldOpen, d), now, detail)
 	c.HeldOpen = true
 	return c, nil
 }

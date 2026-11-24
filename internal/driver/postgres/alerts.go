@@ -57,6 +57,23 @@ func (s *Store) PutAlertCondition(ctx context.Context, c connector.StoredConditi
 	return err
 }
 
+// ActiveAlertConditions returns every active condition by kind and
+// subject.
+func (s *Store) ActiveAlertConditions(ctx context.Context) ([]connector.StoredCondition, error) {
+	rows, err := s.pool.Query(ctx, `select kind, subject, active, mailed, changed_at from alert_conditions
+		where active order by kind collate "C", subject collate "C"`)
+	if err != nil {
+		return nil, err
+	}
+	out := []connector.StoredCondition{}
+	var c connector.StoredCondition
+	_, err = pgx.ForEachRow(rows, []any{&c.Kind, &c.Subject, &c.Active, &c.Mailed, &c.ChangedAt}, func() error {
+		out = append(out, c)
+		return nil
+	})
+	return out, err
+}
+
 // AddMail stores m in the outbox and returns its id.
 func (s *Store) AddMail(ctx context.Context, m connector.StoredMail) (int64, error) {
 	var id int64

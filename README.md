@@ -70,7 +70,9 @@ the engineering contract is [AGENTS.md](AGENTS.md).
   integrations that make temporary users and doors for testing, needs the
   `admin` role, and is offered by no page.
 - **Alerts.** Mail to a site-wide list of recipients when a door is forced
-  open or held open, once when raised and once more when it clears. Each
+  open, held open, offline, or unresponsive, runs a configuration other
+  than the one it was sent, or fails a firmware update, once when raised
+  and once more when it clears. Each
   kind of alert is off until an administrator turns it on, a condition that
   comes back soon after clearing mails nothing, and mail waits in a durable
   outbox that is retried with growing pauses, so a slow or failing mail
@@ -466,7 +468,7 @@ page folds away the single sign-on and identity claims parts while
 | `enrollment_password` | Its password. Generated, stored, and logged on first start when empty. Secret: stored encrypted. A change takes effect at once and reaches every door in its configuration (see below). | empty |
 | `telemetry_retention_days` | Days each telemetry report is kept. | `7` |
 | `telemetry_rollup_retention_days` | Days the hourly summaries of the reports are kept. | `730` |
-| `unresponsive_minutes` | Minutes a connected door may stay silent before it counts as unresponsive. | `5` |
+| `unresponsive_minutes` | Minutes a connected door may stay silent before it counts as unresponsive, and a door may stay disconnected before it counts as offline for the `offline` alert. | `5` |
 | `device_url` | The `https://` address, without a query, of the server's device-facing entrypoint, which presents a certificate chain leading to one of the certificates doors trust (`door_broker_ca_pem`); `http://` only for development, since doors verify the server's certificate only over https. Doors download firmware from it: sent in the `update` command and in the provisioning file's `server.device_url`. No update is sent while it is empty. | empty |
 | `update_window_days` | `daily`, or weekdays separated by commas such as `sat,sun`. | `daily` |
 | `update_window_start` | When the update window opens, `HH:MM` in the site timezone. | `02:00` |
@@ -545,6 +547,19 @@ the settings API changes the three settings.
 | --- | --- | --- |
 | `forced_open` | A door opens while nothing unlocked it, when the server logs a `forced open` alarm. | The door closes. |
 | `held_open` | A door stays open past its held-open time while it should be locked, when the server logs a `held open` alarm. | The door closes, or an open span of its timeline begins. |
+| `offline` | A door's controller has not been connected to the broker for `unresponsive_minutes` (a door whose credentials were revoked included). | The controller connects again. |
+| `unresponsive` | A door is marked unresponsive: connected, but not heard from for `unresponsive_minutes`. | The server hears from it, or it is shown offline. |
+| `config_reverted` | A door shows the Reverted configuration badge: it gave up the configuration it was last sent and runs the one before. | The badge goes: it reports the configuration it was last sent, or is sent another. |
+| `config_restarting` | A door shows the Restarting with configuration badge: it started at least twice since its configuration was sent, with no report naming it. | The badge goes. |
+| `config_mismatch` | A door shows the Mismatched configuration badge: two reports in a row over one connection named another configuration. | The badge goes. |
+| `update_failed` | A door's firmware update fails, when the server logs an `update failed` event: the door said it could not install it, or it did not connect again with it before `update_timeout_minutes`. | The door's firmware no longer shows Update failed: an update of it is under way again, it runs its target, or its target changes. |
+
+The periodic work, at most once a minute, raises and clears `offline`,
+`unresponsive`, the three configuration kinds, and `update_failed` from
+each door's state and firmware status as they stand then, so they may be
+raised or cleared up to a minute after they changed; `forced_open` and
+`held_open` are raised and cleared as the server handles what happens. A door that is deleted or loses its controller keeps
+its conditions as they were.
 
 Every kind is off until it is turned on, and nothing is mailed while
 `alert_recipients` is empty. A condition is followed per door whether or not

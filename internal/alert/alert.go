@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net/mail"
 	"slices"
+	"strconv"
 	"sync"
 	"time"
 
@@ -37,10 +38,22 @@ var (
 		About: "A door opened while nothing unlocked it. It clears when the door closes."}
 	HeldOpen = Kind{Key: "held_open", Name: "Door held open",
 		About: "A door stood open for longer than its held-open time while it should have been locked. It clears when the door closes or an open span of its timeline begins."}
+	Offline = Kind{Key: "offline", Name: "Door offline",
+		About: "A door's controller has not been connected to the broker for the minutes of the unresponsive_minutes setting. It clears once the controller connects again."}
+	Unresponsive = Kind{Key: "unresponsive", Name: "Door unresponsive",
+		About: "A door's controller has not been heard from for the minutes of the unresponsive_minutes setting while the broker says it is connected. It clears once the server hears from it or it is shown offline."}
+	ConfigReverted = Kind{Key: "config_reverted", Name: "Door configuration reverted",
+		About: "A door gave up the configuration it was last sent, because it could not come online with it, and runs the one before. It clears once the door no longer shows the Reverted configuration badge: it reports the configuration it was last sent, or is sent another."}
+	ConfigRestarting = Kind{Key: "config_restarting", Name: "Door restarting with its configuration",
+		About: "A door's controller started at least twice since the configuration it was last sent went out, with no report naming that configuration. It clears once the door no longer shows the Restarting with configuration badge."}
+	ConfigMismatch = Kind{Key: "config_mismatch", Name: "Door configuration mismatched",
+		About: "A door's controller went on reporting a configuration other than the one it was last sent. It clears once the door no longer shows the Mismatched configuration badge."}
+	UpdateFailed = Kind{Key: "update_failed", Name: "Door firmware update failed",
+		About: "A door's firmware update failed: the door said it could not install it, or it did not connect again with it in time. It clears once the door's firmware no longer shows Update failed: an update of it is under way again, it runs its target, or its target changes."}
 )
 
 // Kinds is every kind of alert, in display order.
-var Kinds = []Kind{ForcedOpen, HeldOpen}
+var Kinds = []Kind{ForcedOpen, HeldOpen, Offline, Unresponsive, ConfigReverted, ConfigRestarting, ConfigMismatch, UpdateFailed}
 
 // The states of a message in the outbox.
 const (
@@ -87,6 +100,48 @@ type Condition struct {
 	Name    string
 }
 
+// DoorCondition is the condition of kind about d.
+func DoorCondition(kind Kind, d connector.StoredDoor) Condition {
+	return Condition{Kind: kind, Subject: "door " + strconv.FormatInt(d.ID, 10), Name: d.Name}
+}
+
+// Raised is the conditions that were active when it was read, by kind
+// and subject.
+type Raised map[conditionKey]bool
+
+// conditionKey is what tells conditions apart: their kind's key and
+// their subject.
+type conditionKey struct {
+	kind, subject string
+}
+
+// Raised reads which conditions are active now.
+func (s Service) Raised(ctx context.Context) (Raised, error) {
+	active, err := s.Store.ActiveAlertConditions(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("read the alert conditions raised: %w", err)
+	}
+	r := Raised{}
+	for _, c := range active {
+		r[conditionKey{c.Kind, c.Subject}] = true
+	}
+	return r, nil
+}
+
+// Follow keeps c as holds says at at, as r saw it: it raises c, saying
+// detail, when it holds and was not active, and resolves it when it does
+// not hold and was, so a condition that stays as it was costs no store
+// work. What stops it is logged.
+func (s Service) Follow(ctx context.Context, r Raised, c Condition, holds bool, at time.Time, detail string) {
+	active := r[conditionKey{c.Kind.Key, c.Subject}]
+	if holds && !active {
+		s.Raise(ctx, c, at, detail)
+	}
+	if active && !holds {
+		s.Resolve(ctx, c, at)
+	}
+}
+
 // Raise raises c at at, saying detail: unless it is raised already, it
 // mails the recipients while its kind is enabled, except when it was
 // resolved less than the hold-down time before. What stops it is logged.
@@ -129,7 +184,7 @@ func (s Service) raise(ctx context.Context, c Condition, at time.Time, detail st
 	next := connector.StoredCondition{Kind: c.Kind.Key, Subject: c.Subject, Active: true, ChangedAt: at}
 	quiet := at.Before(held.ChangedAt.Add(policy.HoldDown))
 	if !quiet && len(to) > 0 {
-		text := c.Kind.Name + " at " + c.Name + ", " + stamp(at) + ".\n\n" + detail + "\n" + footer(c.Kind)
+		text := c.Kind.Name + " at " + c.Name + ", " + Stamp(at) + ".\n\n" + detail + "\n" + footer(c.Kind)
 		if err := s.queue(ctx, c.Kind, to, c.Kind.Name+": "+c.Name, text, at); err != nil {
 			return err
 		}
@@ -150,7 +205,7 @@ func (s Service) resolve(ctx context.Context, c Condition, at time.Time) error {
 		return err
 	}
 	if held.Mailed && policy.MailCleared && len(to) > 0 {
-		text := c.Kind.Name + " at " + c.Name + " cleared, " + stamp(at) + ".\n\nIt was raised " + stamp(held.ChangedAt) + ".\n" + footer(c.Kind)
+		text := c.Kind.Name + " at " + c.Name + " cleared, " + Stamp(at) + ".\n\nIt was raised " + Stamp(held.ChangedAt) + ".\n" + footer(c.Kind)
 		if err := s.queue(ctx, c.Kind, to, "Cleared: "+c.Kind.Name+": "+c.Name, text, at); err != nil {
 			return err
 		}
@@ -175,8 +230,8 @@ func footer(kind Kind) string {
 	return "\nThis mail goes to every alert recipient while the alert " + kind.Name + " is enabled on the Alerts page.\n"
 }
 
-// stamp is t as a message writes it.
-func stamp(t time.Time) string {
+// Stamp is t as alert mail writes it.
+func Stamp(t time.Time) string {
 	return t.UTC().Format(stampLayout)
 }
 
