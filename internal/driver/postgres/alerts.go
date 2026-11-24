@@ -41,37 +41,52 @@ func (s *Store) SetAlertKind(ctx context.Context, kind string, enabled bool) err
 	return err
 }
 
+// conditionColumns lists the alert_conditions columns in the order
+// conditionFields reads them.
+const conditionColumns = `kind, subject, active, mailed, owed, changed_at, name, detail`
+
+func conditionFields(c *connector.StoredCondition) []any {
+	return []any{&c.Kind, &c.Subject, &c.Active, &c.Mailed, &c.Owed, &c.ChangedAt, &c.Name, &c.Detail}
+}
+
 // AlertCondition returns the condition of kind about subject.
 func (s *Store) AlertCondition(ctx context.Context, kind, subject string) (connector.StoredCondition, bool, error) {
 	var c connector.StoredCondition
-	err := s.pool.QueryRow(ctx, `select kind, subject, active, mailed, changed_at from alert_conditions where kind = $1 and subject = $2`,
-		kind, subject).Scan(&c.Kind, &c.Subject, &c.Active, &c.Mailed, &c.ChangedAt)
+	err := s.pool.QueryRow(ctx, `select `+conditionColumns+` from alert_conditions where kind = $1 and subject = $2`,
+		kind, subject).Scan(conditionFields(&c)...)
 	return found(c, err)
 }
 
 // PutAlertCondition stores c over the condition of its kind and subject.
 func (s *Store) PutAlertCondition(ctx context.Context, c connector.StoredCondition) error {
-	_, err := s.pool.Exec(ctx, `insert into alert_conditions (kind, subject, active, mailed, changed_at) values ($1, $2, $3, $4, $5)
-		on conflict (kind, subject) do update set active = excluded.active, mailed = excluded.mailed, changed_at = excluded.changed_at`,
-		c.Kind, c.Subject, c.Active, c.Mailed, c.ChangedAt)
+	_, err := s.pool.Exec(ctx, `insert into alert_conditions (`+conditionColumns+`) values ($1, $2, $3, $4, $5, $6, $7, $8)
+		on conflict (kind, subject) do update set active = excluded.active, mailed = excluded.mailed, owed = excluded.owed,
+			changed_at = excluded.changed_at, name = excluded.name, detail = excluded.detail`,
+		c.Kind, c.Subject, c.Active, c.Mailed, c.Owed, c.ChangedAt, c.Name, c.Detail)
 	return err
 }
 
 // ActiveAlertConditions returns every active condition by kind and
 // subject.
 func (s *Store) ActiveAlertConditions(ctx context.Context) ([]connector.StoredCondition, error) {
-	rows, err := s.pool.Query(ctx, `select kind, subject, active, mailed, changed_at from alert_conditions
-		where active order by kind collate "C", subject collate "C"`)
+	return s.conditionsWhere(ctx, "active")
+}
+
+// OwedAlertConditions returns every condition whose raise mail is owed,
+// by kind and subject.
+func (s *Store) OwedAlertConditions(ctx context.Context) ([]connector.StoredCondition, error) {
+	return s.conditionsWhere(ctx, "owed")
+}
+
+// conditionsWhere returns the conditions whose boolean column column is
+// true, by kind and subject.
+func (s *Store) conditionsWhere(ctx context.Context, column string) ([]connector.StoredCondition, error) {
+	rows, err := s.pool.Query(ctx, `select `+conditionColumns+` from alert_conditions
+		where `+column+` order by kind collate "C", subject collate "C"`)
 	if err != nil {
 		return nil, err
 	}
-	out := []connector.StoredCondition{}
-	var c connector.StoredCondition
-	_, err = pgx.ForEachRow(rows, []any{&c.Kind, &c.Subject, &c.Active, &c.Mailed, &c.ChangedAt}, func() error {
-		out = append(out, c)
-		return nil
-	})
-	return out, err
+	return pgx.CollectRows(rows, scanned(conditionFields))
 }
 
 // AddMail stores m in the outbox and returns its id.

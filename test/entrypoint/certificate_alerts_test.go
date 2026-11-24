@@ -209,6 +209,28 @@ func TestTheUnreachableAlertWaitsForTheChecksTheSettingAsksFor(t *testing.T) {
 	}
 }
 
+// chainChangedText is the text of the mail saying, of the change at at,
+// that the broker's chain, its shape baselined at 09:00, now ends at Root
+// X1 when it first ran up to Root X2.
+func chainChangedText(at string) string {
+	return "Certificate at Door broker broker.example.com:8883, chain changed, " + at + ".\n\n" +
+		"The chain broker.example.com:8883 serves verifies with a shape other than the one it served since Mon 5 Jan 2026 09:00:00 UTC, " +
+		"which it now replaces.\n\n" +
+		"Before:\n" +
+		"CN=broker.example.com, issued by CN=YE1,O=Example Trust\n" +
+		"CN=YE1,O=Example Trust, issued by CN=Root YE,O=Example Trust\n" +
+		"CN=Root YE,O=Example Trust, issued by CN=Root X2,O=Example Trust\n" +
+		"CN=Root X2,O=Example Trust, issued by CN=Root X2,O=Example Trust\n\n" +
+		"Now:\n" +
+		"Leaf: CN=broker.example.com, issued by CN=YE1,O=Example Trust, expires Sun 1 Mar 2026 00:00:00 UTC (54 days)\n" +
+		"Intermediate: CN=YE1,O=Example Trust, issued by CN=Root YE,O=Example Trust, expires Sat 2 Sep 2028 00:00:00 UTC (970 days)\n" +
+		"Intermediate: CN=Root YE,O=Example Trust, issued by CN=Root X2,O=Example Trust, expires Thu 2 Sep 2032 00:00:00 UTC (2431 days)\n" +
+		"Intermediate: CN=Root X2,O=Example Trust, issued by CN=Root X1,O=Example Trust, expires Thu 2 Sep 2032 00:00:00 UTC (2431 days)\n" +
+		"Trust anchor: CN=Root X1,O=Example Trust, issued by CN=Root X1,O=Example Trust, expires Mon 4 Jun 2035 00:00:00 UTC (3436 days)\n" +
+		"Runway: 970 days.\n" +
+		"Leaf expires in 54 days.\n" + certificateFooter
+}
+
 func TestAVerifiedChainOfAnotherShapeMailsOnceAndBecomesTheBaseline(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
@@ -226,25 +248,9 @@ func TestAVerifiedChainOfAnotherShapeMailsOnceAndBecomesTheBaseline(t *testing.T
 	c.checkAt("2026-01-05T13:00:00Z")
 	baseline := testsupport.JSONAt(send(t, c.api, "GET", "/api/v1/alerts/certificates", "", 200).Body, "/endpoints/0/baseline")
 
-	changed := "Certificate at Door broker broker.example.com:8883, chain changed, Mon 5 Jan 2026 11:00:00 UTC.\n\n" +
-		"The chain broker.example.com:8883 serves verifies with a shape other than the one it served since Mon 5 Jan 2026 09:00:00 UTC, " +
-		"which it now replaces.\n\n" +
-		"Before:\n" +
-		"CN=broker.example.com, issued by CN=YE1,O=Example Trust\n" +
-		"CN=YE1,O=Example Trust, issued by CN=Root YE,O=Example Trust\n" +
-		"CN=Root YE,O=Example Trust, issued by CN=Root X2,O=Example Trust\n" +
-		"CN=Root X2,O=Example Trust, issued by CN=Root X2,O=Example Trust\n\n" +
-		"Now:\n" +
-		"Leaf: CN=broker.example.com, issued by CN=YE1,O=Example Trust, expires Sun 1 Mar 2026 00:00:00 UTC (54 days)\n" +
-		"Intermediate: CN=YE1,O=Example Trust, issued by CN=Root YE,O=Example Trust, expires Sat 2 Sep 2028 00:00:00 UTC (970 days)\n" +
-		"Intermediate: CN=Root YE,O=Example Trust, issued by CN=Root X2,O=Example Trust, expires Thu 2 Sep 2032 00:00:00 UTC (2431 days)\n" +
-		"Intermediate: CN=Root X2,O=Example Trust, issued by CN=Root X1,O=Example Trust, expires Thu 2 Sep 2032 00:00:00 UTC (2431 days)\n" +
-		"Trust anchor: CN=Root X1,O=Example Trust, issued by CN=Root X1,O=Example Trust, expires Mon 4 Jun 2035 00:00:00 UTC (3436 days)\n" +
-		"Runway: 970 days.\n" +
-		"Leaf expires in 54 days.\n" + certificateFooter
 	want := []any{
 		[]any{},
-		[][]any{{recipients, brokerAlert("chain changed"), changed}},
+		[][]any{{recipients, brokerAlert("chain changed"), chainChangedText("Mon 5 Jan 2026 11:00:00 UTC")}},
 		[]any{brokerAlert("chain changed"), brokerAlert("chain changed")},
 		testsupport.JSON(`{"links":[
 			{"subject":"CN=broker.example.com","issuer":"CN=YE2,O=Example Trust"},
@@ -382,27 +388,38 @@ func TestAShapeChangeTheAlertsCannotFollowIsLoggedAndTheCheckIsStored(t *testing
 	}
 }
 
-func TestAShapeChangeWhileNobodyIsMailedQueuesNothingAndTheNextOneMails(t *testing.T) {
+func TestAShapeChangeWhileMailCannotBeSentIsMailedOnceItCanSayingWhenItHappened(t *testing.T) {
 	t.Parallel()
-	f := testsupport.NewFactory()
-	c := certificateAlerts(t, f)
-	c.set("alert_recipients", "")
-	c.serves(c.fullChain()...)
-	c.checkAt(testsupport.DefaultNow)
-	c.trust(c.pki.X1)
-	c.checkAt("2026-01-05T10:00:00Z")
-	c.set("alert_recipients", "ops@example.com")
-	c.trust(c.pki.X2)
-	c.checkAt("2026-01-05T11:00:00Z")
-
-	outbox := testsupport.JSONAt(send(t, c.api, "GET", "/api/v1/alerts", "", 200).Body, "/outbox")
-
-	var got []any
-	for _, m := range outbox.([]any) {
-		got = append(got, []any{m.(map[string]any)["subject"], m.(map[string]any)["created_at"]})
+	cases := map[string]struct{ key, blocked, allowed string }{
+		"with no recipients":   {"alert_recipients", "", "ops@example.com,\nFront desk <desk@example.com>"},
+		"with mail not set up": {"mail_host", "", "smtp.example.com"},
 	}
-	if diff := cmp.Diff([]any{[]any{brokerAlert("chain changed"), "2026-01-05T11:00:00Z"}}, got); diff != "" {
-		t.Errorf("outbox (-want +got):\n%s", diff)
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			f := testsupport.NewFactory()
+			c := certificateAlerts(t, f)
+			c.set(tc.key, tc.blocked)
+			c.serves(c.fullChain()...)
+			c.checkAt(testsupport.DefaultNow)
+			c.trust(c.pki.X1)
+			c.checkAt("2026-01-05T10:00:00Z")
+			waiting := pageOf(c.b.Get("/admin/alerts")).Tables["Raised now"]
+			f.ClockStub.Set("2026-01-05T11:00:00Z")
+			c.set(tc.key, tc.allowed)
+			run(t, c.a)
+
+			c.checkAt("2026-01-05T12:00:00Z")
+
+			want := []any{
+				[][]string{raisedHead, {"Certificate", "Door broker broker.example.com:8883, chain changed", "Mon 5 Jan 2026 10:00:00", "Waiting: mailed once it can be"}},
+				[][]any{{recipients, brokerAlert("chain changed"), chainChangedText("Mon 5 Jan 2026 10:00:00 UTC")}},
+				"2026-01-05T11:00:00Z",
+			}
+			if diff := cmp.Diff(want, []any{waiting, mailed(t, f), testsupport.JSONAt(send(t, c.api, "GET", "/api/v1/alerts", "", 200).Body, "/outbox/0/created_at")}); diff != "" {
+				t.Errorf("raised while waiting, mail, when it was queued (-want +got):\n%s", diff)
+			}
+		})
 	}
 }
 

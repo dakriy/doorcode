@@ -249,25 +249,6 @@ func TestAClearedConditionMailsOnlyWhenItsRaiseWasMailedItsKindIsStillEnabledAnd
 	}
 }
 
-func TestAConditionRaisedWhileNobodyIsMailedIsFollowedAndMailsWhenItComesBack(t *testing.T) {
-	t.Parallel()
-	f := testsupport.NewFactory()
-	k := alertSite(t, f, "forced_open")
-	k.setting("alert_recipients", "")
-	k.opens(false)
-	k.setting("alert_recipients", "ops@example.com")
-	k.at("2026-01-05T09:00:20Z")
-	k.says("closed")
-
-	k.at("2026-01-05T09:15:20Z")
-	k.opens(false)
-
-	if diff := cmp.Diff([][]any{{[]string{"ops@example.com"}, forcedSubject, "Door forced open at Lobby, Mon 5 Jan 2026 09:15:20 UTC.\n\n" +
-		"Its controller says it was locked when it opened.\n" + alertFooter("Door forced open")}}, mailed(t, f)); diff != "" {
-		t.Errorf("mail (-want +got):\n%s", diff)
-	}
-}
-
 func TestAConditionThatComesBackMailsAgainOnlyOnceItStayedClearForTheHoldDown(t *testing.T) {
 	t.Parallel()
 	cases := map[string]struct {
@@ -437,23 +418,6 @@ func TestTheEarliestMessageWaitingIsTriedWhenItIsDue(t *testing.T) {
 	}
 }
 
-func TestAlertMailWaitsWithAClearErrorWhileMailIsNotSetUp(t *testing.T) {
-	t.Parallel()
-	f := testsupport.NewFactory()
-	k := alertSite(t, f, "forced_open")
-	send(t, k.b, "PUT", "/api/v1/settings/mail_host", `{"value":""}`, 200)
-
-	k.opens(false)
-
-	got := []any{k.outbox("/0/status"), k.outbox("/0/last_error"), pageOf(k.b.Get("/admin/alerts")).Notes}
-	want := []any{"pending", "mail is not set up: give the mail server's host and the address mail is sent from on the Mail tab of the settings",
-		[]string{"Mail is not set up, so alert mail waits in the outbox and fails after six attempts. " +
-			"Give the mail server's host and the address mail is sent from on the Mail tab of the settings.", nothingToCheck}}
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("status, error, page notes (-want +got):\n%s", diff)
-	}
-}
-
 // lastLogged is the newest line f's log holds with message, the zero
 // entry when it holds none.
 func lastLogged(f *testsupport.Factory, message string) testsupport.LogEntry {
@@ -504,7 +468,7 @@ func TestADeliveryThatCannotUpdateTheOutboxIsLogged(t *testing.T) {
 	k.runAt("2026-01-05T09:01:00Z")
 
 	want := testsupport.LogEntry{Level: "error", Message: "mail delivery failed", Fields: map[string]string{"error": "stub: unavailable"}}
-	if diff := cmp.Diff(want, lastLog(f)); diff != "" {
+	if diff := cmp.Diff(want, lastLogged(f, "mail delivery failed")); diff != "" {
 		t.Errorf("log (-want +got):\n%s", diff)
 	}
 }
@@ -541,7 +505,7 @@ func TestAnAlertTheStoreCannotFollowIsLoggedAndTheDoorIsHandledAll(t *testing.T)
 
 			k.opens(false)
 
-			got := []any{lastLog(f), k.reasons(), k.state("/door")}
+			got := []any{lastLogged(f, "alert condition not followed"), k.reasons(), k.state("/door")}
 			if diff := cmp.Diff([]any{c.logged, []any{"forced open", "opened"}, "open"}, got); diff != "" {
 				t.Errorf("log, reasons, door state (-want +got):\n%s", diff)
 			}
@@ -558,7 +522,7 @@ func TestAClearingTheStoreCannotFollowIsLoggedAndTheDoorStillCloses(t *testing.T
 
 	k.says("closed")
 
-	logged := lastLog(f)
+	logged := lastLogged(f, "alert condition not followed")
 
 	got := []any{logged, k.state("/door")}
 	if diff := cmp.Diff([]any{notFollowed("forced_open"), "closed"}, got); diff != "" {
@@ -599,7 +563,7 @@ func TestARaiseWhoseSettingsCannotBeReadIsLoggedAndTheDoorStillOpens(t *testing.
 
 	k.opens(false)
 
-	got := []any{lastLog(f), subjects(t, f), k.state("/door")}
+	got := []any{lastLogged(f, "alert condition not followed"), subjects(t, f), k.state("/door")}
 	if diff := cmp.Diff([]any{spoiledHoldDown, []any{}, "open"}, got); diff != "" {
 		t.Errorf("log, subjects, door state (-want +got):\n%s", diff)
 	}
@@ -614,7 +578,7 @@ func TestAClearingWhoseSettingsCannotBeReadIsLoggedAndTheDoorStillCloses(t *test
 
 	k.says("closed")
 
-	got := []any{lastLog(f), subjects(t, f), k.state("/door")}
+	got := []any{lastLogged(f, "alert condition not followed"), subjects(t, f), k.state("/door")}
 	if diff := cmp.Diff([]any{spoiledHoldDown, []any{forcedSubject}, "closed"}, got); diff != "" {
 		t.Errorf("log, subjects, door state (-want +got):\n%s", diff)
 	}
@@ -629,7 +593,7 @@ func TestAClearedMailTheStoreCannotQueueIsLogged(t *testing.T) {
 
 	k.says("closed")
 
-	if diff := cmp.Diff(notFollowed("forced_open"), lastLog(f)); diff != "" {
+	if diff := cmp.Diff(notFollowed("forced_open"), lastLogged(f, "alert condition not followed")); diff != "" {
 		t.Errorf("log (-want +got):\n%s", diff)
 	}
 }

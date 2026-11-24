@@ -60,6 +60,15 @@ func certificateCheckRows(enabled, interval string) [][]string {
 	}
 }
 
+// mailNotSetUpNote is the note the Alerts page shows while mail is not set
+// up.
+const mailNotSetUpNote = "Mail is not set up, so no alert mail is sent. Alerts are still raised and listed here; their mail, " +
+	"and the mail waiting in the outbox, goes out once mail is set up, using up no attempt meanwhile. " +
+	"Give the mail server's host and the address mail is sent from on the Mail tab of the settings."
+
+// raisedHead heads the Alerts page's table of the conditions raised now.
+var raisedHead = []string{"Alert", "About", "Since", "Mail"}
+
 // outboxHead heads the Alerts page's outbox.
 var outboxHead = []string{"Queued", "Subject", "To", "Status", "Attempts", "Last error"}
 
@@ -71,8 +80,7 @@ func TestTheAlertsPageShowsTheKindsTheAlertMailSettingsAndAnEmptyOutbox(t *testi
 
 	want := testsupport.Page{
 		Title: "Alerts · doorcode", Heading: "Alerts", Nav: mainNav("Site: Alerts", ""), Messages: []string{"You are signed in."},
-		Notes: []string{"Mail is not set up, so alert mail waits in the outbox and fails after six attempts. " +
-			"Give the mail server's host and the address mail is sent from on the Mail tab of the settings.", nothingToCheck},
+		Notes: []string{mailNotSetUpNote, nothingToCheck},
 		Values: map[string]string{"alert_recipients": "", "alert_mail_cleared": "false", "alert_hold_down_minutes": "15",
 			"certificate_check_enabled": "false", "certificate_check_interval_hours": "24",
 			"certificate_runway_days": "548", "certificate_leaf_days": "14", "certificate_unreachable_checks": "3"},
@@ -81,6 +89,7 @@ func TestTheAlertsPageShowsTheKindsTheAlertMailSettingsAndAnEmptyOutbox(t *testi
 			"Kinds of alert":     kindRows,
 			"Alert mail":         alertMailRows("", "On", "0 to 10080 minutes"),
 			"Certificate check":  certificateCheckRows("On", "1 to 720 hours"),
+			"Raised now":         {raisedHead, {"Nothing is raised."}},
 			"Certificate checks": {certificatesHead},
 			"Outbox":             {outboxHead, {"No alert mail yet."}},
 		},
@@ -225,8 +234,7 @@ func TestTheAlertsPageShowsAnAlertMailSettingTheEnvironmentGivesAsReadOnly(t *te
 	page := pageOf(b.Get("/admin/alerts"))
 
 	note := "Set by DOORCODE_ALERT_RECIPIENTS in the environment; change it there."
-	want := []any{303, []string{"Mail is not set up, so alert mail waits in the outbox and fails after six attempts. " +
-		"Give the mail server's host and the address mail is sent from on the Mail tab of the settings.", note, nothingToCheck},
+	want := []any{303, []string{mailNotSetUpNote, note, nothingToCheck},
 		alertMailRows("ops@example.com "+note, "On", "")[1], []string{"kind=forced_open"}}
 	if diff := cmp.Diff(want, []any{saved.Status, page.Notes, page.Tables["Alert mail"][1], page.Checked}); diff != "" {
 		t.Errorf("save, notes, recipients row, checked (-want +got):\n%s", diff)

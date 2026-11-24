@@ -50,7 +50,9 @@ func (a *App) deliver(ctx context.Context, stop <-chan struct{}) {
 	}
 }
 
-// wakeDelivery tells the delivery a message was queued.
+// wakeDelivery has the delivery look at the outbox and the mail the
+// alert conditions owe: after a message is queued, and after a save that
+// may let mail be sent.
 func (a *App) wakeDelivery() {
 	a.queued.Store(true)
 	select {
@@ -63,7 +65,8 @@ func (a *App) wakeDelivery() {
 // was queued since it last did, or the earliest message waiting is due,
 // and sets the next turn: when the earliest message still waiting is due,
 // none while nothing waits, and a while later when the outbox could not
-// be read or updated, which is logged.
+// be read or updated or the mail the conditions owe could not be queued,
+// which is logged.
 func (a *App) deliverIfDue(ctx context.Context) {
 	now := a.clock.Now()
 	queued := a.queued.Swap(false)
@@ -207,5 +210,6 @@ func (a *App) updateAlertKind(w http.ResponseWriter, r *http.Request, _ auth.Use
 		a.refuse(w, r, err, []refusalStatus{{alert.ErrUnknownKind, http.StatusNotFound}})
 		return
 	}
+	a.wakeDelivery()
 	writeJSON(w, http.StatusOK, kindViewOf(k))
 }

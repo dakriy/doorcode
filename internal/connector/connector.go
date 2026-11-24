@@ -1087,14 +1087,19 @@ type FirmwareStore interface {
 
 // StoredCondition is the state of one alert condition: the Kind of alert
 // and the Subject it is about, such as one door, whether it is Active,
-// whether its latest raise was Mailed, and when it was last raised or
-// resolved, ChangedAt.
+// Mailed (while active, whether its raise was mailed; once resolved,
+// whether the hold-down applies to its next raise), whether its raise
+// mail is Owed, waiting until it can be sent, when it was last raised or
+// resolved, ChangedAt, and the Name and Detail its raise mail gives.
 type StoredCondition struct {
 	Kind      string
 	Subject   string
 	Active    bool
 	Mailed    bool
+	Owed      bool
 	ChangedAt time.Time
+	Name      string
+	Detail    string
 }
 
 // StoredMail is one message of the mail outbox: the Kind of alert it is
@@ -1135,6 +1140,9 @@ type AlertsStore interface {
 	// ActiveAlertConditions returns every condition that is active, by
 	// kind and then subject, in byte order.
 	ActiveAlertConditions(ctx context.Context) ([]StoredCondition, error)
+	// OwedAlertConditions returns every condition whose raise mail is
+	// owed, by kind and then subject, in byte order.
+	OwedAlertConditions(ctx context.Context) ([]StoredCondition, error)
 	// AddMail stores m in the outbox, ignoring m.ID, and returns the id it
 	// was given.
 	AddMail(ctx context.Context, m StoredMail) (int64, error)

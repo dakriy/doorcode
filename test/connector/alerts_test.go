@@ -72,17 +72,21 @@ func TestStoreKeepsEachAlertConditionByKindAndSubject(t *testing.T) {
 				store.PutAlertCondition(ctx, connector.StoredCondition{Kind: "held_open", Subject: "door 1", Active: true, Mailed: true, ChangedAt: alertsStart}),
 				store.PutAlertCondition(ctx, connector.StoredCondition{Kind: "held_open", Subject: "door 2", Active: true, ChangedAt: alertsStart}),
 				store.PutAlertCondition(ctx, connector.StoredCondition{Kind: "forced_open", Subject: "door 1", Active: true, ChangedAt: alertsStart}),
-				store.PutAlertCondition(ctx, connector.StoredCondition{Kind: "held_open", Subject: "door 1", ChangedAt: later}),
+				store.PutAlertCondition(ctx, connector.StoredCondition{Kind: "held_open", Subject: "door 1", Mailed: true, ChangedAt: later}),
+				store.PutAlertCondition(ctx, connector.StoredCondition{Kind: "offline", Subject: "door 1", Active: true, Owed: true, ChangedAt: alertsStart,
+					Name: "Lobby", Detail: "Not connected."}),
 			}
 			one, oneHeld, oneErr := store.AlertCondition(ctx, "held_open", "door 1")
 			other, otherHeld, otherErr := store.AlertCondition(ctx, "forced_open", "door 1")
+			owed, owedHeld, owedErr := store.AlertCondition(ctx, "offline", "door 1")
 
 			want := []any{
-				connector.StoredCondition{}, false, nil, []error{nil, nil, nil, nil},
-				connector.StoredCondition{Kind: "held_open", Subject: "door 1", ChangedAt: later}, true, nil,
+				connector.StoredCondition{}, false, nil, []error{nil, nil, nil, nil, nil},
+				connector.StoredCondition{Kind: "held_open", Subject: "door 1", Mailed: true, ChangedAt: later}, true, nil,
 				connector.StoredCondition{Kind: "forced_open", Subject: "door 1", Active: true, ChangedAt: alertsStart}, true, nil,
+				connector.StoredCondition{Kind: "offline", Subject: "door 1", Active: true, Owed: true, ChangedAt: alertsStart, Name: "Lobby", Detail: "Not connected."}, true, nil,
 			}
-			got := []any{none, noneHeld, noneErr, errs, one, oneHeld, oneErr, other, otherHeld, otherErr}
+			got := []any{none, noneHeld, noneErr, errs, one, oneHeld, oneErr, other, otherHeld, otherErr, owed, owedHeld, owedErr}
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("none, one, other (-want +got):\n%s", diff)
 			}
@@ -116,6 +120,37 @@ func TestStoreListsTheActiveAlertConditionsByKindAndSubject(t *testing.T) {
 			}, nil}
 			if diff := cmp.Diff(want, []any{none, noneErr, active, err}); diff != "" {
 				t.Errorf("none, error, active, error (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestStoreListsTheAlertConditionsOwedMailByKindAndSubject(t *testing.T) {
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			store := migrated(t, impl)
+			ctx := context.Background()
+			none, noneErr := store.OwedAlertConditions(ctx)
+			for _, c := range []connector.StoredCondition{
+				{Kind: "offline", Subject: "door 2", Active: true, Owed: true, ChangedAt: alertsStart, Name: "Lobby"},
+				{Kind: "held_open", Subject: "door 1", Active: true, Mailed: true, ChangedAt: alertsStart},
+				{Kind: "offline", Subject: "door 10", Active: true, Owed: true, ChangedAt: alertsStart},
+				{Kind: "certificate", Subject: "a:443 chain", Owed: true, ChangedAt: alertsStart, Detail: "Changed."},
+			} {
+				if err := store.PutAlertCondition(ctx, c); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			owed, err := store.OwedAlertConditions(ctx)
+
+			want := []any{[]connector.StoredCondition{}, nil, []connector.StoredCondition{
+				{Kind: "certificate", Subject: "a:443 chain", Owed: true, ChangedAt: alertsStart, Detail: "Changed."},
+				{Kind: "offline", Subject: "door 10", Active: true, Owed: true, ChangedAt: alertsStart},
+				{Kind: "offline", Subject: "door 2", Active: true, Owed: true, ChangedAt: alertsStart, Name: "Lobby"},
+			}, nil}
+			if diff := cmp.Diff(want, []any{none, noneErr, owed, err}); diff != "" {
+				t.Errorf("none, error, owed, error (-want +got):\n%s", diff)
 			}
 		})
 	}

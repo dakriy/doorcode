@@ -50,18 +50,30 @@ func (s *Store) PutAlertCondition(_ context.Context, c connector.StoredCondition
 // ActiveAlertConditions returns every active condition by kind and
 // subject.
 func (s *Store) ActiveAlertConditions(_ context.Context) ([]connector.StoredCondition, error) {
+	return s.conditionsWhere(func(c connector.StoredCondition) bool { return c.Active }), nil
+}
+
+// OwedAlertConditions returns every condition whose raise mail is owed,
+// by kind and subject.
+func (s *Store) OwedAlertConditions(_ context.Context) ([]connector.StoredCondition, error) {
+	return s.conditionsWhere(func(c connector.StoredCondition) bool { return c.Owed }), nil
+}
+
+// conditionsWhere is the conditions kept that keep says to keep, by kind
+// and subject.
+func (s *Store) conditionsWhere(keep func(connector.StoredCondition) bool) []connector.StoredCondition {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := []connector.StoredCondition{}
 	for _, c := range s.conditions {
-		if c.Active {
+		if keep(c) {
 			out = append(out, c)
 		}
 	}
 	slices.SortFunc(out, func(a, b connector.StoredCondition) int {
 		return cmp.Or(strings.Compare(a.Kind, b.Kind), strings.Compare(a.Subject, b.Subject))
 	})
-	return out, nil
+	return out
 }
 
 // AddMail stores m in the outbox and returns its id.

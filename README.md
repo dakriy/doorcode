@@ -545,8 +545,9 @@ your account has no email address mail can be sent to.
 The Alerts page (`/admin/alerts`, administrators, under Site in the
 navigation) turns each kind of alert on or off, sets whom alerts mail
 (`alert_recipients`) and when (`alert_mail_cleared`,
-`alert_hold_down_minutes`), and lists the newest alert mail with its status,
-attempts, and last error. `GET /api/v1/alerts` reads the same, and
+`alert_hold_down_minutes`), lists every condition raised now with what
+became of its mail (Raised now), and lists the newest alert mail with its
+status, attempts, and last error. `GET /api/v1/alerts` reads the same, and
 `PUT /api/v1/alerts/kinds/{kind}` with `{"enabled": true}` turns a kind on;
 the settings API changes the settings.
 
@@ -570,20 +571,36 @@ raised or cleared up to a minute after they changed; `forced_open` and
 its conditions as they were.
 
 Every kind is off until it is turned on, and nothing is mailed while
-`alert_recipients` is empty. A condition is followed per door whether or not
-its kind is on: it mails the recipients once when raised and, while
-`alert_mail_cleared` is on, once more when it clears, if its raise was mailed
-and its kind is still on. A condition that is raised again less than
-`alert_hold_down_minutes` after it cleared is followed without mail, and so
-is its clearing.
+`alert_recipients` is empty or mail is not set up (`mail_host` or
+`mail_from` empty). A condition is followed per door whether or not its
+kind is on, and is listed under Raised now while it holds: it mails the
+recipients once when raised and, while `alert_mail_cleared` is on, once
+more when it clears, if its raise was mailed and its kind is still on. A
+condition that is raised again less than `alert_hold_down_minutes` after a
+mailed raise cleared is followed without mail, and so is its clearing.
+
+A raise that cannot be mailed when it happens, because its kind is off, no
+recipient is given, or mail is not set up, is not counted as mailed: it is
+listed as waiting, and once all three allow it (looked at by the mail
+delivery loop the next time it runs, and at once after the Alerts page, a
+kind, or a setting is saved), its raise mail is sent then, once, if the
+condition is still raised, giving the time it was raised. A condition that
+clears before that sends nothing, neither its raise nor its clearing, and
+holds nothing down: it mails at once if it is raised again. A chain change
+of the `certificate` kind that happens while the kind is on but no
+recipient is given or mail is not set up is kept the same way and mailed
+once, saying when it happened; one that happens while the kind is off is
+never mailed.
 
 Alert mail goes through the Mail settings as they are when it is sent. It is
 put in an outbox in the database and sent by a background loop beside the
 door handling, so a slow, failing, or missing mail server never delays a
-door. A message the server does not take, or that waits while mail is not
-set up, is tried again 1, 2, 4, 8, and 16 minutes after its first, second,
-third, fourth, and fifth failed attempts, and is marked failed, with the
-last error, when its sixth attempt fails.
+door. While mail is not set up, nothing in the outbox is tried: a message
+keeps its attempts, shows as waiting for mail to be set up, and goes out
+once it is. A message a configured mail server does not take is tried
+again 1, 2, 4, 8, and 16 minutes after its first, second, third, fourth,
+and fifth failed attempts, and is marked failed, with the last error, when
+its sixth attempt fails.
 
 ### Certificate check
 
