@@ -89,7 +89,7 @@ var settingRows = map[string]struct{ section, label, help string }{
 	"password_min_length":             {"Accounts and passwords", "Shortest password", "How many characters a password chosen in the portal or set by an administrator has at least, from 8 to 128."},
 	"new_user_expiry_days":            {"Accounts and passwords", "New account lifetime", "Days until the account of a user created by signing in at the provider expires."},
 	"oidc_enabled":                    {"Single sign-on", "Single sign-on enabled", "Offers signing in at the provider set up here, beside signing in with a password."},
-	"oidc_auto_sign_in":               {"Single sign-on", "Automatic sign-in", "Sends the sign-in page straight on to the provider and hides the password forms; add ?auto_sign_in=false to reach the sign-in form. Administrators keep the form for changing their own password."},
+	"oidc_auto_sign_in":               {"Single sign-on", "Automatic sign-in", "Sends the sign-in page straight on to the provider and hides the password forms; add ?auto_sign_in=false to reach the sign-in form. Administrators, and anyone who signed in with a password, keep the form for changing their own password."},
 	"oidc_issuer":                     {"Single sign-on", "Issuer", "The provider's https:// address, exactly as it names itself."},
 	"oidc_client_id":                  {"Single sign-on", "Client id", "The id the site is registered with at the provider."},
 	"oidc_client_secret":              {"Single sign-on", "Client secret", "The secret the site is registered with, if the provider gave one."},

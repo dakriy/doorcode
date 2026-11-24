@@ -417,9 +417,13 @@ memberships alone apart from those joins on first sign-in.
 
 When *auto sign-in* is on, visiting the sign-in page redirects to the
 provider unless `auto_sign_in=false` is in the query string, and the
-self-service password form is hidden from everyone but holders of the
-`admin` role, who still change their own password there, giving the
-current one.
+self-service password form (the portal's Password page, its navigation
+link and home card, and `PUT /api/v1/me/password`) is hidden from and
+refused to everyone except holders of the `admin` role and people whose
+session began with a password rather than at the provider; they still
+change their own password there, giving the current one. A call with an
+API token counts as no such session, so it is refused unless the token's
+user holds `admin`. Sessions record whether they began at the provider.
 
 Someone who manages users can set or remove another user's local password
 from the user's page or with `PUT` and `DELETE /api/v1/users/{id}/password`,

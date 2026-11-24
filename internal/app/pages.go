@@ -481,7 +481,7 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, status int, page *t
 		Viewer:    viewer,
 		IsAdmin:   viewer != nil && viewer.Has(auth.RoleAdmin),
 		Portal:    inPortal(r.URL.Path),
-		Passwords: !current.OIDC.HidesPasswordForms(viewer != nil && viewer.Has(auth.RoleAdmin)),
+		Passwords: viewer != nil && !viewer.PasswordFormsHidden(current.OIDC),
 		Flash:     a.takeFlash(w, r),
 		Logo:      logo,
 		Theme:     current.Theme,

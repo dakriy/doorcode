@@ -17,20 +17,20 @@ var ErrPasswordsHidden = errors.New("passwords are not used here; everyone signs
 // maxPasswordLength is the most characters a chosen password may have.
 const maxPasswordLength = 1024
 
-// ChoosePassword makes chosen the password of the user whose id is id. A
-// user who has a password already must give it as current. Neither is
-// trimmed.
-func (s Service) ChoosePassword(ctx context.Context, id int64, current, chosen string) error {
+// ChoosePassword makes chosen the password of viewer, refused when the
+// password forms are hidden from them. A user who has a password already
+// must give it as current. Neither is trimmed.
+func (s Service) ChoosePassword(ctx context.Context, viewer User, current, chosen string) error {
 	c, err := s.Settings.Current(ctx)
 	if err != nil {
 		return err
 	}
-	u, _, err := s.Store.User(ctx, id)
+	if viewer.PasswordFormsHidden(c.OIDC) {
+		return ErrPasswordsHidden
+	}
+	u, _, err := s.Store.User(ctx, viewer.ID)
 	if err != nil {
 		return err
-	}
-	if c.OIDC.HidesPasswordForms(UserOf(u).Has(RoleAdmin)) {
-		return ErrPasswordsHidden
 	}
 	var problems check.List
 	if u.PasswordHash != nil && !passwordMatches(*u.PasswordHash, current) {
@@ -41,7 +41,7 @@ func (s Service) ChoosePassword(ctx context.Context, id int64, current, chosen s
 		return err
 	}
 	hash := hashPassword(chosen, s.Entropy.Bytes(saltBytes), c.PasswordHashMemoryKiB)
-	_, err = s.Store.SetPasswordHash(ctx, id, &hash)
+	_, err = s.Store.SetPasswordHash(ctx, viewer.ID, &hash)
 	return err
 }
 

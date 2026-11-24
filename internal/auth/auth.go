@@ -81,8 +81,18 @@ type User struct {
 	ID          int64
 	Email       string
 	DisplayName string
+	// ByPassword is true when u is signed in by a session that began with
+	// their password, false for one that began at the identity provider
+	// and for an API token.
+	ByPassword bool
 	// groups are the groups u is a member of; their roles are u's.
 	groups []connector.UserGroup
+}
+
+// PasswordFormsHidden reports whether o hides the password forms from u,
+// as o.HidesPasswordForms decides for u's roles and sign-in.
+func (u User) PasswordFormsHidden(o settings.OIDC) bool {
+	return o.HidesPasswordForms(u.Has(RoleAdmin), u.ByPassword)
 }
 
 // Has reports whether u holds role: whether one of u's groups carries it or
@@ -218,7 +228,9 @@ func (s Service) Authenticate(ctx context.Context, token string) (User, bool, er
 	if err != nil {
 		return User{}, false, err
 	}
-	return s.admit(u, found, &session.ExpiresAt)
+	user, ok, err := s.admit(u, found, &session.ExpiresAt)
+	user.ByPassword = !session.ViaIdentity
+	return user, ok, err
 }
 
 // admit returns u as a signed-in user when the credential that names u was

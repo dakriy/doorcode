@@ -458,3 +458,65 @@ func TestSettingAPasswordWhenTheStoreFailsAnswersWithARequestID(t *testing.T) {
 		})
 	}
 }
+
+// adminClaims is what the provider says about the first administrator,
+// keeping them in Administrators.
+func adminClaims() map[string]any {
+	return map[string]any{"sub": "admin-sub", "email": adminEmail, "email_verified": true, "name": "Administrator", "groups": []any{"administrators"}}
+}
+
+func TestUnderAutoSignInTheOwnPasswordFormIsHiddenFromAProviderSession(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	h, _ := providerSite(t, f)
+	ann, _ := viaProvider(t, f, h, annClaims())
+	f.EnvStub["DOORCODE_OIDC_AUTO_SIGN_IN"] = "true"
+
+	home := pageOf(ann.Get("/"))
+	page := pageOf(ann.Get("/me/password"))
+	posted := ann.Post("/me/password", "new_password", setPassword, "confirm_password", setPassword)
+	throughAPI := ann.PutJSON("/api/v1/me/password", `{"new_password":"`+setPassword+`"}`)
+
+	cards := homeCards(false, "")
+	delete(cards, "Password")
+	want := []any{hiddenPasswordPage, cards, 403, hiddenPasswordPage, 403, "passwords are not used here; everyone signs in with single sign-on"}
+	got := []any{page, home.Details, posted.Status, pageOf(posted),
+		throughAPI.Status, testsupport.JSONString(throughAPI.Body, "/error")}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("page, home card, posting, the API (-want +got):\n%s", diff)
+	}
+}
+
+func TestUnderAutoSignInAnAdministratorKeepsTheOwnPasswordFormAfterSigningInAtTheProvider(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	h, _ := providerSite(t, f)
+	admin, _ := viaProvider(t, f, h, adminClaims())
+	f.EnvStub["DOORCODE_OIDC_AUTO_SIGN_IN"] = "true"
+
+	page := pageOf(admin.Get("/me/password"))
+	changed := admin.Post("/me/password", "current_password", adminPassword(t, f), "new_password", setPassword, "confirm_password", setPassword)
+
+	want := []any{[]string{lengthNote}, 303, 303}
+	if diff := cmp.Diff(want, []any{page.Notes, changed.Status, signsIn(admin, adminEmail, setPassword)}); diff != "" {
+		t.Errorf("the page's notes, changing, signing in (-want +got):\n%s", diff)
+	}
+}
+
+func TestUnderAutoSignInAnAPITokenChangesItsOwnersPasswordOnlyForAnAdministrator(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	autoSignIn(f)
+	h, b := annWithPassword(t, f)
+	adminToken := tokenClient(h, createToken(t, b, `{"name":"admin"}`))
+	annToken := userToken(t, h, b, "2")
+
+	byAdmin := adminToken.PutJSON("/api/v1/me/password", `{"current_password":"`+adminPassword(t, f)+`","new_password":"`+anotherPassword+`"}`)
+	byAnn := annToken.PutJSON("/api/v1/me/password", `{"current_password":"`+setPassword+`","new_password":"`+anotherPassword+`"}`)
+
+	want := []any{204, 303, 403, 303}
+	got := []any{byAdmin.Status, signsIn(b, adminEmail, anotherPassword), byAnn.Status, signsIn(b, annEmail, setPassword)}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("the administrator's token, signing in; ann's token, signing in with her old password (-want +got):\n%s", diff)
+	}
+}

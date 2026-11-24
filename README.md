@@ -413,7 +413,7 @@ page folds away the single sign-on and identity claims parts while
 | `password_min_length` | The shortest password chosen in the portal or set by an administrator, 8 to 128 characters. | `12` |
 | `new_user_expiry_days` | Days until an account created by signing in at the provider expires. | `1826` |
 | `oidc_enabled` | Single sign-on through an OpenID Connect provider, `true` or `false`. | `false` |
-| `oidc_auto_sign_in` | `true` sends the sign-in page straight to the provider and hides the password forms (`?auto_sign_in=false` reaches the sign-in form); holders of the `admin` role keep the portal form for changing their own password. | `false` |
+| `oidc_auto_sign_in` | `true` sends the sign-in page straight to the provider and hides the password forms (`?auto_sign_in=false` reaches the sign-in form); holders of the `admin` role, and anyone whose session began with a password, keep the portal form for changing their own password. | `false` |
 | `oidc_issuer` | The provider's `https://` issuer, exactly as it names itself. | empty |
 | `oidc_client_id` | The id the site is registered with at the provider. | empty |
 | `oidc_client_secret` | The client secret, if the provider gave one. Secret: stored encrypted. | empty |

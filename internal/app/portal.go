@@ -108,7 +108,7 @@ func (a *App) portalRoutes() []route {
 			responses: []openapi.Response{
 				{Status: http.StatusNoContent, Description: "You sign in with the new password from now on."},
 				{Status: http.StatusBadRequest, Description: "The body is not a JSON password request, the current password is wrong, or the new one is too short or too long.", Body: errorBody{}},
-				{Status: http.StatusForbidden, Description: "Auto sign-in sends everyone to single sign-on here, and only holders of the admin role choose their own password.", Body: errorBody{}},
+				{Status: http.StatusForbidden, Description: "Auto sign-in sends everyone to single sign-on here, and the caller neither holds the admin role nor is signed in by a session that began with their password; an API token counts as no such session.", Body: errorBody{}},
 			},
 		}),
 		apiRoute(http.MethodGet, "/me/access", signedInUser, a.getOwnAccess, apiDoc{
@@ -195,7 +195,7 @@ func (a *App) setOwnPassword(w http.ResponseWriter, r *http.Request, caller auth
 	if !readJSON(w, r, &body, `a JSON object with a string "new_password"`) {
 		return
 	}
-	a.portalDone(w, r, a.auth.ChoosePassword(r.Context(), caller.ID, body.CurrentPassword, body.NewPassword))
+	a.portalDone(w, r, a.auth.ChoosePassword(r.Context(), caller, body.CurrentPassword, body.NewPassword))
 }
 
 // viewOfPortalDoor is d with its times in zone.

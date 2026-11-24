@@ -233,7 +233,7 @@ type userContent struct {
 func freshUser(u connector.StoredUser, current settings.Current) userContent {
 	return userContent{
 		Form: formOfUser(u, current.Zone), TokenForm: tokenForm{Expiry: defaultTokenExpiry},
-		MinLength: current.PasswordMinLength, AutoSignIn: current.OIDC.HidesPasswordForms(false), zone: current.Zone,
+		MinLength: current.PasswordMinLength, AutoSignIn: current.OIDC.HidesPasswordForms(false, false), zone: current.Zone,
 	}
 }
 

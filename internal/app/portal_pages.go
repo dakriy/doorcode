@@ -264,7 +264,7 @@ func (a *App) renderPassword(w http.ResponseWriter, r *http.Request, status int,
 		return
 	}
 	content := passwordContent{
-		Hidden: current.OIDC.HidesPasswordForms(viewer.Has(auth.RoleAdmin)), Current: u.PasswordHash != nil, MinLength: current.PasswordMinLength, Errors: errs,
+		Hidden: viewer.PasswordFormsHidden(current.OIDC), Current: u.PasswordHash != nil, MinLength: current.PasswordMinLength, Errors: errs,
 	}
 	a.render(w, r, status, passwordTemplate, "Password", &viewer, content)
 }
@@ -275,7 +275,7 @@ func (a *App) setPasswordFromPortal(w http.ResponseWriter, r *http.Request, view
 		a.renderPassword(w, r, http.StatusUnprocessableEntity, viewer, map[string]string{"confirm_password": "The passwords do not match. Type the new one twice."})
 		return
 	}
-	err := a.auth.ChoosePassword(r.Context(), viewer.ID, r.PostFormValue("current_password"), chosen)
+	err := a.auth.ChoosePassword(r.Context(), viewer, r.PostFormValue("current_password"), chosen)
 	if errs, rejected := fieldErrors(err); rejected {
 		a.renderPassword(w, r, http.StatusUnprocessableEntity, viewer, errs)
 		return

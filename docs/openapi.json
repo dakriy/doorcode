@@ -6089,7 +6089,7 @@
             }
           },
           "403": {
-            "description": "Auto sign-in sends everyone to single sign-on here, and only holders of the admin role choose their own password.",
+            "description": "Auto sign-in sends everyone to single sign-on here, and the caller neither holds the admin role nor is signed in by a session that began with their password; an API token counts as no such session.",
             "content": {
               "application/json": {
                 "schema": {

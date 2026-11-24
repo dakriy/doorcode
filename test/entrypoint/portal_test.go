@@ -257,25 +257,33 @@ func autoSignIn(f *testsupport.Factory) {
 	f.EnvStub["DOORCODE_OIDC_AUTO_SIGN_IN"] = "true"
 }
 
-func TestThePasswordFormIsOfferedUnlessEveryoneSignsInAtTheProvider(t *testing.T) {
+func TestUnderAutoSignInAPasswordSessionKeepsThePasswordForm(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	_, ann := portalSite(t, f)
-	offered := ann.Get("/me/password")
 	autoSignIn(f)
 
-	hidden := ann.Get("/me/password")
+	page := pageOf(ann.Get("/me/password"))
+	home := pageOf(ann.Get("/"))
 	posted := ann.Post("/me/password", "current_password", portalPassword, "new_password", "a new and longer one", "confirm_password", "a new and longer one")
+	throughAPI := ann.PutJSON("/api/v1/me/password", `{"current_password":"a new and longer one","new_password":"another new and longer one"}`)
 
 	withForm := testsupport.Page{Title: "Password · doorcode", Heading: "Password", Nav: portalNav("Password"), Notes: []string{lengthNote}}
-	without := testsupport.Page{
-		Title: "Password · doorcode", Heading: "Password",
-		Nav:   []string{"Home", "Doors: Door code", "Doors: Access", "Doors: Entries", "Doors: Requests", "Account: API tokens", "Account: API docs"},
-		Notes: []string{"Everyone signs in to this site with single sign-on, so it has no password for you to change. Change your password with your organization’s identity provider instead."},
+	signedIn := ann.Another().Post("/sign-in", "email", annEmail, "password", "another new and longer one")
+
+	want := []any{withForm, homeCards(false, ""), portalNav("Home"), 303, 204, 303}
+	got := []any{page, home.Details, home.Nav, posted.Status, throughAPI.Status, signedIn.Status}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("page, home card, navigation link, changing from the page and the API, signing in (-want +got):\n%s", diff)
 	}
-	if diff := cmp.Diff([]any{withForm, without, 403, without}, []any{pageOf(offered), pageOf(hidden), posted.Status, pageOf(posted)}); diff != "" {
-		t.Errorf("offered, hidden, posting while hidden (-want +got):\n%s", diff)
-	}
+}
+
+// hiddenPasswordPage is the password page of a portal user from whom auto
+// sign-in hides the form.
+var hiddenPasswordPage = testsupport.Page{
+	Title: "Password · doorcode", Heading: "Password",
+	Nav:   []string{"Home", "Doors: Door code", "Doors: Access", "Doors: Entries", "Doors: Requests", "Account: API tokens", "Account: API docs"},
+	Notes: []string{"Everyone signs in to this site with single sign-on, so it has no password for you to change. Change your password with your organization’s identity provider instead."},
 }
 
 func TestChangingThePasswordFromThePortalSignsInWithTheNewOne(t *testing.T) {
@@ -1056,18 +1064,12 @@ func TestHomeAsksAUserWithoutACodeToChooseOne(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	_, ann := portalSite(t, f)
-	offered := pageOf(ann.Get("/"))
-	autoSignIn(f)
 
-	hidden := pageOf(ann.Get("/"))
+	offered := pageOf(ann.Get("/"))
 
 	note := []string{"You have no door code yet. Choose one to open the doors your groups give you."}
-	withoutPassword := homeCards(false, "")
-	delete(withoutPassword, "Password")
-	got := []any{offered.Notes, offered.Details, hidden.Details, hidden.Nav}
-	want := []any{note, homeCards(false, ""), withoutPassword, []string{"Home (current)", "Doors: Door code", "Doors: Access", "Doors: Entries", "Doors: Requests", "Account: API tokens", "Account: API docs"}}
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("notes and cards, cards and navigation under auto sign-in (-want +got):\n%s", diff)
+	if diff := cmp.Diff([]any{note, homeCards(false, "")}, []any{offered.Notes, offered.Details}); diff != "" {
+		t.Errorf("notes and cards (-want +got):\n%s", diff)
 	}
 }
 
