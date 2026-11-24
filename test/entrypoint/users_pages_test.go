@@ -39,12 +39,54 @@ func TestUsersPageListsUsersWithTheirGroupsAndStatus(t *testing.T) {
 			usersHead,
 			{"Administrator", "admin@example.com", "", "Administrators, Night", "Active"},
 			{"Ann Smith", "ann@example.com", "100234", "", "Active"},
-			{"Bo", "bo@example.com", "", "", "Expired"},
-			{"Showing 1 to 3 of 3"},
+			{"Showing 1 to 2 of 2"},
 		}},
 	}
 	if diff := cmp.Diff(want, pageOf(got)); diff != "" {
 		t.Errorf("page (-want +got):\n%s", diff)
+	}
+}
+
+// expiringUsers is a browser signed in as the administrator after creating
+// Ends, whose account expires at the stub clock's now, Goes, whose account
+// expires a second later, and Gone, whose account expired before and who is
+// deleted.
+func expiringUsers(t *testing.T) *testsupport.Browser {
+	t.Helper()
+	b := signedInAdmin(t, testsupport.NewFactory())
+	createUser(t, b, `{"email":"ends@example.com","display_name":"Ends","expires_at":"2026-01-05T09:00:00Z"}`)
+	createUser(t, b, `{"email":"goes@example.com","display_name":"Goes","expires_at":"2026-01-05T09:00:01Z"}`)
+	createUser(t, b, `{"email":"gone@example.com","display_name":"Gone","expires_at":"2026-01-01T00:00:00Z"}`)
+	send(t, b, "DELETE", "/api/v1/users/4", "", 204)
+	return b
+}
+
+func TestUsersPageListsExpiredUsersApartFromCurrentOnes(t *testing.T) {
+	t.Parallel()
+	current := [][]string{usersHead, {"Administrator", "admin@example.com", "", "Administrators", "Active"},
+		{"Goes", "goes@example.com", "", "", "Active"}, {"Showing 1 to 2 of 2"}}
+	currentChosen := []string{"Current users (selected)", "Expired users", "Deleted users"}
+	cases := map[string]struct {
+		query   string
+		rows    [][]string
+		options []string
+	}{
+		"current by default": {query: "", rows: current, options: currentChosen},
+		"current":            {query: "?show=current", rows: current, options: currentChosen},
+		"an unknown show":    {query: "?show=all", rows: current, options: currentChosen},
+		"expired": {query: "?show=expired", options: []string{"Current users", "Expired users (selected)", "Deleted users"},
+			rows: [][]string{usersHead, {"Ends", "ends@example.com", "", "", "Expired"}, {"Showing 1 to 1 of 1"}}},
+		"deleted": {query: "?show=deleted", options: []string{"Current users", "Expired users", "Deleted users (selected)"},
+			rows: [][]string{usersHead, {"Gone", "gone@example.com", "", "", "Deleted"}, {"Showing 1 to 1 of 1"}}},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			got := testsupport.ParsePage(expiringUsers(t).Get("/admin/users" + c.query).Body)
+
+			if diff := cmp.Diff([]any{c.rows, c.options}, []any{got.Tables["Users"], got.Options["show"]}); diff != "" {
+				t.Errorf("table and show options (-want +got):\n%s", diff)
+			}
+		})
 	}
 }
 
@@ -78,6 +120,7 @@ func TestUsersPageSaysWhyItIsEmpty(t *testing.T) {
 		"?q=nobody":         "No users match this search.",
 		"?show=deleted":     "No users are deleted.",
 		"?q=x&show=deleted": "No users match this search.",
+		"?show=expired":     "No users are expired.",
 		"?page=2":           "This page is past the last one.",
 	}
 	for query, message := range cases {
@@ -120,6 +163,13 @@ func TestUsersPageIsPaged(t *testing.T) {
 			send(t, b, "DELETE", "/api/v1/users/"+testsupport.Itoa(i), "", 204)
 		}
 	}
+	expireAll := func(t *testing.T, b *testsupport.Browser) {
+		for i := 2; i <= 31; i++ {
+			n := testsupport.Itoa((i-1)/10) + testsupport.Itoa((i-1)%10)
+			send(t, b, "PUT", "/api/v1/users/"+testsupport.Itoa(i),
+				`{"email":"user`+n+`@example.com","display_name":"User `+n+`","expires_at":"2026-01-05T09:00:00Z"}`, 200)
+		}
+	}
 	cases := map[string]struct {
 		query   string
 		arrange func(t *testing.T, b *testsupport.Browser)
@@ -133,6 +183,8 @@ func TestUsersPageIsPaged(t *testing.T) {
 			want: []any{25, "Administrator", "User 24", "Showing 1 to 25 of 31", []string{"Next"}, []string{"/admin/users?page=2"}}},
 		"a search": {query: "?q=user+&show=current",
 			want: []any{25, "User 01", "User 25", "Showing 1 to 25 of 30", []string{"Next"}, []string{"/admin/users?page=2&q=user+"}}},
+		"expired": {query: "?show=expired&page=2", arrange: expireAll,
+			want: []any{5, "User 26", "User 30", "Showing 26 to 30 of 30", []string{"Previous"}, []string{"/admin/users?page=1&show=expired"}}},
 		"deleted": {query: "?show=deleted&page=2", arrange: deleteAll,
 			want: []any{5, "User 26", "User 30", "Showing 26 to 30 of 30", []string{"Previous"}, []string{"/admin/users?page=1&show=deleted"}}},
 	}

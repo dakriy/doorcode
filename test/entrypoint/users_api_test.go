@@ -159,11 +159,49 @@ func TestUserListQueryIsChecked(t *testing.T) {
 		t.Run(query, func(t *testing.T) {
 			got := signedInAdmin(t, testsupport.NewFactory()).Get("/api/v1/users" + query)
 
-			want := apiError(400, "page must be a whole number from 1, per_page one from 1 to 200, and show current or deleted")
+			want := apiError(400, "page must be a whole number from 1, per_page one from 1 to 200, and show current, expired, or deleted")
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("response (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestUserListShowsExpiredUsersApartFromCurrentOnes(t *testing.T) {
+	t.Parallel()
+	cases := map[string]struct {
+		query string
+		want  string
+	}{
+		"current by default": {query: "", want: `{"names":["Administrator","Goes"],"total":2}`},
+		"current":            {query: "?show=current", want: `{"names":["Administrator","Goes"],"total":2}`},
+		"expired":            {query: "?show=expired", want: `{"names":["Ends"],"total":1}`},
+		"deleted":            {query: "?show=deleted", want: `{"names":["Gone"],"total":1}`},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			got := expiringUsers(t).Get("/api/v1/users" + c.query)
+
+			names := []any{}
+			for i := 0; testsupport.JSONAt(got.Body, "/users/"+testsupport.Itoa(i)) != nil; i++ {
+				names = append(names, testsupport.JSONAt(got.Body, "/users/"+testsupport.Itoa(i)+"/display_name"))
+			}
+			gotPage := map[string]any{"names": names, "total": testsupport.JSONAt(got.Body, "/total")}
+			if diff := cmp.Diff(testsupport.JSON(c.want), any(gotPage)); diff != "" {
+				t.Errorf("names and total (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestTheUserSearchFindsExpiredUsers(t *testing.T) {
+	t.Parallel()
+	got := expiringUsers(t).Get("/api/v1/users/search?q=e")
+
+	want := `{"users":[{"id":1,"name":"Administrator","email":"admin@example.com"},{"id":2,"name":"Ends","email":"ends@example.com"},` +
+		`{"id":3,"name":"Goes","email":"goes@example.com"}],"total":3}`
+	if diff := cmp.Diff(testsupport.JSON(want), testsupport.JSON(got.Body)); diff != "" {
+		t.Errorf("users found (-want +got):\n%s", diff)
 	}
 }
 

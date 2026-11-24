@@ -288,6 +288,45 @@ func TestStoreListsAPageOfUsers(t *testing.T) {
 	}
 }
 
+func TestStoreListsUsersByWhetherTheirAccountHasExpired(t *testing.T) {
+	now := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
+	later, earlier := now.Add(time.Second), now.Add(-time.Hour)
+	cases := map[string]struct {
+		query connector.UserQuery
+		ids   []int64
+		total int
+	}{
+		"any expiry":           {query: connector.UserQuery{Expiry: connector.AnyExpiry, Now: now, Limit: 10}, ids: []int64{1, 2, 3}, total: 3},
+		"unexpired":            {query: connector.UserQuery{Expiry: connector.Unexpired, Now: now, Limit: 10}, ids: []int64{1, 3}, total: 2},
+		"expired, at now too":  {query: connector.UserQuery{Expiry: connector.Expired, Now: now, Limit: 10}, ids: []int64{2}, total: 1},
+		"expired and deleted":  {query: connector.UserQuery{Deleted: true, Expiry: connector.Expired, Now: now, Limit: 10}, ids: []int64{4}, total: 1},
+		"unexpired, a page":    {query: connector.UserQuery{Expiry: connector.Unexpired, Now: now, Offset: 1, Limit: 1}, ids: []int64{3}, total: 2},
+		"unexpired at earlier": {query: connector.UserQuery{Expiry: connector.Unexpired, Now: earlier, Limit: 10}, ids: []int64{1, 2, 3}, total: 3},
+	}
+	for _, impl := range storeImpls {
+		for name, c := range cases {
+			t.Run(impl.name+"/"+name, func(t *testing.T) {
+				store := withAdmin(t, impl)
+				ends := person("ends@example.com", "Ends")
+				ends.ExpiresAt = &now
+				goes := person("goes@example.com", "Goes")
+				goes.ExpiresAt = &later
+				gone := person("gone@example.com", "Gone")
+				gone.ExpiresAt, gone.DeletedAt = &earlier, &earlier
+				for _, u := range []connector.StoredUser{ends, goes, gone} {
+					mustCreateUser(t, store, u)
+				}
+
+				got, total, err := store.Users(context.Background(), c.query)
+
+				if diff := cmp.Diff([]any{c.ids, c.total, "<nil>"}, []any{ids(got), total, testsupport.ErrorText(err)}); diff != "" {
+					t.Errorf("ids, total, error (-want +got):\n%s", diff)
+				}
+			})
+		}
+	}
+}
+
 func TestStoreListsUsersWithTheirGroups(t *testing.T) {
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {

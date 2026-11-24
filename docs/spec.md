@@ -484,7 +484,11 @@ goes back to its tab and a refused one shows on it, and the live parts
 reload from the tab they are on), zones (settings, then open-mode schedules, then doors:
 the doors chosen as chips, each with a × that removes it, and a search by
 name or location listing at most 10 doors to add; without script every
-door is a checkbox in a folded list), users (list, detail with door code
+door is a checkbox in a folded list), users (list with a search and a
+show filter: current users, neither deleted nor expired; expired users,
+not deleted and with an expiry at or before now, the same moment sign-in
+refuses them; or deleted users; as `GET /api/v1/users?show=` `current`
+(the default), `expired`, or `deleted`; detail with door code
 and sign-in password cards, groups, access calendar per door, events), groups (list with role badges, detail with
 a settings card (name, slug, description, and pre-assigned user ids while
 sign-in reads a user id claim, otherwise only how many the group keeps, if

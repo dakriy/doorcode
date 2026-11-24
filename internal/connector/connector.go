@@ -143,14 +143,31 @@ type UserGroup struct {
 // user id when they have one, first name, last name, and display name,
 // joined by single spaces, contain it ignoring case; an empty Search keeps
 // every user. Deleted selects the
-// deleted users instead of the others. The page skips Offset users and holds
-// at most Limit.
+// deleted users instead of the others. Expiry keeps users by whether their
+// account has expired at Now. The page skips Offset users and holds at most
+// Limit.
 type UserQuery struct {
 	Search  string
 	Deleted bool
+	Expiry  UserExpiry
+	Now     time.Time
 	Offset  int
 	Limit   int
 }
+
+// UserExpiry selects users by whether their account has expired at a
+// UserQuery's Now: an account whose ExpiresAt is at or before Now has
+// expired, and one with no ExpiresAt never expires.
+type UserExpiry int
+
+const (
+	// AnyExpiry keeps users whether or not their account has expired.
+	AnyExpiry UserExpiry = iota
+	// Unexpired keeps the users whose account has not expired.
+	Unexpired
+	// Expired keeps the users whose account has expired.
+	Expired
+)
 
 // UsersStore holds the users aggregate. Users are never removed; a deleted
 // user carries DeletedAt.

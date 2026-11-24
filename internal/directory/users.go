@@ -40,10 +40,12 @@ type Profile struct {
 	ExpiresAt *time.Time
 }
 
-// Query selects a page of users; Page counts from 1.
+// Query selects a page of users; Page counts from 1. Expiry keeps users by
+// whether their account has expired now.
 type Query struct {
 	Search  string
 	Deleted bool
+	Expiry  connector.UserExpiry
 	Page    int
 	PerPage int
 }
@@ -59,6 +61,8 @@ func (s Service) Users(ctx context.Context, q Query) (UserPage, error) {
 	users, total, err := s.Store.Users(ctx, connector.UserQuery{
 		Search:  strings.TrimSpace(q.Search),
 		Deleted: q.Deleted,
+		Expiry:  q.Expiry,
+		Now:     s.Clock.Now(),
 		Offset:  (q.Page - 1) * q.PerPage,
 		Limit:   q.PerPage,
 	})

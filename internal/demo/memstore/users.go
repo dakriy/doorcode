@@ -145,7 +145,7 @@ func (s *Store) UserByCodeHash(_ context.Context, hash string) (connector.Stored
 
 // selects reports whether q keeps u.
 func selects(q connector.UserQuery, u connector.StoredUser) bool {
-	if (u.DeletedAt != nil) != q.Deleted {
+	if (u.DeletedAt != nil) != q.Deleted || !keepsExpiry(q, u) {
 		return false
 	}
 	fields := []string{u.Email}
@@ -154,6 +154,19 @@ func selects(q connector.UserQuery, u connector.StoredUser) bool {
 	}
 	fields = append(fields, u.FirstName, u.LastName, u.DisplayName)
 	return contains(q.Search, fields...)
+}
+
+// keepsExpiry reports whether q's expiry keeps u.
+func keepsExpiry(q connector.UserQuery, u connector.StoredUser) bool {
+	expired := u.ExpiresAt != nil && !q.Now.Before(*u.ExpiresAt)
+	switch q.Expiry {
+	case connector.Unexpired:
+		return !expired
+	case connector.Expired:
+		return expired
+	default:
+		return true
+	}
 }
 
 // Users returns the page of users q selects and how many it selects.

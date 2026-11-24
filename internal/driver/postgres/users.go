@@ -22,10 +22,14 @@ func userFields(u *connector.StoredUser) []any {
 // userOrder is the order of users in every list.
 const userOrder = `order by lower(users.display_name) collate "C", users.id`
 
-// userFilter keeps the users a UserQuery selects; $1 is its search and $2
-// whether it selects deleted users.
+// userFilter keeps the users a UserQuery selects; $1 is its search, $2
+// whether it selects deleted users, $3 its expiry, and $4 its now.
 const userFilter = `(users.deleted_at is not null) = $2 and strpos(lower(concat_ws(' ',
-	users.email, users.user_id, users.first_name, users.last_name, users.display_name)), lower($1)) > 0`
+	users.email, users.user_id, users.first_name, users.last_name, users.display_name)), lower($1)) > 0
+	and case $3::integer
+		when 1 then users.expires_at is null or users.expires_at > $4
+		when 2 then users.expires_at <= $4
+		else true end`
 
 // CreateFirstUser inserts u, as a member of the group with groupSlug, when
 // the users table is empty. The table lock keeps two servers starting
@@ -112,12 +116,12 @@ func (s *Store) withGroups(ctx context.Context, u connector.StoredUser, err erro
 // Users returns the page of users q selects and how many it selects.
 func (s *Store) Users(ctx context.Context, q connector.UserQuery) ([]connector.StoredUser, int, error) {
 	var total int
-	err := s.pool.QueryRow(ctx, `select count(*) from users where `+userFilter, q.Search, q.Deleted).Scan(&total)
+	err := s.pool.QueryRow(ctx, `select count(*) from users where `+userFilter, q.Search, q.Deleted, q.Expiry, q.Now).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
 	rows, err := s.pool.Query(ctx, `select `+userColumns+` from users where `+userFilter+` `+userOrder+`
-		offset $3 limit $4`, q.Search, q.Deleted, q.Offset, q.Limit)
+		offset $5 limit $6`, q.Search, q.Deleted, q.Expiry, q.Now, q.Offset, q.Limit)
 	if err != nil {
 		return nil, 0, err
 	}

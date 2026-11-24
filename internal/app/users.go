@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -61,7 +62,7 @@ var (
 	userIDParam     = openapi.Param{Name: "id", In: "path", Description: "The user's id.", Example: int64(1)}
 	userQueryParams = []openapi.Param{
 		{Name: "q", In: "query", Description: "Keeps users whose email, user id, or names contain this text, ignoring case.", Example: "smith"},
-		{Name: "show", In: "query", Description: "current (the default) lists users who are not deleted; deleted lists those who are.", Example: "current"},
+		{Name: "show", In: "query", Description: "current (the default) lists users who are neither deleted nor expired; expired lists those whose account has expired and who are not deleted; deleted lists those who are deleted.", Example: "current"},
 		{Name: "page", In: "query", Description: "The page to return, from 1 (the default).", Example: 1},
 		{Name: "per_page", In: "query", Description: fmt.Sprintf("How many users a page holds, from 1 to %d; %d by default.", maxUsersAPIPer, usersPerPage), Example: usersPerPage},
 	}
@@ -92,7 +93,7 @@ func (a *App) userRoutes() []route {
 		}),
 		apiRoute(http.MethodGet, "/users/search", holding(auth.RoleManageUsers, auth.RoleViewLogs), a.searchUsers, apiDoc{
 			id: "searchUsers", summary: "Find users to filter by, as you type", tag: "users",
-			params:    []openapi.Param{{Name: "q", In: "query", Description: "Keeps current users whose email, user id, or names contain this text, ignoring case.", Example: "smith"}},
+			params:    []openapi.Param{{Name: "q", In: "query", Description: "Keeps users who are not deleted, expired ones included, whose email, user id, or names contain this text, ignoring case.", Example: "smith"}},
 			responses: []openapi.Response{{Status: http.StatusOK, Description: "The first matching users and how many match.", Body: userMatches{}}},
 		}),
 		apiRoute(http.MethodPost, "/users", users, a.createUser, apiDoc{
@@ -201,12 +202,12 @@ func queryNumber(r *http.Request, name string, fallback, low, high int) (int, bo
 func (a *App) listUsers(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	page, pageOK := queryNumber(r, "page", 1, 1, maxPage)
 	perPage, perPageOK := queryNumber(r, "per_page", usersPerPage, 1, maxUsersAPIPer)
-	show := r.URL.Query().Get("show")
-	if !pageOK || !perPageOK || (show != "" && show != showCurrent && show != showDeleted) {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("page must be a whole number from 1, per_page one from 1 to %d, and show current or deleted", maxUsersAPIPer))
+	q, showOK := userShows[cmp.Or(r.URL.Query().Get("show"), showCurrent)]
+	if !pageOK || !perPageOK || !showOK {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("page must be a whole number from 1, per_page one from 1 to %d, and show current, expired, or deleted", maxUsersAPIPer))
 		return
 	}
-	q := directory.Query{Search: r.URL.Query().Get("q"), Deleted: show == showDeleted, Page: page, PerPage: perPage}
+	q.Search, q.Page, q.PerPage = r.URL.Query().Get("q"), page, perPage
 	found, err := a.directory.Users(r.Context(), q)
 	if err != nil {
 		a.internalError(w, r, err)
@@ -215,8 +216,8 @@ func (a *App) listUsers(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	writeJSON(w, http.StatusOK, userList{Users: a.viewsOfUsers(found.Users), Total: found.Total, Page: page, PerPage: perPage})
 }
 
-// searchUsers answers with the first current users whose email, user id,
-// or names hold the text q, for a user filter that asks as you type.
+// searchUsers answers with the first users who are not deleted, expired
+// ones included, whose email, user id, or names hold the text q, for a user filter that asks as you type.
 func (a *App) searchUsers(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	found, err := a.directory.Users(r.Context(), directory.Query{Search: r.URL.Query().Get("q"), Page: 1, PerPage: userMatchCap})
 	if err != nil {
@@ -232,10 +233,19 @@ func (a *App) searchUsers(w http.ResponseWriter, r *http.Request, _ auth.User) {
 
 const (
 	showCurrent = "current"
+	showExpired = "expired"
 	showDeleted = "deleted"
 	// maxPage keeps the offset of a page far from overflowing.
 	maxPage = 1000000
 )
+
+// userShows is the users each value of a user list's show parameter
+// selects.
+var userShows = map[string]directory.Query{
+	showCurrent: {Expiry: connector.Unexpired},
+	showExpired: {Expiry: connector.Expired},
+	showDeleted: {Deleted: true},
+}
 
 // readUser reads a JSON user request as a profile.
 func readUser(w http.ResponseWriter, r *http.Request) (directory.Profile, bool) {

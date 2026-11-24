@@ -133,7 +133,7 @@ func (s *Store) Users(_ context.Context, q connector.UserQuery) ([]connector.Sto
 	}
 	var selected []connector.StoredUser
 	for _, u := range s.users {
-		if (u.DeletedAt != nil) == q.Deleted && strings.Contains(strings.ToLower(searchText(u)), strings.ToLower(q.Search)) {
+		if (u.DeletedAt != nil) == q.Deleted && keepsExpiry(q, u) && strings.Contains(strings.ToLower(searchText(u)), strings.ToLower(q.Search)) {
 			selected = append(selected, s.withGroups(u))
 		}
 	}
@@ -141,6 +141,19 @@ func (s *Store) Users(_ context.Context, q connector.UserQuery) ([]connector.Sto
 	end := min(q.Offset+q.Limit, len(selected))
 	start := min(q.Offset, end)
 	return slices.Clone(selected[start:end]), len(selected), nil
+}
+
+// keepsExpiry reports whether q's expiry keeps u.
+func keepsExpiry(q connector.UserQuery, u connector.StoredUser) bool {
+	expired := u.ExpiresAt != nil && !q.Now.Before(*u.ExpiresAt)
+	switch q.Expiry {
+	case connector.Unexpired:
+		return !expired
+	case connector.Expired:
+		return expired
+	default:
+		return true
+	}
 }
 
 // searchText is what a user search looks in.

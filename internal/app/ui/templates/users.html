@@ -19,8 +19,9 @@
   <div>
     <label for="show" class="sr-only">Show</label>
     <select id="show" name="show" class="{{template "input-base"}}">
-      <option value="current"{{if not $c.Deleted}} selected{{end}}>Current users</option>
-      <option value="deleted"{{if $c.Deleted}} selected{{end}}>Deleted users</option>
+      <option value="current"{{if eq $c.Show "current"}} selected{{end}}>Current users</option>
+      <option value="expired"{{if eq $c.Show "expired"}} selected{{end}}>Expired users</option>
+      <option value="deleted"{{if eq $c.Show "deleted"}} selected{{end}}>Deleted users</option>
     </select>
   </div>
   <button type="submit" class="{{template "secondary-class"}}">Search</button>

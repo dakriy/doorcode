@@ -8941,7 +8941,7 @@
             "name": "show",
             "in": "query",
             "required": false,
-            "description": "current (the default) lists users who are not deleted; deleted lists those who are.",
+            "description": "current (the default) lists users who are neither deleted nor expired; expired lists those whose account has expired and who are not deleted; deleted lists those who are deleted.",
             "schema": {
               "type": "string"
             },
@@ -9304,7 +9304,7 @@
             "name": "q",
             "in": "query",
             "required": false,
-            "description": "Keeps current users whose email, user id, or names contain this text, ignoring case.",
+            "description": "Keeps users who are not deleted, expired ones included, whose email, user id, or names contain this text, ignoring case.",
             "schema": {
               "type": "string"
             },

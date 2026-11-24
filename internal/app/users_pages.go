@@ -36,9 +36,11 @@ func (a *App) userPageRoutes() []route {
 
 // usersContent is the user list's content.
 type usersContent struct {
-	Search  string
-	Deleted bool
-	Rows    []userRow
+	Search string
+	// Show is the show value of the users listed: current, expired, or
+	// deleted.
+	Show string
+	Rows []userRow
 	// Empty says why the list is empty.
 	Empty string
 	pager
@@ -79,44 +81,49 @@ func (a *App) rowsOf(users []connector.StoredUser) []userRow {
 
 func (a *App) usersPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	search := r.URL.Query().Get("q")
-	deleted := r.URL.Query().Get("show") == showDeleted
+	show := r.URL.Query().Get("show")
+	q, known := userShows[show]
+	if !known {
+		show, q = showCurrent, userShows[showCurrent]
+	}
 	page, ok := queryNumber(r, "page", 1, 1, maxPage)
 	if !ok {
 		page = 1
 	}
-	found, err := a.directory.Users(r.Context(), directory.Query{Search: search, Deleted: deleted, Page: page, PerPage: usersPerPage})
+	q.Search, q.Page, q.PerPage = search, page, usersPerPage
+	found, err := a.directory.Users(r.Context(), q)
 	if err != nil {
 		a.pageError(w, r, err)
 		return
 	}
-	link := func(page int) string { return usersURL(search, deleted, page) }
+	link := func(page int) string { return usersURL(search, show, page) }
 	content := usersContent{
-		Search: search, Deleted: deleted, Rows: a.rowsOf(found.Users), Empty: emptyUsers(search, found.Total),
+		Search: search, Show: show, Rows: a.rowsOf(found.Users), Empty: emptyUsers(search, show, found.Total),
 		pager: pagerOf(page, usersPerPage, len(found.Users), found.Total, link),
 	}
 	a.render(w, r, http.StatusOK, usersTemplate, "Users", &viewer, content)
 }
 
-// emptyUsers says why a page of users has nobody on it, when total users
-// match. Without a search only the deleted users can be none, since the
-// other users include the viewer.
-func emptyUsers(search string, total int) string {
+// emptyUsers says why a page of the users show lists has nobody on it, when
+// total users match. Without a search only the expired or deleted users can
+// be none, since the current users include the viewer.
+func emptyUsers(search, show string, total int) string {
 	if total > 0 {
 		return "This page is past the last one."
 	}
 	if search != "" {
 		return "No users match this search."
 	}
-	return "No users are deleted."
+	return "No users are " + show + "."
 }
 
-func usersURL(search string, deleted bool, page int) string {
+func usersURL(search, show string, page int) string {
 	q := url.Values{}
 	if search != "" {
 		q.Set("q", search)
 	}
-	if deleted {
-		q.Set("show", showDeleted)
+	if show != showCurrent {
+		q.Set("show", show)
 	}
 	q.Set("page", strconv.Itoa(page))
 	return "/admin/users?" + q.Encode()
