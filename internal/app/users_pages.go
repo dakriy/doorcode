@@ -11,6 +11,7 @@ import (
 	"github.com/dakriy/doorcode/internal/check"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/directory"
+	"github.com/dakriy/doorcode/internal/settings"
 )
 
 func (a *App) userPageRoutes() []route {
@@ -24,6 +25,8 @@ func (a *App) userPageRoutes() []route {
 		pageRoute(http.MethodPost, "/admin/users/{id}", users, a.saveUserFromForm),
 		pageRoute(http.MethodPost, "/admin/users/{id}/code", users, a.setCodeFromForm),
 		pageRoute(http.MethodPost, "/admin/users/{id}/code/clear", users, a.clearCodeFromForm),
+		pageRoute(http.MethodPost, "/admin/users/{id}/password", users, a.setPasswordFromForm),
+		pageRoute(http.MethodPost, "/admin/users/{id}/password/clear", users, a.clearPasswordFromForm),
 		pageRoute(http.MethodPost, "/admin/users/{id}/delete", users, a.deleteUserFromForm),
 		pageRoute(http.MethodPost, "/admin/users/{id}/restore", users, a.restoreUserFromForm),
 		pageRoute(http.MethodPost, "/admin/users/{id}/tokens", admin, a.createUserTokenFromForm),
@@ -198,6 +201,12 @@ type userContent struct {
 	Self      bool
 	Form      userForm
 	CodeError string
+	// MaySetPassword is true when the viewer may set or remove the user's
+	// password from this page; PasswordErrors are that form's problems.
+	MaySetPassword bool
+	PasswordErrors map[string]string
+	// MinLength is the fewest characters a password may have.
+	MinLength int
 	// Alert is a refusal to show above everything else.
 	Alert string
 	// Access is the doors the user's groups let them enter.
@@ -217,16 +226,19 @@ type userContent struct {
 }
 
 // freshUser is the content of u's page with every form as it starts, its
-// dates in zone.
-func freshUser(u connector.StoredUser, zone *time.Location) userContent {
-	return userContent{Form: formOfUser(u, zone), TokenForm: tokenForm{Expiry: defaultTokenExpiry}, zone: zone}
+// dates in the site timezone and its password rule the site's.
+func freshUser(u connector.StoredUser, current settings.Current) userContent {
+	return userContent{
+		Form: formOfUser(u, current.Zone), TokenForm: tokenForm{Expiry: defaultTokenExpiry},
+		MinLength: current.PasswordMinLength, zone: current.Zone,
+	}
 }
 
 // pageUser returns the content of the page about the user the path names,
 // with every form as it starts, after showing that there is none or that
 // the store failed.
 func (a *App) pageUser(w http.ResponseWriter, r *http.Request, viewer auth.User) (connector.StoredUser, userContent, bool) {
-	zone, ok := a.siteZone(w, r)
+	current, ok := a.siteSettings(w, r)
 	if !ok {
 		return connector.StoredUser{}, userContent{}, false
 	}
@@ -234,7 +246,7 @@ func (a *App) pageUser(w http.ResponseWriter, r *http.Request, viewer auth.User)
 	if a.unloaded(w, r, viewer, err, directory.ErrNoUser, "There is no user here. They may never have existed; deleted users are listed under Deleted.") {
 		return u, userContent{}, false
 	}
-	return u, freshUser(u, zone), true
+	return u, freshUser(u, current), true
 }
 
 func (a *App) userPage(w http.ResponseWriter, r *http.Request, viewer auth.User) {
@@ -249,6 +261,7 @@ func (a *App) renderUser(w http.ResponseWriter, r *http.Request, status int, vie
 	content.User = a.viewOfUser(u)
 	content.Row = a.rowOf(u)
 	content.Self = u.ID == viewer.ID
+	content.MaySetPassword = !content.Self && directory.MaySetPassword(viewer, u)
 	access, err := a.accessRows(r, u)
 	if err != nil {
 		a.pageError(w, r, err)
@@ -325,6 +338,42 @@ func (a *App) clearCodeFromForm(w http.ResponseWriter, r *http.Request, viewer a
 	if u, content, ok := a.pageUser(w, r, viewer); ok {
 		a.userChanged(w, r, viewer, u, content, a.directory.ClearCode(r.Context(), u.ID), "code-cleared")
 	}
+}
+
+func (a *App) setPasswordFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
+	u, content, ok := a.pageUser(w, r, viewer)
+	if !ok {
+		return
+	}
+	password := r.PostFormValue("password")
+	if password != r.PostFormValue("confirm_password") {
+		content.PasswordErrors = map[string]string{"confirm_password": "The passwords do not match. Type the new one twice."}
+		a.renderUser(w, r, http.StatusUnprocessableEntity, viewer, u, content)
+		return
+	}
+	_, err := a.directory.SetPassword(r.Context(), viewer, u.ID, password)
+	if errs, rejected := fieldErrors(err); rejected {
+		content.PasswordErrors = errs
+		a.renderUser(w, r, http.StatusUnprocessableEntity, viewer, u, content)
+		return
+	}
+	a.passwordChangedFromForm(w, r, viewer, u, content, err, passwordSetLine, "password-set")
+}
+
+func (a *App) clearPasswordFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
+	if u, content, ok := a.pageUser(w, r, viewer); ok {
+		_, err := a.directory.ClearPassword(r.Context(), viewer, u.ID)
+		a.passwordChangedFromForm(w, r, viewer, u, content, err, passwordClearedLine, "password-cleared")
+	}
+}
+
+// passwordChangedFromForm finishes a change to u's password made from its
+// page, logging it as line says when it was made.
+func (a *App) passwordChangedFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User, u connector.StoredUser, fresh userContent, err error, line, flash string) {
+	if err == nil {
+		a.logPasswordChange(r, viewer, u, line)
+	}
+	a.userChanged(w, r, viewer, u, fresh, err, flash)
 }
 
 func (a *App) deleteUserFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {

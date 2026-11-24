@@ -210,6 +210,6 @@ func (s *Store) SetCodeHash(_ context.Context, id int64, hash *string) (bool, er
 }
 
 // SetPasswordHash stores hash as the user's local password hash.
-func (s *Store) SetPasswordHash(_ context.Context, id int64, hash string) (bool, error) {
-	return s.changeUser(id, func(u *connector.StoredUser) { u.PasswordHash = &hash })
+func (s *Store) SetPasswordHash(_ context.Context, id int64, hash *string) (bool, error) {
+	return s.changeUser(id, func(u *connector.StoredUser) { u.PasswordHash = clone(hash) })
 }

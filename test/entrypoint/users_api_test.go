@@ -10,7 +10,7 @@ import (
 
 // annJSON is ann as the API shows her right after creation.
 const annJSON = `{"id":2,"email":"ann@example.com","user_id":"100234","first_name":"Ann","last_name":"Smith",` +
-	`"display_name":"Ann Smith","has_code":false,"expired":false,"created_at":"2026-01-05T09:00:00Z","groups":[]}`
+	`"display_name":"Ann Smith","has_code":false,"has_password":false,"expired":false,"created_at":"2026-01-05T09:00:00Z","groups":[]}`
 
 func TestCreatingAUserAnswersWithTheUser(t *testing.T) {
 	t.Parallel()
@@ -32,7 +32,7 @@ func TestCreatedUserIsTidied(t *testing.T) {
 		`"display_name":"  ","expires_at":"2027-01-01T09:00:00+09:00"}`)
 
 	want := testsupport.JSON(`{"id":2,"email":"bo@example.com","user_id":"7","first_name":"Bo","last_name":"",` +
-		`"display_name":"Bo","has_code":false,"expires_at":"2027-01-01T00:00:00Z","expired":false,` +
+		`"display_name":"Bo","has_code":false,"has_password":false,"expires_at":"2027-01-01T00:00:00Z","expired":false,` +
 		`"created_at":"2026-01-05T09:00:00Z","groups":[]}`)
 	if diff := cmp.Diff(want, testsupport.JSON(got.Body)); diff != "" {
 		t.Errorf("user (-want +got):\n%s", diff)
@@ -226,7 +226,7 @@ func TestUpdatingAUserReplacesTheirProfile(t *testing.T) {
 		`"expires_at":"2026-01-05T09:00:00Z"}`)
 
 	want := testsupport.Response{Status: 200, ContentType: jsonType, Body: `{"id":2,"email":"ann@example.com",` +
-		`"user_id":"100234","first_name":"","last_name":"","display_name":"Annie","has_code":false,` +
+		`"user_id":"100234","first_name":"","last_name":"","display_name":"Annie","has_code":false,"has_password":false,` +
 		`"expires_at":"2026-01-05T09:00:00Z","expired":true,"created_at":"2026-01-05T09:00:00Z","groups":[]}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)

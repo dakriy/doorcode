@@ -362,20 +362,24 @@ func TestStoreDeletesRestoresAndCodesAUser(t *testing.T) {
 				func() (bool, error) { return store.SetCodeHash(ctx, 3, nil) },
 				func() (bool, error) { return store.SetUserDeleted(ctx, 9, &at) },
 				func() (bool, error) { return store.SetCodeHash(ctx, 9, &hash) },
-				func() (bool, error) { return store.SetPasswordHash(ctx, 4, password) },
-				func() (bool, error) { return store.SetPasswordHash(ctx, 9, password) },
+				func() (bool, error) { return store.SetPasswordHash(ctx, 4, &password) },
+				func() (bool, error) { return store.SetPasswordHash(ctx, 9, &password) },
+				func() (bool, error) { return store.SetPasswordHash(ctx, 3, &password) },
+				func() (bool, error) { return store.SetPasswordHash(ctx, 3, nil) },
 			} {
 				found, err := change()
 				results = append(results, found, testsupport.ErrorText(err))
 			}
 
-			want := []any{true, "<nil>", true, "<nil>", true, "<nil>", true, "<nil>", false, "<nil>", false, "<nil>", true, "<nil>", false, "<nil>"}
+			want := []any{true, "<nil>", true, "<nil>", true, "<nil>", true, "<nil>", false, "<nil>", false, "<nil>", true, "<nil>", false, "<nil>",
+				true, "<nil>", true, "<nil>"}
 			if diff := cmp.Diff(want, results); diff != "" {
 				t.Errorf("found and errors (-want +got):\n%s", diff)
 			}
-			got := []any{mustUser(t, store, 3).DeletedAt, mustUser(t, store, 2).DeletedAt, mustUser(t, store, 4).CodeHash, mustUser(t, store, 4).PasswordHash}
-			if diff := cmp.Diff([]any{&at, (*time.Time)(nil), &hash, &password}, got); diff != "" {
-				t.Errorf("deleted at, deleted at, code hash, password hash (-want +got):\n%s", diff)
+			got := []any{mustUser(t, store, 3).DeletedAt, mustUser(t, store, 2).DeletedAt, mustUser(t, store, 4).CodeHash,
+				mustUser(t, store, 4).PasswordHash, mustUser(t, store, 3).PasswordHash}
+			if diff := cmp.Diff([]any{&at, (*time.Time)(nil), &hash, &password, (*string)(nil)}, got); diff != "" {
+				t.Errorf("deleted at, deleted at, code hash, password hash, removed password hash (-want +got):\n%s", diff)
 			}
 		})
 	}

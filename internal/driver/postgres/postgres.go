@@ -150,6 +150,12 @@ func (s *Store) DeleteExpiredSessions(ctx context.Context, now time.Time) (int, 
 	return int(tag.RowsAffected()), err
 }
 
+// DeleteUserSessions deletes the sessions of the user with userID.
+func (s *Store) DeleteUserSessions(ctx context.Context, userID int64) (int, error) {
+	tag, err := s.pool.Exec(ctx, `delete from sessions where user_id = $1`, userID)
+	return int(tag.RowsAffected()), err
+}
+
 // SessionUser returns the session stored under tokenHash and its user.
 func (s *Store) SessionUser(ctx context.Context, tokenHash []byte) (connector.StoredSession, connector.StoredUser, bool, error) {
 	var session connector.StoredSession

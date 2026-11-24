@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/dakriy/doorcode/internal/auth"
+	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/directory"
 	"github.com/dakriy/doorcode/internal/openapi"
 )
@@ -48,6 +49,10 @@ type userRequest struct {
 	ExpiresAt   *time.Time `json:"expires_at,omitempty" doc:"When the account stops working. Omit it for an account that never expires."`
 }
 
+type userPasswordRequest struct {
+	Password string `json:"password" doc:"The sign-in password: at least the password_min_length setting's characters and at most 1024, taken as given, untrimmed."`
+}
+
 type codeRequest struct {
 	Code string `json:"code" doc:"The door code: 6 to 20 digits that no other user has."`
 }
@@ -62,6 +67,10 @@ var (
 	}
 	userTokenParams = []openapi.Param{userIDParam, {Name: "token", In: "path", Description: "The token's id.", Example: int64(1)}}
 	noUser          = openapi.Response{Status: http.StatusNotFound, Description: "No user has this id.", Body: errorBody{}}
+	ownPassword     = openapi.Response{Status: http.StatusConflict, Description: "The user is the caller, who changes their own password with PUT /api/v1/me/password, giving the current one.", Body: errorBody{}}
+	// passwordOutranked is the answer to a caller setting the password of
+	// a user who holds a role the caller does not.
+	passwordOutranked = openapi.Response{Status: http.StatusForbidden, Description: "The user holds a role the caller does not, such as admin.", Body: errorBody{}}
 )
 
 func (a *App) userRoutes() []route {
@@ -136,6 +145,24 @@ func (a *App) userRoutes() []route {
 		apiRoute(http.MethodDelete, "/users/{id}/code", users, a.clearCode, apiDoc{
 			id: "clearUserCode", summary: "Remove a user's door code", tag: "users", params: []openapi.Param{userIDParam},
 			responses: []openapi.Response{{Status: http.StatusNoContent, Description: "The user has no door code."}, noUser},
+		}),
+		apiRoute(http.MethodPut, "/users/{id}/password", users, a.setUserPassword, apiDoc{
+			id: "setUserPassword", summary: "Set a user's sign-in password", tag: "users", params: []openapi.Param{userIDParam},
+			request: userPasswordRequest{Password: "handed over in person"},
+			responses: []openapi.Response{
+				{Status: http.StatusNoContent, Description: "The password is set and every session of the user has ended; their API tokens stay. " +
+					"It is stored only as a hash and never shown again, so pass it on to them yourself. " +
+					"Under auto sign-in they reach the password form at /sign-in?auto_sign_in=false."},
+				badBody("The body is not a JSON password, or the password is too short or too long."),
+				passwordOutranked, noUser, ownPassword,
+			},
+		}),
+		apiRoute(http.MethodDelete, "/users/{id}/password", users, a.clearUserPassword, apiDoc{
+			id: "clearUserPassword", summary: "Remove a user's sign-in password", tag: "users", params: []openapi.Param{userIDParam},
+			responses: []openapi.Response{
+				{Status: http.StatusNoContent, Description: "The user has no password, so they sign in only with single sign-on, and every session of theirs has ended; their API tokens stay."},
+				passwordOutranked, noUser, ownPassword,
+			},
 		}),
 		apiRoute(http.MethodGet, "/users/{id}/tokens", admin, a.listUserTokens, apiDoc{
 			id: "listUserTokens", summary: "List a user's personal API tokens", tag: "users", params: []openapi.Param{userIDParam},
@@ -293,6 +320,42 @@ func (a *App) setCode(w http.ResponseWriter, r *http.Request, _ auth.User) {
 
 func (a *App) clearCode(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	a.noContent(w, r, a.directory.ClearCode(r.Context(), pathID(r, "id")))
+}
+
+func (a *App) setUserPassword(w http.ResponseWriter, r *http.Request, caller auth.User) {
+	var body userPasswordRequest
+	if !readJSON(w, r, &body, `a JSON object with a string "password"`) {
+		return
+	}
+	u, err := a.directory.SetPassword(r.Context(), caller, pathID(r, "id"), body.Password)
+	a.passwordChanged(w, r, caller, u, err, passwordSetLine)
+}
+
+func (a *App) clearUserPassword(w http.ResponseWriter, r *http.Request, caller auth.User) {
+	u, err := a.directory.ClearPassword(r.Context(), caller, pathID(r, "id"))
+	a.passwordChanged(w, r, caller, u, err, passwordClearedLine)
+}
+
+// passwordChanged answers a change to u's password that caller asked for
+// through the API, logging it when it was made.
+func (a *App) passwordChanged(w http.ResponseWriter, r *http.Request, caller auth.User, u connector.StoredUser, err error, line string) {
+	if err == nil {
+		a.logPasswordChange(r, caller, u, line)
+	}
+	a.noContent(w, r, err)
+}
+
+// What the log says when a user's password is set or removed for them.
+const (
+	passwordSetLine     = "set a user's password"
+	passwordClearedLine = "removed a user's password"
+)
+
+// logPasswordChange logs that by set or removed u's password, as line
+// says, naming both and never the password.
+func (a *App) logPasswordChange(r *http.Request, by auth.User, u connector.StoredUser, line string) {
+	a.log.Info(line, connector.Field{Key: "by", Value: by.Email}, connector.Field{Key: "email", Value: u.Email},
+		connector.Field{Key: "client", Value: a.client(r)})
 }
 
 // tokenOwner is the id of the user the path names, after answering with a

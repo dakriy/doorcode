@@ -414,7 +414,7 @@ var sections = []section{
 		{key: keyPasswordHashMemory, fallback: "19456", validate: passwordHashMemoryKiB.rule(), label: "Password hashing memory",
 			help: "KiB of memory hashing one password takes, from 8 to 1048576. More is slower to guess."},
 		{key: keyPasswordMinLength, fallback: "12", validate: passwordLength.rule(), label: "Shortest password",
-			help: "How many characters a password chosen in the portal has at least, from 8 to 128."},
+			help: "How many characters a password chosen in the portal or set by an administrator has at least, from 8 to 128."},
 		{key: keyNewUserExpiry, fallback: "1826", validate: newUserExpiry.rule(), label: "New account lifetime",
 			help: "Days until the account of a user created by signing in at the provider expires."},
 	}},
@@ -502,7 +502,7 @@ type Current struct {
 	// PasswordHashMemoryKiB is the memory cost of hashing a new password.
 	PasswordHashMemoryKiB uint32
 	// PasswordMinLength is how many characters a password chosen in the
-	// portal must have at least.
+	// portal or set by an administrator must have at least.
 	PasswordMinLength int
 	// Zone is the site timezone: weekly schedule windows and dates typed on
 	// pages are in it.

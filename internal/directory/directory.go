@@ -56,6 +56,12 @@ var (
 	// ErrNotHeld reports a change to a group carrying a role the person
 	// making it does not hold.
 	ErrNotHeld = errors.New("you can only change groups whose roles you hold")
+	// ErrOwnPassword reports a person setting their own password on
+	// someone else's word, which skips giving the current one.
+	ErrOwnPassword = errors.New("you cannot set your own password here; change it as yourself, giving your current one")
+	// ErrOutranked reports a change to the password of a user who holds a
+	// role the person making it does not.
+	ErrOutranked = errors.New("you can only set the password of a user whose roles you all hold")
 	// ErrInUse reports a user who cannot be removed for good while what
 	// they made stays.
 	ErrInUse = errors.New("the user is named by what they made")

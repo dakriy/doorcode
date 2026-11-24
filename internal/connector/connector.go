@@ -193,8 +193,9 @@ type UsersStore interface {
 	// id, nil removing the code, and reports whether there is one.
 	SetCodeHash(ctx context.Context, id int64, hash *string) (bool, error)
 	// SetPasswordHash stores hash as the local password hash of the user
-	// whose id is id, and reports whether there is one.
-	SetPasswordHash(ctx context.Context, id int64, hash string) (bool, error)
+	// whose id is id, nil removing the password, and reports whether there
+	// is one.
+	SetPasswordHash(ctx context.Context, id int64, hash *string) (bool, error)
 }
 
 // StoredGroup is a group as the store holds it. MemberCount is how many
@@ -271,6 +272,9 @@ type SessionsStore interface {
 	// DeleteExpiredSessions removes every session that expires at or
 	// before now, and returns how many it removed.
 	DeleteExpiredSessions(ctx context.Context, now time.Time) (int, error)
+	// DeleteUserSessions removes every session of the user whose id is
+	// userID, and returns how many it removed.
+	DeleteUserSessions(ctx context.Context, userID int64) (int, error)
 }
 
 // StoredToken is a personal API token as the store holds it. The store keeps

@@ -9574,6 +9574,195 @@
         }
       }
     },
+    "/users/{id}/password": {
+      "delete": {
+        "operationId": "clearUserPassword",
+        "summary": "Remove a user's sign-in password",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The user's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The user has no password, so they sign in only with single sign-on, and every session of theirs has ended; their API tokens stay."
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The user holds a role the caller does not, such as admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No user has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The user is the caller, who changes their own password with PUT /api/v1/me/password, giving the current one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setUserPassword",
+        "summary": "Set a user's sign-in password",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The user's id.",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserPasswordRequest"
+              },
+              "example": {
+                "password": "handed over in person"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The password is set and every session of the user has ended; their API tokens stay. It is stored only as a hash and never shown again, so pass it on to them yourself. Under auto sign-in they reach the password form at /sign-in?auto_sign_in=false."
+          },
+          "400": {
+            "description": "The body is not a JSON password, or the password is too short or too long.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The user holds a role the caller does not, such as admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No user has this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The user is the caller, who changes their own password with PUT /api/v1/me/password, giving the current one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/users/{id}/restore": {
       "post": {
         "operationId": "restoreUser",
@@ -13680,6 +13869,18 @@
           "total"
         ]
       },
+      "UserPasswordRequest": {
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": "string",
+            "description": "The sign-in password: at least the password_min_length setting's characters and at most 1024, taken as given, untrimmed."
+          }
+        },
+        "required": [
+          "password"
+        ]
+      },
       "UserRequest": {
         "type": "object",
         "properties": {
@@ -13758,6 +13959,10 @@
             "type": "boolean",
             "description": "True when the user has a door code. The code itself is never shown."
           },
+          "has_password": {
+            "type": "boolean",
+            "description": "True when the user has a sign-in password. The password itself is never shown."
+          },
           "id": {
             "type": "integer",
             "description": "Names the user in the API."
@@ -13778,6 +13983,7 @@
           "last_name",
           "display_name",
           "has_code",
+          "has_password",
           "expired",
           "created_at",
           "groups"

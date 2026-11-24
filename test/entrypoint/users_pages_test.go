@@ -170,6 +170,7 @@ var annPage = testsupport.Page{
 	Title:   "Ann Smith · doorcode",
 	Heading: "Ann Smith",
 	Nav:     usersNav,
+	Notes:   []string{"This user has no password, so they can sign in only with single sign-on.", passwordFormNote},
 	Values:  annForm,
 	Tables: map[string][][]string{
 		"Groups":        {{"Group", "Roles"}, {"Not a member of any group."}},
@@ -434,7 +435,11 @@ func TestYourOwnPageSaysWhyItOffersNoDeletion(t *testing.T) {
 	t.Parallel()
 	got := pageOf(signedInAdmin(t, testsupport.NewFactory()).Get("/admin/users/1"))
 
-	want := []string{"This is your own account. You cannot delete it, make it expire today or earlier, or remove your own admin role."}
+	want := []string{
+		"This user has a password. It is stored only as a hash, so it cannot be shown; set a new one to replace it.",
+		"Change your own password from your Password page, which asks for the current one.",
+		"This is your own account. You cannot delete it, make it expire today or earlier, or remove your own admin role.",
+	}
 	if diff := cmp.Diff(want, got.Notes); diff != "" {
 		t.Errorf("notes (-want +got):\n%s", diff)
 	}

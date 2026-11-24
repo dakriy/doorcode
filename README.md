@@ -56,8 +56,9 @@ the engineering contract is [AGENTS.md](AGENTS.md).
 - **People.** Local passwords and OpenID Connect single sign-on (matching by
   user id then email, an entitlements claim setting group membership exactly), a user portal
   (door code, password, access calendars, recent entries, access requests,
-  API tokens), bulk import of users from CSV with a preview, and access
-  requests answered by administrators.
+  API tokens), administrators setting or removing a user's password
+  (which ends that user's sessions), bulk import of users from CSV with a
+  preview, and access requests answered by administrators.
 - **API.** Everything the UI does is under `/api/v1`, described by an
   OpenAPI 3.1 document at `/api/v1/openapi.json` and browsable at
   `/api-docs`. Personal API tokens are accepted as a bearer token or as the
@@ -409,7 +410,7 @@ page folds away the single sign-on and identity claims parts while
 | `theme_accent` | The accent color, `#rrggbb`. | `#4f39f6` |
 | `theme_accent_dark` | The accent color in the dark theme; empty uses `theme_accent`. | empty |
 | `password_hash_memory_kib` | KiB of memory hashing one password takes, 8 to 1048576. | `19456` |
-| `password_min_length` | The shortest password chosen in the portal, 8 to 128 characters. | `12` |
+| `password_min_length` | The shortest password chosen in the portal or set by an administrator, 8 to 128 characters. | `12` |
 | `new_user_expiry_days` | Days until an account created by signing in at the provider expires. | `1826` |
 | `oidc_enabled` | Single sign-on through an OpenID Connect provider, `true` or `false`. | `false` |
 | `oidc_auto_sign_in` | `true` sends the sign-in page straight to the provider and hides the password forms (`?auto_sign_in=false` reaches them). | `false` |

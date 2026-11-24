@@ -399,6 +399,29 @@ func TestStoreDeletesTheSessionsThatHaveExpired(t *testing.T) {
 	}
 }
 
+func TestStoreDeletesEverySessionOfOneUser(t *testing.T) {
+	for _, impl := range storeImpls {
+		t.Run(impl.name, func(t *testing.T) {
+			ctx := context.Background()
+			store := withAdmin(t, impl)
+			other := mustCreateUser(t, store, person("ann@example.com", "Ann"))
+			sessionsLasting(t, store, map[string]int{"first": 12, "second": 12})
+			kept := session("other")
+			kept.UserID = other
+			if err := store.CreateSession(ctx, kept); err != nil {
+				t.Fatal(err)
+			}
+
+			removed, err := store.DeleteUserSessions(ctx, 1)
+			left := sessionsFound(store, "first", "second", "other")
+
+			if diff := cmp.Diff([]any{2, "<nil>", []string{"other"}}, []any{removed, testsupport.ErrorText(err), left}); diff != "" {
+				t.Errorf("removed, error, left (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestStoreRefusesASessionForAnUnknownUser(t *testing.T) {
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {

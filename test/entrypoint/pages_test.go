@@ -86,7 +86,7 @@ var settingRows = map[string]struct{ section, label, help string }{
 	"theme_accent":                    {"Theme", "Accent color", "A color as #rrggbb, such as #4f39f6."},
 	"theme_accent_dark":               {"Theme", "Accent color in the dark theme", "A color as #rrggbb, or empty to use the accent color."},
 	"password_hash_memory_kib":        {"Accounts and passwords", "Password hashing memory", "KiB of memory hashing one password takes, from 8 to 1048576. More is slower to guess."},
-	"password_min_length":             {"Accounts and passwords", "Shortest password", "How many characters a password chosen in the portal has at least, from 8 to 128."},
+	"password_min_length":             {"Accounts and passwords", "Shortest password", "How many characters a password chosen in the portal or set by an administrator has at least, from 8 to 128."},
 	"new_user_expiry_days":            {"Accounts and passwords", "New account lifetime", "Days until the account of a user created by signing in at the provider expires."},
 	"oidc_enabled":                    {"Single sign-on", "Single sign-on enabled", "Offers signing in at the provider set up here, beside signing in with a password."},
 	"oidc_auto_sign_in":               {"Single sign-on", "Automatic sign-in", "Sends the sign-in page straight on to the provider and hides the password forms; add ?auto_sign_in=false to reach them."},

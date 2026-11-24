@@ -25,6 +25,8 @@ var pageRefusals = []struct {
 	{directory.ErrOwnAdmin, http.StatusConflict, "You cannot remove your own admin role. Ask another administrator to do it."},
 	{directory.ErrNotHeld, http.StatusForbidden, "You can only change groups when you hold every role they carry."},
 	{directory.ErrNotMember, http.StatusNotFound, "That user is not a member of this group."},
+	{directory.ErrOwnPassword, http.StatusConflict, "You cannot set your own password here. Change it from your Password page, which asks for the current one."},
+	{directory.ErrOutranked, http.StatusForbidden, "You can only set or remove the password of a user when you hold every role they hold."},
 }
 
 // refusal is the status and message of err when it is a refusal a page

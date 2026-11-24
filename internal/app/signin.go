@@ -39,6 +39,8 @@ var flashes = map[string]string{
 	"user-restored":          "The user has been restored.",
 	"code-set":               "The door code has been set. It is stored only as a hash and cannot be shown.",
 	"code-cleared":           "The door code has been removed.",
+	"password-set":           "The password has been set and the user's sessions have ended. It is stored only as a hash and cannot be shown: pass it on to them yourself.",
+	"password-cleared":       "The password has been removed and the user's sessions have ended. They can sign in only with single sign-on.",
 	"group-created":          "The group has been created.",
 	"group-saved":            "The group's changes have been saved.",
 	"group-deleted":          "The group has been deleted.",

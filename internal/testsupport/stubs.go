@@ -479,6 +479,23 @@ func (s *Store) DeleteExpiredSessions(_ context.Context, now time.Time) (int, er
 	return removed, nil
 }
 
+// DeleteUserSessions removes the sessions of the user with userID.
+func (s *Store) DeleteUserSessions(_ context.Context, userID int64) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.usable(sessionsAggregate); err != nil {
+		return 0, err
+	}
+	removed := 0
+	for hash, session := range s.sessions {
+		if session.UserID == userID {
+			delete(s.sessions, hash)
+			removed++
+		}
+	}
+	return removed, nil
+}
+
 // Sessions is how many sessions the store holds.
 func (s *Store) Sessions() int {
 	return len(s.sessions)

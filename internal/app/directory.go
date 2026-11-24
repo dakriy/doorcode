@@ -21,6 +21,8 @@ var directoryStatuses = []refusalStatus{
 	{directory.ErrOwnAccount, http.StatusConflict},
 	{directory.ErrOwnExpiry, http.StatusConflict},
 	{directory.ErrInUse, http.StatusConflict},
+	{directory.ErrOwnPassword, http.StatusConflict},
+	{directory.ErrOutranked, http.StatusForbidden},
 }
 
 // directoryError answers an API request with what err, from the
@@ -59,6 +61,7 @@ type userView struct {
 	LastName    string     `json:"last_name" doc:"The user's last name; may be empty."`
 	DisplayName string     `json:"display_name" doc:"The name pages show for the user."`
 	HasCode     bool       `json:"has_code" doc:"True when the user has a door code. The code itself is never shown."`
+	HasPassword bool       `json:"has_password" doc:"True when the user has a sign-in password. The password itself is never shown."`
 	ExpiresAt   *time.Time `json:"expires_at,omitempty" doc:"When the account stops working; absent when it never expires."`
 	Expired     bool       `json:"expired" doc:"True once the account has expired."`
 	DeletedAt   *time.Time `json:"deleted_at,omitempty" doc:"When the user was deleted; absent unless they are deleted."`
@@ -73,7 +76,7 @@ func (a *App) viewOfUser(u connector.StoredUser) userView {
 	}
 	return userView{
 		ID: u.ID, Email: u.Email, UserID: u.UserID, FirstName: u.FirstName, LastName: u.LastName,
-		DisplayName: u.DisplayName, HasCode: u.CodeHash != nil,
+		DisplayName: u.DisplayName, HasCode: u.CodeHash != nil, HasPassword: u.PasswordHash != nil,
 		ExpiresAt: utc(u.ExpiresAt), Expired: auth.Reached(u.ExpiresAt, a.clock.Now()),
 		DeletedAt: utc(u.DeletedAt), CreatedAt: u.CreatedAt.UTC(), Groups: groups,
 	}

@@ -419,6 +419,21 @@ When *auto sign-in* is on, visiting the sign-in page redirects to the
 provider unless `auto_sign_in=false` is in the query string, and the
 self-service password form is hidden.
 
+Someone who manages users can set or remove another user's local password
+from the user's page or with `PUT` and `DELETE /api/v1/users/{id}/password`,
+without knowing the current one. They may do so only for a user all of
+whose roles they hold themselves, so a holder of `manage-users` alone
+cannot set the password of an administrator or of anyone holding another
+role; nobody sets their own password this way, since the portal's form asks
+for the current one. A set password follows `password_min_length` and
+`password_hash_memory_kib`, is shown nowhere, and is passed on by the
+person who set it; the user can change it in the portal like any other.
+Setting or removing it ends every session of that user; their API tokens
+stay. The log records who set or removed whose password, never the
+password. Auto sign-in does not prevent it: the user reaches the password
+form at `/sign-in?auto_sign_in=false`. A user who signs in through OIDC may
+hold a password as well; removing it leaves them OIDC sign-in only.
+
 Sessions are server-side with a cookie. Personal API tokens (created by the
 user or an admin, shown once, optional expiry, revocable) and door tokens are
 stored hashed. The JSON API accepts a token as a bearer header or as the
@@ -458,8 +473,8 @@ goes back to its tab and a refused one shows on it, and the live parts
 reload from the tab they are on), zones (settings, then open-mode schedules, then doors:
 the doors chosen as chips, each with a × that removes it, and a search by
 name or location listing at most 10 doors to add; without script every
-door is a checkbox in a folded list), users (list, detail, groups, access
-calendar per door, events), groups (list with role badges, detail with
+door is a checkbox in a folded list), users (list, detail with door code
+and sign-in password cards, groups, access calendar per door, events), groups (list with role badges, detail with
 a settings card (name, slug, description, and pre-assigned user ids while
 sign-in reads a user id claim, otherwise only how many the group keeps, if
 any), then its access rules, then members beside its roles, one role per

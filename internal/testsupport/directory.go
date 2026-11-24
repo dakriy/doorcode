@@ -476,10 +476,10 @@ func (s *Store) LeaveGroup(email, slug string) {
 }
 
 // SetPasswordHash stores the local password hash of the user with id.
-func (s *Store) SetPasswordHash(_ context.Context, id int64, hash string) (bool, error) {
+func (s *Store) SetPasswordHash(_ context.Context, id int64, hash *string) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.changeUser(id, func(u *connector.StoredUser) { u.PasswordHash = &hash })
+	return s.changeUser(id, func(u *connector.StoredUser) { u.PasswordHash = hash })
 }
 
 // FailEmailLookups makes UserByEmail report ErrUnavailable, while users

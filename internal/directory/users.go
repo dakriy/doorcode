@@ -278,6 +278,55 @@ func (s Service) ClearCode(ctx context.Context, id int64) error {
 	return s.changed(s.Store.SetCodeHash(ctx, id, nil))
 }
 
+// SetPassword makes password the sign-in password of the user whose id is
+// id, on viewer's word, ends their sessions, and returns the user.
+func (s Service) SetPassword(ctx context.Context, viewer auth.User, id int64, password string) (connector.StoredUser, error) {
+	u, err := s.passwordHolder(ctx, viewer, id)
+	if err != nil {
+		return u, err
+	}
+	return u, s.Auth.SetPassword(ctx, id, password)
+}
+
+// ClearPassword removes the sign-in password of the user whose id is id,
+// on viewer's word, ends their sessions, and returns the user.
+func (s Service) ClearPassword(ctx context.Context, viewer auth.User, id int64) (connector.StoredUser, error) {
+	u, err := s.passwordHolder(ctx, viewer, id)
+	if err != nil {
+		return u, err
+	}
+	return u, s.Auth.ClearPassword(ctx, id)
+}
+
+// passwordHolder returns the user whose id is id when viewer may set or
+// clear their password: someone else, all of whose roles viewer holds.
+func (s Service) passwordHolder(ctx context.Context, viewer auth.User, id int64) (connector.StoredUser, error) {
+	if id == viewer.ID {
+		return connector.StoredUser{}, ErrOwnPassword
+	}
+	u, err := s.User(ctx, id)
+	if err != nil {
+		return u, err
+	}
+	if !MaySetPassword(viewer, u) {
+		return u, ErrOutranked
+	}
+	return u, nil
+}
+
+// MaySetPassword reports whether viewer holds every role u holds, as
+// setting or clearing u's password needs, so nobody signs in as someone
+// who may do more than they may.
+func MaySetPassword(viewer auth.User, u connector.StoredUser) bool {
+	holder := auth.UserOf(u)
+	for _, role := range auth.Roles {
+		if holder.Has(role) && !viewer.Has(role) {
+			return false
+		}
+	}
+	return true
+}
+
 // changed turns a store's report of whether the user was there into an
 // error.
 func (s Service) changed(found bool, err error) error {

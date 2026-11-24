@@ -122,3 +122,18 @@ func (s *Store) DeleteToken(_ context.Context, userID, id int64) (bool, error) {
 	delete(s.tokens, id)
 	return true, nil
 }
+
+// DeleteUserSessions removes every session of the user whose id is
+// userID.
+func (s *Store) DeleteUserSessions(_ context.Context, userID int64) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	removed := 0
+	for key, ses := range s.sessions {
+		if ses.UserID == userID {
+			delete(s.sessions, key)
+			removed++
+		}
+	}
+	return removed, nil
+}
