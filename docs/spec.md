@@ -417,7 +417,9 @@ memberships alone apart from those joins on first sign-in.
 
 When *auto sign-in* is on, visiting the sign-in page redirects to the
 provider unless `auto_sign_in=false` is in the query string, and the
-self-service password form is hidden.
+self-service password form is hidden from everyone but holders of the
+`admin` role, who still change their own password there, giving the
+current one.
 
 Someone who manages users can set or remove another user's local password
 from the user's page or with `PUT` and `DELETE /api/v1/users/{id}/password`,

@@ -422,7 +422,7 @@ var sections = []section{
 		{key: keyOIDCEnabled, fallback: "false", validate: accepting(boolean), label: "Single sign-on enabled",
 			help: "Offers signing in at the provider set up here, beside signing in with a password."},
 		{key: keyOIDCAutoSignIn, fallback: "false", validate: accepting(boolean), label: "Automatic sign-in",
-			help: "Sends the sign-in page straight on to the provider and hides the password forms; add ?auto_sign_in=false to reach them."},
+			help: "Sends the sign-in page straight on to the provider and hides the password forms; add ?auto_sign_in=false to reach the sign-in form. Administrators keep the form for changing their own password."},
 		{key: keyOIDCIssuer, fallback: "", validate: accepting(issuer).askedWith(Input{Kind: KindURL, Example: issuerExample}), label: "Issuer",
 			help: "The provider's https:// address, exactly as it names itself."},
 		{key: keyOIDCClientID, fallback: "", label: "Client id", help: "The id the site is registered with at the provider."},
@@ -577,10 +577,13 @@ type Claims struct {
 }
 
 // HidesPasswordForms reports whether the forms that take a password, for
-// signing in or for choosing one, are hidden because everyone signs in at
-// the provider. It is the one place that decides.
-func (o OIDC) HidesPasswordForms() bool {
-	return o.Enabled && o.AutoSignIn
+// signing in or for choosing one, are hidden from a person because
+// everyone signs in at the provider. admin says the person holds the admin
+// role, whose holders keep the form for choosing their own password; the
+// sign-in page, before anyone is known, passes false. It is the one place
+// that decides.
+func (o OIDC) HidesPasswordForms(admin bool) bool {
+	return o.Enabled && o.AutoSignIn && !admin
 }
 
 // UpdateWindow is a time in the site timezone that opens on each of Days

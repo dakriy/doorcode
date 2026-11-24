@@ -351,7 +351,7 @@ func TestSettingAPasswordNeedsTheRoleThatManagesUsers(t *testing.T) {
 	}
 }
 
-func TestUnderAutoSignInAnAdministratorStillSetsAPasswordThatSignsInPastIt(t *testing.T) {
+func TestUnderAutoSignInAnAdministratorStillSetsAndRemovesAUsersPassword(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	autoSignIn(f)
@@ -359,11 +359,44 @@ func TestUnderAutoSignInAnAdministratorStillSetsAPasswordThatSignsInPastIt(t *te
 	createUser(t, b, ann)
 
 	page := pageOf(b.Get("/admin/users/2"))
-	set := b.Post("/admin/users/2/password", "password", setPassword, "confirm_password", setPassword)
+	setFromPage := b.Post("/admin/users/2/password", "password", setPassword, "confirm_password", setPassword)
+	signedInFromPage := signsIn(b, annEmail, setPassword)
+	clearedFromPage := b.Post("/admin/users/2/password/clear")
+	setFromAPI := b.PutJSON("/api/v1/users/2/password", `{"password":"`+anotherPassword+`"}`)
+	signedInFromAPI := signsIn(b, annEmail, anotherPassword)
+	clearedFromAPI := b.Send("DELETE", "/api/v1/users/2/password", "")
 
-	want := []any{"Auto sign-in sends everyone to single sign-on, so they reach the password form at /sign-in?auto_sign_in=false.", 303, 303}
-	if diff := cmp.Diff(want, []any{page.Notes[2], set.Status, signsIn(b, annEmail, setPassword)}); diff != "" {
-		t.Errorf("the page's note, setting, signing in (-want +got):\n%s", diff)
+	want := []any{"Auto sign-in sends everyone to single sign-on, so they reach the password form at /sign-in?auto_sign_in=false.",
+		303, 303, 303, 204, 303, 204, false}
+	got := []any{page.Notes[2], setFromPage.Status, signedInFromPage, clearedFromPage.Status,
+		setFromAPI.Status, signedInFromAPI, clearedFromAPI.Status, testsupport.JSONAt(b.Get("/api/v1/users/2").Body, "/has_password")}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("the page's note; from the page: setting, signing in, removing; through the API: the same; has password (-want +got):\n%s", diff)
+	}
+}
+
+func TestUnderAutoSignInAnAdministratorChangesTheirOwnPasswordInThePortal(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	autoSignIn(f)
+	b := signedInAdmin(t, f)
+	b.Get("/")
+	current := adminPassword(t, f)
+
+	page := pageOf(b.Get("/me/password"))
+	wrong := b.Post("/me/password", "current_password", "a guess", "new_password", setPassword, "confirm_password", setPassword)
+	changed := b.Post("/me/password", "current_password", current, "new_password", setPassword, "confirm_password", setPassword)
+	signedIn := signsIn(b, adminEmail, setPassword)
+	throughAPI := b.PutJSON("/api/v1/me/password", `{"current_password":"`+setPassword+`","new_password":"`+anotherPassword+`"}`)
+
+	want := []any{
+		testsupport.Page{Title: "Password · doorcode", Heading: "Password", Nav: heldPortalNav("Password"), Notes: []string{lengthNote}},
+		422, map[string]string{"current_password": "That is not your current password."},
+		303, 303, 204, 303,
+	}
+	got := []any{page, wrong.Status, pageOf(wrong).FieldErrors, changed.Status, signedIn, throughAPI.Status, signsIn(b, adminEmail, anotherPassword)}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("page; a wrong current password; changing, signing in; changing through the API, signing in (-want +got):\n%s", diff)
 	}
 }
 

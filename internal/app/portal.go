@@ -108,7 +108,7 @@ func (a *App) portalRoutes() []route {
 			responses: []openapi.Response{
 				{Status: http.StatusNoContent, Description: "You sign in with the new password from now on."},
 				{Status: http.StatusBadRequest, Description: "The body is not a JSON password request, the current password is wrong, or the new one is too short or too long.", Body: errorBody{}},
-				{Status: http.StatusForbidden, Description: "Everyone signs in with single sign-on here, so passwords are not used.", Body: errorBody{}},
+				{Status: http.StatusForbidden, Description: "Auto sign-in sends everyone to single sign-on here, and only holders of the admin role choose their own password.", Body: errorBody{}},
 			},
 		}),
 		apiRoute(http.MethodGet, "/me/access", signedInUser, a.getOwnAccess, apiDoc{

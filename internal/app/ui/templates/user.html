@@ -65,7 +65,7 @@
         {{template "password-field" (field "password" "New password" "new-password" "" $c.PasswordErrors "")}}
         {{template "password-field" (field "confirm_password" "New password again" "new-password" "" $c.PasswordErrors "")}}
         <p role="note" class="text-xs text-zinc-500 dark:text-zinc-400">Use at least {{$c.MinLength}} characters. Setting it ends every session {{$u.DisplayName}} has; their API tokens stay. Pass the password on to them yourself: it cannot be shown again, and they can change it from their Password page.</p>
-        {{if not $.Passwords}}<p role="note" class="text-xs text-zinc-500 dark:text-zinc-400">Auto sign-in sends everyone to single sign-on, so they reach the password form at /sign-in?auto_sign_in=false.</p>{{end}}
+        {{if $c.AutoSignIn}}<p role="note" class="text-xs text-zinc-500 dark:text-zinc-400">Auto sign-in sends everyone to single sign-on, so they reach the password form at /sign-in?auto_sign_in=false.</p>{{end}}
         <button type="submit" class="w-full {{template "primary-class"}}">Set password</button>
       </form>
       {{if $u.HasPassword}}

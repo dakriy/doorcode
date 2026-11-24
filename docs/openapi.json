@@ -6089,7 +6089,7 @@
             }
           },
           "403": {
-            "description": "Everyone signs in with single sign-on here, so passwords are not used.",
+            "description": "Auto sign-in sends everyone to single sign-on here, and only holders of the admin role choose their own password.",
             "content": {
               "application/json": {
                 "schema": {

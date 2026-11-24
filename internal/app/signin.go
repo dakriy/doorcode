@@ -118,7 +118,7 @@ func (a *App) signInPage(w http.ResponseWriter, r *http.Request, _ auth.User) {
 		a.pageError(w, r, err)
 		return
 	}
-	if current.OIDC.HidesPasswordForms() && !form.Bypass {
+	if current.OIDC.HidesPasswordForms(false) && !form.Bypass {
 		a.startAtProvider(w, r, form.Next)
 		return
 	}
@@ -172,7 +172,7 @@ func (a *App) renderSignIn(w http.ResponseWriter, r *http.Request, status int, f
 // it is hidden and the person did not ask for it.
 func (a *App) showSignIn(w http.ResponseWriter, r *http.Request, status int, o settings.OIDC, form signInForm) {
 	form.Provider = o.Enabled
-	form.Password = !o.HidesPasswordForms() || form.Bypass
+	form.Password = !o.HidesPasswordForms(false) || form.Bypass
 	image, err := a.imageURL(r, signInImage)
 	if err != nil {
 		a.pageError(w, r, err)

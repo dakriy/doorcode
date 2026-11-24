@@ -10,7 +10,8 @@ import (
 )
 
 // ErrPasswordsHidden reports choosing a password on a site where everyone
-// signs in at the identity provider, so no password is ever asked for.
+// signs in at the identity provider, by someone from whom the form is
+// hidden.
 var ErrPasswordsHidden = errors.New("passwords are not used here; everyone signs in with single sign-on")
 
 // maxPasswordLength is the most characters a chosen password may have.
@@ -24,12 +25,12 @@ func (s Service) ChoosePassword(ctx context.Context, id int64, current, chosen s
 	if err != nil {
 		return err
 	}
-	if c.OIDC.HidesPasswordForms() {
-		return ErrPasswordsHidden
-	}
 	u, _, err := s.Store.User(ctx, id)
 	if err != nil {
 		return err
+	}
+	if c.OIDC.HidesPasswordForms(UserOf(u).Has(RoleAdmin)) {
+		return ErrPasswordsHidden
 	}
 	var problems check.List
 	if u.PasswordHash != nil && !passwordMatches(*u.PasswordHash, current) {

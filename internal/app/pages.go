@@ -435,7 +435,7 @@ type pageData struct {
 	IsAdmin bool
 	// Portal is true on the portal's pages, which every signed-in person
 	// uses, and false in the administration. Passwords is true when the
-	// portal offers choosing a password, and AdminEntry is the first part
+	// portal offers the viewer choosing a password, and AdminEntry is the first part
 	// of the administration the viewer may use, empty when none.
 	Portal     bool
 	Passwords  bool
@@ -481,7 +481,7 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, status int, page *t
 		Viewer:    viewer,
 		IsAdmin:   viewer != nil && viewer.Has(auth.RoleAdmin),
 		Portal:    inPortal(r.URL.Path),
-		Passwords: !current.OIDC.HidesPasswordForms(),
+		Passwords: !current.OIDC.HidesPasswordForms(viewer != nil && viewer.Has(auth.RoleAdmin)),
 		Flash:     a.takeFlash(w, r),
 		Logo:      logo,
 		Theme:     current.Theme,

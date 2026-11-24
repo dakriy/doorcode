@@ -207,6 +207,9 @@ type userContent struct {
 	PasswordErrors map[string]string
 	// MinLength is the fewest characters a password may have.
 	MinLength int
+	// AutoSignIn is true when the sign-in page sends everyone to the
+	// identity provider unless asked for its password form.
+	AutoSignIn bool
 	// Alert is a refusal to show above everything else.
 	Alert string
 	// Access is the doors the user's groups let them enter.
@@ -230,7 +233,7 @@ type userContent struct {
 func freshUser(u connector.StoredUser, current settings.Current) userContent {
 	return userContent{
 		Form: formOfUser(u, current.Zone), TokenForm: tokenForm{Expiry: defaultTokenExpiry},
-		MinLength: current.PasswordMinLength, zone: current.Zone,
+		MinLength: current.PasswordMinLength, AutoSignIn: current.OIDC.HidesPasswordForms(false), zone: current.Zone,
 	}
 }
 

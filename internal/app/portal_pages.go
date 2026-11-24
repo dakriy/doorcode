@@ -264,7 +264,7 @@ func (a *App) renderPassword(w http.ResponseWriter, r *http.Request, status int,
 		return
 	}
 	content := passwordContent{
-		Hidden: current.OIDC.HidesPasswordForms(), Current: u.PasswordHash != nil, MinLength: current.PasswordMinLength, Errors: errs,
+		Hidden: current.OIDC.HidesPasswordForms(viewer.Has(auth.RoleAdmin)), Current: u.PasswordHash != nil, MinLength: current.PasswordMinLength, Errors: errs,
 	}
 	a.render(w, r, status, passwordTemplate, "Password", &viewer, content)
 }
