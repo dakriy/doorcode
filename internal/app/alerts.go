@@ -17,16 +17,16 @@ import (
 // again after it could not read or update it.
 const deliveryRetry = time.Minute
 
-// startDelivery starts delivering the outbox's mail beside the rest of
-// Run, returning the function that stops it once it has tried the mail
-// due by then.
-func (a *App) startDelivery(ctx context.Context) func() {
+// beside starts work on a goroutine of its own, beside the rest of Run,
+// returning the function that closes work's stop channel and waits for
+// work to return.
+func beside(work func(stop <-chan struct{})) func() {
 	stop := make(chan struct{})
-	var delivering sync.WaitGroup
-	delivering.Go(func() { a.deliver(ctx, stop) })
+	var working sync.WaitGroup
+	working.Go(func() { work(stop) })
 	return func() {
 		close(stop)
-		delivering.Wait()
+		working.Wait()
 	}
 }
 

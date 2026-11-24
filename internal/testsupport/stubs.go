@@ -225,6 +225,7 @@ type Store struct {
 	conditions   map[conditionKey]connector.StoredCondition
 	outbox       []connector.StoredMail
 	nextMail     int64
+	certChecks   map[string]connector.StoredCertificateCheck
 	migrateErr   error
 	pingErr      error
 	failing      map[aggregate]bool
@@ -277,6 +278,8 @@ const (
 	doorLookups
 	alertsAggregate
 	alertWrites
+	certificatesAggregate
+	certificateWrites
 )
 
 // NewStore returns an empty, unmigrated stub store.
@@ -289,6 +292,7 @@ func NewStore() *Store {
 		holds:      map[int64]chan struct{}{},
 		alertKinds: map[string]bool{},
 		conditions: map[conditionKey]connector.StoredCondition{},
+		certChecks: map[string]connector.StoredCertificateCheck{},
 	}
 }
 
@@ -783,6 +787,7 @@ type Factory struct {
 	IdentityStub *Identity
 	ResolverStub *Resolver
 	MailerStub   *Mailer
+	ProbeStub    *Probe
 }
 
 // DefaultNow is the stub clock's time until a test sets another.
@@ -807,6 +812,7 @@ func NewFactory() *Factory {
 		IdentityStub: NewIdentity(),
 		ResolverStub: &Resolver{},
 		MailerStub:   &Mailer{},
+		ProbeStub:    NewProbe(),
 	}
 }
 
@@ -839,6 +845,9 @@ func (f *Factory) Resolver() connector.Resolver { return f.ResolverStub }
 
 // Mailer returns the stub mailer.
 func (f *Factory) Mailer() connector.Mailer { return f.MailerStub }
+
+// CertificateProbe returns the stub certificate probe.
+func (f *Factory) CertificateProbe() connector.CertificateProbe { return f.ProbeStub }
 
 func mustTime(rfc3339 string) time.Time {
 	t, err := time.Parse(time.RFC3339, rfc3339)

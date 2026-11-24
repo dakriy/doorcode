@@ -146,7 +146,7 @@ type configRow struct {
 	Effective    string
 	Error        string
 	Options      []selectOption
-	Certificates []certificateView
+	Certificates []heldCertificate
 	Set          bool
 	Warning      string
 	Heading      string

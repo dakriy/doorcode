@@ -35,13 +35,14 @@
     </div>
   </section>
 
-  <section aria-labelledby="alert-mail-heading" class="overflow-hidden {{template "card-class"}}">
+  {{range $i, $section := $c.Sections}}
+  <section aria-labelledby="settings-{{$i}}-heading" class="overflow-hidden {{template "card-class"}}">
     <div class="px-6 pt-6">
-      <h2 id="alert-mail-heading" class="text-sm font-semibold">Alert mail</h2>
-      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Whom every enabled alert mails, whether it mails again when its condition clears, and how long a cleared condition stays quiet.</p>
+      <h2 id="settings-{{$i}}-heading" class="text-sm font-semibold">{{$section.Name}}</h2>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{$section.About}}</p>
     </div>
     <div class="mt-4 overflow-x-auto">
-      <table aria-label="Alert mail" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+      <table aria-label="{{$section.Name}}" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
         <thead class="{{template "table-head-class"}}">
           <tr>
             <th scope="col" class="px-6 py-2">Setting</th>
@@ -49,7 +50,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
-          {{range $c.Settings}}{{$id := printf "setting-%s" .Key}}
+          {{range $section.Rows}}{{$id := printf "setting-%s" .Key}}
           <tr>
             <td class="w-2/5 px-6 py-3 align-top">
               <label for="{{$id}}" class="font-medium">{{.Label}}</label>
@@ -65,10 +66,74 @@
       </table>
     </div>
   </section>
+  {{end}}
   <div class="flex justify-end">
     <button type="submit" class="{{template "primary-class"}}">Save alerts</button>
   </div>
 </form>
+
+<section aria-labelledby="certificates-heading" class="mt-6 overflow-hidden {{template "card-class"}}">
+  <div class="flex flex-wrap items-start justify-between gap-4 px-6 pt-6">
+    <div class="max-w-xl">
+      <h2 id="certificates-heading" class="text-sm font-semibold">Certificates</h2>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">The latest check of the door broker, while door_broker_tls is on, and of the device address, while it is https: what each served, verified against door_broker_ca_pem alone, as a door verifies it. The runway is the days until the earliest expiry along the path after the leaf, the trust anchor included.</p>
+    </div>
+    <form method="post" action="/admin/alerts/certificates" hx-disabled-elt="find button[type=submit]">
+      <button type="submit" class="{{template "secondary-class"}}">Check now</button>
+    </form>
+  </div>
+  {{if not $c.Certificates}}<p role="note" class="mx-6 mt-4 text-sm text-zinc-600 dark:text-zinc-400">Nothing to check: door_broker_tls is off or door_broker_host is empty, and device_url is not an https address.</p>{{end}}
+  <div class="mt-4 overflow-x-auto">
+    <table aria-label="Certificate checks" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+      <thead class="{{template "table-head-class"}}">
+        <tr>
+          <th scope="col" class="px-6 py-2">Endpoint</th>
+          <th scope="col" class="px-6 py-2">Last checked</th>
+          <th scope="col" class="px-6 py-2">Result</th>
+          <th scope="col" class="px-6 py-2">Runway</th>
+          <th scope="col" class="px-6 py-2">Leaf expires in</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {{range $c.Certificates}}
+        <tr class="align-top">
+          <td class="px-6 py-3 font-mono text-xs break-all">{{.Endpoint}}</td>
+          <td class="px-6 py-3 whitespace-nowrap tabular-nums text-zinc-600 dark:text-zinc-400">{{.Checked}}</td>
+          <td class="px-6 py-3">{{.Result}}</td>
+          <td class="px-6 py-3 whitespace-nowrap tabular-nums">{{.Runway}}</td>
+          <td class="px-6 py-3 whitespace-nowrap tabular-nums">{{.Leaf}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{range $c.Certificates}}{{if .Chain}}
+  <div class="mt-4 overflow-x-auto border-t border-zinc-100 dark:border-zinc-800">
+    <table aria-label="Chain served by {{.Address}}" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+      <caption class="px-6 pt-4 text-left text-xs font-semibold">Chain served by <span class="font-mono">{{.Address}}</span></caption>
+      <thead class="{{template "table-head-class"}}">
+        <tr>
+          <th scope="col" class="px-6 py-2">Role</th>
+          <th scope="col" class="px-6 py-2">Subject</th>
+          <th scope="col" class="px-6 py-2">Issued by</th>
+          <th scope="col" class="px-6 py-2">Expires</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {{range .Chain}}
+        <tr class="align-top">
+          <td class="px-6 py-3 whitespace-nowrap">{{.Role}}</td>
+          <td class="px-6 py-3 font-mono text-xs break-all">{{.Subject}}</td>
+          <td class="px-6 py-3 font-mono text-xs break-all">{{.Issuer}}</td>
+          <td class="px-6 py-3 whitespace-nowrap tabular-nums">{{.Expires}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{end}}{{end}}
+  <div class="pb-2"></div>
+</section>
 
 <section aria-labelledby="outbox-heading" class="mt-6 overflow-hidden {{template "card-class"}}">
   <div class="px-6 pt-6">

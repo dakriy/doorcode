@@ -66,11 +66,13 @@ var mailSettingsJSON = defaultSetting("mail_host", "") + `,` +
 	defaultSetting("mail_from", "") + `,` +
 	defaultSetting("mail_reply_to", "") + `,` + alertSettingsJSON
 
-// alertSettingsJSON is how the settings API shows the alert mail settings
-// when nothing sets them.
+// alertSettingsJSON is how the settings API shows the alert mail and
+// certificate check settings when nothing sets them.
 var alertSettingsJSON = defaultSetting("alert_recipients", "") + `,` +
 	defaultSetting("alert_mail_cleared", "true") + `,` +
-	defaultSetting("alert_hold_down_minutes", "15")
+	defaultSetting("alert_hold_down_minutes", "15") + `,` +
+	defaultSetting("certificate_check_enabled", "false") + `,` +
+	defaultSetting("certificate_check_interval_hours", "24")
 
 // brokerSettingsJSON is how the settings API shows the broker settings
 // and the door configuration defaults when nothing sets them.

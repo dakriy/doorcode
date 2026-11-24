@@ -66,6 +66,8 @@ type Store struct {
 	conditions map[conditionKey]connector.StoredCondition
 	outbox     []connector.StoredMail
 
+	certChecks map[string]connector.StoredCertificateCheck
+
 	// last holds the last id each aggregate gave, keyed by its name.
 	last map[string]int64
 }
@@ -100,6 +102,7 @@ func New() *Store {
 		requests:    map[int64]connector.StoredRequest{},
 		alertKinds:  map[string]bool{},
 		conditions:  map[conditionKey]connector.StoredCondition{},
+		certChecks:  map[string]connector.StoredCertificateCheck{},
 		last:        map[string]int64{},
 	}
 }

@@ -1150,6 +1150,47 @@ type AlertsStore interface {
 	RecentMail(ctx context.Context, limit int) ([]StoredMail, error)
 }
 
+// StoredCertificate is what a certificate check keeps of one certificate:
+// its Subject and Issuer, each a distinguished name as written by
+// pkix.Name.String, and when it expires, NotAfter.
+type StoredCertificate struct {
+	Subject  string
+	Issuer   string
+	NotAfter time.Time
+}
+
+// StoredCertificateCheck is the latest certificate check of one TLS
+// endpoint: its Address (host:port), when it was checked (CheckedAt), what
+// the connection reported when it served no certificates (Error, empty
+// when it did), whether what it served verified, and why not (Problem).
+// Chain is the verified path, or the path found before a later check
+// failed, leaf first, or else every certificate served, in order; Anchor
+// is the trusted certificate the path ends at, nil when none was reached.
+// RunwayDays is the whole days left until the earliest expiry along the
+// path after the leaf, the anchor included, and LeafDays the whole days
+// left until the leaf expires, each nil when it could not be worked out.
+type StoredCertificateCheck struct {
+	Address    string
+	CheckedAt  time.Time
+	Error      string
+	Verified   bool
+	Problem    string
+	Chain      []StoredCertificate
+	Anchor     *StoredCertificate
+	RunwayDays *int
+	LeafDays   *int
+}
+
+// CertificatesStore holds the latest certificate check of each endpoint.
+type CertificatesStore interface {
+	// CertificateChecks returns the latest check of every endpoint, by
+	// address in byte order.
+	CertificateChecks(ctx context.Context) ([]StoredCertificateCheck, error)
+	// PutCertificateCheck stores c over the check of its address, or as a
+	// new one.
+	PutCertificateCheck(ctx context.Context, c StoredCertificateCheck) error
+}
+
 // Store is the application's persistent state, one interface per aggregate.
 type Store interface {
 	// Migrate brings the schema up to date. It runs once at startup, before
@@ -1175,6 +1216,7 @@ type Store interface {
 	FirmwareStore
 	RequestsStore
 	AlertsStore
+	CertificatesStore
 }
 
 // Message is one message the broker carries: its topic, its payload, and
@@ -1309,6 +1351,15 @@ type Mailer interface {
 	Send(ctx context.Context, server MailServer, envelope Envelope, message []byte) error
 }
 
+// CertificateProbe reaches TLS servers to see the certificates they serve.
+type CertificateProbe interface {
+	// Served connects to host at port over TLS 1.2 or 1.3, naming host as
+	// the server name (SNI), and returns each certificate the server
+	// served, as DER, in the order it served them, without verifying any;
+	// or what the connection or the handshake reported.
+	Served(ctx context.Context, host string, port int) ([][]byte, error)
+}
+
 // Factory constructs connectors. It has one method per connector.
 type Factory interface {
 	Clock() Clock
@@ -1321,4 +1372,5 @@ type Factory interface {
 	Identity() Identity
 	Resolver() Resolver
 	Mailer() Mailer
+	CertificateProbe() CertificateProbe
 }

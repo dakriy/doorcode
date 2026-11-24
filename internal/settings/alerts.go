@@ -80,3 +80,50 @@ func recipients(value string) ([]string, error) {
 	}
 	return out, nil
 }
+
+// The keys of the certificate check settings.
+const (
+	KeyCertificateCheck    = "certificate_check_enabled"
+	KeyCertificateInterval = "certificate_check_interval_hours"
+)
+
+// certificateInterval parses how long the certificate check waits between
+// checks of an endpoint.
+var certificateInterval = length{whole{1, 720, "hours"}, hoursOf}
+
+// hoursOf is n hours.
+func hoursOf(n int) time.Duration { return time.Duration(n) * time.Hour }
+
+// certificateSection is the settings of the certificate check.
+var certificateSection = section{Section{Name: "Certificate check", About: "Checks the certificates the door broker and the device address serve against door_broker_ca_pem, as a door verifies them.", Tab: TabAlerts}, []definition{
+	{key: KeyCertificateCheck, fallback: No, validate: accepting(boolean), label: "Check certificates",
+		help: "Checks each endpoint again once the interval has passed since its last check. Check now works while it is off."},
+	{key: KeyCertificateInterval, fallback: "24", validate: certificateInterval.rule(), label: "Check interval",
+		help: "Hours, from 1 to 720, between two checks of an endpoint."},
+}}
+
+// CertificateCheck is whether the certificate check runs by itself
+// (Enabled) and how long it waits between two checks of an endpoint
+// (Interval).
+type CertificateCheck struct {
+	Enabled  bool
+	Interval time.Duration
+}
+
+// CertificateCheck returns whether the certificate check runs by itself
+// and how often. It reads only its own settings.
+func (s Service) CertificateCheck(ctx context.Context) (CertificateCheck, error) {
+	stored, err := s.Store.Settings(ctx)
+	if err != nil {
+		return CertificateCheck{}, err
+	}
+	values := map[string]string{}
+	for _, def := range certificateSection.definitions {
+		values[def.key] = s.resolve(def, stored).Value
+	}
+	var c CertificateCheck
+	var enabledErr, intervalErr error
+	c.Enabled, enabledErr = parsed(values, KeyCertificateCheck, boolean)
+	c.Interval, intervalErr = parsed(values, KeyCertificateInterval, certificateInterval.parse)
+	return c, errors.Join(enabledErr, intervalErr)
+}

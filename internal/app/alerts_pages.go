@@ -19,17 +19,21 @@ import (
 const alertsPath = "/admin/alerts"
 
 // alertSettingKeys are the settings the Alerts page shows and saves.
-var alertSettingKeys = []string{settings.KeyAlertRecipients, settings.KeyAlertCleared, settings.KeyAlertHoldDown}
+var alertSettingKeys = []string{
+	settings.KeyAlertRecipients, settings.KeyAlertCleared, settings.KeyAlertHoldDown, settings.KeyCertificateCheck, settings.KeyCertificateInterval,
+}
 
 // alertsContent is the Alerts page's content: every kind of alert, the
-// alert mail settings, each with what was entered for it and what is
-// wrong with it when it was refused, a note while mail is not set up, and
-// the newest messages of the outbox.
+// sections of the alert mail and certificate check settings, each
+// setting with what was entered for it and what is wrong with it when it
+// was refused, a note while mail is not set up, each endpoint's latest
+// certificate check, and the newest messages of the outbox.
 type alertsContent struct {
-	Kinds    []alert.KindState
-	Settings []settingRow
-	MailNote string
-	Outbox   []outboxRow
+	Kinds        []alert.KindState
+	Sections     []settingSection
+	MailNote     string
+	Certificates []certificateRow
+	Outbox       []outboxRow
 }
 
 // outboxRow is a message of the outbox as the Alerts page lists it, its
@@ -67,9 +71,17 @@ func (a *App) showAlerts(w http.ResponseWriter, r *http.Request, status int, vie
 		a.pageError(w, r, err)
 		return
 	}
-	content := alertsContent{Kinds: now.kinds, MailNote: a.mailNote(r.Context()), Outbox: []outboxRow{}}
-	for _, section := range a.sectionsOf(all, settings.TabAlerts, entered, errs) {
-		content.Settings = append(content.Settings, section.Rows...)
+	checks, err := a.certificates.Results(r.Context())
+	if err != nil {
+		a.pageError(w, r, err)
+		return
+	}
+	content := alertsContent{
+		Kinds: now.kinds, Sections: a.sectionsOf(all, settings.TabAlerts, entered, errs), MailNote: a.mailNote(r.Context()),
+		Outbox: []outboxRow{},
+	}
+	for _, c := range checks {
+		content.Certificates = append(content.Certificates, certificateRowOf(c, zone))
 	}
 	for _, m := range now.recent {
 		content.Outbox = append(content.Outbox, outboxRowOf(m, zone))

@@ -452,6 +452,7 @@ var sections = []section{
 	}},
 	mailSection,
 	alertsSection,
+	certificateSection,
 	{Section{Name: "Door enrollment", About: "The broker account every new controller enrolls with. A changed enrollment username or password takes effect at once: the broker accepts the new credentials and no longer the old ones, and every door is sent them in its configuration (a door that is offline, when it next connects), so it can enroll again should it have to. A controller that is not a door and still holds the old credentials, such as one provisioned or built earlier, or a revoked door that never received the new ones, cannot enroll until it is provisioned again.", Tab: TabDoors}, []definition{
 		{key: keyEnrollmentUsername, fallback: "doorcode-enroll", label: "Enrollment username"},
 		{key: keyEnrollmentPassword, fallback: "", secret: true, label: "Enrollment password",

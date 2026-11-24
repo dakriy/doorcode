@@ -215,7 +215,7 @@ var templateFuncs = template.FuncMap{
 	"numberrange": func(id string, in settings.Input) numberRange {
 		return numberRange{ID: id, Input: in}
 	},
-	"certificates": func(id string, certificates []certificateView) certificateList {
+	"certificates": func(id string, certificates []heldCertificate) certificateList {
 		return certificateList{ID: id, Certificates: certificates}
 	},
 	"pagelinks": func(previous, next, back, forward, inset string) pageLinks {

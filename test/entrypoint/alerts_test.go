@@ -447,7 +447,7 @@ func TestAlertMailWaitsWithAClearErrorWhileMailIsNotSetUp(t *testing.T) {
 	got := []any{k.outbox("/0/status"), k.outbox("/0/last_error"), pageOf(k.b.Get("/admin/alerts")).Notes}
 	want := []any{"pending", "mail is not set up: give the mail server's host and the address mail is sent from on the Mail tab of the settings",
 		[]string{"Mail is not set up, so alert mail waits in the outbox and fails after six attempts. " +
-			"Give the mail server's host and the address mail is sent from on the Mail tab of the settings."}}
+			"Give the mail server's host and the address mail is sent from on the Mail tab of the settings.", nothingToCheck}}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("status, error, page notes (-want +got):\n%s", diff)
 	}

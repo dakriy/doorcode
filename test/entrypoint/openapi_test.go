@@ -48,6 +48,8 @@ func TestOpenAPIListsEveryOperationWithTheStatusesItAnswers(t *testing.T) {
 		{Method: "GET", Target: "/api/v1/access-rules/1", ID: "getAccessRule", Statuses: []int{200, 401, 403, 404, 500}},
 		{Method: "PUT", Target: "/api/v1/access-rules/1", ID: "updateAccessRule", Body: ruleBody, Statuses: []int{200, 400, 401, 403, 404, 500}},
 		{Method: "GET", Target: "/api/v1/alerts", ID: "getAlerts", Statuses: []int{200, 401, 403, 500}},
+		{Method: "GET", Target: "/api/v1/alerts/certificates", ID: "getCertificateChecks", Statuses: []int{200, 401, 403, 500}},
+		{Method: "POST", Target: "/api/v1/alerts/certificates/check", ID: "checkCertificates", Statuses: []int{200, 401, 403, 500}},
 		{Method: "PUT", Target: "/api/v1/alerts/kinds/held_open", ID: "updateAlertKind", Body: `{"enabled":true}`, Statuses: []int{200, 400, 401, 403, 404, 500}},
 		{Method: "GET", Target: "/api/v1/doors", ID: "listDoors", Statuses: []int{200, 400, 401, 403, 500}},
 		{Method: "POST", Target: "/api/v1/doors", ID: "createDoor", Body: doorBody, Statuses: []int{201, 400, 401, 403, 500}},

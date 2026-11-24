@@ -494,6 +494,124 @@
         }
       }
     },
+    "/alerts/certificates": {
+      "get": {
+        "operationId": "getCertificateChecks",
+        "summary": "Read the latest certificate check of each endpoint",
+        "tags": [
+          "alerts"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Whether and how often the check runs, and each endpoint with its latest check.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CertificatesView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the admin role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/alerts/certificates/check": {
+      "post": {
+        "operationId": "checkCertificates",
+        "summary": "Check every endpoint's certificates now",
+        "tags": [
+          "alerts"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "basicAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every endpoint checked just now, whether or not the check runs by itself, once a check in progress has ended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CertificatesView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid API token was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller does not hold the admin role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The server failed; the body names a request id to give an administrator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/alerts/kinds/{kind}": {
       "put": {
         "operationId": "updateAlertKind",
@@ -10933,6 +11051,119 @@
             "description": "The id of the door the controller becomes. Give this or door, not both."
           }
         }
+      },
+      "CertificateCheckView": {
+        "type": "object",
+        "properties": {
+          "anchor": {
+            "$ref": "#/components/schemas/CertificateView",
+            "description": "The certificate of door_broker_ca_pem the path ends at; absent when no path reaches one."
+          },
+          "chain": {
+            "type": "array",
+            "description": "The path from the leaf to the anchor, leaf first, when one was found; else every certificate served, in order.",
+            "items": {
+              "$ref": "#/components/schemas/CertificateView"
+            }
+          },
+          "checked": {
+            "type": "boolean",
+            "description": "True once it was checked at this address."
+          },
+          "checked_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it was last checked; absent until it was."
+          },
+          "error": {
+            "type": "string",
+            "description": "What the connection or the TLS handshake reported, when the endpoint served no certificates."
+          },
+          "host": {
+            "type": "string",
+            "description": "The host it is reached at, which the check names as the server (SNI) and the leaf must be valid for."
+          },
+          "leaf_days": {
+            "type": "integer",
+            "description": "Whole days from the check until the leaf expires."
+          },
+          "name": {
+            "type": "string",
+            "description": "What the endpoint is: Door broker, Device address, or both."
+          },
+          "port": {
+            "type": "integer",
+            "description": "The port it is reached at."
+          },
+          "problem": {
+            "type": "string",
+            "description": "Why what it served does not verify."
+          },
+          "runway_days": {
+            "type": "integer",
+            "description": "Whole days from the check until the earliest expiry along the path after the leaf, the anchor included."
+          },
+          "verified": {
+            "type": "boolean",
+            "description": "True when what it served verifies against door_broker_ca_pem, for its host, at the time of the check."
+          }
+        },
+        "required": [
+          "name",
+          "host",
+          "port",
+          "checked",
+          "verified",
+          "chain"
+        ]
+      },
+      "CertificateView": {
+        "type": "object",
+        "properties": {
+          "issuer": {
+            "type": "string",
+            "description": "Who issued it, a distinguished name."
+          },
+          "not_after": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it expires."
+          },
+          "subject": {
+            "type": "string",
+            "description": "The certificate's subject, a distinguished name."
+          }
+        },
+        "required": [
+          "subject",
+          "issuer",
+          "not_after"
+        ]
+      },
+      "CertificatesView": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "True while the check runs by itself, from the setting certificate_check_enabled."
+          },
+          "endpoints": {
+            "type": "array",
+            "description": "The endpoints the general settings give now: the broker while door_broker_tls is on and door_broker_host is set, then the host of device_url while it is https; each with its latest check.",
+            "items": {
+              "$ref": "#/components/schemas/CertificateCheckView"
+            }
+          },
+          "interval_hours": {
+            "type": "integer",
+            "description": "Hours between two checks of an endpoint, from the setting certificate_check_interval_hours."
+          }
+        },
+        "required": [
+          "enabled",
+          "interval_hours",
+          "endpoints"
+        ]
       },
       "CodeRequest": {
         "type": "object",

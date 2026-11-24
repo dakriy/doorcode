@@ -198,7 +198,7 @@ type settingRow struct {
 	Heading string
 	// Certificates is the certificates the setting holds, and Described
 	// the ids of what describes its input.
-	Certificates []certificateView
+	Certificates []heldCertificate
 	Described    string
 }
 

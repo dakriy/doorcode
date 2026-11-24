@@ -14,6 +14,18 @@ func logsSince(f *testsupport.Factory, n int) []testsupport.LogEntry {
 	return f.LogStub.Entries[n:]
 }
 
+// loggedSince is each line saying message that f's log holds after its
+// first n, oldest first.
+func loggedSince(f *testsupport.Factory, n int, message string) []testsupport.LogEntry {
+	var out []testsupport.LogEntry
+	for _, e := range logsSince(f, n) {
+		if e.Message == message {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
 // lastLog is the newest line f's log holds.
 func lastLog(f *testsupport.Factory) testsupport.LogEntry {
 	return f.LogStub.Entries[len(f.LogStub.Entries)-1]
@@ -232,7 +244,7 @@ func TestRunLogsWhenThePeriodicWorkFails(t *testing.T) {
 			run(t, a)
 
 			want := []testsupport.LogEntry{{Level: "error", Message: "periodic work failed", Fields: map[string]string{"error": c.want}}}
-			if diff := cmp.Diff(want, logsSince(f, logged)); diff != "" {
+			if diff := cmp.Diff(want, loggedSince(f, logged, "periodic work failed")); diff != "" {
 				t.Errorf("log (-want +got):\n%s", diff)
 			}
 		})

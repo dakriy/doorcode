@@ -464,6 +464,8 @@ page folds away the single sign-on and identity claims parts while
 | `alert_recipients` | The addresses every enabled alert mails, separated by commas or new lines, each alone or after a name. Shown on the Alerts page. Nothing is mailed while it is empty. | empty |
 | `alert_mail_cleared` | `true` mails the recipients once more when a condition an alert mailed about clears. Shown on the Alerts page. | `true` |
 | `alert_hold_down_minutes` | Minutes, 0 to 10080, a cleared condition must stay clear before it mails again when it comes back; one that comes back sooner is followed without mail. Shown on the Alerts page. | `15` |
+| `certificate_check_enabled` | `true` has the server check, in the background, the certificates of the broker and of `device_url` (see [Certificate check](#certificate-check)); Check now works either way. Shown on the Alerts page. | `false` |
+| `certificate_check_interval_hours` | Hours, 1 to 720, between two checks of an endpoint while `certificate_check_enabled` is on. Shown on the Alerts page. | `24` |
 | `enrollment_username` | The broker username every new controller enrolls with. A change takes effect at once and reaches every door in its configuration (see below). | `doorcode-enroll` |
 | `enrollment_password` | Its password. Generated, stored, and logged on first start when empty. Secret: stored encrypted. A change takes effect at once and reaches every door in its configuration (see below). | empty |
 | `telemetry_retention_days` | Days each telemetry report is kept. | `7` |
@@ -576,6 +578,40 @@ door. A message the server does not take, or that waits while mail is not
 set up, is tried again 1, 2, 4, 8, and 16 minutes after its first, second,
 third, fourth, and fifth failed attempts, and is marked failed, with the
 last error, when its sixth attempt fails.
+
+### Certificate check
+
+The Alerts page's Certificates section checks the certificates doors are
+served the way a door checks them, so a chain that would stop doors
+connecting shows before it does. Its endpoints come from the general
+settings only: the broker (`door_broker_host`, `door_broker_port`) while
+`door_broker_tls` is on, and the host of `device_url` (its port, else 443)
+while it is an `https://` address; a door's own overrides are not checked.
+Each endpoint is reached over TLS 1.2 or 1.3 naming its host as the server
+(SNI), and what it serves is verified against `door_broker_ca_pem` alone,
+never the system's roots: starting from the leaf, through the certificates
+served in any order, to the first one a certificate of `door_broker_ca_pem`
+issued, the path with the fewest certificates winning. The leaf must be
+valid for the host, and every certificate of the path and the trust anchor
+valid at the time. With the chain leaf, YE1, Root YE cross-signed by X2,
+and X2 cross-signed by X1 served, and X1 and X2 trusted, the path is leaf,
+YE1, Root YE (cross-signed by X2), with X2 as the anchor.
+
+The page lists, for each endpoint, when it was last checked, whether it
+verified (and up to which anchor), what the connection reported when it
+could not be reached, or why it did not verify, the runway, the whole days
+until the earliest expiry along the path after the leaf (the
+intermediates, the cross-signs, and the anchor), the days left on the
+leaf, and the chain with each certificate's subject, issuer, and expiry.
+Check now checks every endpoint at once; with `certificate_check_enabled`
+on, the server checks an endpoint once `certificate_check_interval_hours`
+have passed since its last check, looking every minute. These checks run
+apart from door handling, so an endpoint slow to answer (each has 10
+seconds) never delays a door, and one check runs at a time: Check now
+waits for a check in progress to end.
+`GET /api/v1/alerts/certificates` reads the same, and
+`POST /api/v1/alerts/certificates/check` checks now. The check only reads:
+it never changes `door_broker_ca_pem` or any door's configuration.
 
 ## Single sign-on
 

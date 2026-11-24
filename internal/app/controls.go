@@ -8,9 +8,9 @@ import (
 	"github.com/dakriy/doorcode/internal/settings"
 )
 
-// certificateView is a certificate as a page lists it: whom it names,
-// when it is valid, and, when that is not now, why.
-type certificateView struct {
+// heldCertificate is a certificate a setting holds as a page lists it:
+// whom it names, when it is valid, and, when that is not now, why.
+type heldCertificate struct {
 	Subject string
 	Valid   string
 	State   string
@@ -19,13 +19,13 @@ type certificateView struct {
 // certificatesOf is each certificate value holds, as a page lists it at
 // now, for an input asking for certificates; none for any other input.
 // Their dates are in UTC, as certificates give them.
-func certificatesOf(in settings.Input, value string, now time.Time) []certificateView {
+func certificatesOf(in settings.Input, value string, now time.Time) []heldCertificate {
 	if in.Kind != settings.KindCertificates {
 		return nil
 	}
-	var views []certificateView
+	var views []heldCertificate
 	for _, c := range settings.Certificates(value) {
-		view := certificateView{Subject: c.Subject,
+		view := heldCertificate{Subject: c.Subject,
 			Valid: shownAt(time.UTC, c.NotBefore, longDateLayout) + " to " + shownAt(time.UTC, c.NotAfter, longDateLayout) + " (UTC)"}
 		switch {
 		case now.After(c.NotAfter):
@@ -43,7 +43,7 @@ func certificatesOf(in settings.Input, value string, now time.Time) []certificat
 // certificates it holds when it holds some, its state when it is a
 // secret, and errorID, the id of what is wrong with its value, last, when
 // it is not empty.
-func describedBy(id string, in settings.Input, certificates []certificateView, secret bool, errorID string) string {
+func describedBy(id string, in settings.Input, certificates []heldCertificate, secret bool, errorID string) string {
 	var ids []string
 	if in.Bounded() {
 		ids = append(ids, id+"-range")
@@ -126,5 +126,5 @@ type numberRange struct {
 // ID names.
 type certificateList struct {
 	ID           string
-	Certificates []certificateView
+	Certificates []heldCertificate
 }

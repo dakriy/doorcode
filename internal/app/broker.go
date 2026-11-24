@@ -47,9 +47,12 @@ const enrollmentPasswordBytes = 18
 // Run serves the door controllers: it lets them enroll with the enrollment
 // credentials, hands every message they publish to its lane as the broker
 // delivers it, and does the periodic work whenever the clock reaches its
-// next turn, while the outbox's mail is delivered beside it. It returns
-// when the broker stops delivering, the lanes have handled what they were
-// handed, and the mail due by then has been tried, and with an error when
+// next turn, while the outbox's mail is delivered and the endpoints'
+// certificates are checked beside it, each on a goroutine of its own, so
+// neither waits on a door's messages nor holds them up. It returns when
+// the broker stops delivering, the lanes have handled what they were
+// handed, the mail due by then has been tried, and a certificate check in
+// progress has ended, and with an error when
 // it cannot start. The first Run sets up the enrollment credentials; a later
 // one keeps them, so controllers enrolling stay connected.
 func (a *App) Run(ctx context.Context) error {
@@ -65,8 +68,10 @@ func (a *App) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("subscribe: %w", err)
 	}
-	stopDelivery := a.startDelivery(ctx)
+	stopDelivery := beside(func(stop <-chan struct{}) { a.deliver(ctx, stop) })
 	defer stopDelivery()
+	stopChecks := beside(func(stop <-chan struct{}) { a.checkCertificatesWhenDue(ctx, stop) })
+	defer stopChecks()
 	queues, wait := a.startLanes(ctx)
 	defer wait()
 	for {

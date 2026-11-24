@@ -15,6 +15,7 @@ import (
 
 	"github.com/dakriy/doorcode/internal/alert"
 	"github.com/dakriy/doorcode/internal/auth"
+	"github.com/dakriy/doorcode/internal/certcheck"
 	"github.com/dakriy/doorcode/internal/connector"
 	"github.com/dakriy/doorcode/internal/controller"
 	"github.com/dakriy/doorcode/internal/decision"
@@ -85,6 +86,13 @@ type App struct {
 	queued       atomic.Bool
 	wake         chan struct{}
 	nextDelivery *time.Time
+	// certificates checks the certificates the broker and the device
+	// address serve, on a goroutine of its own beside Run's door work;
+	// nextCertificateLook is when that goroutine next looks for endpoints
+	// due a check. Only it reads and changes nextCertificateLook while Run
+	// runs.
+	certificates        certcheck.Service
+	nextCertificateLook time.Time
 	// proxies decides whom to believe about where a request came from.
 	proxies proxy.Service
 	// traffic counts the HTTP requests answered, for the metrics.
@@ -130,27 +138,28 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 	authService := auth.Service{Store: store, Settings: s, Clock: clock, Entropy: entropy, Log: log}
 	live := newHub()
 	a := &App{
-		log:        log,
-		entropy:    entropy,
-		clock:      clock,
-		settings:   s,
-		auth:       authService,
-		directory:  directory.Service{Store: store, Auth: authService, Clock: clock},
-		schedules:  schedule.Service{Store: store},
-		doors:      door.Service{Store: store, Clock: clock},
-		rules:      rule.Service{Store: store},
-		events:     event.Service{Store: store, Counts: event.NewCounts()},
-		stats:      stats.Service{Store: store},
-		requests:   request.Service{Store: store, Clock: clock, Changed: live.requested},
-		decisions:  decision.Service{Store: store, Auth: authService, Settings: s, Clock: clock, Limits: decision.NewLimiter()},
-		broker:     f.Broker(),
-		store:      store,
-		live:       live,
-		proxies:    proxy.Service{Resolver: f.Resolver(), Resolved: proxy.NewResolved()},
-		traffic:    traffic.New(),
-		enrollment: &push.Enrollment{},
-		mail:       email.Service{Mailer: f.Mailer(), Clock: clock, Entropy: entropy},
-		wake:       make(chan struct{}, 1),
+		log:          log,
+		entropy:      entropy,
+		clock:        clock,
+		settings:     s,
+		auth:         authService,
+		directory:    directory.Service{Store: store, Auth: authService, Clock: clock},
+		schedules:    schedule.Service{Store: store},
+		doors:        door.Service{Store: store, Clock: clock},
+		rules:        rule.Service{Store: store},
+		events:       event.Service{Store: store, Counts: event.NewCounts()},
+		stats:        stats.Service{Store: store},
+		requests:     request.Service{Store: store, Clock: clock, Changed: live.requested},
+		decisions:    decision.Service{Store: store, Auth: authService, Settings: s, Clock: clock, Limits: decision.NewLimiter()},
+		broker:       f.Broker(),
+		store:        store,
+		live:         live,
+		proxies:      proxy.Service{Resolver: f.Resolver(), Resolved: proxy.NewResolved()},
+		traffic:      traffic.New(),
+		enrollment:   &push.Enrollment{},
+		mail:         email.Service{Mailer: f.Mailer(), Clock: clock, Entropy: entropy},
+		wake:         make(chan struct{}, 1),
+		certificates: certcheck.Service{Probe: f.CertificateProbe(), Store: store, Settings: s, Clock: clock, Lock: &sync.Mutex{}},
 		// The first Run delivers what the outbox holds from before.
 		nextDelivery: &time.Time{},
 	}
