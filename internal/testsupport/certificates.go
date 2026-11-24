@@ -54,10 +54,24 @@ func (s *Store) PutCertificateCheck(_ context.Context, c connector.StoredCertifi
 	return nil
 }
 
+// DeleteCertificateCheck deletes the check of address, if there is one.
+func (s *Store) DeleteCertificateCheck(_ context.Context, address string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.writable(certificatesAggregate, certificateWrites); err != nil {
+		return err
+	}
+	delete(s.certChecks, address)
+	return nil
+}
+
 // clonedCheck is a copy of c sharing nothing with it.
 func clonedCheck(c connector.StoredCertificateCheck) connector.StoredCertificateCheck {
 	c.Chain = slices.Clone(c.Chain)
 	c.Anchor, c.RunwayDays, c.LeafDays = cloned(c.Anchor), cloned(c.RunwayDays), cloned(c.LeafDays)
+	if c.Baseline != nil {
+		c.Baseline = &connector.StoredChainShape{Links: slices.Clone(c.Baseline.Links), Since: c.Baseline.Since}
+	}
 	return c
 }
 
@@ -67,8 +81,9 @@ func (s *Store) FailCertificates() {
 	s.failing[certificatesAggregate] = true
 }
 
-// FailCertificateWrites makes PutCertificateCheck report ErrUnavailable,
-// while reading the checks still works.
+// FailCertificateWrites makes PutCertificateCheck and
+// DeleteCertificateCheck report ErrUnavailable, while reading the checks
+// still works.
 func (s *Store) FailCertificateWrites() {
 	s.failing[certificateWrites] = true
 }

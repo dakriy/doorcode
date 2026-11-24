@@ -28,6 +28,7 @@ var kindRows = [][]string{
 		"It clears once the door no longer shows the Mismatched configuration badge."},
 	{"Door firmware update failed update_failed", "A door's firmware update failed: the door said it could not install it, " +
 		"or it did not connect again with it in time. It clears once the door's firmware no longer shows Update failed: an update of it is under way again, it runs its target, or its target changes."},
+	{"Certificate certificate", certificateAbout},
 }
 
 // alertMailRows is how the Alerts page lists the alert mail settings,
@@ -51,6 +52,11 @@ func certificateCheckRows(enabled, interval string) [][]string {
 		{"Check certificates certificate_check_enabled Checks each endpoint again once the interval has passed since its last check. " +
 			"Check now works while it is off.", enabled},
 		{"Check interval certificate_check_interval_hours Hours, from 1 to 720, between two checks of an endpoint.", interval},
+		{"Runway alert certificate_runway_days Days, from 1 to 3650: the certificate alert is raised when the earliest expiry along a chain " +
+			"after its leaf, the trust anchor included, is fewer days away.", "1 to 3650 days"},
+		{"Leaf alert certificate_leaf_days Days, from 1 to 365: the certificate alert is raised when the leaf expires in fewer days.", "1 to 365 days"},
+		{"Unreachable alert certificate_unreachable_checks Checks, from 1 to 100: the certificate alert is raised when this many checks " +
+			"in a row reach no server.", "1 to 100 checks"},
 	}
 }
 
@@ -68,7 +74,8 @@ func TestTheAlertsPageShowsTheKindsTheAlertMailSettingsAndAnEmptyOutbox(t *testi
 		Notes: []string{"Mail is not set up, so alert mail waits in the outbox and fails after six attempts. " +
 			"Give the mail server's host and the address mail is sent from on the Mail tab of the settings.", nothingToCheck},
 		Values: map[string]string{"alert_recipients": "", "alert_mail_cleared": "false", "alert_hold_down_minutes": "15",
-			"certificate_check_enabled": "false", "certificate_check_interval_hours": "24"},
+			"certificate_check_enabled": "false", "certificate_check_interval_hours": "24",
+			"certificate_runway_days": "548", "certificate_leaf_days": "14", "certificate_unreachable_checks": "3"},
 		Checked: []string{"alert_mail_cleared=true"},
 		Tables: map[string][][]string{
 			"Kinds of alert":     kindRows,
@@ -99,6 +106,29 @@ func TestTheAlertsPageAsksForEachAlertMailSettingWithItsControl(t *testing.T) {
 	got := []any{entriesOf(page.Inputs, keys...), entriesOf(page.Placeholders, keys...), entriesOf(page.Limits, keys...), entriesOf(page.Descriptions, keys...)}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("inputs, placeholders, limits, descriptions (-want +got):\n%s", diff)
+	}
+}
+
+func TestTheAlertsPageAsksForEachCertificateCheckSettingWithItsControl(t *testing.T) {
+	t.Parallel()
+	b := signedInAdmin(t, testsupport.NewFactory())
+
+	page := testsupport.ParsePage(b.Get("/admin/alerts").Body)
+
+	keys := []string{"certificate_check_enabled", "certificate_check_interval_hours", "certificate_runway_days", "certificate_leaf_days", "certificate_unreachable_checks"}
+	want := []any{
+		map[string]string{
+			"certificate_check_enabled": "checkbox", "certificate_check_interval_hours": "number", "certificate_runway_days": "number",
+			"certificate_leaf_days": "number", "certificate_unreachable_checks": "number",
+		},
+		map[string]string{
+			"certificate_check_enabled": "", "certificate_check_interval_hours": "1 to 720 by 1", "certificate_runway_days": "1 to 3650 by 1",
+			"certificate_leaf_days": "1 to 365 by 1", "certificate_unreachable_checks": "1 to 100 by 1",
+		},
+	}
+	got := []any{entriesOf(page.Inputs, keys...), entriesOf(page.Limits, keys...)}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("inputs, limits (-want +got):\n%s", diff)
 	}
 }
 
@@ -175,7 +205,8 @@ func TestARefusedAlertsFormShowsWhatIsWrongAndStoresNothing(t *testing.T) {
 		"alert_recipients":        "Must be email addresses separated by commas or new lines, such as ops@example.com, Front desk <desk@example.com>.",
 		"alert_hold_down_minutes": "Must be a whole number of minutes from 0 to 10080.",
 	}, map[string]string{"alert_recipients": "nobody", "alert_mail_cleared": "false", "alert_hold_down_minutes": "-5",
-		"certificate_check_enabled": "false", "certificate_check_interval_hours": "24"},
+		"certificate_check_enabled": "false", "certificate_check_interval_hours": "24",
+		"certificate_runway_days": "548", "certificate_leaf_days": "14", "certificate_unreachable_checks": "3"},
 		false, testsupport.JSON(`[]`), 15.0}
 	got := []any{refusedForm.Status, page.FieldErrors, page.Values,
 		testsupport.JSONAt(api, "/kinds/1/enabled"), testsupport.JSONAt(api, "/recipients"), testsupport.JSONAt(api, "/hold_down_minutes")}

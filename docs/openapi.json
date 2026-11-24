@@ -11059,6 +11059,10 @@
             "$ref": "#/components/schemas/CertificateView",
             "description": "The certificate of door_broker_ca_pem the path ends at; absent when no path reaches one."
           },
+          "baseline": {
+            "$ref": "#/components/schemas/ChainShapeView",
+            "description": "The shape of the chain the endpoint last served verified, which the next verified chain is compared with; absent until one verified."
+          },
           "chain": {
             "type": "array",
             "description": "The path from the leaf to the anchor, leaf first, when one was found; else every certificate served, in order.",
@@ -11078,6 +11082,10 @@
           "error": {
             "type": "string",
             "description": "What the connection or the TLS handshake reported, when the endpoint served no certificates."
+          },
+          "failures": {
+            "type": "integer",
+            "description": "How many checks in a row, the latest included, reached no server; 0 once one does."
           },
           "host": {
             "type": "string",
@@ -11114,7 +11122,8 @@
           "port",
           "checked",
           "verified",
-          "chain"
+          "chain",
+          "failures"
         ]
       },
       "CertificateView": {
@@ -11163,6 +11172,44 @@
           "enabled",
           "interval_hours",
           "endpoints"
+        ]
+      },
+      "ChainLinkView": {
+        "type": "object",
+        "properties": {
+          "issuer": {
+            "type": "string",
+            "description": "Who issued it, a distinguished name."
+          },
+          "subject": {
+            "type": "string",
+            "description": "The certificate's subject, a distinguished name."
+          }
+        },
+        "required": [
+          "subject",
+          "issuer"
+        ]
+      },
+      "ChainShapeView": {
+        "type": "object",
+        "properties": {
+          "links": {
+            "type": "array",
+            "description": "Each certificate of the verified path, leaf first, then the trust anchor.",
+            "items": {
+              "$ref": "#/components/schemas/ChainLinkView"
+            }
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the check that first found this shape ran."
+          }
+        },
+        "required": [
+          "links",
+          "since"
         ]
       },
       "CodeRequest": {

@@ -76,7 +76,7 @@
   <div class="flex flex-wrap items-start justify-between gap-4 px-6 pt-6">
     <div class="max-w-xl">
       <h2 id="certificates-heading" class="text-sm font-semibold">Certificates</h2>
-      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">The latest check of the door broker, while door_broker_tls is on, and of the device address, while it is https: what each served, verified against door_broker_ca_pem alone, as a door verifies it. The runway is the days until the earliest expiry along the path after the leaf, the trust anchor included.</p>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">The latest check of the door broker, while door_broker_tls is on, and of the device address, while it is https: what each served, verified against door_broker_ca_pem alone, as a door verifies it. The runway is the days until the earliest expiry along the path after the leaf, the trust anchor included. The chain shape is the subject and issuer of each certificate of the path the endpoint last served verified, and of the anchor; the Certificate alert mails once when a verified chain of another shape replaces it.</p>
     </div>
     <form method="post" action="/admin/alerts/certificates" hx-disabled-elt="find button[type=submit]">
       <button type="submit" class="{{template "secondary-class"}}">Check now</button>
@@ -92,6 +92,8 @@
           <th scope="col" class="px-6 py-2">Result</th>
           <th scope="col" class="px-6 py-2">Runway</th>
           <th scope="col" class="px-6 py-2">Leaf expires in</th>
+          <th scope="col" class="px-6 py-2">Unreachable checks in a row</th>
+          <th scope="col" class="px-6 py-2">Chain shape since</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -102,6 +104,8 @@
           <td class="px-6 py-3">{{.Result}}</td>
           <td class="px-6 py-3 whitespace-nowrap tabular-nums">{{.Runway}}</td>
           <td class="px-6 py-3 whitespace-nowrap tabular-nums">{{.Leaf}}</td>
+          <td class="px-6 py-3 whitespace-nowrap tabular-nums">{{.Failures}}</td>
+          <td class="px-6 py-3 whitespace-nowrap tabular-nums text-zinc-600 dark:text-zinc-400">{{.Baseline}}</td>
         </tr>
         {{end}}
       </tbody>
@@ -126,6 +130,26 @@
           <td class="px-6 py-3 font-mono text-xs break-all">{{.Subject}}</td>
           <td class="px-6 py-3 font-mono text-xs break-all">{{.Issuer}}</td>
           <td class="px-6 py-3 whitespace-nowrap tabular-nums">{{.Expires}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{end}}{{if .Links}}
+  <div class="mt-4 overflow-x-auto border-t border-zinc-100 dark:border-zinc-800">
+    <table aria-label="Chain shape of {{.Address}}" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
+      <caption class="px-6 pt-4 text-left text-xs font-semibold">Chain shape of <span class="font-mono">{{.Address}}</span> since {{.Baseline}}</caption>
+      <thead class="{{template "table-head-class"}}">
+        <tr>
+          <th scope="col" class="px-6 py-2">Subject</th>
+          <th scope="col" class="px-6 py-2">Issued by</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {{range .Links}}
+        <tr class="align-top">
+          <td class="px-6 py-3 font-mono text-xs break-all">{{.Subject}}</td>
+          <td class="px-6 py-3 font-mono text-xs break-all">{{.Issuer}}</td>
         </tr>
         {{end}}
       </tbody>

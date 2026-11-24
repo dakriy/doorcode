@@ -160,7 +160,12 @@ func earliestExpiry(certs []*x509.Certificate, anchor *x509.Certificate) time.Ti
 
 // daysLeft is the whole days from now until t, negative once t passed.
 func daysLeft(t, now time.Time) int {
-	return int(t.Sub(now) / (24 * time.Hour))
+	return wholeDays(t.Sub(now))
+}
+
+// wholeDays is the whole days d lasts.
+func wholeDays(d time.Duration) int {
+	return int(d / (24 * time.Hour))
 }
 
 // described is what a check keeps of each of certs.
@@ -180,4 +185,39 @@ func describe(c *x509.Certificate) connector.StoredCertificate {
 // stamp is t as a problem writes it.
 func stamp(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
+}
+
+// The roles of the certificates a check found.
+const (
+	leafRole         = "Leaf"
+	intermediateRole = "Intermediate"
+	anchorRole       = "Trust anchor"
+	servedRole       = "Served"
+)
+
+// Found is a certificate a check found and its Role in what was found.
+type Found struct {
+	Role string
+	connector.StoredCertificate
+}
+
+// FoundIn is each certificate c found, in order, with its role: the
+// leaf, the intermediates and the trust anchor of the path when c
+// reached an anchor, else each certificate served.
+func FoundIn(c connector.StoredCertificateCheck) []Found {
+	found := make([]Found, 0, len(c.Chain)+1)
+	if c.Anchor == nil {
+		for _, cert := range c.Chain {
+			found = append(found, Found{servedRole, cert})
+		}
+		return found
+	}
+	for i, cert := range c.Chain {
+		role := intermediateRole
+		if i == 0 {
+			role = leafRole
+		}
+		found = append(found, Found{role, cert})
+	}
+	return append(found, Found{anchorRole, *c.Anchor})
 }

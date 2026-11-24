@@ -164,6 +164,7 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 		nextDelivery: &time.Time{},
 	}
 	a.alerts = alert.Service{Store: store, Settings: s, Mail: a.mail, Clock: clock, Log: log, Queued: a.wakeDelivery, Lock: &sync.Mutex{}}
+	a.certificates.Alerts = a.alerts
 	if err := a.auth.CreateFirstAdmin(ctx); err != nil {
 		return nil, fmt.Errorf("create first administrator: %w", err)
 	}

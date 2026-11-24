@@ -1169,6 +1169,9 @@ type StoredCertificate struct {
 // RunwayDays is the whole days left until the earliest expiry along the
 // path after the leaf, the anchor included, and LeafDays the whole days
 // left until the leaf expires, each nil when it could not be worked out.
+// Failures is how many checks in a row, this one included, reached no
+// server, and Baseline the shape of the chain the endpoint last served
+// verified, nil before it first did.
 type StoredCertificateCheck struct {
 	Address    string
 	CheckedAt  time.Time
@@ -1179,6 +1182,23 @@ type StoredCertificateCheck struct {
 	Anchor     *StoredCertificate
 	RunwayDays *int
 	LeafDays   *int
+	Failures   int
+	Baseline   *StoredChainShape
+}
+
+// StoredChainLink is one certificate of a chain's shape: its Subject and
+// its Issuer, each a distinguished name as written by pkix.Name.String.
+type StoredChainLink struct {
+	Subject string
+	Issuer  string
+}
+
+// StoredChainShape is the shape of a verified chain: Links, each
+// certificate of the path, leaf first, then the trust anchor; and Since,
+// when the check that first found it ran.
+type StoredChainShape struct {
+	Links []StoredChainLink
+	Since time.Time
 }
 
 // CertificatesStore holds the latest certificate check of each endpoint.
@@ -1189,6 +1209,9 @@ type CertificatesStore interface {
 	// PutCertificateCheck stores c over the check of its address, or as a
 	// new one.
 	PutCertificateCheck(ctx context.Context, c StoredCertificateCheck) error
+	// DeleteCertificateCheck deletes the check of address, if there is
+	// one.
+	DeleteCertificateCheck(ctx context.Context, address string) error
 }
 
 // Store is the application's persistent state, one interface per aggregate.

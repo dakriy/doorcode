@@ -14,10 +14,17 @@ import (
 const nothingToCheck = "Nothing to check: door_broker_tls is off or door_broker_host is empty, and device_url is not an https address."
 
 // certificatesHead heads the Alerts page's table of certificate checks.
-var certificatesHead = []string{"Endpoint", "Last checked", "Result", "Runway", "Leaf expires in"}
+var certificatesHead = []string{"Endpoint", "Last checked", "Result", "Runway", "Leaf expires in", "Unreachable checks in a row", "Chain shape since"}
+
+// shapeHead heads the Alerts page's table of a chain's shape.
+var shapeHead = []string{"Subject", "Issued by"}
 
 // chainHead heads the Alerts page's table of a chain.
 var chainHead = []string{"Role", "Subject", "Issued by", "Expires"}
+
+// certificateAbout is what the Alerts page and the API say raises and
+// clears the certificate alert.
+const certificateAbout = "A certificate check of the door broker or the device address found that what it served does not verify against door_broker_ca_pem, that its runway or its leaf has fewer days left than the certificate check settings allow, or that it reached no server for their number of checks in a row; each clears once a later check passes it, or without mail once the settings no longer give the endpoint. A verified chain of another shape than the one the endpoint served before mails once and becomes the shape compared with."
 
 // brokerHost is the broker the certificate tests check.
 const brokerHost = "broker.example.com"
@@ -130,7 +137,11 @@ func TestCheckingNowReportsThePathFromTheLeafToTheFirstTrustedIssuer(t *testing.
 			{"subject":"CN=YE1,O=Example Trust","issuer":"CN=Root YE,O=Example Trust","not_after":"2028-09-02T00:00:00Z"},
 			{"subject":"CN=Root YE,O=Example Trust","issuer":"CN=Root X2,O=Example Trust","not_after":"2032-09-02T00:00:00Z"}],
 		"anchor":{"subject":"CN=Root X2,O=Example Trust","issuer":"CN=Root X2,O=Example Trust","not_after":"2040-09-17T00:00:00Z"},
-		"runway_days":970,"leaf_days":54}`)
+		"runway_days":970,"leaf_days":54,"failures":0,"baseline":{"links":[
+			{"subject":"CN=broker.example.com","issuer":"CN=YE1,O=Example Trust"},
+			{"subject":"CN=YE1,O=Example Trust","issuer":"CN=Root YE,O=Example Trust"},
+			{"subject":"CN=Root YE,O=Example Trust","issuer":"CN=Root X2,O=Example Trust"},
+			{"subject":"CN=Root X2,O=Example Trust","issuer":"CN=Root X2,O=Example Trust"}],"since":"2026-01-05T09:00:00Z"}}`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("broker (-want +got):\n%s", diff)
 	}
@@ -268,24 +279,24 @@ func TestTheCheckReportsWhatStopsItReadingTheChain(t *testing.T) {
 		"a broker that cannot be reached": {
 			func(*certificates) {},
 			`{"name":"Door broker","host":"broker.example.com","port":8883,"checked":true,"checked_at":"2026-01-05T09:00:00Z",
-				"error":"dial tcp broker.example.com:8883: connect: connection refused","verified":false,"chain":[]}`,
+				"error":"dial tcp broker.example.com:8883: connect: connection refused","verified":false,"chain":[],"failures":1}`,
 		},
 		"a broker whose handshake fails": {
 			func(c *certificates) {
 				c.f.ProbeStub.Fail(brokerHost, 8883, "remote error: tls: protocol version not supported")
 			},
 			`{"name":"Door broker","host":"broker.example.com","port":8883,"checked":true,"checked_at":"2026-01-05T09:00:00Z",
-				"error":"remote error: tls: protocol version not supported","verified":false,"chain":[]}`,
+				"error":"remote error: tls: protocol version not supported","verified":false,"chain":[],"failures":1}`,
 		},
 		"a broker serving no certificate": {
 			func(c *certificates) { c.f.ProbeStub.ServeBytes(brokerHost, 8883) },
 			`{"name":"Door broker","host":"broker.example.com","port":8883,"checked":true,"checked_at":"2026-01-05T09:00:00Z",
-				"verified":false,"problem":"the server served no certificate","chain":[]}`,
+				"verified":false,"problem":"the server served no certificate","chain":[],"failures":0}`,
 		},
 		"a broker serving what is no certificate": {
 			func(c *certificates) { c.f.ProbeStub.ServeBytes(brokerHost, 8883, c.leaf().DER, []byte("junk")) },
 			`{"name":"Door broker","host":"broker.example.com","port":8883,"checked":true,"checked_at":"2026-01-05T09:00:00Z",
-				"verified":false,"problem":"the server served a certificate that cannot be read: x509: malformed certificate","chain":[]}`,
+				"verified":false,"problem":"the server served a certificate that cannot be read: x509: malformed certificate","chain":[],"failures":0}`,
 		},
 		"doors that trust nothing": {
 			func(c *certificates) {
@@ -295,7 +306,7 @@ func TestTheCheckReportsWhatStopsItReadingTheChain(t *testing.T) {
 			`{"name":"Door broker","host":"broker.example.com","port":8883,"checked":true,"checked_at":"2026-01-05T09:00:00Z",
 				"verified":false,"problem":"door_broker_ca_pem holds no certificate to verify against","chain":[
 				{"subject":"CN=broker.example.com","issuer":"CN=YE1,O=Example Trust","not_after":"2026-03-01T00:00:00Z"},
-				{"subject":"CN=YE1,O=Example Trust","issuer":"CN=Root YE,O=Example Trust","not_after":"2028-09-02T00:00:00Z"}],"leaf_days":54}`,
+				{"subject":"CN=YE1,O=Example Trust","issuer":"CN=Root YE,O=Example Trust","not_after":"2028-09-02T00:00:00Z"}],"leaf_days":54,"failures":0}`,
 		},
 	}
 	for name, tc := range cases {
@@ -349,7 +360,7 @@ func TestTheEndpointsComeFromTheBrokerAndDeviceAddressSettings(t *testing.T) {
 
 			var want []any
 			for _, e := range testsupport.JSON(tc.want).([]any) {
-				want = append(want, with(e.(map[string]any), map[string]any{"checked": false, "verified": false, "chain": []any{}}))
+				want = append(want, with(e.(map[string]any), map[string]any{"checked": false, "verified": false, "chain": []any{}, "failures": 0.0}))
 			}
 			if diff := cmp.Diff(append([]any{}, want...), got); diff != "" {
 				t.Errorf("endpoints (-want +got):\n%s", diff)
@@ -460,12 +471,12 @@ func TestTheAlertsPageShowsEachEndpointsLatestCheckAndItsChain(t *testing.T) {
 	later := pageOf(c.b.Get("/admin/alerts")).Tables
 
 	want := []any{
-		[][]string{certificatesHead, {"Door broker broker.example.com:8883", "Not checked yet", "", "", ""},
-			{"Device address devices.example.com:443", "Not checked yet", "", "", ""}},
+		[][]string{certificatesHead, {"Door broker broker.example.com:8883", "Not checked yet", "", "", "", "", ""},
+			{"Device address devices.example.com:443", "Not checked yet", "", "", "", "", ""}},
 		303, "/admin/alerts", []string{"The certificates have been checked."},
 		[][]string{certificatesHead,
-			{"Door broker broker.example.com:8883", "Mon 5 Jan 2026 10:00:00", "Verified up to " + x2Subject, "970 days", "54 days"},
-			{"Device address devices.example.com:443", "Mon 5 Jan 2026 10:00:00", "Not verified: " + noPath, "", "7180 days"}},
+			{"Door broker broker.example.com:8883", "Mon 5 Jan 2026 10:00:00", "Verified up to " + x2Subject, "970 days", "54 days", "0", "Mon 5 Jan 2026 10:00:00"},
+			{"Device address devices.example.com:443", "Mon 5 Jan 2026 10:00:00", "Not verified: " + noPath, "", "7180 days", "0", ""}},
 		[][]string{chainHead,
 			{"Leaf", leafSubject, ye1Subject, "1 Mar 2026"},
 			{"Intermediate", ye1Subject, rootYESubject, "2 Sep 2028"},
@@ -474,14 +485,15 @@ func TestTheAlertsPageShowsEachEndpointsLatestCheckAndItsChain(t *testing.T) {
 		[][]string{chainHead,
 			{"Served", rootYESubject, rootYESubject, "3 Sep 2045"},
 			{"Served", leafSubject, ye1Subject, "1 Mar 2026"}},
-		[]string{"Door broker broker.example.com:8883", "Mon 5 Jan 2026 11:00:00", "Verified up to " + x2Subject, "970 days", "54 days"},
-		[]string{"Device address devices.example.com:443", "Mon 5 Jan 2026 11:00:00", "Unreachable: i/o timeout", "", ""},
+		[][]string{shapeHead, {leafSubject, ye1Subject}, {ye1Subject, rootYESubject}, {rootYESubject, x2Subject}, {x2Subject, x2Subject}},
+		[]string{"Door broker broker.example.com:8883", "Mon 5 Jan 2026 11:00:00", "Verified up to " + x2Subject, "970 days", "54 days", "0", "Mon 5 Jan 2026 10:00:00"},
+		[]string{"Device address devices.example.com:443", "Mon 5 Jan 2026 11:00:00", "Unreachable: i/o timeout", "", "", "1", ""},
 		false,
 	}
 	_, deviceChain := later["Chain served by devices.example.com:443"]
 	got := []any{before, checked.Status, checked.Location, page.Messages, page.Tables["Certificate checks"],
 		page.Tables["Chain served by broker.example.com:8883"], page.Tables["Chain served by devices.example.com:443"],
-		later["Certificate checks"][1], later["Certificate checks"][2], deviceChain}
+		page.Tables["Chain shape of broker.example.com:8883"], later["Certificate checks"][1], later["Certificate checks"][2], deviceChain}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("before, check now, after, chains, an hour later (-want +got):\n%s", diff)
 	}
@@ -505,6 +517,8 @@ func TestCheckingCertificatesFailsWhenTheStoreOrTheSettingsDo(t *testing.T) {
 			"GET", "/api/v1/alerts/certificates"},
 		"reading the check's settings": {func(f *testsupport.Factory) { f.EnvStub["DOORCODE_CERTIFICATE_CHECK_INTERVAL_HOURS"] = "often" },
 			"GET", "/api/v1/alerts/certificates"},
+		"reading the alert thresholds before checking": {func(f *testsupport.Factory) { f.EnvStub["DOORCODE_CERTIFICATE_RUNWAY_DAYS"] = "long" },
+			"POST", "/admin/alerts/certificates"},
 		"reading the stored settings": {func(f *testsupport.Factory) { f.StoreStub.FailSettings() }, "GET", "/api/v1/alerts/certificates"},
 	}
 	for name, tc := range cases {
@@ -560,9 +574,16 @@ func TestRunLogsWhatStopsTheCertificateCheckWhenTheStoreOrTheSettingsFail(t *tes
 func TestTheCertificateCheckSettingsRefuseValuesOutsideTheirRange(t *testing.T) {
 	t.Parallel()
 	cases := map[string]struct{ key, value, want string }{
-		"an interval below an hour":     {"certificate_check_interval_hours", "0", "must be a whole number of hours from 1 to 720"},
-		"an interval above thirty days": {"certificate_check_interval_hours", "721", "must be a whole number of hours from 1 to 720"},
-		"a check neither on nor off":    {"certificate_check_enabled", "sometimes", "must be true or false"},
+		"an interval below an hour":             {"certificate_check_interval_hours", "0", "must be a whole number of hours from 1 to 720"},
+		"an interval above thirty days":         {"certificate_check_interval_hours", "721", "must be a whole number of hours from 1 to 720"},
+		"a check neither on nor off":            {"certificate_check_enabled", "sometimes", "must be true or false"},
+		"no runway":                             {"certificate_runway_days", "0", "must be a whole number of days from 1 to 3650"},
+		"a runway above ten years":              {"certificate_runway_days", "3651", "must be a whole number of days from 1 to 3650"},
+		"no leaf days":                          {"certificate_leaf_days", "0", "must be a whole number of days from 1 to 365"},
+		"leaf days above a year":                {"certificate_leaf_days", "366", "must be a whole number of days from 1 to 365"},
+		"no unreachable checks":                 {"certificate_unreachable_checks", "0", "must be a whole number of checks from 1 to 100"},
+		"over a hundred unreachable checks":     {"certificate_unreachable_checks", "101", "must be a whole number of checks from 1 to 100"},
+		"unreachable checks that are no number": {"certificate_unreachable_checks", "three", "must be a whole number of checks from 1 to 100"},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

@@ -11,7 +11,7 @@ import (
 // everyKind is the key of every kind of alert, so a test mailing about
 // one shows that no other is raised along with it.
 var everyKind = []string{
-	"forced_open", "held_open", "offline", "unresponsive", "config_reverted", "config_restarting", "config_mismatch", "update_failed",
+	"forced_open", "held_open", "offline", "unresponsive", "config_reverted", "config_restarting", "config_mismatch", "update_failed", "certificate",
 }
 
 // goesOnline has Lobby's controller say, at the RFC 3339 time at, that it

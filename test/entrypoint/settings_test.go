@@ -72,7 +72,10 @@ var alertSettingsJSON = defaultSetting("alert_recipients", "") + `,` +
 	defaultSetting("alert_mail_cleared", "true") + `,` +
 	defaultSetting("alert_hold_down_minutes", "15") + `,` +
 	defaultSetting("certificate_check_enabled", "false") + `,` +
-	defaultSetting("certificate_check_interval_hours", "24")
+	defaultSetting("certificate_check_interval_hours", "24") + `,` +
+	defaultSetting("certificate_runway_days", "548") + `,` +
+	defaultSetting("certificate_leaf_days", "14") + `,` +
+	defaultSetting("certificate_unreachable_checks", "3")
 
 // brokerSettingsJSON is how the settings API shows the broker settings
 // and the door configuration defaults when nothing sets them.

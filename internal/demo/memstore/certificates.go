@@ -29,9 +29,20 @@ func (s *Store) PutCertificateCheck(_ context.Context, c connector.StoredCertifi
 	return nil
 }
 
+// DeleteCertificateCheck deletes the check of address, if there is one.
+func (s *Store) DeleteCertificateCheck(_ context.Context, address string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.certChecks, address)
+	return nil
+}
+
 // checkOut is a copy of c sharing nothing with it.
 func checkOut(c connector.StoredCertificateCheck) connector.StoredCertificateCheck {
 	c.Chain = slices.Clone(c.Chain)
 	c.Anchor, c.RunwayDays, c.LeafDays = clone(c.Anchor), clone(c.RunwayDays), clone(c.LeafDays)
+	if c.Baseline != nil {
+		c.Baseline = &connector.StoredChainShape{Links: slices.Clone(c.Baseline.Links), Since: c.Baseline.Since}
+	}
 	return c
 }

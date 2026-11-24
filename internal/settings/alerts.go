@@ -85,11 +85,25 @@ func recipients(value string) ([]string, error) {
 const (
 	KeyCertificateCheck    = "certificate_check_enabled"
 	KeyCertificateInterval = "certificate_check_interval_hours"
+	KeyCertificateRunway   = "certificate_runway_days"
+	KeyCertificateLeaf     = "certificate_leaf_days"
+	KeyCertificateFailures = "certificate_unreachable_checks"
 )
 
 // certificateInterval parses how long the certificate check waits between
 // checks of an endpoint.
 var certificateInterval = length{whole{1, 720, "hours"}, hoursOf}
+
+// certificateRunway and certificateLeaf parse how few days left along a
+// chain, and of its leaf, alert.
+var (
+	certificateRunway = length{whole{1, 3650, "days"}, daysOf}
+	certificateLeaf   = length{whole{1, 365, "days"}, daysOf}
+)
+
+// unreachableChecks is how many checks in a row must reach no server
+// before an endpoint alerts as unreachable.
+var unreachableChecks = whole{1, 100, "checks"}
 
 // hoursOf is n hours.
 func hoursOf(n int) time.Duration { return time.Duration(n) * time.Hour }
@@ -100,14 +114,25 @@ var certificateSection = section{Section{Name: "Certificate check", About: "Chec
 		help: "Checks each endpoint again once the interval has passed since its last check. Check now works while it is off."},
 	{key: KeyCertificateInterval, fallback: "24", validate: certificateInterval.rule(), label: "Check interval",
 		help: "Hours, from 1 to 720, between two checks of an endpoint."},
+	{key: KeyCertificateRunway, fallback: "548", validate: certificateRunway.rule(), label: "Runway alert",
+		help: "Days, from 1 to 3650: the certificate alert is raised when the earliest expiry along a chain after its leaf, the trust anchor included, is fewer days away."},
+	{key: KeyCertificateLeaf, fallback: "14", validate: certificateLeaf.rule(), label: "Leaf alert",
+		help: "Days, from 1 to 365: the certificate alert is raised when the leaf expires in fewer days."},
+	{key: KeyCertificateFailures, fallback: "3", validate: unreachableChecks.rule(), label: "Unreachable alert",
+		help: "Checks, from 1 to 100: the certificate alert is raised when this many checks in a row reach no server."},
 }}
 
 // CertificateCheck is whether the certificate check runs by itself
-// (Enabled) and how long it waits between two checks of an endpoint
-// (Interval).
+// (Enabled), how long it waits between two checks of an endpoint
+// (Interval), and when an endpoint alerts: when the earliest expiry
+// after its leaf is less than Runway away, when its leaf expires in less
+// than Leaf, and when Unreachable checks in a row reached no server.
 type CertificateCheck struct {
-	Enabled  bool
-	Interval time.Duration
+	Enabled     bool
+	Interval    time.Duration
+	Runway      time.Duration
+	Leaf        time.Duration
+	Unreachable int
 }
 
 // CertificateCheck returns whether the certificate check runs by itself
@@ -122,8 +147,11 @@ func (s Service) CertificateCheck(ctx context.Context) (CertificateCheck, error)
 		values[def.key] = s.resolve(def, stored).Value
 	}
 	var c CertificateCheck
-	var enabledErr, intervalErr error
-	c.Enabled, enabledErr = parsed(values, KeyCertificateCheck, boolean)
-	c.Interval, intervalErr = parsed(values, KeyCertificateInterval, certificateInterval.parse)
-	return c, errors.Join(enabledErr, intervalErr)
+	var errs [5]error
+	c.Enabled, errs[0] = parsed(values, KeyCertificateCheck, boolean)
+	c.Interval, errs[1] = parsed(values, KeyCertificateInterval, certificateInterval.parse)
+	c.Runway, errs[2] = parsed(values, KeyCertificateRunway, certificateRunway.parse)
+	c.Leaf, errs[3] = parsed(values, KeyCertificateLeaf, certificateLeaf.parse)
+	c.Unreachable, errs[4] = parsed(values, KeyCertificateFailures, unreachableChecks.parse)
+	return c, errors.Join(errs[:]...)
 }

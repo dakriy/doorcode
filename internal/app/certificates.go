@@ -65,6 +65,18 @@ type certificateCheckView struct {
 	Anchor     *certificateView  `json:"anchor,omitempty" doc:"The certificate of door_broker_ca_pem the path ends at; absent when no path reaches one."`
 	RunwayDays *int              `json:"runway_days,omitempty" doc:"Whole days from the check until the earliest expiry along the path after the leaf, the anchor included."`
 	LeafDays   *int              `json:"leaf_days,omitempty" doc:"Whole days from the check until the leaf expires."`
+	Failures   int               `json:"failures" doc:"How many checks in a row, the latest included, reached no server; 0 once one does."`
+	Baseline   *chainShapeView   `json:"baseline,omitempty" doc:"The shape of the chain the endpoint last served verified, which the next verified chain is compared with; absent until one verified."`
+}
+
+type chainLinkView struct {
+	Subject string `json:"subject" doc:"The certificate's subject, a distinguished name."`
+	Issuer  string `json:"issuer" doc:"Who issued it, a distinguished name."`
+}
+
+type chainShapeView struct {
+	Links []chainLinkView `json:"links" doc:"Each certificate of the verified path, leaf first, then the trust anchor."`
+	Since time.Time       `json:"since" doc:"When the check that first found this shape ran."`
 }
 
 type certificatesView struct {
@@ -123,7 +135,13 @@ func checkViewOf(r certcheck.Result) certificateCheckView {
 		return v
 	}
 	v.Checked, v.CheckedAt, v.Error, v.Verified, v.Problem = true, utc(&c.CheckedAt), c.Error, c.Verified, c.Problem
-	v.RunwayDays, v.LeafDays = c.RunwayDays, c.LeafDays
+	v.RunwayDays, v.LeafDays, v.Failures = c.RunwayDays, c.LeafDays, c.Failures
+	if c.Baseline != nil {
+		v.Baseline = &chainShapeView{Links: []chainLinkView{}, Since: c.Baseline.Since.UTC()}
+		for _, l := range c.Baseline.Links {
+			v.Baseline.Links = append(v.Baseline.Links, chainLinkView{Subject: l.Subject, Issuer: l.Issuer})
+		}
+	}
 	for _, cert := range c.Chain {
 		v.Chain = append(v.Chain, certificateViewOf(cert))
 	}
@@ -153,10 +171,14 @@ type certificateRow struct {
 	Result   string
 	Runway   string
 	Leaf     string
-	// Address labels the table of Chain, which is empty before the first
-	// check and while the endpoint served nothing.
+	Failures string
+	Baseline string
+	// Address labels the tables of Chain, which is empty before the first
+	// check and while the endpoint served nothing, and of Links, the
+	// baseline's certificates, empty before a chain verified.
 	Address string
 	Chain   []chainRow
+	Links   []connector.StoredChainLink
 }
 
 // chainRow is a certificate as the Alerts page lists it.
@@ -166,14 +188,6 @@ type chainRow struct {
 	Issuer  string
 	Expires string
 }
-
-// The roles of the certificates of a chain.
-const (
-	leafRole         = "Leaf"
-	intermediateRole = "Intermediate"
-	anchorRole       = "Trust anchor"
-	servedRole       = "Served"
-)
 
 // certificateRowOf is r as the Alerts page lists it, its times in zone.
 func certificateRowOf(r certcheck.Result, zone *time.Location) certificateRow {
@@ -185,29 +199,18 @@ func certificateRowOf(r certcheck.Result, zone *time.Location) certificateRow {
 	row.Checked = shownAt(zone, c.CheckedAt, secondLayout)
 	row.Result = resultText(*c)
 	row.Runway, row.Leaf = daysLeftText(c.RunwayDays), daysLeftText(c.LeafDays)
-	for i, cert := range c.Chain {
-		row.Chain = append(row.Chain, chainRowOf(roleOf(i, c.Anchor != nil), cert, zone))
+	row.Failures = strconv.Itoa(c.Failures)
+	if c.Baseline != nil {
+		row.Baseline, row.Links = shownAt(zone, c.Baseline.Since, secondLayout), c.Baseline.Links
 	}
-	if c.Anchor != nil {
-		row.Chain = append(row.Chain, chainRowOf(anchorRole, *c.Anchor, zone))
+	for _, f := range certcheck.FoundIn(*c) {
+		row.Chain = append(row.Chain, chainRowOf(f, zone))
 	}
 	return row
 }
 
-// roleOf is the role of the certificate at index i of a chain: of the
-// path to an anchor when anchored, else served.
-func roleOf(i int, anchored bool) string {
-	if !anchored {
-		return servedRole
-	}
-	if i == 0 {
-		return leafRole
-	}
-	return intermediateRole
-}
-
-func chainRowOf(role string, c connector.StoredCertificate, zone *time.Location) chainRow {
-	return chainRow{Role: role, Subject: c.Subject, Issuer: c.Issuer, Expires: shownAt(zone, c.NotAfter, longDateLayout)}
+func chainRowOf(f certcheck.Found, zone *time.Location) chainRow {
+	return chainRow{Role: f.Role, Subject: f.Subject, Issuer: f.Issuer, Expires: shownAt(zone, f.NotAfter, longDateLayout)}
 }
 
 // resultText is what the Alerts page says c found.

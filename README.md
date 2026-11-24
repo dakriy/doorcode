@@ -71,8 +71,10 @@ the engineering contract is [AGENTS.md](AGENTS.md).
   `admin` role, and is offered by no page.
 - **Alerts.** Mail to a site-wide list of recipients when a door is forced
   open, held open, offline, or unresponsive, runs a configuration other
-  than the one it was sent, or fails a firmware update, once when raised
-  and once more when it clears. Each
+  than the one it was sent, or fails a firmware update, or when the
+  certificates the broker or the device address serve stop verifying,
+  run short, or cannot be reached, once when raised and once more when it
+  clears; and once when such a chain changes shape. Each
   kind of alert is off until an administrator turns it on, a condition that
   comes back soon after clearing mails nothing, and mail waits in a durable
   outbox that is retried with growing pauses, so a slow or failing mail
@@ -466,6 +468,9 @@ page folds away the single sign-on and identity claims parts while
 | `alert_hold_down_minutes` | Minutes, 0 to 10080, a cleared condition must stay clear before it mails again when it comes back; one that comes back sooner is followed without mail. Shown on the Alerts page. | `15` |
 | `certificate_check_enabled` | `true` has the server check, in the background, the certificates of the broker and of `device_url` (see [Certificate check](#certificate-check)); Check now works either way. Shown on the Alerts page. | `false` |
 | `certificate_check_interval_hours` | Hours, 1 to 720, between two checks of an endpoint while `certificate_check_enabled` is on. Shown on the Alerts page. | `24` |
+| `certificate_runway_days` | Days, 1 to 3650: the `certificate` alert is raised for an endpoint whose runway, the days until the earliest expiry along its chain after the leaf with the trust anchor included, is fewer. Shown on the Alerts page. | `548` |
+| `certificate_leaf_days` | Days, 1 to 365: the `certificate` alert is raised for an endpoint whose leaf expires in fewer days. Shown on the Alerts page. | `14` |
+| `certificate_unreachable_checks` | Checks, 1 to 100: the `certificate` alert is raised for an endpoint once this many checks in a row reached no server. Shown on the Alerts page. | `3` |
 | `enrollment_username` | The broker username every new controller enrolls with. A change takes effect at once and reaches every door in its configuration (see below). | `doorcode-enroll` |
 | `enrollment_password` | Its password. Generated, stored, and logged on first start when empty. Secret: stored encrypted. A change takes effect at once and reaches every door in its configuration (see below). | empty |
 | `telemetry_retention_days` | Days each telemetry report is kept. | `7` |
@@ -543,7 +548,7 @@ navigation) turns each kind of alert on or off, sets whom alerts mail
 `alert_hold_down_minutes`), and lists the newest alert mail with its status,
 attempts, and last error. `GET /api/v1/alerts` reads the same, and
 `PUT /api/v1/alerts/kinds/{kind}` with `{"enabled": true}` turns a kind on;
-the settings API changes the three settings.
+the settings API changes the settings.
 
 | Kind | Raised | Cleared |
 | --- | --- | --- |
@@ -555,6 +560,7 @@ the settings API changes the three settings.
 | `config_restarting` | A door shows the Restarting with configuration badge: it started at least twice since its configuration was sent, with no report naming it. | The badge goes. |
 | `config_mismatch` | A door shows the Mismatched configuration badge: two reports in a row over one connection named another configuration. | The badge goes. |
 | `update_failed` | A door's firmware update fails, when the server logs an `update failed` event: the door said it could not install it, or it did not connect again with it before `update_timeout_minutes`. | The door's firmware no longer shows Update failed: an update of it is under way again, it runs its target, or its target changes. |
+| `certificate` | A [certificate check](#certificate-check) of an endpoint finds, each its own condition: what it served does not verify; its runway is fewer days than `certificate_runway_days`; its leaf expires in fewer days than `certificate_leaf_days`; or `certificate_unreachable_checks` checks in a row reached no server. Once, and never cleared: a verified chain whose shape differs from the endpoint's chain shape. | A later check passes that reason: it verifies, the runway or the leaf has enough days, or it reaches the server. A check that reaches no server leaves the other reasons as they were. Without a cleared mail, the next check once the settings no longer give the endpoint. |
 
 The periodic work, at most once a minute, raises and clears `offline`,
 `unresponsive`, the three configuration kinds, and `update_failed` from
@@ -609,6 +615,30 @@ have passed since its last check, looking every minute. These checks run
 apart from door handling, so an endpoint slow to answer (each has 10
 seconds) never delays a door, and one check runs at a time: Check now
 waits for a check in progress to end.
+
+Each check also follows the `certificate` alert. The page shows each
+endpoint's count of checks in a row that reached no server and its chain
+shape: the subject and issuer of each certificate of the path, leaf first,
+and of the trust anchor, recorded silently by the first check that
+verified. A later verified chain of another shape, such as a path that now
+ends at X1 through the X2 cross-sign or one through another intermediate,
+mails once, naming the shape before and the chain now, and becomes the
+chain shape; that change is not mailed again, even when the check could
+not be stored. A chain that does not verify leaves the shape as it was. The
+mail names the endpoint, the reason, and the chain: each certificate's
+subject, issuer, expiry, and days left, the anchor, the runway, and the
+leaf's days.
+
+An endpoint the general settings no longer give, because
+`door_broker_tls` was turned off, the broker's host or port changed, or
+`device_url` changed or is no longer `https://`, is forgotten at the next
+check (Check now, or the server's own while `certificate_check_enabled` is
+on): its raised `certificate` conditions resolve without a cleared mail,
+since nothing checks it any more, and the page no longer lists it. Should
+the settings give it again, it starts as never checked, with no failures
+counted and no chain shape, so its first verified chain records a shape
+silently.
+
 `GET /api/v1/alerts/certificates` reads the same, and
 `POST /api/v1/alerts/certificates/check` checks now. The check only reads:
 it never changes `door_broker_ca_pem` or any door's configuration.

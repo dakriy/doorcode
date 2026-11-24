@@ -21,6 +21,7 @@ const alertsPath = "/admin/alerts"
 // alertSettingKeys are the settings the Alerts page shows and saves.
 var alertSettingKeys = []string{
 	settings.KeyAlertRecipients, settings.KeyAlertCleared, settings.KeyAlertHoldDown, settings.KeyCertificateCheck, settings.KeyCertificateInterval,
+	settings.KeyCertificateRunway, settings.KeyCertificateLeaf, settings.KeyCertificateFailures,
 }
 
 // alertsContent is the Alerts page's content: every kind of alert, the

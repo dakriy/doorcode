@@ -50,10 +50,12 @@ var (
 		About: "A door's controller went on reporting a configuration other than the one it was last sent. It clears once the door no longer shows the Mismatched configuration badge."}
 	UpdateFailed = Kind{Key: "update_failed", Name: "Door firmware update failed",
 		About: "A door's firmware update failed: the door said it could not install it, or it did not connect again with it in time. It clears once the door's firmware no longer shows Update failed: an update of it is under way again, it runs its target, or its target changes."}
+	Certificate = Kind{Key: "certificate", Name: "Certificate",
+		About: "A certificate check of the door broker or the device address found that what it served does not verify against door_broker_ca_pem, that its runway or its leaf has fewer days left than the certificate check settings allow, or that it reached no server for their number of checks in a row; each clears once a later check passes it, or without mail once the settings no longer give the endpoint. A verified chain of another shape than the one the endpoint served before mails once and becomes the shape compared with."}
 )
 
 // Kinds is every kind of alert, in display order.
-var Kinds = []Kind{ForcedOpen, HeldOpen, Offline, Unresponsive, ConfigReverted, ConfigRestarting, ConfigMismatch, UpdateFailed}
+var Kinds = []Kind{ForcedOpen, HeldOpen, Offline, Unresponsive, ConfigReverted, ConfigRestarting, ConfigMismatch, UpdateFailed, Certificate}
 
 // The states of a message in the outbox.
 const (
@@ -184,8 +186,7 @@ func (s Service) raise(ctx context.Context, c Condition, at time.Time, detail st
 	next := connector.StoredCondition{Kind: c.Kind.Key, Subject: c.Subject, Active: true, ChangedAt: at}
 	quiet := at.Before(held.ChangedAt.Add(policy.HoldDown))
 	if !quiet && len(to) > 0 {
-		text := c.Kind.Name + " at " + c.Name + ", " + Stamp(at) + ".\n\n" + detail + "\n" + footer(c.Kind)
-		if err := s.queue(ctx, c.Kind, to, c.Kind.Name+": "+c.Name, text, at); err != nil {
+		if err := s.queueRaised(ctx, c, to, at, detail); err != nil {
 			return err
 		}
 		next.Mailed = true
@@ -209,6 +210,61 @@ func (s Service) resolve(ctx context.Context, c Condition, at time.Time) error {
 		if err := s.queue(ctx, c.Kind, to, "Cleared: "+c.Kind.Name+": "+c.Name, text, at); err != nil {
 			return err
 		}
+	}
+	return s.Store.PutAlertCondition(ctx, connector.StoredCondition{Kind: c.Kind.Key, Subject: c.Subject, ChangedAt: at})
+}
+
+// Notify mails the recipients about c at at, saying detail, while its
+// kind is enabled: once for each c, however often it is notified, since
+// c names one occurrence of a one-off event and is never active. What
+// stops it is logged.
+func (s Service) Notify(ctx context.Context, c Condition, at time.Time, detail string) {
+	s.followed(c, s.notify(ctx, c, at, detail))
+}
+
+func (s Service) notify(ctx context.Context, c Condition, at time.Time, detail string) error {
+	s.Lock.Lock()
+	defer s.Lock.Unlock()
+	_, known, err := s.Store.AlertCondition(ctx, c.Kind.Key, c.Subject)
+	if err != nil || known {
+		return err
+	}
+	_, to, err := s.mailing(ctx, c.Kind)
+	if err != nil {
+		return err
+	}
+	next := connector.StoredCondition{Kind: c.Kind.Key, Subject: c.Subject, ChangedAt: at}
+	if len(to) > 0 {
+		if err := s.queueRaised(ctx, c, to, at, detail); err != nil {
+			return err
+		}
+		next.Mailed = true
+	}
+	return s.Store.PutAlertCondition(ctx, next)
+}
+
+// queueRaised puts the mail raising c at at, saying detail, to to in the
+// outbox.
+func (s Service) queueRaised(ctx context.Context, c Condition, to []string, at time.Time, detail string) error {
+	text := c.Kind.Name + " at " + c.Name + ", " + Stamp(at) + ".\n\n" + detail + "\n" + footer(c.Kind)
+	return s.queue(ctx, c.Kind, to, c.Kind.Name+": "+c.Name, text, at)
+}
+
+// Withdraw resolves c at at without mail, for a condition whose subject
+// is no longer watched, so nothing can say it cleared. What stops it is
+// logged and returned.
+func (s Service) Withdraw(ctx context.Context, c Condition, at time.Time) error {
+	err := s.withdraw(ctx, c, at)
+	s.followed(c, err)
+	return err
+}
+
+func (s Service) withdraw(ctx context.Context, c Condition, at time.Time) error {
+	s.Lock.Lock()
+	defer s.Lock.Unlock()
+	held, _, err := s.Store.AlertCondition(ctx, c.Kind.Key, c.Subject)
+	if err != nil || !held.Active {
+		return err
 	}
 	return s.Store.PutAlertCondition(ctx, connector.StoredCondition{Kind: c.Kind.Key, Subject: c.Subject, ChangedAt: at})
 }
