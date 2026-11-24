@@ -93,7 +93,7 @@ var recipients = []string{"ops@example.com", "desk@example.com"}
 
 // alertFooter ends every message about the kind of alert named kind.
 func alertFooter(kind string) string {
-	return "\nThis mail goes to every alert recipient while the alert " + kind + " is enabled on the Alerts page.\n"
+	return "\nThis mail goes to every alert recipient while the alert " + kind + " is enabled on the Alerts tab of the settings.\n"
 }
 
 // forcedSubject and heldSubject are the subjects of the mail about Lobby
@@ -381,7 +381,7 @@ func TestAFailedMessageKeepsTheLastErrorItWasRefusedWith(t *testing.T) {
 	k.runAt("2026-01-05T09:31:00Z")
 
 	want := testsupport.JSON(`{"id":1,"kind":"forced_open","subject":"Door forced open: Lobby",
-		"text":"Door forced open at Lobby, Mon 5 Jan 2026 09:00:00 UTC.\n\nIts controller says it was locked when it opened.\n\nThis mail goes to every alert recipient while the alert Door forced open is enabled on the Alerts page.\n",
+		"text":"Door forced open at Lobby, Mon 5 Jan 2026 09:00:00 UTC.\n\nIts controller says it was locked when it opened.\n\nThis mail goes to every alert recipient while the alert Door forced open is enabled on the Alerts tab of the settings.\n",
 		"to":["ops@example.com","desk@example.com"],"status":"failed","attempts":6,"created_at":"2026-01-05T09:00:00Z",
 		"last_attempt_at":"2026-01-05T09:31:00Z",
 		"last_error":"the mail server could not be reached or refused the message: 550 Mailbox unavailable"}`)

@@ -357,7 +357,7 @@ func (s Service) mailSetUp(ctx context.Context) bool {
 
 // footer ends every message about kind, saying why it was sent.
 func footer(kind Kind) string {
-	return "\nThis mail goes to every alert recipient while the alert " + kind.Name + " is enabled on the Alerts page.\n"
+	return "\nThis mail goes to every alert recipient while the alert " + kind.Name + " is enabled on the Alerts tab of the settings.\n"
 }
 
 // Stamp is t as alert mail writes it.
