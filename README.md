@@ -416,8 +416,9 @@ case, such as `DOORCODE_SITE_TIMEZONE=Europe/Berlin`. A variable that is set,
 even to the empty value, wins over the value stored in the database and makes
 the setting read-only in the UI. Without one, the value saved on the settings
 page applies, and without that the default. The settings page splits its
-parts into five tabs (Site setup, Sign-in, Look and feel, Mail, and Doors,
-at `/admin/settings?tab=site`, `sign-in`, `look`, `mail`, and `doors`) and
+parts into six tabs (Site setup, Sign-in, Look and feel, Mail, Alerts, and
+Doors, at `/admin/settings?tab=site`, `sign-in`, `look`, `mail`, `alerts`,
+and `doors`) and
 asks for each setting with an input of its kind: a checkbox for yes or no, a
 number bounded to its range with the range and unit beside it, a select of the
 choices, a box per weekday for `update_window_days`, a color picker, a time of
@@ -463,14 +464,14 @@ page folds away the single sign-on and identity claims parts while
 | `mail_password` | Its password. Secret: stored encrypted. | empty |
 | `mail_from` | The address mail comes from, alone or after a name, such as `Doorcode <doorcode@example.com>`. | empty |
 | `mail_reply_to` | The address replies go to; empty for `mail_from`. | empty |
-| `alert_recipients` | The addresses every enabled alert mails, separated by commas or new lines, each alone or after a name. Shown on the Alerts page. Nothing is mailed while it is empty. | empty |
-| `alert_mail_cleared` | `true` mails the recipients once more when a condition an alert mailed about clears. Shown on the Alerts page. | `true` |
-| `alert_hold_down_minutes` | Minutes, 0 to 10080, a cleared condition must stay clear before it mails again when it comes back; one that comes back sooner is followed without mail. Shown on the Alerts page. | `15` |
-| `certificate_check_enabled` | `true` has the server check, in the background, the certificates of the broker and of `device_url` (see [Certificate check](#certificate-check)); Check now works either way. Shown on the Alerts page. | `false` |
-| `certificate_check_interval_hours` | Hours, 1 to 720, between two checks of an endpoint while `certificate_check_enabled` is on. Shown on the Alerts page. | `24` |
-| `certificate_runway_days` | Days, 1 to 3650: the `certificate` alert is raised for an endpoint whose runway, the days until the earliest expiry along its chain after the leaf with the trust anchor included, is fewer. Shown on the Alerts page. | `548` |
-| `certificate_leaf_days` | Days, 1 to 365: the `certificate` alert is raised for an endpoint whose leaf expires in fewer days. Shown on the Alerts page. | `14` |
-| `certificate_unreachable_checks` | Checks, 1 to 100: the `certificate` alert is raised for an endpoint once this many checks in a row reached no server. Shown on the Alerts page. | `3` |
+| `alert_recipients` | The addresses every enabled alert mails, separated by commas or new lines, each alone or after a name. On the Alerts tab. Nothing is mailed while it is empty. | empty |
+| `alert_mail_cleared` | `true` mails the recipients once more when a condition an alert mailed about clears. On the Alerts tab. | `true` |
+| `alert_hold_down_minutes` | Minutes, 0 to 10080, a cleared condition must stay clear before it mails again when it comes back; one that comes back sooner is followed without mail. On the Alerts tab. | `15` |
+| `certificate_check_enabled` | `true` has the server check, in the background, the certificates of the broker and of `device_url` (see [Certificate check](#certificate-check)); Check now works either way. On the Alerts tab. | `false` |
+| `certificate_check_interval_hours` | Hours, 1 to 720, between two checks of an endpoint while `certificate_check_enabled` is on. On the Alerts tab. | `24` |
+| `certificate_runway_days` | Days, 1 to 3650: the `certificate` alert is raised for an endpoint whose runway, the days until the earliest expiry along its chain after the leaf with the trust anchor included, is fewer. On the Alerts tab. | `548` |
+| `certificate_leaf_days` | Days, 1 to 365: the `certificate` alert is raised for an endpoint whose leaf expires in fewer days. On the Alerts tab. | `14` |
+| `certificate_unreachable_checks` | Checks, 1 to 100: the `certificate` alert is raised for an endpoint once this many checks in a row reached no server. On the Alerts tab. | `3` |
 | `enrollment_username` | The broker username every new controller enrolls with. A change takes effect at once and reaches every door in its configuration (see below). | `doorcode-enroll` |
 | `enrollment_password` | Its password. Generated, stored, and logged on first start when empty. Secret: stored encrypted. A change takes effect at once and reaches every door in its configuration (see below). | empty |
 | `telemetry_retention_days` | Days each telemetry report is kept. | `7` |
@@ -543,11 +544,15 @@ your account has no email address mail can be sent to.
 ## Alerts
 
 The Alerts page (`/admin/alerts`, administrators, under Site in the
-navigation) turns each kind of alert on or off, sets whom alerts mail
-(`alert_recipients`) and when (`alert_mail_cleared`,
-`alert_hold_down_minutes`), lists every condition raised now with what
-became of its mail (Raised now), and lists the newest alert mail with its
-status, attempts, and last error. `GET /api/v1/alerts` reads the same, and
+navigation) shows what is happening and changes no setting: every
+condition raised now with what became of its mail (Raised now), the
+certificate checks with Check now, and the newest alert mail with its
+status, attempts, and last error. Its Alert settings link opens the Alerts
+tab of the settings page (`/admin/settings?tab=alerts`), which turns each
+kind of alert on or off and sets whom alerts mail (`alert_recipients`),
+when (`alert_mail_cleared`, `alert_hold_down_minutes`), and how the
+certificates are checked, all saved with the settings form.
+`GET /api/v1/alerts` reads the kinds, the recipients, and the outbox, and
 `PUT /api/v1/alerts/kinds/{kind}` with `{"enabled": true}` turns a kind on;
 the settings API changes the settings.
 
@@ -582,9 +587,10 @@ mailed raise cleared is followed without mail, and so is its clearing.
 
 A raise that cannot be mailed when it happens, because its kind is off, no
 recipient is given, or mail is not set up, is not counted as mailed: it is
-listed as waiting, and once all three allow it (looked at by the mail
-delivery loop the next time it runs, and at once after the Alerts page, a
-kind, or a setting is saved), its raise mail is sent then, once, if the
+listed under Raised now as waiting, or as not mailed because its alert is
+off while its kind is off, and once all three allow it (looked at by the
+mail delivery loop the next time it runs, and at once after a kind or a
+setting is saved), its raise mail is sent then, once, if the
 condition is still raised, giving the time it was raised. A condition that
 clears before that sends nothing, neither its raise nor its clearing, and
 holds nothing down: it mails at once if it is raised again. A chain change
