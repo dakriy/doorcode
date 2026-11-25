@@ -452,8 +452,10 @@ user or an admin, shown once, optional expiry, revocable) and door tokens are
 stored hashed. The JSON API accepts a token as a bearer header or as the
 password of HTTP Basic auth.
 
-On first start with no users, the server creates a local admin and prints
-its password to the log with instructions to change it.
+On first start with no users, the server creates a local admin, with the
+email `DOORCODE_ADMIN_EMAIL` gives (`admin@example.com` without it), and
+prints its password to the log with instructions to change it. That email
+is an environment value read only then, not a setting.
 
 ## 11. Admin UI
 

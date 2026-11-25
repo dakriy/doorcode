@@ -43,7 +43,7 @@ type shownSetting struct {
 // where nothing is stored and the environment sets only the password
 // hashing cost, in order.
 var defaultSettings = []shownSetting{
-	{"site_name", "doorcode", "default"}, {"site_timezone", "UTC", "default"}, {"admin_email", "admin@example.com", "default"},
+	{"site_name", "doorcode", "default"}, {"site_timezone", "UTC", "default"},
 	{"public_url", "", "default"},
 	{"trusted_proxies", "", "default"},
 	{"theme_accent", "#4f39f6", "default"}, {"theme_accent_dark", "", "default"},
@@ -82,7 +82,6 @@ var defaultSettings = []shownSetting{
 var settingRows = map[string]struct{ section, label, help string }{
 	"site_name":     {"Site", "Site name", "Shown in the header and every page title."},
 	"site_timezone": {"Site", "Timezone", "A zone of the tz database, such as Europe/Berlin; type to find one. Schedules, dates typed on pages, and every time shown are read in it."},
-	"admin_email":   {"Site", "First administrator's email", "The account created on first start when there are no users."},
 	"trusted_proxies": {"Proxies", "Trusted proxies", "IP addresses, CIDR ranges, and host names separated by commas, such as 10.0.0.0/8,proxy.example.com. " +
 		"A host name is looked up by the periodic work, about once a minute, and trusts nobody until then."},
 	"theme_accent":             {"Theme", "Accent color", "A color as #rrggbb, such as #4f39f6."},

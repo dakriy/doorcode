@@ -188,8 +188,8 @@ the broker on `127.0.0.1:1883`, and the proxy serves the broker over TLS
    docker compose logs app
    ```
 
-   Sign in at <http://localhost:8080> as `admin@example.com` (the
-   `admin_email` setting) and change the password from the portal. The
+   Sign in at <http://localhost:8080> as `admin@example.com` (or the email
+   `DOORCODE_ADMIN_EMAIL` gives) and change the password from the portal. The
    password is generated and shown once, in the log of the first start.
    `DOORCODE_ADMIN_PASSWORD` gives it instead, for development, and the
    server reads it only on a start with no users; a production deployment
@@ -399,6 +399,7 @@ controller's start, and `update failed` on an update (see
 | `DOORCODE_BROKER_URL` | The broker's address with its dynamic-security administrator's credentials, such as `mqtt://admin:secret@mqtt.example.com:1883`; `mqtts://` for TLS. Characters special in URLs must be percent-encoded. | none, required |
 | `DOORCODE_LISTEN_ADDR` | The address the web server listens on, such as `:8080`. | none, required (`:8080` in the image) |
 | `DOORCODE_SECRET_KEY` | 32 random bytes in standard base64 (`openssl rand -base64 32`) that encrypt secret settings and the firmware signing key. | none, required |
+| `DOORCODE_ADMIN_EMAIL` | The email the first administrator is created with, trimmed and lowercased. It is read only on a start with no users (deleted ones count as users), when the server creates the first administrator; on a start where a user exists it is ignored and never changes an existing user's email. It is not a setting and is never stored or shown in Settings. | `admin@example.com` (also when set but empty) |
 | `DOORCODE_ADMIN_PASSWORD` | For development: the password the first administrator is created with, in place of a generated one, which the log then does not show. It is read only on a start with no users (deleted ones count as users), when the server creates the first administrator; it must then follow the rules a password an administrator sets follows (`password_min_length`, at most 1024 characters), or the server refuses to start. On a start where a user exists it is ignored, whatever its value, and never changes an existing user's password. It is not a setting and is never stored or shown in Settings. A production deployment leaves it unset. | unset (a generated password); `doorcode-admin` in `docker-compose.dev.yml` |
 
 ### docker compose only
@@ -446,7 +447,6 @@ page folds away the single sign-on and identity claims parts while
 | --- | --- | --- |
 | `site_name` | Shown in the header and every page title. | `doorcode` |
 | `site_timezone` | A tz database name; schedules, dates typed on pages, and every time shown are read in it. | `UTC` |
-| `admin_email` | The email of the administrator created on first start when there are no users. | `admin@example.com` |
 | `public_url` | The `https://` address, without a query, browsers reach the server at; `http://` only for development. Single sign-on needs it. | empty |
 | `trusted_proxies` | IP addresses, CIDR ranges, and host names, separated by commas, of the reverse proxies whose `X-Forwarded-For` and `X-Forwarded-Proto` headers are believed. A host name is looked up by the periodic work, about once a minute, and trusts nobody until it has been. Empty believes no one. | empty |
 | `theme_accent` | The accent color, `#rrggbb`. | `#4f39f6` |

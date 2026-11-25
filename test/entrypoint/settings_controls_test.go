@@ -39,13 +39,13 @@ func entriesOf(m map[string]string, keys ...string) map[string]string {
 	return out
 }
 
-func TestTheSettingsPageAsksForAddressesEmailsAndHostsWithInputsOfTheirType(t *testing.T) {
+func TestTheSettingsPageAsksForAddressesAndHostsWithInputsOfTheirType(t *testing.T) {
 	t.Parallel()
 	page := everySettingsTab(signedInAdmin(t, testsupport.NewFactory()))
 
 	want := []any{
 		map[string]string{
-			"public_url": "url", "device_url": "url", "oidc_issuer": "url", "admin_email": "email",
+			"public_url": "url", "device_url": "url", "oidc_issuer": "url",
 			"door_ntp_server": "text", "door_broker_host": "text", "door_broker_ca_pem": "textarea", "enrollment_password": "password",
 		},
 		map[string]string{
@@ -55,7 +55,7 @@ func TestTheSettingsPageAsksForAddressesEmailsAndHostsWithInputsOfTheirType(t *t
 		},
 	}
 	got := []any{
-		entriesOf(page.Inputs, "public_url", "device_url", "oidc_issuer", "admin_email", "door_ntp_server", "door_broker_host", "door_broker_ca_pem", "enrollment_password"),
+		entriesOf(page.Inputs, "public_url", "device_url", "oidc_issuer", "door_ntp_server", "door_broker_host", "door_broker_ca_pem", "enrollment_password"),
 		entriesOf(page.Placeholders, "public_url", "device_url", "oidc_issuer", "trusted_proxies", "oidc_default_groups", "door_ntp_server", "door_broker_host", "door_broker_ca_pem"),
 	}
 	if diff := cmp.Diff(want, got); diff != "" {

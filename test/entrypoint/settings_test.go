@@ -136,7 +136,6 @@ func TestSettingsListShowsDefaultsAndTheEnvironmentWhenNothingIsStored(t *testin
 	want := testsupport.Response{Status: 200, ContentType: jsonType, Body: `{"settings":[` +
 		`{"key":"site_name","value":"doorcode","source":"default","read_only":false,"env_var":"DOORCODE_SITE_NAME"},` +
 		`{"key":"site_timezone","value":"UTC","source":"default","read_only":false,"env_var":"DOORCODE_SITE_TIMEZONE"},` +
-		`{"key":"admin_email","value":"admin@example.com","source":"default","read_only":false,"env_var":"DOORCODE_ADMIN_EMAIL"},` +
 		defaultSetting("public_url", "") + `,` + proxySettingJSON + `,` + themeSettingsJSON + `,` + hashMemoryJSON + `,` + signInSettingsJSON + `,` + mailSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)
@@ -154,7 +153,6 @@ func TestSettingsListShowsStoredAndEnvironmentValuesWithTheirSources(t *testing.
 	want := testsupport.Response{Status: 200, ContentType: jsonType, Body: `{"settings":[` +
 		`{"key":"site_name","value":"Main Building","source":"database","read_only":false,"env_var":"DOORCODE_SITE_NAME","updated_at":"2026-01-02T08:00:00Z"},` +
 		`{"key":"site_timezone","value":"Europe/Berlin","source":"environment","read_only":true,"env_var":"DOORCODE_SITE_TIMEZONE"},` +
-		`{"key":"admin_email","value":"admin@example.com","source":"default","read_only":false,"env_var":"DOORCODE_ADMIN_EMAIL"},` +
 		defaultSetting("public_url", "") + `,` + proxySettingJSON + `,` + themeSettingsJSON + `,` + hashMemoryJSON + `,` + signInSettingsJSON + `,` + mailSettingsJSON + `,` + brokerSettingsJSON + `]}` + "\n"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("response (-want +got):\n%s", diff)

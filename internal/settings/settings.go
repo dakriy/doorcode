@@ -51,7 +51,6 @@ const (
 	defaultAccent         = "#4f39f6"
 	colorHint             = "must be a color as #rrggbb, such as #4f39f6"
 	siteTimezoneHint      = "must be a time zone name from the tz database, such as UTC or Europe/Berlin"
-	keyAdminEmail         = "admin_email"
 	keyPasswordHashMemory = "password_hash_memory_kib"
 	keyPasswordMinLength  = "password_min_length"
 	keyEnrollmentUsername = "enrollment_username"
@@ -236,7 +235,6 @@ const (
 	// KindSeveral is any number of Choices, stored separated by commas.
 	KindSeveral InputKind = "several"
 	KindURL     InputKind = "url"
-	KindEmail   InputKind = "email"
 	// KindHost is a host name, or an IP address where the setting takes
 	// one.
 	KindHost InputKind = "host"
@@ -400,8 +398,6 @@ var sections = []section{
 			_, err := s.siteZone(value)
 			return err
 		}, input: Input{Kind: KindZone}}, label: "Timezone", help: "A zone of the tz database, such as Europe/Berlin; type to find one. Schedules, dates typed on pages, and every time shown are read in it."},
-		{key: keyAdminEmail, fallback: "admin@example.com", validate: rule{input: Input{Kind: KindEmail}}, label: "First administrator's email",
-			help: "The account created on first start when there are no users."},
 		{key: keyPublicURL, fallback: "", validate: accepting(publicURL).askedWith(Input{Kind: KindURL, Example: publicURLExample}), label: "Public address",
 			help: "The https:// address browsers reach the server at, and single sign-on returns to; http:// only for development."},
 	}},
@@ -505,8 +501,6 @@ func inSections(sections []section) []definition {
 // Current is the settings the application acts on, parsed.
 type Current struct {
 	SiteName string
-	// AdminEmail is the email of the administrator created on first start.
-	AdminEmail string
 	// PasswordHashMemoryKiB is the memory cost of hashing a new password.
 	PasswordHashMemoryKiB uint32
 	// PasswordMinLength is how many characters a password chosen in the
@@ -835,7 +829,7 @@ func (s Service) Current(ctx context.Context) (Current, error) {
 	if err != nil {
 		return Current{}, err
 	}
-	c := Current{SiteName: values[keySiteName], AdminEmail: values[keyAdminEmail], PasswordHashMemoryKiB: memory, PasswordMinLength: minLength, Zone: zone}
+	c := Current{SiteName: values[keySiteName], PasswordHashMemoryKiB: memory, PasswordMinLength: minLength, Zone: zone}
 	for _, d := range durations {
 		if *d.at(&c), err = parsed(values, d.key, d.parse); err != nil {
 			return Current{}, err

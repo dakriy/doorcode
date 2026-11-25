@@ -9,7 +9,8 @@ import (
 	"github.com/dakriy/doorcode/internal/testsupport"
 )
 
-// adminEmail is the first administrator's email when no setting changes it.
+// adminEmail is the first administrator's email when DOORCODE_ADMIN_EMAIL
+// gives none.
 const adminEmail = "admin@example.com"
 
 // firstAdminMessage is the log line that hands the operator the first
@@ -89,7 +90,7 @@ func TestFirstStartCreatesAnAdministratorAndLogsItsPassword(t *testing.T) {
 	}
 }
 
-func TestFirstAdministratorEmailComesFromTheSettingLowercased(t *testing.T) {
+func TestFirstAdministratorEmailComesFromTheEnvironmentLowercased(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	f.EnvStub["DOORCODE_ADMIN_EMAIL"] = " Ops@Example.COM "
@@ -102,6 +103,33 @@ func TestFirstAdministratorEmailComesFromTheSettingLowercased(t *testing.T) {
 	}
 	if diff := cmp.Diff(303, got.Status); diff != "" {
 		t.Errorf("sign-in status (-want +got):\n%s", diff)
+	}
+}
+
+func TestAnEmptyAdminEmailVariableGivesTheFirstAdministratorTheDefaultEmail(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	f.EnvStub["DOORCODE_ADMIN_EMAIL"] = " "
+	h := start(t, f).Handler()
+
+	got := testsupport.NewBrowser(h).Post("/sign-in", "email", adminEmail, "password", adminPassword(t, f))
+
+	if diff := cmp.Diff(303, got.Status); diff != "" {
+		t.Errorf("sign-in status (-want +got):\n%s", diff)
+	}
+}
+
+func TestAStoredAdminEmailRowIsNeitherTheFirstAdministratorsEmailNorASetting(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	f.StoreStub.SeedSetting("admin_email", "stored@example.com", "2026-01-02T08:00:00Z")
+	b := signedInAdmin(t, f)
+
+	want := []any{adminEmail, apiError(404, `unknown setting \"admin_email\"`), apiError(404, `unknown setting \"admin_email\"`)}
+	got := []any{f.LogStub.Entries[1].Fields["email"], b.Get("/api/v1/settings/admin_email"),
+		b.PutJSON("/api/v1/settings/admin_email", `{"value":"ops@example.com"}`)}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("first administrator's email, read, update (-want +got):\n%s", diff)
 	}
 }
 

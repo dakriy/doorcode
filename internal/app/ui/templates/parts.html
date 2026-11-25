@@ -584,7 +584,7 @@ the form with the id group-form, wherever on the page they sit. */}}
 {{end}}
 
 {{/* The type of the input asking for a setting of an input kind with a text box of its own. */}}
-{{define "input-type"}}{{if eq . "number"}}number{{else if eq . "time"}}time{{else if eq . "url"}}url{{else if eq . "email"}}email{{else}}text{{end}}{{end}}
+{{define "input-type"}}{{if eq . "number"}}number{{else if eq . "time"}}time{{else if eq . "url"}}url{{else}}text{{end}}{{end}}
 
 {{/* The range of a bounded number beside its input, given a numberRange. */}}
 {{define "number-range"}}<span id="{{.ID}}-range" class="shrink-0 text-xs whitespace-nowrap text-zinc-500 dark:text-zinc-400">{{.Input.Min}} to {{.Input.Max}}{{with .Input.Unit}} {{.}}{{end}}</span>{{end}}

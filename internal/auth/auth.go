@@ -150,11 +150,21 @@ type Service struct {
 // generated one. It is not a setting, so the store never holds it.
 const AdminPasswordVar = "DOORCODE_ADMIN_PASSWORD"
 
+// AdminEmailVar names the environment variable that, when set and not
+// empty, gives the first administrator its email in place of
+// DefaultAdminEmail. It is not a setting, so the store never holds it.
+const AdminEmailVar = "DOORCODE_ADMIN_EMAIL"
+
+// DefaultAdminEmail is the first administrator's email when AdminEmailVar
+// gives none.
+const DefaultAdminEmail = "admin@example.com"
+
 // CreateFirstAdmin creates an administrator when no user exists yet and
 // logs its email so the operator can sign in and change the password. The
-// password is the one AdminPasswordVar in env gives, or else a generated
+// email is the one AdminEmailVar in env gives, or else DefaultAdminEmail,
+// and the password the one AdminPasswordVar gives, or else a generated
 // one, which the log line carries. When a user exists, deleted ones
-// included, it does nothing and AdminPasswordVar is not read. Otherwise a
+// included, it does nothing and neither variable is read. Otherwise a
 // given password is held to the rules a password set by an administrator
 // follows, and one they refuse is an error. The store's create stores the
 // administrator only while no user exists, so of servers starting together
@@ -179,7 +189,7 @@ func (s Service) CreateFirstAdmin(ctx context.Context, env connector.Environment
 	}
 	hash := hashPassword(password, s.Entropy.Bytes(saltBytes), current.PasswordHashMemoryKiB)
 	admin := connector.StoredUser{
-		Email:        normalizeEmail(current.AdminEmail),
+		Email:        adminEmail(env),
 		DisplayName:  adminDisplayName,
 		PasswordHash: &hash,
 		CreatedAt:    s.Clock.Now(),
@@ -324,6 +334,16 @@ func Reached(at *time.Time, now time.Time) bool {
 func tokenHash(token string) []byte {
 	sum := sha256.Sum256([]byte(token))
 	return sum[:]
+}
+
+// adminEmail is the email AdminEmailVar in env gives, normalized, or
+// DefaultAdminEmail when it gives none.
+func adminEmail(env connector.Environment) string {
+	given, _ := env.Lookup(AdminEmailVar)
+	if email := normalizeEmail(given); email != "" {
+		return email
+	}
+	return DefaultAdminEmail
 }
 
 func normalizeEmail(email string) string {
