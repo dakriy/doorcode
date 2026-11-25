@@ -190,6 +190,7 @@ type Store struct {
 	migrated     bool
 	settings     map[string]connector.StoredSetting
 	users        []connector.StoredUser
+	rival        *connector.StoredUser
 	groups       []connector.StoredGroup
 	members      []membership
 	nextGroup    int64
@@ -624,6 +625,14 @@ func (s *Store) SeedCodeHashing(parameters string) {
 // holds, empty until a code is first hashed.
 func (s *Store) StoredCodeHashing() string {
 	return s.codeParams
+}
+
+// RivalCreatesFirstUser makes CreateFirstUser find a user with email, and
+// no local password, stored just before it, as another server starting on
+// the same empty store would store its first administrator between this
+// server's users read and its create.
+func (s *Store) RivalCreatesFirstUser(email string) {
+	s.rival = &connector.StoredUser{Email: email, DisplayName: email, CreatedAt: mustTime(DefaultNow)}
 }
 
 // ExpireUser makes the user with email expire at an RFC 3339 time.

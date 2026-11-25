@@ -251,6 +251,24 @@ func TestRefusedAdminPasswordVariableStartsWhenOnlyDeletedUsersExist(t *testing.
 	}
 }
 
+func TestAFirstAdministratorAnotherServerCreatesFirstIsTheOneThatExists(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	f.StoreStub.RivalCreatesFirstUser(adminEmail)
+	f.EnvStub["DOORCODE_ADMIN_PASSWORD"] = devAdminPassword
+	h := start(t, f).Handler()
+	logged := append([]testsupport.LogEntry(nil), f.LogStub.Entries...)
+
+	got := testsupport.NewBrowser(h).Post("/sign-in", "email", adminEmail, "password", devAdminPassword)
+
+	if diff := cmp.Diff([]testsupport.LogEntry{{Level: "info", Message: "schema migrated"}}, logged); diff != "" {
+		t.Errorf("startup log (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff(422, got.Status); diff != "" {
+		t.Errorf("sign-in status with the environment's password (-want +got):\n%s", diff)
+	}
+}
+
 // secretKeyRefusal is why the application does not start without a key
 // for its secret settings.
 const secretKeyRefusal = "DOORCODE_SECRET_KEY must be 32 random bytes in base64, such as the output of openssl rand -base64 32; " +

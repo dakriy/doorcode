@@ -24,6 +24,10 @@ func (s *Store) CreateFirstUser(_ context.Context, u connector.StoredUser, group
 	if err := s.writable(usersAggregate, userWrites); err != nil {
 		return false, err
 	}
+	if s.rival != nil {
+		s.insertUser(*s.rival)
+		s.rival = nil
+	}
 	if len(s.users) > 0 {
 		return false, nil
 	}
