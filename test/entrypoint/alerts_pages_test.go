@@ -14,9 +14,9 @@ var kindRows = [][]string{
 	{"Alert", "State", "Raised and cleared"},
 	{"Door held open held_open", "off on mail", "A door stood open for longer than its held-open time while it should have been locked. " +
 		"It clears when the door closes or an open span of its timeline begins."},
-	{"Door offline offline", "off on mail", "A door's controller has not been connected to the broker for the minutes of the unresponsive_minutes setting. " +
+	{"Door offline offline", "off on mail", "A door's controller has not been connected to the broker for 5 minutes. " +
 		"It clears once the controller connects again."},
-	{"Door unresponsive unresponsive", "off on mail", "A door's controller has not been heard from for the minutes of the unresponsive_minutes setting " +
+	{"Door unresponsive unresponsive", "off on mail", "A door's controller has not been heard from for 5 minutes " +
 		"while the broker says it is connected. It clears once the server hears from it or it is shown offline."},
 	{"Door configuration reverted config_reverted", "off on mail", "A door gave up the configuration it was last sent, because it could not come online with it, " +
 		"and runs the one before. It clears once the door no longer shows the Reverted configuration badge: " +
@@ -131,6 +131,65 @@ func TestTheAlertsTabOffersEachKindOffOnOrMailWithItsStateChosen(t *testing.T) {
 	}
 	if diff := cmp.Diff(want, page.Options); diff != "" {
 		t.Errorf("options (-want +got):\n%s", diff)
+	}
+}
+
+func TestEachKindsStateIsNeverNarrowerThanItsLongestStateAndShowsTheOneChosen(t *testing.T) {
+	t.Parallel()
+	b := signedInAdmin(t, testsupport.NewFactory())
+	send(t, b, "PUT", "/api/v1/alerts/kinds/offline", `{"state":"mail"}`, 200)
+
+	body := b.Get(alertsTabPath).Body
+
+	fits := "w-full min-w-max"
+	want := []any{
+		map[string]string{
+			"alert_kind.held_open": fits, "alert_kind.offline": fits, "alert_kind.unresponsive": fits, "alert_kind.config_reverted": fits,
+			"alert_kind.config_restarting": fits, "alert_kind.config_mismatch": fits, "alert_kind.update_failed": fits, "alert_kind.certificate": fits,
+		},
+		[]string{"off", "on", "mail (selected)"},
+	}
+	got := []any{testsupport.Widths(body), testsupport.ParsePage(body).Options["alert_kind.offline"]}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("widths, offline's options (-want +got):\n%s", diff)
+	}
+}
+
+func TestAChoiceSettingIsNeverNarrowerThanItsLongestChoiceOnTheSettingsAndDoorPages(t *testing.T) {
+	t.Parallel()
+	_, b, _, _ := enrolledDoor(t, testsupport.NewFactory())
+
+	site := testsupport.Widths(b.Get("/admin/settings?tab=doors").Body)
+	door := testsupport.Widths(b.Get("/admin/doors/1?tab=configuration").Body)
+
+	want := []string{"w-full min-w-max", "w-full min-w-max"}
+	if diff := cmp.Diff(want, []string{site["door_log_level"], door["log_level"]}); diff != "" {
+		t.Errorf("site's log level, door's log level (-want +got):\n%s", diff)
+	}
+}
+
+func TestTheKindsOfAlertSayTheTimesAndCountsTheSettingsGive(t *testing.T) {
+	t.Parallel()
+	b := signedInAdmin(t, testsupport.NewFactory())
+	putSetting(t, b, "unresponsive_minutes", "7")
+	putSetting(t, b, "certificate_runway_days", "90")
+	putSetting(t, b, "certificate_leaf_days", "1")
+	putSetting(t, b, "certificate_unreachable_checks", "1")
+
+	rows := pageOf(b.Get(alertsTabPath)).Tables["Kinds of alert"]
+	api := send(t, b, "GET", "/api/v1/alerts", "", 200).Body
+	set := send(t, b, "PUT", "/api/v1/alerts/kinds/offline", `{"state":"mail"}`, 200).Body
+
+	offline := "A door's controller has not been connected to the broker for 7 minutes. It clears once the controller connects again."
+	unresponsive := "A door's controller has not been heard from for 7 minutes while the broker says it is connected. " +
+		"It clears once the server hears from it or it is shown offline."
+	certificate := certificateAboutAt("90 days", "1 day", "1 check")
+	want := []any{offline, unresponsive, certificate, offline, unresponsive, certificate, offline}
+	got := []any{rows[2][2], rows[3][2], rows[8][2],
+		testsupport.JSONAt(api, "/kinds/1/about"), testsupport.JSONAt(api, "/kinds/2/about"), testsupport.JSONAt(api, "/kinds/7/about"),
+		testsupport.JSONAt(set, "/about")}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("tab's offline, unresponsive, certificate; API's; set offline (-want +got):\n%s", diff)
 	}
 }
 
@@ -319,6 +378,7 @@ func TestTheAlertsPageAndAPIFailWhileTheEnvironmentGivesAValueTheyCannotUse(t *t
 		"the page, a hold-down that is no number": {"DOORCODE_ALERT_HOLD_DOWN_MINUTES", "soon", "/admin/alerts"},
 		"the API, a hold-down that is no number":  {"DOORCODE_ALERT_HOLD_DOWN_MINUTES", "soon", "/api/v1/alerts"},
 		"the page, a timezone nobody has":         {"DOORCODE_SITE_TIMEZONE", "Nowhere/Else", "/admin/alerts"},
+		"the API, a timezone nobody has":          {"DOORCODE_SITE_TIMEZONE", "Nowhere/Else", "/api/v1/alerts"},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

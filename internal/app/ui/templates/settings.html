@@ -35,12 +35,12 @@
               <span class="block font-mono text-xs text-zinc-500 dark:text-zinc-400">{{.Key}}</span>
             </td>
             <td class="px-6 py-3 align-top">
-              <select id="{{$id}}" name="{{.Field}}"{{if .Error}} aria-invalid="true" aria-describedby="{{$id}}-error"{{end}} class="{{template "input-base"}} font-mono">
+              <select id="{{$id}}" name="{{.Field}}"{{if .Error}} aria-invalid="true" aria-describedby="{{$id}}-error"{{end}} class="{{template "select-class"}} font-mono">
                 {{range .Options}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
               </select>
               {{if .Error}}<p id="{{$id}}-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{.Error}}</p>{{end}}
             </td>
-            <td class="px-6 py-3 align-top text-zinc-600 dark:text-zinc-400">{{.About}}</td>
+            <td class="min-w-64 px-6 py-3 align-top text-zinc-600 dark:text-zinc-400">{{.About}}</td>
           </tr>
           {{end}}
         </tbody>

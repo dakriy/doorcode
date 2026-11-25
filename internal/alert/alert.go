@@ -59,32 +59,73 @@ func ParseState(name string) (State, error) {
 }
 
 // Kind is a kind of alert: the Key it is stored and addressed by, its
-// Name, and what raises and resolves it, About.
+// Name, and what raises and resolves it under the site's limits, about.
 type Kind struct {
 	Key   string
 	Name  string
-	About string
+	about func(Limits) string
+}
+
+// Limits is what the site's settings make raise the kinds of alert that
+// follow them: how long a door's controller may stay disconnected or
+// silent, Unresponsive, and what the certificate check alerts on,
+// Certificates.
+type Limits struct {
+	Unresponsive time.Duration
+	Certificates settings.CertificateCheck
+}
+
+// told is the about of a kind whose text no limit changes.
+func told(text string) func(Limits) string {
+	return func(Limits) string { return text }
 }
 
 // The kinds of alert.
 var (
 	HeldOpen = Kind{Key: "held_open", Name: "Door held open",
-		About: "A door stood open for longer than its held-open time while it should have been locked. It clears when the door closes or an open span of its timeline begins."}
+		about: told("A door stood open for longer than its held-open time while it should have been locked. It clears when the door closes or an open span of its timeline begins.")}
 	Offline = Kind{Key: "offline", Name: "Door offline",
-		About: "A door's controller has not been connected to the broker for the minutes of the unresponsive_minutes setting. It clears once the controller connects again."}
+		about: func(l Limits) string {
+			return "A door's controller has not been connected to the broker for " + minutesOf(l.Unresponsive) + ". It clears once the controller connects again."
+		}}
 	Unresponsive = Kind{Key: "unresponsive", Name: "Door unresponsive",
-		About: "A door's controller has not been heard from for the minutes of the unresponsive_minutes setting while the broker says it is connected. It clears once the server hears from it or it is shown offline."}
+		about: func(l Limits) string {
+			return "A door's controller has not been heard from for " + minutesOf(l.Unresponsive) + " while the broker says it is connected. It clears once the server hears from it or it is shown offline."
+		}}
 	ConfigReverted = Kind{Key: "config_reverted", Name: "Door configuration reverted",
-		About: "A door gave up the configuration it was last sent, because it could not come online with it, and runs the one before. It clears once the door no longer shows the Reverted configuration badge: it reports the configuration it was last sent, or is sent another."}
+		about: told("A door gave up the configuration it was last sent, because it could not come online with it, and runs the one before. It clears once the door no longer shows the Reverted configuration badge: it reports the configuration it was last sent, or is sent another.")}
 	ConfigRestarting = Kind{Key: "config_restarting", Name: "Door restarting with its configuration",
-		About: "A door's controller started at least twice since the configuration it was last sent went out, with no report naming that configuration. It clears once the door no longer shows the Restarting with configuration badge."}
+		about: told("A door's controller started at least twice since the configuration it was last sent went out, with no report naming that configuration. It clears once the door no longer shows the Restarting with configuration badge.")}
 	ConfigMismatch = Kind{Key: "config_mismatch", Name: "Door configuration mismatched",
-		About: "A door's controller went on reporting a configuration other than the one it was last sent. It clears once the door no longer shows the Mismatched configuration badge."}
+		about: told("A door's controller went on reporting a configuration other than the one it was last sent. It clears once the door no longer shows the Mismatched configuration badge.")}
 	UpdateFailed = Kind{Key: "update_failed", Name: "Door firmware update failed",
-		About: "A door's firmware update failed: the door said it could not install it, or it did not connect again with it in time. It clears once the door's firmware no longer shows Update failed: an update of it is under way again, it runs its target, or its target changes."}
-	Certificate = Kind{Key: "certificate", Name: "Certificate",
-		About: "A certificate check of the door broker or the device address found that what it served does not verify against door_broker_ca_pem, that its runway or its leaf has fewer days left than the certificate check settings allow, or that it reached no server for their number of checks in a row; each clears once a later check passes it, or without mail once the settings no longer give the endpoint. A verified chain whose certificates above the leaf's issuer, the anchor included, differ from those the endpoint served before mails once and becomes the shape compared with; another intermediate under the same certificates does not mail."}
+		about: told("A door's firmware update failed: the door said it could not install it, or it did not connect again with it in time. It clears once the door's firmware no longer shows Update failed: an update of it is under way again, it runs its target, or its target changes.")}
+	Certificate = Kind{Key: "certificate", Name: "Certificate", about: certificateAbout}
 )
+
+// certificateAbout is what raises and resolves the certificate alert
+// under limits.
+func certificateAbout(l Limits) string {
+	c := l.Certificates
+	runway, leaf := int(c.Runway.Hours())/24, int(c.Leaf.Hours())/24
+	return "A certificate check of the door broker or the device address found that what it served does not verify against the broker CA certificates doors are given, " +
+		"that its runway has fewer than " + countOf(runway, "day") + " left or its leaf fewer than " + countOf(leaf, "day") +
+		", or that it reached no server for " + countOf(c.Unreachable, "check") + " in a row; each clears once a later check passes it, or without mail once the settings no longer give the endpoint. " +
+		"A verified chain whose certificates above the leaf's issuer, the anchor included, differ from those the endpoint served before mails once and becomes the shape compared with; another intermediate under the same certificates does not mail."
+}
+
+// minutesOf is d in whole minutes, in words.
+func minutesOf(d time.Duration) string {
+	return countOf(int(d/time.Minute), "minute")
+}
+
+// countOf is n of unit in words, such as 1 day or 5 days.
+func countOf(n int, unit string) string {
+	if n == 1 {
+		return "1 " + unit
+	}
+	return strconv.Itoa(n) + " " + unit + "s"
+}
 
 // Kinds is every kind of alert, in display order.
 var Kinds = []Kind{HeldOpen, Offline, Unresponsive, ConfigReverted, ConfigRestarting, ConfigMismatch, UpdateFailed, Certificate}
@@ -504,23 +545,36 @@ func (s Service) attempt(ctx context.Context, m connector.StoredMail, site setti
 	return m
 }
 
-// KindState is a kind of alert and its State.
+// KindState is a kind of alert, its State, and what raises and resolves
+// it under the site's limits now, About.
 type KindState struct {
 	Kind
 	State State
+	About string
 }
 
 // States is every kind of alert, in display order, with its state.
 func (s Service) States(ctx context.Context) ([]KindState, error) {
+	limits, err := s.limits(ctx)
+	if err != nil {
+		return nil, err
+	}
 	stored, err := s.Store.AlertKinds(ctx)
 	if err != nil {
 		return nil, err
 	}
 	states := make([]KindState, 0, len(Kinds))
 	for _, kind := range Kinds {
-		states = append(states, KindState{Kind: kind, State: stateOf(stored, kind)})
+		states = append(states, KindState{Kind: kind, State: stateOf(stored, kind), About: kind.about(limits)})
 	}
 	return states, nil
+}
+
+// limits is what the site's settings make raise the kinds of alert now.
+func (s Service) limits(ctx context.Context) (Limits, error) {
+	current, currentErr := s.Settings.Current(ctx)
+	check, checkErr := s.Settings.CertificateCheck(ctx)
+	return Limits{Unresponsive: current.UnresponsiveAfter, Certificates: check}, errors.Join(currentErr, checkErr)
 }
 
 // SetState stores state, by name, as the state of the kind of alert whose
@@ -538,6 +592,10 @@ func (s Service) SetState(ctx context.Context, key, state string) (KindState, er
 	if err != nil {
 		return KindState{}, err
 	}
+	limits, err := s.limits(ctx)
+	if err != nil {
+		return KindState{}, err
+	}
 	s.Lock.Lock()
 	defer s.Lock.Unlock()
 	if chosen != Mail {
@@ -545,7 +603,7 @@ func (s Service) SetState(ctx context.Context, key, state string) (KindState, er
 			return KindState{}, err
 		}
 	}
-	return KindState{Kind: kind, State: chosen}, s.Store.SetAlertKind(ctx, key, state)
+	return KindState{Kind: kind, State: chosen, About: kind.about(limits)}, s.Store.SetAlertKind(ctx, key, state)
 }
 
 // quiet clears every condition of kind, now set to state, when state is

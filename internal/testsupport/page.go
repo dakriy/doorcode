@@ -1,6 +1,7 @@
 package testsupport
 
 import (
+	"slices"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -677,4 +678,25 @@ func Headings(body string) []string {
 		}
 	}
 	return found
+}
+
+// Widths maps the name of each select on the page to the classes that
+// size its width (w-*, min-w-*, and max-w-*), in the order it lists them.
+func Widths(body string) map[string]string {
+	doc, err := html.Parse(strings.NewReader(body))
+	if err != nil {
+		panic(err)
+	}
+	found := map[string]string{}
+	for n := range doc.Descendants() {
+		if n.Type == html.ElementNode && n.Data == "select" {
+			found[attr(n, "name")] = strings.Join(slices.DeleteFunc(strings.Fields(attr(n, "class")), notWidth), " ")
+		}
+	}
+	return found
+}
+
+// notWidth is whether class sets no width of an element.
+func notWidth(class string) bool {
+	return !strings.HasPrefix(class, "w-") && !strings.HasPrefix(class, "min-w-") && !strings.HasPrefix(class, "max-w-")
 }

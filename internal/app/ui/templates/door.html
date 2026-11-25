@@ -340,7 +340,7 @@
             <p id="{{$id}}-state" class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{if .Set}}This door has its own, never shown. Leave this blank to keep it, type a new one to replace it, or tick Clear to follow the default.{{else}}Follows the default. Type one to give this door its own.{{end}}</p>
             {{if .Set}}<label class="mt-2 inline-flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400"><input type="checkbox" name="clear" value="{{.Name}}" class="size-4 rounded border-zinc-300 accent-brand-600 dark:border-zinc-700">Clear</label>{{end}}
             {{else if .Options}}
-            <select id="{{$id}}" name="{{.Name}}"{{if .Error}} aria-invalid="true"{{end}}{{with .Described}} aria-describedby="{{.}}"{{end}} class="{{template "input-base"}}">
+            <select id="{{$id}}" name="{{.Name}}"{{if .Error}} aria-invalid="true"{{end}}{{with .Described}} aria-describedby="{{.}}"{{end}} class="{{template "select-class"}}">
               {{range .Options}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
             </select>
             {{else if eq .Input.Kind "certificates"}}

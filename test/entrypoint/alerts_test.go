@@ -127,8 +127,8 @@ func TestEveryKindOfAlertIsOnUntilSetOtherwiseAndMailsNobodyByDefault(t *testing
 
 	want := testsupport.JSON(`{"kinds":[
 		{"key":"held_open","name":"Door held open","about":"A door stood open for longer than its held-open time while it should have been locked. It clears when the door closes or an open span of its timeline begins.","state":"on"},
-		{"key":"offline","name":"Door offline","about":"A door's controller has not been connected to the broker for the minutes of the unresponsive_minutes setting. It clears once the controller connects again.","state":"on"},
-		{"key":"unresponsive","name":"Door unresponsive","about":"A door's controller has not been heard from for the minutes of the unresponsive_minutes setting while the broker says it is connected. It clears once the server hears from it or it is shown offline.","state":"on"},
+		{"key":"offline","name":"Door offline","about":"A door's controller has not been connected to the broker for 5 minutes. It clears once the controller connects again.","state":"on"},
+		{"key":"unresponsive","name":"Door unresponsive","about":"A door's controller has not been heard from for 5 minutes while the broker says it is connected. It clears once the server hears from it or it is shown offline.","state":"on"},
 		{"key":"config_reverted","name":"Door configuration reverted","about":"A door gave up the configuration it was last sent, because it could not come online with it, and runs the one before. It clears once the door no longer shows the Reverted configuration badge: it reports the configuration it was last sent, or is sent another.","state":"on"},
 		{"key":"config_restarting","name":"Door restarting with its configuration","about":"A door's controller started at least twice since the configuration it was last sent went out, with no report naming that configuration. It clears once the door no longer shows the Restarting with configuration badge.","state":"on"},
 		{"key":"config_mismatch","name":"Door configuration mismatched","about":"A door's controller went on reporting a configuration other than the one it was last sent. It clears once the door no longer shows the Mismatched configuration badge.","state":"on"},
@@ -623,6 +623,8 @@ func TestSettingAKindOfAlertIsRefusedWhenItCannotBe(t *testing.T) {
 		"a store that cannot store it": {"/api/v1/alerts/kinds/held_open", `{"state":"mail"}`, (*testsupport.Store).FailAlertWrites,
 			internalError("767778797a7b7c7d")},
 		"a store whose conditions cannot be read, setting it off": {"/api/v1/alerts/kinds/held_open", `{"state":"off"}`, (*testsupport.Store).FailAlerts,
+			internalError("767778797a7b7c7d")},
+		"a store whose settings cannot be read": {"/api/v1/alerts/kinds/offline", `{"state":"mail"}`, (*testsupport.Store).FailSettings,
 			internalError("767778797a7b7c7d")},
 	}
 	for name, c := range cases {

@@ -23,8 +23,21 @@ var shapeHead = []string{"Subject", "Issued by"}
 var chainHead = []string{"Role", "Subject", "Issued by", "Expires"}
 
 // certificateAbout is what the Alerts page and the API say raises and
-// clears the certificate alert.
-const certificateAbout = "A certificate check of the door broker or the device address found that what it served does not verify against door_broker_ca_pem, that its runway or its leaf has fewer days left than the certificate check settings allow, or that it reached no server for their number of checks in a row; each clears once a later check passes it, or without mail once the settings no longer give the endpoint. A verified chain whose certificates above the leaf's issuer, the anchor included, differ from those the endpoint served before mails once and becomes the shape compared with; another intermediate under the same certificates does not mail."
+// clears the certificate alert at the certificate check's default
+// settings.
+var certificateAbout = certificateAboutAt("548 days", "14 days", "3 checks")
+
+// certificateAboutAt is what the Alerts page and the API say raises and
+// clears the certificate alert when the runway alerts under runway, the
+// leaf under leaf, and an endpoint after checks in a row reached no
+// server.
+func certificateAboutAt(runway, leaf, checks string) string {
+	return "A certificate check of the door broker or the device address found that what it served does not verify against the broker CA certificates doors are given, " +
+		"that its runway has fewer than " + runway + " left or its leaf fewer than " + leaf + ", or that it reached no server for " + checks + " in a row; " +
+		"each clears once a later check passes it, or without mail once the settings no longer give the endpoint. " +
+		"A verified chain whose certificates above the leaf's issuer, the anchor included, differ from those the endpoint served before mails once and becomes the shape compared with; " +
+		"another intermediate under the same certificates does not mail."
+}
 
 // brokerHost is the broker the certificate tests check.
 const brokerHost = "broker.example.com"

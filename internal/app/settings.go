@@ -249,10 +249,11 @@ func (a *App) showSettings(w http.ResponseWriter, r *http.Request, status int, v
 const kindFormPrefix = "alert_kind."
 
 // kindRow is a kind of alert as the Alerts tab of the settings page shows
-// it: the name of its field, the states it offers with the one shown
-// chosen, and what is wrong with the one entered.
+// it: the kind with what raises and resolves it, the name of its field,
+// the states it offers with the one shown chosen, and what is wrong with
+// the one entered.
 type kindRow struct {
-	alert.Kind
+	alert.KindState
 	Field   string
 	Options []selectOption
 	Error   string
@@ -273,7 +274,7 @@ func (a *App) kindsOn(ctx context.Context, tab settings.Tab, entered, errs map[s
 		if !given {
 			shown = string(k.State)
 		}
-		rows = append(rows, kindRow{Kind: k.Kind, Field: field, Options: stateOptions(shown), Error: errs[field]})
+		rows = append(rows, kindRow{KindState: k, Field: field, Options: stateOptions(shown), Error: errs[field]})
 	}
 	return rows, err
 }

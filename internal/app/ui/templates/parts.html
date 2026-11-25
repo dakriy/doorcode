@@ -17,6 +17,11 @@
 
 {{define "input-base"}}block w-full rounded-lg border-0 bg-white px-3 py-2 text-sm shadow-xs ring-1 ring-zinc-300 ring-inset placeholder:text-zinc-400 focus:ring-2 focus:ring-brand-600 focus:outline-none aria-invalid:ring-red-500 dark:bg-zinc-950 dark:ring-zinc-700 dark:focus:ring-brand-500{{end}}
 
+{{/* A select of choices: as wide as its container, and never narrower than
+     its longest choice with its arrow, so a table column holding one sizes
+     to it rather than to the column's head. */}}
+{{define "select-class"}}{{template "input-base"}} min-w-max{{end}}
+
 {{define "primary-class"}}inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-xs transition hover:bg-brand-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-wait disabled:opacity-70 dark:bg-brand-500 dark:hover:bg-brand-400{{end}}
 
 {{define "secondary-class"}}inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-zinc-700 ring-1 ring-zinc-300 ring-inset transition hover:bg-zinc-100 dark:text-zinc-200 dark:ring-zinc-700 dark:hover:bg-zinc-800{{end}}
@@ -647,7 +652,7 @@ the form with the id group-form, wherever on the page they sit. */}}
     </div>
   </fieldset>
   {{else if .Options}}
-  <select id="{{$id}}" name="{{.Key}}"{{if .Error}} aria-invalid="true"{{end}}{{with .Described}} aria-describedby="{{.}}"{{end}} class="{{template "input-base"}} font-mono">
+  <select id="{{$id}}" name="{{.Key}}"{{if .Error}} aria-invalid="true"{{end}}{{with .Described}} aria-describedby="{{.}}"{{end}} class="{{template "select-class"}} font-mono">
     {{range .Options}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
   </select>
   {{else}}

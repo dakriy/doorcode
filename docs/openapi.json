@@ -10976,7 +10976,7 @@
         "properties": {
           "about": {
             "type": "string",
-            "description": "What raises and clears it."
+            "description": "What raises and clears it, in the times and counts the settings give now."
           },
           "key": {
             "type": "string",

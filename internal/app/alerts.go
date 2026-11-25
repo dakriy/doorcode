@@ -85,7 +85,7 @@ func (a *App) deliverIfDue(ctx context.Context) {
 type alertKindView struct {
 	Key   string `json:"key" doc:"The kind's key."`
 	Name  string `json:"name" doc:"The kind's name, which its mail's subject starts with."`
-	About string `json:"about" doc:"What raises and clears it."`
+	About string `json:"about" doc:"What raises and clears it, in the times and counts the settings give now."`
 	State string `json:"state" doc:"off (no condition of it is raised), on (its conditions are raised and listed, not mailed), or mail (they are raised, listed, and mailed to the recipients); every kind is on until an administrator sets it otherwise."`
 }
 
@@ -166,11 +166,11 @@ type alertsNow struct {
 // readAlerts reads every kind of alert, whom and when they mail, and the
 // newest messages of the outbox.
 func (a *App) readAlerts(ctx context.Context) (alertsNow, error) {
-	kinds, err := a.alerts.States(ctx)
+	policy, err := a.settings.Alerts(ctx)
 	if err != nil {
 		return alertsNow{}, err
 	}
-	policy, err := a.settings.Alerts(ctx)
+	kinds, err := a.alerts.States(ctx)
 	if err != nil {
 		return alertsNow{}, err
 	}
