@@ -10,12 +10,13 @@
       <legend class="block text-sm font-medium">Force the door</legend>
       <div class="mt-2 grid gap-3 sm:grid-cols-2">
         {{range $c.Kinds}}{{$id := printf "kind-%s" .Value}}
-        <div class="rounded-lg p-3 ring-1 ring-zinc-300 ring-inset has-checked:bg-brand-50 has-checked:ring-brand-400 dark:ring-zinc-700 dark:has-checked:bg-brand-950 dark:has-checked:ring-brand-600">
-          <label class="flex cursor-pointer items-center gap-3 text-sm font-medium">
-            <input id="{{$id}}" name="kind" type="radio" value="{{.Value}}"{{if .Selected}} checked{{end}}{{if $kindError}} aria-invalid="true"{{end}} aria-describedby="{{$id}}-detail{{if $kindError}} kind-error{{end}}" class="size-4 border-zinc-300 accent-brand-600 dark:border-zinc-700">{{.Label}}
-          </label>
-          <p id="{{$id}}-detail" class="mt-1 pl-7 text-xs text-zinc-500 dark:text-zinc-400">{{.Detail}}</p>
-        </div>
+        {{/* The whole card is the option's label, so a click or tap anywhere on it chooses it; its description is part of the label. */}}
+        <label for="{{$id}}" class="block cursor-pointer rounded-lg p-3 ring-1 ring-zinc-300 ring-inset hover:bg-zinc-50 has-checked:bg-brand-50 has-checked:ring-2 has-checked:ring-brand-500 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-brand-500 dark:ring-zinc-700 dark:hover:bg-zinc-800/40 dark:has-checked:bg-brand-950 dark:has-checked:ring-brand-500">
+          <span class="flex items-center gap-3 text-sm font-medium">
+            <input id="{{$id}}" name="kind" type="radio" value="{{.Value}}"{{if .Selected}} checked{{end}}{{if $kindError}} aria-invalid="true" aria-describedby="kind-error"{{end}} class="size-4 shrink-0 border-zinc-300 accent-brand-600 dark:border-zinc-700">{{.Label}}
+          </span>
+          <span class="mt-1 block pl-7 text-xs text-zinc-500 dark:text-zinc-400">{{.Detail}}</span>
+        </label>
         {{end}}
       </div>
       {{if $kindError}}<p id="kind-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$kindError}}</p>{{end}}

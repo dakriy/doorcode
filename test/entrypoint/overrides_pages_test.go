@@ -50,9 +50,9 @@ func TestNewOverridePageStartsNowInTheSiteTimezone(t *testing.T) {
 
 	want := []any{"New override · doorcode", "New override",
 		map[string]string{"start": "2026-01-05T10:00", "end": "", "reason": ""},
-		map[string][]string{"kind": {"Open", "Locked (selected)"}},
+		[]string{"kind=locked"},
 	}
-	if diff := cmp.Diff(want, []any{got.Title, got.Heading, got.Values, got.Options}); diff != "" {
+	if diff := cmp.Diff(want, []any{got.Title, got.Heading, got.Values, got.Checked}); diff != "" {
 		t.Errorf("title, heading, values, kinds (-want +got):\n%s", diff)
 	}
 }
@@ -110,9 +110,9 @@ func TestOverridePageShowsTheOverride(t *testing.T) {
 
 	want := []any{"Override · doorcode", "Override of Front door",
 		map[string]string{"start": "2026-01-05T10:00", "end": "2026-01-05T12:00", "reason": "Floor polishing."},
-		map[string][]string{"kind": {"Open", "Locked (selected)"}},
+		[]string{"kind=locked"},
 	}
-	if diff := cmp.Diff(want, []any{got.Title, got.Heading, got.Values, got.Options}); diff != "" {
+	if diff := cmp.Diff(want, []any{got.Title, got.Heading, got.Values, got.Checked}); diff != "" {
 		t.Errorf("title, heading, values, kinds (-want +got):\n%s", diff)
 	}
 }
@@ -264,21 +264,21 @@ func TestOverridePageStoreFailureShowsARequestID(t *testing.T) {
 	}
 }
 
-func TestTheOverrideFormExplainsWhatTheDoorDoesUnderEachKind(t *testing.T) {
+func TestEachKindOfTheOverrideFormIsACardLabellingItsRadioButtonAndSayingWhatTheDoorDoes(t *testing.T) {
 	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 	createDoor(t, b, frontDoor)
 
 	page := testsupport.ParsePage(b.Get("/admin/doors/1/overrides/new").Body)
 
-	want := map[string]string{
-		"kind=open": "Any keypress unlocks the door for its strike pulse, with no code and nothing asked of the server. " +
+	want := []any{map[string]string{
+		"kind=open": "Open Any keypress unlocks the door for its strike pulse, with no code and nothing asked of the server. " +
 			"It holds whether or not an open-mode schedule is in force.",
-		"kind=locked": "Every code is refused but a door commander's, whose keypad commands still work, and open-mode schedules are held off. " +
+		"kind=locked": "Locked Every code is refused but a door commander's, whose keypad commands still work, and open-mode schedules are held off. " +
 			"While the door cannot reach the server it refuses everyone.",
-	}
-	if diff := cmp.Diff(want, page.Descriptions); diff != "" {
-		t.Errorf("descriptions (-want +got):\n%s", diff)
+	}, map[string]string{"kind": "radio"}}
+	if diff := cmp.Diff(want, []any{page.Choices, entriesOf(page.Inputs, "kind")}); diff != "" {
+		t.Errorf("each radio button's label, the kind's control (-want +got):\n%s", diff)
 	}
 }
 
@@ -289,7 +289,7 @@ func TestARefusedOverrideFormKeepsTheKindChosen(t *testing.T) {
 
 	got := b.Post("/admin/doors/1/overrides", "kind", "open", "start", "soon", "end", "2026-01-05T12:00", "reason", "")
 
-	if diff := cmp.Diff([]any{422, []string{"Open (selected)", "Locked"}}, []any{got.Status, testsupport.ParsePage(got.Body).Options["kind"]}); diff != "" {
+	if diff := cmp.Diff([]any{422, []string{"kind=open"}}, []any{got.Status, testsupport.ParsePage(got.Body).Checked}); diff != "" {
 		t.Errorf("status, kinds (-want +got):\n%s", diff)
 	}
 }

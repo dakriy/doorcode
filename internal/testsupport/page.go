@@ -44,14 +44,14 @@ type Page struct {
 	// Values maps each named input and text area, other than passwords and
 	// checkboxes, to its value.
 	Values map[string]string
-	// Checked is each checked checkbox, as its name, "=", and its value.
+	// Checked is each checked checkbox and radio button, as its name, "=",
+	// and its value.
 	Checked []string
-	// Choices maps each checkbox inside a label, as its name, "=", and its
-	// value, to the label's text.
+	// Choices maps each checkbox or radio button inside a label, as its
+	// name, "=", and its value, to the label's text.
 	Choices map[string]string
-	// Options maps each select, and each group of radio buttons, to the
-	// text of its options, in order (a radio button's being its label's);
-	// the selected or checked one is suffixed with " (selected)".
+	// Options maps each select to the text of its options, in order; the
+	// selected one is suffixed with " (selected)".
 	Options map[string][]string
 	// Table is the text of every cell of the first table without a label,
 	// row by row.
@@ -344,7 +344,7 @@ func (p *Page) readBars(label string, tr *html.Node) {
 func (p *Page) readResource(n *html.Node) {
 	switch {
 	case n.Data == "input" && (attr(n, "type") == "checkbox" || attr(n, "type") == "radio"):
-		p.readChoice(n)
+		p.readCheckbox(n)
 	case n.Data == "option":
 		p.readOption(n)
 	case n.Data == "input" && attr(n, "name") != "" && attr(n, "type") != "password":
@@ -466,26 +466,6 @@ func (p *Page) readCheckbox(n *html.Node) {
 		}
 		p.Choices[key] = text(label)
 	}
-}
-
-// readChoice reads n, a checkbox or a radio button.
-func (p *Page) readChoice(n *html.Node) {
-	if attr(n, "type") == "radio" {
-		p.readRadio(n)
-		return
-	}
-	p.readCheckbox(n)
-}
-
-func (p *Page) readRadio(n *html.Node) {
-	label := text(enclosing(n, "label"))
-	if hasAttr(n, "checked") {
-		label += " (selected)"
-	}
-	if p.Options == nil {
-		p.Options = map[string][]string{}
-	}
-	p.Options[attr(n, "name")] = append(p.Options[attr(n, "name")], label)
 }
 
 // controlName is how the page's maps name the control n: by its name, and
