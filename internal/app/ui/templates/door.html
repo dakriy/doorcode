@@ -39,7 +39,7 @@
         <h2 id="state-heading" class="text-sm font-semibold">Live state</h2>
         <ul aria-label="State" class="flex flex-wrap items-center gap-2">
           <li>{{template "door-status" .Status}}</li>{{range .Badges}}<li>{{template "door-status" .}}</li>{{end}}{{with .Mesh}}<li>{{template "mesh-badge" .}}</li>{{end}}
-        </ul>{{template "info" (info "door-state" "the state")}}
+        </ul>{{template "info" (tip "door-state" "the state" .Tips.State)}}
       </div>
       <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">What the controller last said of itself and the door. It updates as reports arrive.</p>
     </div>
@@ -60,8 +60,8 @@
     <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Mesh children{{template "info" (info "mesh-children" "Mesh children")}}</dt><dd class="mt-1 text-sm tabular-nums">{{.MeshChildren}}</dd></div>
     <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Access point{{template "info" (info "access-point" "Access point")}}</dt><dd class="mt-1 text-sm tabular-nums">{{.AccessPoint}}</dd></div>
     <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Last Wi-Fi drop{{template "info" (info "last-drop" "Last Wi-Fi drop")}}</dt><dd class="mt-1 text-sm">{{.LastDrop}}</dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Last seen{{template "info" (info "last-seen" "Last seen")}}</dt><dd class="mt-1 text-sm tabular-nums">{{.LastSeen}}</dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Last report{{template "info" (info "last-report" "Last report")}}</dt><dd class="mt-1 text-sm tabular-nums">{{.LastReport}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Last seen{{template "info" (tip "last-seen" "Last seen" .Tips.LastSeen)}}</dt><dd class="mt-1 text-sm tabular-nums">{{.LastSeen}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Last report{{template "info" (tip "last-report" "Last report" .Tips.LastReport)}}</dt><dd class="mt-1 text-sm tabular-nums">{{.LastReport}}</dd></div>
     <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Configuration{{template "info" (info "configuration" "Configuration")}}</dt><dd class="mt-1 text-sm">{{.Config}}</dd></div>
   </dl>
   {{with .ConfigNote}}<p role="note" class="mx-6 mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">{{.}}</p>{{end}}

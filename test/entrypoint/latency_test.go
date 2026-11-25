@@ -143,21 +143,24 @@ func TestADoorsHourlyLatencyChartLeavesOutTheHoursWithoutOne(t *testing.T) {
 	}
 }
 
-func TestADoorPageExplainsEachFigureOfItsLiveStateInATip(t *testing.T) {
+func TestADoorPageExplainsEachFigureOfItsLiveStateInATipWithTheTimesThatApplyToIt(t *testing.T) {
 	t.Parallel()
-	k := keypadSite(t, testsupport.NewFactory())
+	f := testsupport.NewFactory()
+	f.StoreStub.SeedSetting("unresponsive_minutes", "10", testsupport.DefaultNow)
+	k := keypadSite(t, f)
+	send(t, k.b, "PUT", "/api/v1/doors/1/config", `{"overrides":{"held_open_s":"120","telemetry_interval_s":"30"}}`, 200)
 	k.report(nil)
 	k.at("2026-01-05T09:00:30Z")
 
 	got := testsupport.ParsePage(k.b.Get("/admin/doors/1").Body).Tips
 
 	latency := "Not network latency alone: the time the door took to hand its previous telemetry report to the broker and get the broker's acknowledgement back, measured by the door. " +
-		"It takes in the door's own send queue, the Wi-Fi, the TLS proxy, and the broker, not the server's handling of the report. " +
+		"It takes in the door's own send queue, the Wi-Fi, the network path to the broker, and the broker itself, not the server's handling of the report. " +
 		"A report without a measurement shows None measured."
 	want := map[string]string{
 		"About the state": "Online: the controller is connected to the broker. Offline: it is not. " +
-			"Unresponsive: connected, but not heard from for unresponsive_minutes. " +
-			"Open: the door sensor reads open. Held open: open for longer than its held-open time while it should be locked.",
+			"Unresponsive: connected, but not heard from for 10 minutes. " +
+			"Open: the door sensor reads open. Held open: open for longer than 120 seconds while it should be locked.",
 		"About Door": "Open or closed as the door sensor reports it. A sensor whose wires are cut or not connected reads open; " +
 			"a door whose sensor terminals are bridged always reads closed.",
 		"About Signal": "The Wi-Fi signal strength the controller receives from its access point, in dBm. Closer to 0 is stronger: " +
@@ -175,13 +178,30 @@ func TestADoorPageExplainsEachFigureOfItsLiveStateInATip(t *testing.T) {
 		"About Access point":    "The radio address (BSSID) and channel of the access point the controller is joined to: the building's, or its mesh parent's.",
 		"About Last Wi-Fi drop": "Why the controller's Wi-Fi last lost its access point since it started, as its radio reported it.",
 		"About Last seen": "When the server last heard anything from the controller: a report, a door event, a code check, or its online status. " +
-			"A connected controller silent for unresponsive_minutes is shown unresponsive.",
-		"About Last report": "When the controller's latest telemetry report arrived. It reports every telemetry_interval_s.",
+			"A connected controller silent for 10 minutes is shown unresponsive.",
+		"About Last report": "When the controller's latest telemetry report arrived. It reports every 30 seconds.",
 		"About Configuration": "Whether the controller runs the configuration it was last sent, by the digest it reports. Up to date: it does. " +
 			"Mismatched: it keeps reporting another one. Restarting: it started at least twice since without reporting it. " +
 			"Reverted: it gave it up because it could not come online with it.",
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("tips (-want +got):\n%s", diff)
+	}
+}
+
+func TestADoorPageSaysOneMinuteInTheSingular(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	f.StoreStub.SeedSetting("unresponsive_minutes", "1", testsupport.DefaultNow)
+	k := keypadSite(t, f)
+	k.report(nil)
+	k.at("2026-01-05T09:00:30Z")
+
+	got := testsupport.ParsePage(k.b.Get("/admin/doors/1").Body).Tips["About Last seen"]
+
+	want := "When the server last heard anything from the controller: a report, a door event, a code check, or its online status. " +
+		"A connected controller silent for 1 minute is shown unresponsive."
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("tip (-want +got):\n%s", diff)
 	}
 }

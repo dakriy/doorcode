@@ -753,6 +753,6 @@ func doorsNote(unit string) string {
 	return "Uptime is the share of the range's ended hours in which a door's controller sent telemetry: the server keeps no history of being online, " +
 		"and a report is what shows a door reached it. Latency is not network latency alone: it is the time a door took to hand its previous " +
 		"telemetry report to the broker and get the broker's acknowledgement back, measured by the door, taking in its own send queue, the Wi-Fi, " +
-		"the TLS proxy, and the broker but not the server's handling; its means count only the reports that carried one. " +
+		"the network path to the broker, and the broker itself but not the server's handling; its means count only the reports that carried one. " +
 		"Trends are means per " + unit + ", from the hourly telemetry."
 }

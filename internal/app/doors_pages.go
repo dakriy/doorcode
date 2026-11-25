@@ -388,7 +388,7 @@ func (a *App) showDoor(w http.ResponseWriter, r *http.Request, status int, viewe
 		a.pageError(w, r, err)
 		return
 	}
-	state, err := a.stateOf(r, viewer, n.catalog, d.StoredDoor, zone)
+	state, err := a.stateOf(r, viewer, n.catalog, d.StoredDoor, zone, timesOf(current, config))
 	if err != nil {
 		a.pageError(w, r, err)
 		return

@@ -47,6 +47,9 @@ type stateView struct {
 	// what to know when it is not the one last sent, empty otherwise.
 	Config     string
 	ConfigNote string
+	// Tips are the explanations of the figures that depend on the door's
+	// times.
+	Tips stateTips
 	// Ranges are the telemetry ranges the charts can show, and Charts the
 	// charts of the one chosen.
 	Ranges []rangeLink
@@ -103,13 +106,15 @@ func chosenRange(name string) chartRange {
 }
 
 // stateOf is the live state of d for its page, as viewer sees it, with
-// telemetry charts over the range r asks for, naming doors from c; nil
+// telemetry charts over the range r asks for, naming doors from c, and
+// its figures explained for times; nil
 // when no controller is enrolled as d.
-func (a *App) stateOf(r *http.Request, viewer auth.User, c catalog, d connector.StoredDoor, zone *time.Location) (*stateView, error) {
+func (a *App) stateOf(r *http.Request, viewer auth.User, c catalog, d connector.StoredDoor, zone *time.Location, times doorTimes) (*stateView, error) {
 	if d.Controller == nil {
 		return nil, nil
 	}
 	view := c.rowOfState(d, zone)
+	view.Tips = tipsFor(times)
 	chosen := chosenRange(r.URL.Query().Get(rangeKey))
 	for _, cr := range chartRanges {
 		view.Ranges = append(view.Ranges, rangeLink{Label: cr.Label, Href: withRange(doorTabPath(d.ID, doorOverview), cr.Name), Current: cr == chosen})

@@ -193,6 +193,7 @@ var templateFuncs = template.FuncMap{
 	"describe": func(role string) string { return auth.RoleDescriptions[role] },
 	"weekdays": func() []dayChoice { return dayChoices },
 	"info":     info,
+	"tip":      tip,
 	"link": func(href, label string) navItem {
 		return navItem{Href: href, Label: label}
 	},

@@ -20,7 +20,7 @@ const (
 type telemetryView struct {
 	At              time.Time  `json:"at" doc:"When the server received the report."`
 	Signal          int        `json:"signal" doc:"The signal strength, in dBm."`
-	LatencyMS       *int       `json:"latency_ms,omitempty" doc:"The round trip of the controller's report before this one, in milliseconds, on its own clock: from handing that report to its MQTT client until the broker acknowledged it; it takes in the controller's send queue, the Wi-Fi, the TLS proxy, and the broker, not the server's handling. Absent when the controller had no measurement: the first report after it connects, or one whose report before was not sent or not acknowledged in time."`
+	LatencyMS       *int       `json:"latency_ms,omitempty" doc:"The round trip of the controller's report before this one, in milliseconds, on its own clock: from handing that report to its MQTT client until the broker acknowledged it; it takes in the controller's send queue, the Wi-Fi, the network path to the broker, and the broker itself, not the server's handling. Absent when the controller had no measurement: the first report after it connects, or one whose report before was not sent or not acknowledged in time."`
 	UptimeS         int64      `json:"uptime_s" doc:"How long the controller has run since it started, in seconds."`
 	FreeBytes       int64      `json:"free_bytes" doc:"The controller's free memory, in bytes."`
 	FirmwareVersion string     `json:"firmware_version" doc:"The firmware version the controller runs."`
