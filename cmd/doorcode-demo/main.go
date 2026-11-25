@@ -130,8 +130,13 @@ func newFactory() (factory, error) {
 	}
 	env := demo.Environment{
 		Process: osenv.Environment{},
-		Set:     map[string]string{"DOORCODE_SECRET_KEY": base64.StdEncoding.EncodeToString(key)},
-		Preset:  demo.Mailpit,
+		Set: map[string]string{
+			"DOORCODE_SECRET_KEY": base64.StdEncoding.EncodeToString(key),
+			// The demo reads the first administrator's password from the
+			// log, which carries only a generated one.
+			"DOORCODE_ADMIN_PASSWORD": "",
+		},
+		Preset: demo.Mailpit,
 	}
 	return factory{env: env, log: demo.NewLog(slogjson.New(os.Stderr)), store: memstore.New(), broker: demo.NewBroker()}, nil
 }

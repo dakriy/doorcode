@@ -7,7 +7,9 @@
 #
 #   export DOORCODE_SECRET_KEY="$(openssl rand -base64 32)"   # keep it
 #   docker compose -f docker-compose.dev.yml up -d --wait
-#   docker compose -f docker-compose.dev.yml logs app    # the first administrator's password
+#
+# The first administrator signs in as admin@example.com with the password
+# doorcode-admin (DOORCODE_ADMIN_PASSWORD).
 #
 # The app sends its mail to mailpit, whose web page at
 # http://localhost:8025 (DOORCODE_MAILPIT_PORT) lists every message.
@@ -136,6 +138,10 @@ services:
       # server refuses to start without it; keep it, since stored secrets
       # cannot be read under another key.
       DOORCODE_SECRET_KEY: ${DOORCODE_SECRET_KEY:-}
+      # The first administrator, admin@example.com, signs in with this
+      # password, which outlives the container's log. It applies only when
+      # the database has no users yet.
+      DOORCODE_ADMIN_PASSWORD: ${DOORCODE_ADMIN_PASSWORD:-doorcode-admin}
       # Mail goes to the mailpit, which takes it in the clear without a
       # password; the Mail tab shows these as set by the deployment.
       DOORCODE_MAIL_HOST: mailpit

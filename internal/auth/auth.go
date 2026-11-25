@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"time"
@@ -144,15 +145,31 @@ type Service struct {
 	Log      connector.Log
 }
 
-// CreateFirstAdmin creates an administrator with a generated password when
-// no user exists yet, and logs the email and password so the operator can
-// sign in and change it.
-func (s Service) CreateFirstAdmin(ctx context.Context) error {
+// AdminPasswordVar names the environment variable that, when set and not
+// empty, gives the first administrator its password in place of a
+// generated one. It is not a setting, so the store never holds it.
+const AdminPasswordVar = "DOORCODE_ADMIN_PASSWORD"
+
+// CreateFirstAdmin creates an administrator when no user exists yet and
+// logs its email so the operator can sign in and change the password. The
+// password is the one AdminPasswordVar in env gives, or else a generated
+// one, which the log line carries. A given password is held to the rules a
+// password set by an administrator follows, and one they refuse is an
+// error whether or not a user exists.
+func (s Service) CreateFirstAdmin(ctx context.Context, env connector.Environment) error {
 	current, err := s.Settings.Current(ctx)
 	if err != nil {
 		return err
 	}
-	password := tokenEncoding.EncodeToString(s.Entropy.Bytes(adminPasswordBytes))
+	password, _ := env.Lookup(AdminPasswordVar)
+	given := password != ""
+	if given {
+		if problem := passwordProblem(password, current.PasswordMinLength); problem != "" {
+			return fmt.Errorf("the password in %s is refused. %s", AdminPasswordVar, problem)
+		}
+	} else {
+		password = tokenEncoding.EncodeToString(s.Entropy.Bytes(adminPasswordBytes))
+	}
 	hash := hashPassword(password, s.Entropy.Bytes(saltBytes), current.PasswordHashMemoryKiB)
 	admin := connector.StoredUser{
 		Email:        normalizeEmail(current.AdminEmail),
@@ -161,14 +178,16 @@ func (s Service) CreateFirstAdmin(ctx context.Context) error {
 		CreatedAt:    s.Clock.Now(),
 	}
 	created, err := s.Store.CreateFirstUser(ctx, admin, AdministratorsSlug)
-	if err != nil {
+	if err != nil || !created {
 		return err
 	}
-	if created {
-		s.Log.Info("created the first administrator; sign in with this password and change it",
-			connector.Field{Key: "email", Value: admin.Email},
-			connector.Field{Key: "password", Value: password})
+	email := connector.Field{Key: "email", Value: admin.Email}
+	if given {
+		s.Log.Info("created the first administrator with the password in "+AdminPasswordVar, email)
+		return nil
 	}
+	s.Log.Info("created the first administrator; sign in with this password and change it",
+		email, connector.Field{Key: "password", Value: password})
 	return nil
 }
 

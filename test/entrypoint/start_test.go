@@ -131,6 +131,73 @@ func TestSecondStartKeepsTheFirstAdministratorsPassword(t *testing.T) {
 	}
 }
 
+// devAdminPassword is a first administrator's password the environment
+// gives, exactly as long as a password must be at least.
+const devAdminPassword = "dev-password"
+
+func TestFirstAdministratorPasswordComesFromTheEnvironmentAndIsNotLogged(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	f.EnvStub["DOORCODE_ADMIN_PASSWORD"] = devAdminPassword
+	b := startBrowser(t, f)
+
+	got := b.Post("/sign-in", "email", adminEmail, "password", devAdminPassword)
+
+	want := []testsupport.LogEntry{
+		{Level: "info", Message: "schema migrated"},
+		{Level: "info", Message: "created the first administrator with the password in DOORCODE_ADMIN_PASSWORD",
+			Fields: map[string]string{"email": adminEmail}},
+	}
+	if diff := cmp.Diff(want, f.LogStub.Entries[:2]); diff != "" {
+		t.Errorf("log (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff(303, got.Status); diff != "" {
+		t.Errorf("sign-in status (-want +got):\n%s", diff)
+	}
+}
+
+func TestEmptyAdminPasswordVariableGeneratesAPassword(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	f.EnvStub["DOORCODE_ADMIN_PASSWORD"] = ""
+
+	start(t, f)
+
+	want := []testsupport.LogEntry{
+		{Level: "info", Message: "schema migrated"},
+		{Level: "info", Message: firstAdminMessage,
+			Fields: map[string]string{"email": adminEmail, "password": "AAECAwQFBgcICQoLDA0ODxAR"}},
+	}
+	if diff := cmp.Diff(want, f.LogStub.Entries); diff != "" {
+		t.Errorf("log (-want +got):\n%s", diff)
+	}
+}
+
+func TestAdminPasswordVariableLeavesAnExistingAdministratorsPassword(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	start(t, f)
+	password := adminPassword(t, f)
+	f.EnvStub["DOORCODE_ADMIN_PASSWORD"] = devAdminPassword
+	h := start(t, f).Handler()
+
+	kept := testsupport.NewBrowser(h).Post("/sign-in", "email", adminEmail, "password", password)
+	given := testsupport.NewBrowser(h).Post("/sign-in", "email", adminEmail, "password", devAdminPassword)
+
+	if diff := cmp.Diff([]int{303, 422}, []int{kept.Status, given.Status}); diff != "" {
+		t.Errorf("sign-in status with the kept and the given password (-want +got):\n%s", diff)
+	}
+	want := []testsupport.LogEntry{
+		{Level: "info", Message: "schema migrated"},
+		{Level: "info", Message: firstAdminMessage,
+			Fields: map[string]string{"email": adminEmail, "password": "AAECAwQFBgcICQoLDA0ODxAR"}},
+		{Level: "info", Message: "schema migrated"},
+	}
+	if diff := cmp.Diff(want, f.LogStub.Entries[:3]); diff != "" {
+		t.Errorf("log (-want +got):\n%s", diff)
+	}
+}
+
 // secretKeyRefusal is why the application does not start without a key
 // for its secret settings.
 const secretKeyRefusal = "DOORCODE_SECRET_KEY must be 32 random bytes in base64, such as the output of openssl rand -base64 32; " +
@@ -198,6 +265,14 @@ func TestStartupFails(t *testing.T) {
 		"a dark accent color that is not one": {
 			arrange: func(f *testsupport.Factory) { f.EnvStub["DOORCODE_THEME_ACCENT_DARK"] = "teal" },
 			want:    "create first administrator: invalid value for theme_accent_dark: must be a color as #rrggbb, such as #4f39f6",
+		},
+		"an administrator's password shorter than a password may be": {
+			arrange: func(f *testsupport.Factory) { f.EnvStub["DOORCODE_ADMIN_PASSWORD"] = "dev-passwor" },
+			want:    "create first administrator: the password in DOORCODE_ADMIN_PASSWORD is refused. Use at least 12 characters.",
+		},
+		"an administrator's password longer than a password may be": {
+			arrange: func(f *testsupport.Factory) { f.EnvStub["DOORCODE_ADMIN_PASSWORD"] = testsupport.Repeat("a", 1025) },
+			want:    "create first administrator: the password in DOORCODE_ADMIN_PASSWORD is refused. Use at most 1024 characters.",
 		},
 		"door pictures in the portal that are neither on nor off": {
 			arrange: func(f *testsupport.Factory) { f.EnvStub["DOORCODE_PORTAL_DOOR_PICTURES"] = "yes" },
