@@ -97,7 +97,7 @@ func TestADoorPageShowsWhereItsControllerSitsInTheMesh(t *testing.T) {
 	}
 }
 
-func TestADoorPageSaysWhenItsControllerReachesTheAccessPointItself(t *testing.T) {
+func TestADoorPageShowsLayer0ForAControllerThatReachesTheAccessPointItselfAndExplainsTheLayers(t *testing.T) {
 	t.Parallel()
 	k := keypadSite(t, testsupport.NewFactory())
 	k.report(map[string]any{"mesh_children": 3})
@@ -105,10 +105,11 @@ func TestADoorPageSaysWhenItsControllerReachesTheAccessPointItself(t *testing.T)
 
 	page := testsupport.ParsePage(k.b.Get("/admin/doors/1").Body)
 
-	got := []any{page.Lists["State"], page.Details["Mesh layer"], page.Details["Mesh parent"], page.Details["Mesh children"]}
-	want := []any{[]string{"Online"}, "0, the access point itself", "None", "3"}
+	got := []any{page.Lists["State"], page.Details["Mesh layer"], page.Details["Mesh parent"], page.Details["Mesh children"], page.Tips["About Mesh layer"]}
+	want := []any{[]string{"Online"}, "0", "None", "3", "Where the controller sits in the site's Wi-Fi mesh. 0: it connects straight to the building's access point. " +
+		"1: it reaches the access point through one other controller, its mesh parent; 2 through two, and so on."}
 	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("badges, layer, parent, children (-want +got):\n%s", diff)
+		t.Errorf("badges, layer, parent, children, the layer's tip (-want +got):\n%s", diff)
 	}
 }
 

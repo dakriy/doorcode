@@ -122,7 +122,7 @@ func (a *App) stateOf(r *http.Request, viewer auth.User, c catalog, d connector.
 	}
 	frame := chartFrame{from: from, to: to, zone: zone, over: "over the last " + chosen.Label, during: "in the last " + chosen.Label}
 	view.Charts = append([]chartView{
-		frame.chart("Signal", "dBm", s.signal), frame.chart("Latency", "ms", s.latency),
+		frame.chart("Signal", "dBm", s.signal), explained(frame.chart("Latency", "ms", s.latency), "latency-chart"),
 		frame.chart("Mesh layer", "", s.meshLayer), frame.chart("Mesh children", "", s.meshChildren),
 	}, frame.linkCharts(s.link)...)
 	view.Alarms, err = a.recent(r.Context(), viewer, connector.EventQuery{DoorID: d.ID, Type: event.Alarm}, zone)
@@ -148,7 +148,7 @@ func (c catalog) rowOfState(d connector.StoredDoor, zone *time.Location) stateVi
 	if t := ctrl.Telemetry; t != nil {
 		view.Latency, view.Uptime = latencyText(t.LatencyMS), uptimeText(t.UptimeS)
 		view.Memory, view.Reconnects = strconv.FormatInt(t.FreeBytes/1024, 10)+" KiB", strconv.Itoa(t.Totals.Reconnects)
-		view.MeshLayer, view.MeshParent, view.MeshChildren = meshLayerText(t.MeshLayer), c.parentText(t.MeshParent), strconv.Itoa(t.MeshChildren)
+		view.MeshLayer, view.MeshParent, view.MeshChildren = strconv.Itoa(t.MeshLayer), c.parentText(t.MeshParent), strconv.Itoa(t.MeshChildren)
 		view.AccessPoint, view.LastDrop = accessPointText(t.StoredLink), dropReasonText(t.WifiDropReason)
 		view.LastReport = shownAt(zone, t.At, secondLayout)
 	}
@@ -175,15 +175,6 @@ func configText(check telemetry.ConfigCheck, zone *time.Location) (string, strin
 			"Changing the door's configuration, any change, makes it try again."
 	}
 	return notReported, ""
-}
-
-// meshLayerText is a controller's mesh layer, as its door's page shows
-// it.
-func meshLayerText(layer int) string {
-	if layer == 0 {
-		return "0, the access point itself"
-	}
-	return strconv.Itoa(layer)
 }
 
 // parentText names the controller whose hardware id is hardwareID, which

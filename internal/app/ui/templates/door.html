@@ -32,14 +32,14 @@
 {{with $c.Alert}}<div class="mt-6">{{template "alert" .}}</div>{{end}}
 {{if eq $c.Tab "overview"}}
 {{with $c.State}}
-<section id="state-live" hx-get="{{$c.Here}}" hx-trigger="live-doors from:body, live-door-{{$d.ID}} from:body" hx-select="#state-live" hx-swap="outerHTML" aria-labelledby="state-heading" class="mt-6 overflow-hidden {{template "card-class"}}">
+<section id="state-live" hx-get="{{$c.Here}}" hx-trigger="live-doors from:body, live-door-{{$d.ID}} from:body" hx-select="#state-live" hx-swap="outerHTML" aria-labelledby="state-heading" class="mt-6 {{template "card-class"}}">
   <div class="flex flex-col gap-3 px-6 pt-6 sm:flex-row sm:items-start sm:justify-between">
     <div>
       <div class="flex flex-wrap items-center gap-2">
         <h2 id="state-heading" class="text-sm font-semibold">Live state</h2>
         <ul aria-label="State" class="flex flex-wrap items-center gap-2">
           <li>{{template "door-status" .Status}}</li>{{range .Badges}}<li>{{template "door-status" .}}</li>{{end}}{{with .Mesh}}<li>{{template "mesh-badge" .}}</li>{{end}}
-        </ul>
+        </ul>{{template "info" (info "door-state" "the state")}}
       </div>
       <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">What the controller last said of itself and the door. It updates as reports arrive.</p>
     </div>
@@ -48,21 +48,21 @@
     </div>
   </div>
   <dl class="mt-5 grid gap-4 px-6 sm:grid-cols-3 lg:grid-cols-5">
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Door</dt><dd class="mt-1 text-sm">{{.Door}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Door{{template "info" (info "door" "Door")}}</dt><dd class="mt-1 text-sm">{{.Door}}</dd></div>
     <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Firmware</dt><dd class="mt-1 text-sm">{{.Firmware}}</dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Signal</dt><dd class="mt-1 text-sm tabular-nums">{{.Signal}}</dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Latency</dt><dd class="mt-1 text-sm tabular-nums">{{.Latency}}</dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Uptime</dt><dd class="mt-1 text-sm tabular-nums">{{.Uptime}}</dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Free memory</dt><dd class="mt-1 text-sm tabular-nums">{{.Memory}}</dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Reconnects</dt><dd class="mt-1 text-sm tabular-nums">{{.Reconnects}}</dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Mesh layer</dt><dd class="mt-1 text-sm tabular-nums">{{.MeshLayer}}</dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Mesh parent</dt><dd class="mt-1 text-sm">{{.MeshParent}}</dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Mesh children</dt><dd class="mt-1 text-sm tabular-nums">{{.MeshChildren}}</dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Access point</dt><dd class="mt-1 text-sm tabular-nums">{{.AccessPoint}}</dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Last Wi-Fi drop</dt><dd class="mt-1 text-sm">{{.LastDrop}}</dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Last seen</dt><dd class="mt-1 text-sm tabular-nums">{{.LastSeen}}</dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Last report</dt><dd class="mt-1 text-sm tabular-nums">{{.LastReport}}</dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Configuration</dt><dd class="mt-1 text-sm">{{.Config}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Signal{{template "info" (info "signal" "Signal")}}</dt><dd class="mt-1 text-sm tabular-nums">{{.Signal}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Latency{{template "info" (info "latency" "Latency")}}</dt><dd class="mt-1 text-sm tabular-nums">{{.Latency}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Uptime{{template "info" (info "uptime" "Uptime")}}</dt><dd class="mt-1 text-sm tabular-nums">{{.Uptime}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Free memory{{template "info" (info "memory" "Free memory")}}</dt><dd class="mt-1 text-sm tabular-nums">{{.Memory}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Reconnects{{template "info" (info "reconnects" "Reconnects")}}</dt><dd class="mt-1 text-sm tabular-nums">{{.Reconnects}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Mesh layer{{template "info" (info "mesh-layer" "Mesh layer")}}</dt><dd class="mt-1 text-sm tabular-nums">{{.MeshLayer}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Mesh parent{{template "info" (info "mesh-parent" "Mesh parent")}}</dt><dd class="mt-1 text-sm">{{.MeshParent}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Mesh children{{template "info" (info "mesh-children" "Mesh children")}}</dt><dd class="mt-1 text-sm tabular-nums">{{.MeshChildren}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Access point{{template "info" (info "access-point" "Access point")}}</dt><dd class="mt-1 text-sm tabular-nums">{{.AccessPoint}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Last Wi-Fi drop{{template "info" (info "last-drop" "Last Wi-Fi drop")}}</dt><dd class="mt-1 text-sm">{{.LastDrop}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Last seen{{template "info" (info "last-seen" "Last seen")}}</dt><dd class="mt-1 text-sm tabular-nums">{{.LastSeen}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Last report{{template "info" (info "last-report" "Last report")}}</dt><dd class="mt-1 text-sm tabular-nums">{{.LastReport}}</dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Configuration{{template "info" (info "configuration" "Configuration")}}</dt><dd class="mt-1 text-sm">{{.Config}}</dd></div>
   </dl>
   {{with .ConfigNote}}<p role="note" class="mx-6 mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">{{.}}</p>{{end}}
   <div class="mt-6 grid gap-6 border-t border-zinc-200 px-6 py-5 lg:grid-cols-2 dark:border-zinc-800">
@@ -164,7 +164,7 @@
   <div class="flex flex-col gap-3 px-6 pt-6 sm:flex-row sm:items-start sm:justify-between">
     <div>
       <h2 id="overrides-heading" class="text-sm font-semibold">Overrides</h2>
-      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Force the door open or locked for a while. Locked wins over open, and both win over open mode; door commanders always get in.</p>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Force the door open or locked for a while. Open: any keypress unlocks the door, with no code. Locked: every code is refused but a door commander’s. Locked wins over open, and both win over open mode; door commanders always get in.</p>
     </div>
     {{if $c.Opens}}<a href="/admin/doors/{{$d.ID}}/overrides/new" class="shrink-0 {{template "secondary-class"}}">{{template "plus-icon"}}New override</a>{{end}}
   </div>

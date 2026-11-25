@@ -2,17 +2,24 @@
 {{$c := .Content}}{{$d := $c.Door}}{{$f := $c.Form}}
 {{template "back" (link (printf "/admin/doors/%d" $d.ID) $d.Name)}}
 <h1 class="mt-4 text-2xl font-semibold tracking-tight">{{if $c.Override.ID}}Override of {{$d.Name}}{{else}}New override{{end}}</h1>
-<p class="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">From the start up to the end, an open door unlocks on any keypress and a locked one refuses every code but a door commander’s. Times are in {{$c.Zone}}.</p>
+<p class="mt-2 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">From the start up to the end the override decides what the door does. A locked override wins over an open one, and either wins over the open-mode schedules of the door’s zones; once it ends, the door follows its schedules and access rules again. A door commander’s keypad commands 1 and 2 make overrides too, and 0 ends the door’s active ones. Times are in {{$c.Zone}}.</p>
 <form method="post" action="{{$c.Action}}" novalidate hx-disabled-elt="find button" class="mt-8 max-w-3xl p-6 {{template "card-class"}}">
   <div class="grid gap-5 sm:grid-cols-2">
     {{$kindError := index $c.Errors "kind"}}
-    <div class="sm:col-span-2">
-      <label for="kind" class="block text-sm font-medium">Force the door</label>
-      <select id="kind" name="kind"{{if $kindError}} aria-invalid="true" aria-describedby="kind-error"{{end}} class="{{template "input-class"}} sm:max-w-xs">
-        {{range $c.Kinds}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
-      </select>
+    <fieldset class="sm:col-span-2">
+      <legend class="block text-sm font-medium">Force the door</legend>
+      <div class="mt-2 grid gap-3 sm:grid-cols-2">
+        {{range $c.Kinds}}{{$id := printf "kind-%s" .Value}}
+        <div class="rounded-lg p-3 ring-1 ring-zinc-300 ring-inset has-checked:bg-brand-50 has-checked:ring-brand-400 dark:ring-zinc-700 dark:has-checked:bg-brand-950 dark:has-checked:ring-brand-600">
+          <label class="flex cursor-pointer items-center gap-3 text-sm font-medium">
+            <input id="{{$id}}" name="kind" type="radio" value="{{.Value}}"{{if .Selected}} checked{{end}}{{if $kindError}} aria-invalid="true"{{end}} aria-describedby="{{$id}}-detail{{if $kindError}} kind-error{{end}}" class="size-4 border-zinc-300 accent-brand-600 dark:border-zinc-700">{{.Label}}
+          </label>
+          <p id="{{$id}}-detail" class="mt-1 pl-7 text-xs text-zinc-500 dark:text-zinc-400">{{.Detail}}</p>
+        </div>
+        {{end}}
+      </div>
       {{if $kindError}}<p id="kind-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{$kindError}}</p>{{end}}
-    </div>
+    </fieldset>
     {{template "field" (field "start" "Starts" "datetime-local" $f.Start $c.Errors "A start in the past starts it now.")}}
     {{template "field" (field "end" "Ends" "datetime-local" $f.End $c.Errors "After the start, and in the future.")}}
     <div class="sm:col-span-2">{{template "field" (field "reason" "Reason" "text" $f.Reason $c.Errors "Shown on the door page and in the API.")}}</div>

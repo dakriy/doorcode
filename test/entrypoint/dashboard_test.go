@@ -339,8 +339,8 @@ func TestTheDashboardShowsEachRoleOnlyTheFiguresItReaches(t *testing.T) {
 		ranges  bool
 	}{
 		"view-logs":       {`["view-logs"]`, entries, set("Entries", "Allowed", "Denied", "People"), nil, 2, true},
-		"manage-doors":    {`["manage-doors"]`, set("Door uptime"), set("Doors open", "Unresponsive doors", "Pending enrollments"), nil, 3, true},
-		"door-commander":  {`["door-commander"]`, set("Door uptime"), set("Doors open", "Unresponsive doors"), nil, 3, true},
+		"manage-doors":    {`["manage-doors"]`, set("Door uptime"), set("Doors open", "Unresponsive doors", "Pending enrollments"), []string{doorsNote("hour")}, 3, true},
+		"door-commander":  {`["door-commander"]`, set("Door uptime"), set("Doors open", "Unresponsive doors"), []string{doorsNote("hour")}, 3, true},
 		"manage-firmware": {`["manage-firmware"]`, set("Firmware versions"), set("Pending updates"), nil, 3, false},
 		"manage-users":    {`["manage-users"]`, set(), set("Open requests"), []string{noFigures}, 3, false},
 		"manage-groups":   {`["manage-groups"]`, set(), set(), []string{noFigures}, 2, false},
@@ -600,7 +600,7 @@ func TestTheTrendChartsDrawEachOfTheFirstEightDoorsOnOneScale(t *testing.T) {
 	page := pageOf(b.Get("/admin?range=today"))
 
 	want := []any{
-		[]string{"The charts draw the first 8 doors; the table lists 2 more."},
+		[]string{doorsNote("hour"), "The charts draw the first 8 doors; the table lists 2 more."},
 		testsupport.Chart{
 			Lines: []string{"225,5 250,53", "225,125"}, Series: []string{"viz-line-1", "viz-line-2"},
 			Labels: []string{"-60 dBm", "-70 dBm", "Mon 5 Jan 00:00", "Tue 6 Jan 00:00"},
@@ -745,4 +745,14 @@ func TestTheStatsAPIReadsARangeOfAtMost366Days(t *testing.T) {
 	if diff := cmp.Diff([]any{"2025-01-01", 366}, []any{testsupport.JSONAt(got, "/range/from"), len(testsupport.JSONAt(got, "/days").([]any))}); diff != "" {
 		t.Errorf("first day, days (-want +got):\n%s", diff)
 	}
+}
+
+// doorsNote is what the dashboard says of its doors' figures when its
+// trends are means per unit.
+func doorsNote(unit string) string {
+	return "Uptime is the share of the range's ended hours in which a door's controller sent telemetry: the server keeps no history of being online, " +
+		"and a report is what shows a door reached it. Latency is not network latency alone: it is the time a door took to hand its previous " +
+		"telemetry report to the broker and get the broker's acknowledgement back, measured by the door, taking in its own send queue, the Wi-Fi, " +
+		"the TLS proxy, and the broker but not the server's handling; its means count only the reports that carried one. " +
+		"Trends are means per " + unit + ", from the hourly telemetry."
 }

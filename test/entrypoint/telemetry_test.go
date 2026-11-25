@@ -70,7 +70,7 @@ func TestADoorPageShowsTheDoorsLiveState(t *testing.T) {
 		map[string]string{
 			"Door": "Open since Mon 5 Jan 2026 09:00:00", "Firmware": "1.4.3", "Signal": "-61 dBm", "Latency": "40 ms",
 			"Uptime": "3 d 2 h", "Free memory": "118 KiB", "Reconnects": "2",
-			"Mesh layer": "0, the access point itself", "Mesh parent": "None", "Mesh children": "0",
+			"Mesh layer": "0", "Mesh parent": "None", "Mesh children": "0",
 			"Access point": "None reported", "Last Wi-Fi drop": "None reported",
 			"Last seen": "Mon 5 Jan 2026 09:00:30", "Last report": "Mon 5 Jan 2026 09:00:30", "Configuration": "Not reported yet",
 		},

@@ -24,12 +24,17 @@ type Page struct {
 	// Notes is the text of each note, such as why an action is not
 	// offered, in order.
 	Notes []string
-	// FieldErrors maps each input marked invalid to the text of the message
-	// that describes it last.
+	// FieldErrors maps each input marked invalid, by name, to the text of
+	// the message that describes it last.
 	FieldErrors map[string]string
 	// Descriptions maps each named control that something describes to the
-	// text of what describes it, in order, as a screen reader reads it.
+	// text of what describes it, in order, as a screen reader reads it; a
+	// radio button is named by its name, "=", and its value.
 	Descriptions map[string]string
+	// Tips maps the label of each unnamed control a tooltip describes, an
+	// element with the tooltip role, to the tooltip's text. A tooltip's
+	// text is left out of every other text the page is read for.
+	Tips map[string]string
 	// Placeholders maps each named control that shows a placeholder while
 	// empty to it.
 	Placeholders map[string]string
@@ -44,8 +49,9 @@ type Page struct {
 	// Choices maps each checkbox inside a label, as its name, "=", and its
 	// value, to the label's text.
 	Choices map[string]string
-	// Options maps each select to the text of its options, in order; the
-	// selected one is suffixed with " (selected)".
+	// Options maps each select, and each group of radio buttons, to the
+	// text of its options, in order (a radio button's being its label's);
+	// the selected or checked one is suffixed with " (selected)".
 	Options map[string][]string
 	// Table is the text of every cell of the first table without a label,
 	// row by row.
@@ -143,7 +149,7 @@ func ParsePage(body string) Page {
 	}
 	var p Page
 	byID := map[string]*html.Node{}
-	var invalid, described []*html.Node
+	var invalid, described, tipped []*html.Node
 	for n := range doc.Descendants() {
 		if n.Type != html.ElementNode {
 			continue
@@ -157,12 +163,31 @@ func ParsePage(body string) Page {
 		if hasAttr(n, "aria-describedby") && attr(n, "name") != "" {
 			described = append(described, n)
 		}
+		if hasAttr(n, "aria-describedby") && attr(n, "name") == "" && attr(n, "aria-label") != "" {
+			tipped = append(tipped, n)
+		}
 		p.readScripted(n)
 		p.readControl(n)
 		p.read(n)
 	}
 	p.readDescriptions(byID, invalid, described)
+	p.readTips(byID, tipped)
 	return p
+}
+
+// readTips reads the tooltip that describes each of tipped, by the ids
+// byID finds.
+func (p *Page) readTips(byID map[string]*html.Node, tipped []*html.Node) {
+	for _, n := range tipped {
+		tip := byID[attr(n, "aria-describedby")]
+		if attr(tip, "role") != "tooltip" {
+			continue
+		}
+		if p.Tips == nil {
+			p.Tips = map[string]string{}
+		}
+		p.Tips[attr(n, "aria-label")] = tipText(tip)
+	}
 }
 
 // readDescriptions reads what describes each of described, and the
@@ -183,7 +208,7 @@ func (p *Page) readDescriptions(byID map[string]*html.Node, invalid, described [
 		for _, id := range strings.Fields(attr(n, "aria-describedby")) {
 			texts = append(texts, text(byID[id]))
 		}
-		p.Descriptions[attr(n, "name")] = strings.Join(texts, " ")
+		p.Descriptions[controlName(n)] = strings.Join(texts, " ")
 	}
 }
 
@@ -318,8 +343,8 @@ func (p *Page) readBars(label string, tr *html.Node) {
 // readResource reads the inputs and the loaded assets.
 func (p *Page) readResource(n *html.Node) {
 	switch {
-	case n.Data == "input" && attr(n, "type") == "checkbox":
-		p.readCheckbox(n)
+	case n.Data == "input" && (attr(n, "type") == "checkbox" || attr(n, "type") == "radio"):
+		p.readChoice(n)
 	case n.Data == "option":
 		p.readOption(n)
 	case n.Data == "input" && attr(n, "name") != "" && attr(n, "type") != "password":
@@ -443,6 +468,35 @@ func (p *Page) readCheckbox(n *html.Node) {
 	}
 }
 
+// readChoice reads n, a checkbox or a radio button.
+func (p *Page) readChoice(n *html.Node) {
+	if attr(n, "type") == "radio" {
+		p.readRadio(n)
+		return
+	}
+	p.readCheckbox(n)
+}
+
+func (p *Page) readRadio(n *html.Node) {
+	label := text(enclosing(n, "label"))
+	if hasAttr(n, "checked") {
+		label += " (selected)"
+	}
+	if p.Options == nil {
+		p.Options = map[string][]string{}
+	}
+	p.Options[attr(n, "name")] = append(p.Options[attr(n, "name")], label)
+}
+
+// controlName is how the page's maps name the control n: by its name, and
+// a radio button by its name, "=", and its value.
+func controlName(n *html.Node) string {
+	if attr(n, "type") == "radio" {
+		return attr(n, "name") + "=" + attr(n, "value")
+	}
+	return attr(n, "name")
+}
+
 func (p *Page) readOption(n *html.Node) {
 	label := text(n)
 	if hasAttr(n, "selected") {
@@ -560,13 +614,30 @@ func text(n *html.Node) string {
 		return ""
 	}
 	var b strings.Builder
-	for d := range n.Descendants() {
-		if d.Type == html.TextNode {
-			b.WriteString(d.Data)
+	writeText(&b, n, false)
+	return strings.Join(strings.Fields(b.String()), " ")
+}
+
+// tipText is the text of n, a tooltip.
+func tipText(n *html.Node) string {
+	var b strings.Builder
+	writeText(&b, n, true)
+	return strings.Join(strings.Fields(b.String()), " ")
+}
+
+// writeText writes the text below n to b, each piece followed by a space,
+// leaving out what tooltips hold unless n is one, withTips.
+func writeText(b *strings.Builder, n *html.Node, withTips bool) {
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		switch {
+		case c.Type == html.TextNode:
+			b.WriteString(c.Data)
 			b.WriteString(" ")
+		case attr(c, "role") == "tooltip" && !withTips:
+		default:
+			writeText(b, c, withTips)
 		}
 	}
-	return strings.Join(strings.Fields(b.String()), " ")
 }
 
 // Confirmations maps the address each form on the page posts to, when

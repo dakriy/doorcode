@@ -263,3 +263,33 @@ func TestOverridePageStoreFailureShowsARequestID(t *testing.T) {
 		})
 	}
 }
+
+func TestTheOverrideFormExplainsWhatTheDoorDoesUnderEachKind(t *testing.T) {
+	t.Parallel()
+	b := signedInAdmin(t, testsupport.NewFactory())
+	createDoor(t, b, frontDoor)
+
+	page := testsupport.ParsePage(b.Get("/admin/doors/1/overrides/new").Body)
+
+	want := map[string]string{
+		"kind=open": "Any keypress unlocks the door for its strike pulse, with no code and nothing asked of the server. " +
+			"It holds whether or not an open-mode schedule is in force.",
+		"kind=locked": "Every code is refused but a door commander's, whose keypad commands still work, and open-mode schedules are held off. " +
+			"While the door cannot reach the server it refuses everyone.",
+	}
+	if diff := cmp.Diff(want, page.Descriptions); diff != "" {
+		t.Errorf("descriptions (-want +got):\n%s", diff)
+	}
+}
+
+func TestARefusedOverrideFormKeepsTheKindChosen(t *testing.T) {
+	t.Parallel()
+	b := signedInAdmin(t, testsupport.NewFactory())
+	createDoor(t, b, frontDoor)
+
+	got := b.Post("/admin/doors/1/overrides", "kind", "open", "start", "soon", "end", "2026-01-05T12:00", "reason", "")
+
+	if diff := cmp.Diff([]any{422, []string{"Open (selected)", "Locked"}}, []any{got.Status, testsupport.ParsePage(got.Body).Options["kind"]}); diff != "" {
+		t.Errorf("status, kinds (-want +got):\n%s", diff)
+	}
+}

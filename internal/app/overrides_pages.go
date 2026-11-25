@@ -87,11 +87,19 @@ type overrideContent struct {
 	Action string
 }
 
-// kindOption is one kind of override to choose from.
+// kindOption is one kind of override to choose from, with what a door
+// does under it.
 type kindOption struct {
 	Value    string
 	Label    string
+	Detail   string
 	Selected bool
+}
+
+// kindDetails says what a door does under each kind of override.
+var kindDetails = map[string]string{
+	timeline.Open:   "Any keypress unlocks the door for its strike pulse, with no code and nothing asked of the server. It holds whether or not an open-mode schedule is in force.",
+	timeline.Locked: "Every code is refused but a door commander's, whose keypad commands still work, and open-mode schedules are held off. While the door cannot reach the server it refuses everyone.",
 }
 
 // showOverride shows the page about o, an override of d, or the page that
@@ -99,7 +107,7 @@ type kindOption struct {
 func (a *App) showOverride(w http.ResponseWriter, r *http.Request, status int, viewer auth.User, d storedDoor, o connector.StoredOverride, f overrideForm, errs map[string]string, zone *time.Location) {
 	content := overrideContent{Door: d.StoredDoor, Override: o, Form: f, Errors: errs, Zone: zone.String(), Action: doorPath(d.ID) + "/overrides"}
 	for _, kind := range []string{timeline.Open, timeline.Locked} {
-		content.Kinds = append(content.Kinds, kindOption{Value: kind, Label: kindLabels[kind], Selected: kind == f.Kind})
+		content.Kinds = append(content.Kinds, kindOption{Value: kind, Label: kindLabels[kind], Detail: kindDetails[kind], Selected: kind == f.Kind})
 	}
 	title := "New override"
 	if o.ID != 0 {

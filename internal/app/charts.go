@@ -25,7 +25,10 @@ const (
 // values, when its range starts and ends, and what it says when it has
 // nothing to draw.
 type chartView struct {
-	Label  string
+	Label string
+	// Info is the key of the tooltip explaining what the chart draws,
+	// empty for none.
+	Info   string
 	Lines  []chartLine
 	Legend []legendEntry
 	Top    string
@@ -61,6 +64,12 @@ type chartFrame struct {
 
 // chart is the chart of series, each a line of values of what name names
 // in unit, all on one scale. A series without points draws no line.
+// explained is chart with the tooltip explanations holds under key.
+func explained(chart chartView, key string) chartView {
+	chart.Info = key
+	return chart
+}
+
 func (f chartFrame) chart(name, unit string, series ...[]point) chartView {
 	view := chartView{
 		Label: name + " " + f.over, Start: shownAt(f.zone, f.from, chartLayout), End: shownAt(f.zone, f.to, chartLayout),
