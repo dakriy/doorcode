@@ -173,28 +173,53 @@ func TestEmptyAdminPasswordVariableGeneratesAPassword(t *testing.T) {
 	}
 }
 
-func TestAdminPasswordVariableLeavesAnExistingAdministratorsPassword(t *testing.T) {
+func TestAdminPasswordVariableIsIgnoredWhenAUserExists(t *testing.T) {
+	t.Parallel()
+	cases := map[string]string{
+		"a password the rules accept":               devAdminPassword,
+		"a password shorter than a password may be": "dev-passwor",
+		"a password longer than a password may be":  testsupport.Repeat("a", 1025),
+	}
+	for name, given := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			f := testsupport.NewFactory()
+			start(t, f)
+			password := adminPassword(t, f)
+			f.EnvStub["DOORCODE_ADMIN_PASSWORD"] = given
+			h := start(t, f).Handler()
+
+			kept := testsupport.NewBrowser(h).Post("/sign-in", "email", adminEmail, "password", password)
+			tried := testsupport.NewBrowser(h).Post("/sign-in", "email", adminEmail, "password", given)
+
+			if diff := cmp.Diff([]int{303, 422}, []int{kept.Status, tried.Status}); diff != "" {
+				t.Errorf("sign-in status with the kept and the given password (-want +got):\n%s", diff)
+			}
+			want := []testsupport.LogEntry{
+				{Level: "info", Message: "schema migrated"},
+				{Level: "info", Message: firstAdminMessage,
+					Fields: map[string]string{"email": adminEmail, "password": "AAECAwQFBgcICQoLDA0ODxAR"}},
+				{Level: "info", Message: "schema migrated"},
+			}
+			if diff := cmp.Diff(want, f.LogStub.Entries[:3]); diff != "" {
+				t.Errorf("log (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestRefusedAdminPasswordVariableStartsWhenOnlyDeletedUsersExist(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	start(t, f)
-	password := adminPassword(t, f)
-	f.EnvStub["DOORCODE_ADMIN_PASSWORD"] = devAdminPassword
-	h := start(t, f).Handler()
+	f.StoreStub.SeedUser("gone@example.com", "Gone")
+	f.StoreStub.DeleteUser("gone@example.com", testsupport.DefaultNow)
+	f.EnvStub["DOORCODE_ADMIN_PASSWORD"] = "dev-passwor"
+	b := startBrowser(t, f)
 
-	kept := testsupport.NewBrowser(h).Post("/sign-in", "email", adminEmail, "password", password)
-	given := testsupport.NewBrowser(h).Post("/sign-in", "email", adminEmail, "password", devAdminPassword)
+	got := b.Post("/sign-in", "email", adminEmail, "password", "dev-passwor")
 
-	if diff := cmp.Diff([]int{303, 422}, []int{kept.Status, given.Status}); diff != "" {
-		t.Errorf("sign-in status with the kept and the given password (-want +got):\n%s", diff)
-	}
-	want := []testsupport.LogEntry{
-		{Level: "info", Message: "schema migrated"},
-		{Level: "info", Message: firstAdminMessage,
-			Fields: map[string]string{"email": adminEmail, "password": "AAECAwQFBgcICQoLDA0ODxAR"}},
-		{Level: "info", Message: "schema migrated"},
-	}
-	if diff := cmp.Diff(want, f.LogStub.Entries[:3]); diff != "" {
-		t.Errorf("log (-want +got):\n%s", diff)
+	if diff := cmp.Diff(422, got.Status); diff != "" {
+		t.Errorf("sign-in status (-want +got):\n%s", diff)
 	}
 }
 
@@ -229,8 +254,12 @@ func TestStartupFails(t *testing.T) {
 			arrange: func(f *testsupport.Factory) { f.StoreStub.FailSettings() },
 			want:    "create first administrator: stub: unavailable",
 		},
-		"when users cannot be stored": {
+		"when users cannot be read": {
 			arrange: func(f *testsupport.Factory) { f.StoreStub.FailUsers() },
+			want:    "create first administrator: stub: unavailable",
+		},
+		"when the first administrator cannot be stored": {
+			arrange: func(f *testsupport.Factory) { f.StoreStub.FailUserWrites() },
 			want:    "create first administrator: stub: unavailable",
 		},
 		"when the signing key cannot be stored": {
@@ -266,11 +295,11 @@ func TestStartupFails(t *testing.T) {
 			arrange: func(f *testsupport.Factory) { f.EnvStub["DOORCODE_THEME_ACCENT_DARK"] = "teal" },
 			want:    "create first administrator: invalid value for theme_accent_dark: must be a color as #rrggbb, such as #4f39f6",
 		},
-		"an administrator's password shorter than a password may be": {
+		"an administrator's password shorter than a password may be, with no users": {
 			arrange: func(f *testsupport.Factory) { f.EnvStub["DOORCODE_ADMIN_PASSWORD"] = "dev-passwor" },
 			want:    "create first administrator: the password in DOORCODE_ADMIN_PASSWORD is refused. Use at least 12 characters.",
 		},
-		"an administrator's password longer than a password may be": {
+		"an administrator's password longer than a password may be, with no users": {
 			arrange: func(f *testsupport.Factory) { f.EnvStub["DOORCODE_ADMIN_PASSWORD"] = testsupport.Repeat("a", 1025) },
 			want:    "create first administrator: the password in DOORCODE_ADMIN_PASSWORD is refused. Use at most 1024 characters.",
 		},

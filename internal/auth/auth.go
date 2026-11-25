@@ -153,12 +153,19 @@ const AdminPasswordVar = "DOORCODE_ADMIN_PASSWORD"
 // CreateFirstAdmin creates an administrator when no user exists yet and
 // logs its email so the operator can sign in and change the password. The
 // password is the one AdminPasswordVar in env gives, or else a generated
-// one, which the log line carries. A given password is held to the rules a
-// password set by an administrator follows, and one they refuse is an
-// error whether or not a user exists.
+// one, which the log line carries. When a user exists, deleted ones
+// included, it does nothing and AdminPasswordVar is not read. Otherwise a
+// given password is held to the rules a password set by an administrator
+// follows, and one they refuse is an error. The store's create stores the
+// administrator only while no user exists, so of servers starting together
+// on an empty store at most one creates it.
 func (s Service) CreateFirstAdmin(ctx context.Context, env connector.Environment) error {
 	current, err := s.Settings.Current(ctx)
 	if err != nil {
+		return err
+	}
+	exists, err := s.anyUser(ctx)
+	if err != nil || exists {
 		return err
 	}
 	password, _ := env.Lookup(AdminPasswordVar)
@@ -189,6 +196,20 @@ func (s Service) CreateFirstAdmin(ctx context.Context, env connector.Environment
 	s.Log.Info("created the first administrator; sign in with this password and change it",
 		email, connector.Field{Key: "password", Value: password})
 	return nil
+}
+
+// anyUser reports whether the store holds a user, deleted or not.
+func (s Service) anyUser(ctx context.Context) (bool, error) {
+	for _, deleted := range []bool{false, true} {
+		_, total, err := s.Store.Users(ctx, connector.UserQuery{Deleted: deleted})
+		if err != nil {
+			return false, err
+		}
+		if total > 0 {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // SignIn checks email and password and starts a session, returning the token

@@ -191,8 +191,9 @@ the broker on `127.0.0.1:1883`, and the proxy serves the broker over TLS
    Sign in at <http://localhost:8080> as `admin@example.com` (the
    `admin_email` setting) and change the password from the portal. The
    password is generated and shown once, in the log of the first start.
-   `DOORCODE_ADMIN_PASSWORD` gives it instead, for development; a
-   production deployment leaves that unset.
+   `DOORCODE_ADMIN_PASSWORD` gives it instead, for development, and the
+   server reads it only on a start with no users; a production deployment
+   leaves it unset.
 
 5. In Settings, set `public_url` to the `https://` address people's
    browsers reach the server at (such as `https://doorcode.example.com`).
@@ -398,7 +399,7 @@ controller's start, and `update failed` on an update (see
 | `DOORCODE_BROKER_URL` | The broker's address with its dynamic-security administrator's credentials, such as `mqtt://admin:secret@mqtt.example.com:1883`; `mqtts://` for TLS. Characters special in URLs must be percent-encoded. | none, required |
 | `DOORCODE_LISTEN_ADDR` | The address the web server listens on, such as `:8080`. | none, required (`:8080` in the image) |
 | `DOORCODE_SECRET_KEY` | 32 random bytes in standard base64 (`openssl rand -base64 32`) that encrypt secret settings and the firmware signing key. | none, required |
-| `DOORCODE_ADMIN_PASSWORD` | For development: the password the first administrator is created with, in place of a generated one, which the log then does not show. It is used only when the server creates the first administrator, on a start with no users, and never changes an existing user's password. While it is set, it must follow the rules a password an administrator sets follows (`password_min_length`, at most 1024 characters), or the server refuses to start. It is not a setting and is never stored or shown in Settings. A production deployment leaves it unset. | unset (a generated password); `doorcode-admin` in `docker-compose.dev.yml` |
+| `DOORCODE_ADMIN_PASSWORD` | For development: the password the first administrator is created with, in place of a generated one, which the log then does not show. It is read only on a start with no users (deleted ones count as users), when the server creates the first administrator; it must then follow the rules a password an administrator sets follows (`password_min_length`, at most 1024 characters), or the server refuses to start. On a start where a user exists it is ignored, whatever its value, and never changes an existing user's password. It is not a setting and is never stored or shown in Settings. A production deployment leaves it unset. | unset (a generated password); `doorcode-admin` in `docker-compose.dev.yml` |
 
 ### docker compose only
 
@@ -859,7 +860,8 @@ also runs the server built from the checkout (`docker compose -f
 docker-compose.dev.yml up -d --wait`, with `DOORCODE_SECRET_KEY` set), with the passwords `doorcode` and the broker
 without TLS on 1883, for development only. Its first administrator signs
 in as `admin@example.com` with `doorcode-admin`
-(`DOORCODE_ADMIN_PASSWORD`, which the caller's environment overrides). That server's mail goes to the
+(`DOORCODE_ADMIN_PASSWORD`, which the caller's environment overrides, and
+which counts only while the database has no users). That server's mail goes to the
 plain mailpit, whose web page <http://localhost:8025> lists every message,
 so Send test email works with nothing typed in; the slow tests send to
 recipients of their own and delete nothing there.

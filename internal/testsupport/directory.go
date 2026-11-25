@@ -21,7 +21,7 @@ type membership struct {
 func (s *Store) CreateFirstUser(_ context.Context, u connector.StoredUser, groupSlug string) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if err := s.usable(usersAggregate); err != nil {
+	if err := s.writable(usersAggregate, userWrites); err != nil {
 		return false, err
 	}
 	if len(s.users) > 0 {
