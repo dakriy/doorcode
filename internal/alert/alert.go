@@ -320,8 +320,9 @@ func (s Service) queueRaised(ctx context.Context, c Condition, to []string, rais
 }
 
 // release puts in the outbox at at the raise mail of each condition that
-// owes it, while recipients are given, and stores it mailed. Only a kind
-// set to mail owes mail.
+// owes it, while recipients are given, and stores it mailed. Only a
+// condition of a kind set to mail owes mail: SetState drops what a kind
+// owes when it leaves mail.
 func (s Service) release(ctx context.Context, at time.Time) error {
 	s.Lock.Lock()
 	defer s.Lock.Unlock()
@@ -330,16 +331,12 @@ func (s Service) release(ctx context.Context, at time.Time) error {
 		return err
 	}
 	m, err := s.mailing(ctx)
-	if err != nil {
+	if err != nil || len(m.policy.Recipients) == 0 {
 		return err
 	}
 	for _, held := range owed {
 		kind, _ := kindOf(held.Kind)
-		to := m.to(kind)
-		if len(to) == 0 {
-			continue
-		}
-		err := s.queueRaised(ctx, Condition{Kind: kind, Subject: held.Subject, Name: held.Name}, to, held.ChangedAt, held.Detail, at)
+		err := s.queueRaised(ctx, Condition{Kind: kind, Subject: held.Subject, Name: held.Name}, m.policy.Recipients, held.ChangedAt, held.Detail, at)
 		if err == nil {
 			held.Owed, held.Mailed = false, true
 			err = s.Store.PutAlertCondition(ctx, held)
