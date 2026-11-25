@@ -35,6 +35,20 @@ func brokerAlert(why string) string {
 // certificateFooter ends every message of the certificate alert.
 var certificateFooter = alertFooter("Certificate")
 
+func TestTheLeafsIssuerExpiringSoonLeavesTheRunwayToTheCrossSignAndRaisesNothing(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	c := certificateAlerts(t, f)
+	c.serves(c.pki.YE1.Leaf("2028-01-01", "2028-06-01", brokerHost), c.pki.YE1, c.pki.RootYEByX2)
+	f.ClockStub.Set("2028-03-05T09:00:00Z")
+
+	check := c.checkNow().(map[string]any)
+
+	if diff := cmp.Diff([]any{true, 1641.0, []any{}}, []any{check["verified"], check["runway_days"], subjects(t, f)}); diff != "" {
+		t.Errorf("verified, runway, subjects (-want +got):\n%s", diff)
+	}
+}
+
 func TestARunwayBelowTheSettingMailsOnceTheClockIsWithinItOfTheCrossSignsExpiry(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
@@ -50,7 +64,7 @@ func TestARunwayBelowTheSettingMailsOnceTheClockIsWithinItOfTheCrossSignsExpiry(
 	c.checkAt("2031-03-06T09:00:00Z")
 
 	raised := "Certificate at Door broker broker.example.com:8883, runway short, Tue 4 Mar 2031 09:00:00 UTC.\n\n" +
-		"The runway of broker.example.com:8883, the days until the earliest expiry along the chain after the leaf, the trust anchor included, " +
+		"The runway of broker.example.com:8883, the days until the earliest expiry of the trust anchor and the certificates between it and the leaf's issuer, " +
 		"is 547 days, fewer than the 548 days of certificate_runway_days.\n\n" +
 		"Chain:\n" +
 		"Leaf: CN=broker.example.com, issued by CN=YE2,O=Example Trust, expires Sun 1 Jun 2031 00:00:00 UTC (88 days)\n" +
@@ -114,7 +128,7 @@ func TestTheLeafMailNamesItsDaysAndTheSettingAndClearsOnceTheLeafIsRenewed(t *te
 		"Intermediate: CN=YE1,O=Example Trust, issued by CN=Root YE,O=Example Trust, expires Sat 2 Sep 2028 00:00:00 UTC (970 days)\n" +
 		"Intermediate: CN=Root YE,O=Example Trust, issued by CN=Root X2,O=Example Trust, expires Thu 2 Sep 2032 00:00:00 UTC (2431 days)\n" +
 		"Trust anchor: CN=Root X2,O=Example Trust, issued by CN=Root X2,O=Example Trust, expires Mon 17 Sep 2040 00:00:00 UTC (5368 days)\n" +
-		"Runway: 970 days.\n" +
+		"Runway: 2431 days.\n" +
 		"Leaf expires in 54 days.\n" + certificateFooter
 	want := [][]any{
 		{recipients, brokerAlert("leaf expiring"), raised},
@@ -214,7 +228,7 @@ func TestTheUnreachableAlertWaitsForTheChecksTheSettingAsksFor(t *testing.T) {
 // X1 when it first ran up to Root X2.
 func chainChangedText(at string) string {
 	return "Certificate at Door broker broker.example.com:8883, chain changed, " + at + ".\n\n" +
-		"The chain broker.example.com:8883 serves verifies with a shape other than the one it served since Mon 5 Jan 2026 09:00:00 UTC, " +
+		"The chain broker.example.com:8883 serves verifies through other certificates above the leaf's issuer than the one it served since Mon 5 Jan 2026 09:00:00 UTC, " +
 		"which it now replaces.\n\n" +
 		"Before:\n" +
 		"CN=broker.example.com, issued by CN=YE1,O=Example Trust\n" +
@@ -227,11 +241,11 @@ func chainChangedText(at string) string {
 		"Intermediate: CN=Root YE,O=Example Trust, issued by CN=Root X2,O=Example Trust, expires Thu 2 Sep 2032 00:00:00 UTC (2431 days)\n" +
 		"Intermediate: CN=Root X2,O=Example Trust, issued by CN=Root X1,O=Example Trust, expires Thu 2 Sep 2032 00:00:00 UTC (2431 days)\n" +
 		"Trust anchor: CN=Root X1,O=Example Trust, issued by CN=Root X1,O=Example Trust, expires Mon 4 Jun 2035 00:00:00 UTC (3436 days)\n" +
-		"Runway: 970 days.\n" +
+		"Runway: 2431 days.\n" +
 		"Leaf expires in 54 days.\n" + certificateFooter
 }
 
-func TestAVerifiedChainOfAnotherShapeMailsOnceAndBecomesTheBaseline(t *testing.T) {
+func TestAChainReachingTheListThroughOtherCertificatesMailsOnceAndAnotherIntermediateDoesNot(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	c := certificateAlerts(t, f)
@@ -251,17 +265,33 @@ func TestAVerifiedChainOfAnotherShapeMailsOnceAndBecomesTheBaseline(t *testing.T
 	want := []any{
 		[]any{},
 		[][]any{{recipients, brokerAlert("chain changed"), chainChangedText("Mon 5 Jan 2026 11:00:00 UTC")}},
-		[]any{brokerAlert("chain changed"), brokerAlert("chain changed")},
+		[]any{brokerAlert("chain changed")},
 		testsupport.JSON(`{"links":[
 			{"subject":"CN=broker.example.com","issuer":"CN=YE2,O=Example Trust"},
 			{"subject":"CN=YE2,O=Example Trust","issuer":"CN=Root YE,O=Example Trust"},
 			{"subject":"CN=Root YE,O=Example Trust","issuer":"CN=Root X2,O=Example Trust"},
 			{"subject":"CN=Root X2,O=Example Trust","issuer":"CN=Root X1,O=Example Trust"},
-			{"subject":"CN=Root X1,O=Example Trust","issuer":"CN=Root X1,O=Example Trust"}],"since":"2026-01-05T13:00:00Z"}`),
+			{"subject":"CN=Root X1,O=Example Trust","issuer":"CN=Root X1,O=Example Trust"}],"since":"2026-01-05T11:00:00Z"}`),
 	}
 	got := []any{first, mailed(t, f)[:1], subjects(t, f), baseline}
 	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("subjects before, the first change's mail, every subject, the baseline (-want +got):\n%s", diff)
+		t.Errorf("subjects before, the anchor change's mail, every subject, the baseline after the intermediate change (-want +got):\n%s", diff)
+	}
+}
+
+func TestALeafTheListIssuesMailsWhenItsAnchorIsIssuedByAnotherRoot(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	c := certificateAlerts(t, f)
+	c.serves(c.leaf())
+	c.trust(c.pki.YE1)
+	c.checkAt(testsupport.DefaultNow)
+	c.trust(c.pki.X1.CrossSign(c.pki.YE1, "2025-09-03", "2028-09-02"))
+
+	c.checkAt("2026-01-05T10:00:00Z")
+
+	if diff := cmp.Diff([]any{brokerAlert("chain changed")}, subjects(t, f)); diff != "" {
+		t.Errorf("subjects (-want +got):\n%s", diff)
 	}
 }
 

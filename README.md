@@ -74,7 +74,8 @@ the engineering contract is [AGENTS.md](AGENTS.md).
   than the one it was sent, or fails a firmware update, or when the
   certificates the broker or the device address serve stop verifying,
   run short, or cannot be reached, once when raised and once more when it
-  clears; and once when such a chain changes shape. Each
+  clears; and once when such a chain reaches the trust list through other
+  certificates. Each
   kind of alert is off, on (raised and listed, not mailed), or set to mail,
   and is on until an administrator sets it otherwise; a condition that
   comes back soon after clearing mails nothing, and mail waits in a durable
@@ -474,7 +475,7 @@ page folds away the single sign-on and identity claims parts while
 | `alert_hold_down_minutes` | Minutes, 0 to 10080, a cleared condition must stay clear before it mails again when it comes back; one that comes back sooner is followed without mail. On the Alerts tab. | `15` |
 | `certificate_check_enabled` | `true` has the server check, in the background, the certificates of the broker and of `device_url` (see [Certificate check](#certificate-check)); Check now works either way. On the Alerts tab. | `false` |
 | `certificate_check_interval_hours` | Hours, 1 to 720, between two checks of an endpoint while `certificate_check_enabled` is on. On the Alerts tab. | `24` |
-| `certificate_runway_days` | Days, 1 to 3650: the `certificate` alert is raised for an endpoint whose runway, the days until the earliest expiry along its chain after the leaf with the trust anchor included, is fewer. On the Alerts tab. | `548` |
+| `certificate_runway_days` | Days, 1 to 3650: the `certificate` alert is raised for an endpoint whose runway, the days until the earliest expiry of the trust anchor and of the certificates between it and the leaf's issuer, is fewer. On the Alerts tab. | `548` |
 | `certificate_leaf_days` | Days, 1 to 365: the `certificate` alert is raised for an endpoint whose leaf expires in fewer days. On the Alerts tab. | `14` |
 | `certificate_unreachable_checks` | Checks, 1 to 100: the `certificate` alert is raised for an endpoint once this many checks in a row reached no server. On the Alerts tab. | `3` |
 | `enrollment_username` | The broker username every new controller enrolls with. A change takes effect at once and reaches every door in its configuration (see below). | `doorcode-enroll` |
@@ -571,7 +572,7 @@ API changes the settings.
 | `config_restarting` | A door shows the Restarting with configuration badge: it started at least twice since its configuration was sent, with no report naming it. | The badge goes. |
 | `config_mismatch` | A door shows the Mismatched configuration badge: two reports in a row over one connection named another configuration. | The badge goes. |
 | `update_failed` | A door's firmware update fails, when the server logs an `update failed` event: the door said it could not install it, or it did not connect again with it before `update_timeout_minutes`. | The door's firmware no longer shows Update failed: an update of it is under way again, it runs its target, or its target changes. |
-| `certificate` | A [certificate check](#certificate-check) of an endpoint finds, each its own condition: what it served does not verify; its runway is fewer days than `certificate_runway_days`; its leaf expires in fewer days than `certificate_leaf_days`; or `certificate_unreachable_checks` checks in a row reached no server. Once, and never cleared: a verified chain whose shape differs from the endpoint's chain shape. | A later check passes that reason: it verifies, the runway or the leaf has enough days, or it reaches the server. A check that reaches no server leaves the other reasons as they were. Without a cleared mail, the next check once the settings no longer give the endpoint. |
+| `certificate` | A [certificate check](#certificate-check) of an endpoint finds, each its own condition: what it served does not verify; its runway is fewer days than `certificate_runway_days`; its leaf expires in fewer days than `certificate_leaf_days`; or `certificate_unreachable_checks` checks in a row reached no server. Once, and never cleared: a verified chain whose certificates above the leaf's issuer differ from the endpoint's chain shape. | A later check passes that reason: it verifies, the runway or the leaf has enough days, or it reaches the server. A check that reaches no server leaves the other reasons as they were. Without a cleared mail, the next check once the settings no longer give the endpoint. |
 
 The periodic work, at most once a minute, raises and clears `held_open`,
 `offline`, `unresponsive`, the three configuration kinds, and
@@ -651,9 +652,21 @@ YE1, Root YE (cross-signed by X2), with X2 as the anchor.
 The page lists, for each endpoint, when it was last checked, whether it
 verified (and up to which anchor), what the connection reported when it
 could not be reached, or why it did not verify, the runway, the whole days
-until the earliest expiry along the path after the leaf (the
-intermediates, the cross-signs, and the anchor), the days left on the
+until the earliest expiry of the trust anchor and of the certificates between it and the leaf's issuer (the cross-signs a root change serves), the days left on the
 leaf, and the chain with each certificate's subject, issuer, and expiry.
+
+Doors trust only the certificates of `door_broker_ca_pem` and check no
+certificate's expiry. The leaf and its issuer, the intermediate a
+certificate authority such as Let's Encrypt signs it with, are renewed
+and rotated by that authority, which chooses among several intermediates
+under the same roots at each renewal, so neither the intermediate's
+expiry nor a change of intermediate is a reason to act. What decides
+whether a chain keeps reaching the list is the anchor and the
+certificates between it and the intermediate; the runway is judged on
+those alone. With the path leaf, YE1, Root YE (cross-signed by X2) and the
+anchor X2, the runway runs to the earlier expiry of the Root YE cross-sign
+and X2, not to YE1's. A path of the leaf alone, issued by a certificate
+of the list, runs to that certificate's expiry.
 Check now checks every endpoint at once; with `certificate_check_enabled`
 on, the server checks an endpoint once `certificate_check_interval_hours`
 have passed since its last check, looking every minute. These checks run
@@ -665,11 +678,16 @@ Each check also follows the `certificate` alert. The page shows each
 endpoint's count of checks in a row that reached no server and its chain
 shape: the subject and issuer of each certificate of the path, leaf first,
 and of the trust anchor, recorded silently by the first check that
-verified. A later verified chain of another shape, such as a path that now
-ends at X1 through the X2 cross-sign or one through another intermediate,
-mails once, naming the shape before and the chain now, and becomes the
-chain shape; that change is not mailed again, even when the check could
-not be stored. A chain that does not verify leaves the shape as it was. The
+verified. A later verified chain whose certificates above the leaf's
+issuer, the anchor included, differ from the shape's, such as a path that
+now ends at X1 through the X2 cross-sign, mails once, naming the shape
+before and the chain now, and becomes the chain shape; that change is not
+mailed again, even when the check could not be stored. One that differs
+only in the leaf or its issuer, such as a renewal signed by YE2 in place
+of YE1, becomes the chain shape without mail, keeping the time its
+certificates above the issuer were first recorded. A chain that no longer
+reaches a certificate of the list does not verify, raises its own
+condition, and leaves the shape as it was. The
 mail names the endpoint, the reason, and the chain: each certificate's
 subject, issuer, expiry, and days left, the anchor, the runway, and the
 leaf's days.

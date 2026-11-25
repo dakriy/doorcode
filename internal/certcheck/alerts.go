@@ -91,7 +91,7 @@ func (s Service) follow(ctx context.Context, e Endpoint, c connector.StoredCerti
 	s.hold(ctx, conditionOf(e, untrusted, ""), !c.Verified, at,
 		"What "+e.Address()+" served does not verify against door_broker_ca_pem: "+c.Problem+".\n\n"+facts)
 	s.holdDays(ctx, conditionOf(e, shortRunway, ""), c.RunwayDays, policy.Runway, at, "The runway of "+e.Address()+
-		", the days until the earliest expiry along the chain after the leaf, the trust anchor included, is", settings.KeyCertificateRunway, facts)
+		", the days until the earliest expiry of the trust anchor and the certificates between it and the leaf's issuer, is", settings.KeyCertificateRunway, facts)
 	s.holdDays(ctx, conditionOf(e, expiringLeaf, ""), c.LeafDays, policy.Leaf, at, "The leaf "+e.Address()+" serves expires in",
 		settings.KeyCertificateLeaf, facts)
 }
@@ -124,10 +124,14 @@ func below(n int, limit time.Duration) bool {
 
 // followShape is the baseline of e after c, its latest check, given the
 // one before it, baseline: the shape c verified, unless it is baseline's
-// shape, and then baseline itself. A shape that replaces a baseline is
-// mailed once, the change from that baseline to that shape being its
-// condition's occurrence; the first shape c verifies replaces none and
-// is not mailed.
+// shape, and then baseline itself. A shape whose links above the leaf's
+// issuer, the anchor's included (trustedLinks), differ from baseline's
+// is mailed once, the change from that baseline to that shape being its
+// condition's occurrence. One that differs only in the leaf or its
+// issuer, as when the issuing CA signs a renewal with another
+// intermediate under the same roots, replaces baseline without mail,
+// keeping the time baseline's links above the issuer were first served.
+// The first shape c verifies replaces none and is not mailed.
 func (s Service) followShape(ctx context.Context, e Endpoint, baseline *connector.StoredChainShape, c connector.StoredCertificateCheck) *connector.StoredChainShape {
 	if !c.Verified {
 		return baseline
@@ -139,9 +143,13 @@ func (s Service) followShape(ctx context.Context, e Endpoint, baseline *connecto
 	if slices.Equal(baseline.Links, shape.Links) {
 		return baseline
 	}
+	if slices.Equal(trustedLinks(baseline.Links), trustedLinks(shape.Links)) {
+		shape.Since = baseline.Since
+		return &shape
+	}
 	occurrence := baseline.Since.UTC().Format(time.RFC3339Nano) + " " + fingerprint(shape.Links)
-	detail := "The chain " + e.Address() + " serves verifies with a shape other than the one it served since " + alert.Stamp(baseline.Since) +
-		", which it now replaces.\n\nBefore:\n" + linksText(baseline.Links) + "\n\n" + chainFacts("Now:", c)
+	detail := "The chain " + e.Address() + " serves verifies through other certificates above the leaf's issuer than the one it served since " +
+		alert.Stamp(baseline.Since) + ", which it now replaces.\n\nBefore:\n" + linksText(baseline.Links) + "\n\n" + chainFacts("Now:", c)
 	s.Alerts.Notify(ctx, conditionOf(e, changedShape, occurrence), c.CheckedAt, detail)
 	return &shape
 }
@@ -154,6 +162,12 @@ func shapeOf(c connector.StoredCertificateCheck) connector.StoredChainShape {
 		links = append(links, connector.StoredChainLink{Subject: cert.Subject, Issuer: cert.Issuer})
 	}
 	return connector.StoredChainShape{Links: links, Since: c.CheckedAt}
+}
+
+// trustedLinks is the part of links, a shape's, that ties its chain to
+// the anchor: the links above the leaf's issuer, the anchor's last.
+func trustedLinks(links []connector.StoredChainLink) []connector.StoredChainLink {
+	return links[min(2, len(links)-1):]
 }
 
 // fingerprint tells shapes apart in a few characters: the start of the

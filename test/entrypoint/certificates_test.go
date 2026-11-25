@@ -24,7 +24,7 @@ var chainHead = []string{"Role", "Subject", "Issued by", "Expires"}
 
 // certificateAbout is what the Alerts page and the API say raises and
 // clears the certificate alert.
-const certificateAbout = "A certificate check of the door broker or the device address found that what it served does not verify against door_broker_ca_pem, that its runway or its leaf has fewer days left than the certificate check settings allow, or that it reached no server for their number of checks in a row; each clears once a later check passes it, or without mail once the settings no longer give the endpoint. A verified chain of another shape than the one the endpoint served before mails once and becomes the shape compared with."
+const certificateAbout = "A certificate check of the door broker or the device address found that what it served does not verify against door_broker_ca_pem, that its runway or its leaf has fewer days left than the certificate check settings allow, or that it reached no server for their number of checks in a row; each clears once a later check passes it, or without mail once the settings no longer give the endpoint. A verified chain whose certificates above the leaf's issuer, the anchor included, differ from those the endpoint served before mails once and becomes the shape compared with; another intermediate under the same certificates does not mail."
 
 // brokerHost is the broker the certificate tests check.
 const brokerHost = "broker.example.com"
@@ -137,7 +137,7 @@ func TestCheckingNowReportsThePathFromTheLeafToTheFirstTrustedIssuer(t *testing.
 			{"subject":"CN=YE1,O=Example Trust","issuer":"CN=Root YE,O=Example Trust","not_after":"2028-09-02T00:00:00Z"},
 			{"subject":"CN=Root YE,O=Example Trust","issuer":"CN=Root X2,O=Example Trust","not_after":"2032-09-02T00:00:00Z"}],
 		"anchor":{"subject":"CN=Root X2,O=Example Trust","issuer":"CN=Root X2,O=Example Trust","not_after":"2040-09-17T00:00:00Z"},
-		"runway_days":970,"leaf_days":54,"failures":0,"baseline":{"links":[
+		"runway_days":2431,"leaf_days":54,"failures":0,"baseline":{"links":[
 			{"subject":"CN=broker.example.com","issuer":"CN=YE1,O=Example Trust"},
 			{"subject":"CN=YE1,O=Example Trust","issuer":"CN=Root YE,O=Example Trust"},
 			{"subject":"CN=Root YE,O=Example Trust","issuer":"CN=Root X2,O=Example Trust"},
@@ -163,11 +163,11 @@ func TestTheCheckTakesTheShortestPathTheTrustListAllows(t *testing.T) {
 				return []testsupport.Cert{c.leaf(), pki.X2ByX1, pki.RootYEByX2, pki.YE1}
 			},
 			[]testsupport.Cert{pki.X1, pki.X2},
-			[]any{true, nil, []any{leafSubject, ye1Subject, rootYESubject}, x2Subject, 970.0},
+			[]any{true, nil, []any{leafSubject, ye1Subject, rootYESubject}, x2Subject, 2431.0},
 		},
 		"the full chain with only X1 trusted": {
 			(*certificates).fullChain, []testsupport.Cert{pki.X1},
-			[]any{true, nil, []any{leafSubject, ye1Subject, rootYESubject, x2Subject}, x1Subject, 970.0},
+			[]any{true, nil, []any{leafSubject, ye1Subject, rootYESubject, x2Subject}, x1Subject, 2431.0},
 		},
 		"the direct chain with X1 and X2 trusted": {
 			func(c *certificates) []testsupport.Cert { return []testsupport.Cert{c.leaf(), pki.YE1, pki.RootYE} },
@@ -177,7 +177,7 @@ func TestTheCheckTakesTheShortestPathTheTrustListAllows(t *testing.T) {
 		"the direct chain with Root YE trusted": {
 			func(c *certificates) []testsupport.Cert { return []testsupport.Cert{c.leaf(), pki.YE1, pki.RootYE} },
 			[]testsupport.Cert{pki.RootYE},
-			[]any{true, nil, []any{leafSubject, ye1Subject}, rootYESubject, 970.0},
+			[]any{true, nil, []any{leafSubject, ye1Subject}, rootYESubject, 7180.0},
 		},
 		"the full chain with an impostor of X2 trusted": {
 			(*certificates).fullChain, []testsupport.Cert{testsupport.Impostor("Root X2", "2020-09-04", "2040-09-17")},
@@ -475,7 +475,7 @@ func TestTheAlertsPageShowsEachEndpointsLatestCheckAndItsChain(t *testing.T) {
 			{"Device address devices.example.com:443", "Not checked yet", "", "", "", "", ""}},
 		303, "/admin/alerts", []string{"The certificates have been checked."},
 		[][]string{certificatesHead,
-			{"Door broker broker.example.com:8883", "Mon 5 Jan 2026 10:00:00", "Verified up to " + x2Subject, "970 days", "54 days", "0", "Mon 5 Jan 2026 10:00:00"},
+			{"Door broker broker.example.com:8883", "Mon 5 Jan 2026 10:00:00", "Verified up to " + x2Subject, "2431 days", "54 days", "0", "Mon 5 Jan 2026 10:00:00"},
 			{"Device address devices.example.com:443", "Mon 5 Jan 2026 10:00:00", "Not verified: " + noPath, "", "7180 days", "0", ""}},
 		[][]string{chainHead,
 			{"Leaf", leafSubject, ye1Subject, "1 Mar 2026"},
@@ -486,7 +486,7 @@ func TestTheAlertsPageShowsEachEndpointsLatestCheckAndItsChain(t *testing.T) {
 			{"Served", rootYESubject, rootYESubject, "3 Sep 2045"},
 			{"Served", leafSubject, ye1Subject, "1 Mar 2026"}},
 		[][]string{shapeHead, {leafSubject, ye1Subject}, {ye1Subject, rootYESubject}, {rootYESubject, x2Subject}, {x2Subject, x2Subject}},
-		[]string{"Door broker broker.example.com:8883", "Mon 5 Jan 2026 11:00:00", "Verified up to " + x2Subject, "970 days", "54 days", "0", "Mon 5 Jan 2026 10:00:00"},
+		[]string{"Door broker broker.example.com:8883", "Mon 5 Jan 2026 11:00:00", "Verified up to " + x2Subject, "2431 days", "54 days", "0", "Mon 5 Jan 2026 10:00:00"},
 		[]string{"Device address devices.example.com:443", "Mon 5 Jan 2026 11:00:00", "Unreachable: i/o timeout", "", "", "1", ""},
 		false,
 	}

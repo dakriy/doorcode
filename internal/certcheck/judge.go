@@ -39,8 +39,9 @@ func TrustList(text string) []*x509.Certificate {
 // leaf through the certificates served, in any order, to the first one
 // a certificate of trust issued, the shortest such path winning, then
 // checks the leaf is valid for host and every certificate of the path
-// and the anchor is valid at now. The check's address and time are left
-// to the caller.
+// and the anchor is valid at now. Its runway is the days until the
+// earliest expiry of what the doors' trust in the path rests on (see
+// trusted). The check's address and time are left to the caller.
 func Judge(host string, served [][]byte, trust []*x509.Certificate, now time.Time) connector.StoredCertificateCheck {
 	judged := connector.StoredCertificateCheck{Chain: []connector.StoredCertificate{}}
 	if len(served) == 0 {
@@ -69,7 +70,7 @@ func Judge(host string, served [][]byte, trust []*x509.Certificate, now time.Tim
 		return judged
 	}
 	kept := describe(anchor)
-	runway := daysLeft(earliestExpiry(path[1:], anchor), now)
+	runway := daysLeft(earliestExpiry(trusted(path), anchor), now)
 	judged.Chain, judged.Anchor, judged.RunwayDays = described(path), &kept, &runway
 	judged.Problem = problemOf(host, path, anchor, now)
 	judged.Verified = judged.Problem == ""
@@ -145,6 +146,17 @@ func issuerAmong(c *x509.Certificate, candidates []*x509.Certificate) *x509.Cert
 // signed it.
 func issued(parent, child *x509.Certificate) bool {
 	return bytes.Equal(child.RawIssuer, parent.RawSubject) && child.CheckSignatureFrom(parent) == nil
+}
+
+// trusted is the part of path, leaf first, that ties it to its anchor:
+// every certificate above the leaf's issuer, the cross-signs a root
+// change serves. The leaf and its issuer are left out, since the issuing
+// CA replaces them on its own, choosing among intermediates under the
+// same roots, and doors check no expiry; only the certificates between
+// that intermediate and the anchor, and the anchor, decide whether a
+// chain still reaches door_broker_ca_pem once they lapse.
+func trusted(path []*x509.Certificate) []*x509.Certificate {
+	return path[min(2, len(path)):]
 }
 
 // earliestExpiry is the earliest NotAfter among certs and anchor.

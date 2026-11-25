@@ -1194,8 +1194,9 @@ type StoredCertificate struct {
 // Chain is the verified path, or the path found before a later check
 // failed, leaf first, or else every certificate served, in order; Anchor
 // is the trusted certificate the path ends at, nil when none was reached.
-// RunwayDays is the whole days left until the earliest expiry along the
-// path after the leaf, the anchor included, and LeafDays the whole days
+// RunwayDays is the whole days left until the earliest expiry of the
+// anchor and of the path's certificates above the leaf's issuer, and
+// LeafDays the whole days
 // left until the leaf expires, each nil when it could not be worked out.
 // Failures is how many checks in a row, this one included, reached no
 // server, and Baseline the shape of the chain the endpoint last served

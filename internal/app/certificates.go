@@ -63,10 +63,10 @@ type certificateCheckView struct {
 	Problem    string            `json:"problem,omitempty" doc:"Why what it served does not verify."`
 	Chain      []certificateView `json:"chain" doc:"The path from the leaf to the anchor, leaf first, when one was found; else every certificate served, in order."`
 	Anchor     *certificateView  `json:"anchor,omitempty" doc:"The certificate of door_broker_ca_pem the path ends at; absent when no path reaches one."`
-	RunwayDays *int              `json:"runway_days,omitempty" doc:"Whole days from the check until the earliest expiry along the path after the leaf, the anchor included."`
+	RunwayDays *int              `json:"runway_days,omitempty" doc:"Whole days from the check until the earliest expiry of the anchor and of the path's certificates above the leaf's issuer; the leaf and its issuer are left out."`
 	LeafDays   *int              `json:"leaf_days,omitempty" doc:"Whole days from the check until the leaf expires."`
 	Failures   int               `json:"failures" doc:"How many checks in a row, the latest included, reached no server; 0 once one does."`
-	Baseline   *chainShapeView   `json:"baseline,omitempty" doc:"The shape of the chain the endpoint last served verified, which the next verified chain is compared with; absent until one verified."`
+	Baseline   *chainShapeView   `json:"baseline,omitempty" doc:"The shape of the chain the endpoint last served verified, whose certificates above the leaf's issuer, the anchor included, the next verified chain is compared with; absent until one verified."`
 }
 
 type chainLinkView struct {
@@ -76,7 +76,7 @@ type chainLinkView struct {
 
 type chainShapeView struct {
 	Links []chainLinkView `json:"links" doc:"Each certificate of the verified path, leaf first, then the trust anchor."`
-	Since time.Time       `json:"since" doc:"When the check that first found this shape ran."`
+	Since time.Time       `json:"since" doc:"When the check that first found the certificates of this shape above the leaf's issuer ran."`
 }
 
 type certificatesView struct {

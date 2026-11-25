@@ -83,7 +83,7 @@ var (
 	UpdateFailed = Kind{Key: "update_failed", Name: "Door firmware update failed",
 		About: "A door's firmware update failed: the door said it could not install it, or it did not connect again with it in time. It clears once the door's firmware no longer shows Update failed: an update of it is under way again, it runs its target, or its target changes."}
 	Certificate = Kind{Key: "certificate", Name: "Certificate",
-		About: "A certificate check of the door broker or the device address found that what it served does not verify against door_broker_ca_pem, that its runway or its leaf has fewer days left than the certificate check settings allow, or that it reached no server for their number of checks in a row; each clears once a later check passes it, or without mail once the settings no longer give the endpoint. A verified chain of another shape than the one the endpoint served before mails once and becomes the shape compared with."}
+		About: "A certificate check of the door broker or the device address found that what it served does not verify against door_broker_ca_pem, that its runway or its leaf has fewer days left than the certificate check settings allow, or that it reached no server for their number of checks in a row; each clears once a later check passes it, or without mail once the settings no longer give the endpoint. A verified chain whose certificates above the leaf's issuer, the anchor included, differ from those the endpoint served before mails once and becomes the shape compared with; another intermediate under the same certificates does not mail."}
 )
 
 // Kinds is every kind of alert, in display order.

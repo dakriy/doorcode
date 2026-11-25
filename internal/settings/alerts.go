@@ -108,7 +108,7 @@ var certificateSection = section{Section{Name: "Certificate check", About: "Chec
 	{key: keyCertificateInterval, fallback: "24", validate: certificateInterval.rule(), label: "Check interval",
 		help: "Hours, from 1 to 720, between two checks of an endpoint."},
 	{key: KeyCertificateRunway, fallback: "548", validate: certificateRunway.rule(), label: "Runway alert",
-		help: "Days, from 1 to 3650: the certificate alert is raised when the earliest expiry along a chain after its leaf, the trust anchor included, is fewer days away."},
+		help: "Days, from 1 to 3650: the certificate alert is raised when the earliest expiry of the trust anchor and of the certificates between it and the leaf's issuer is fewer days away."},
 	{key: KeyCertificateLeaf, fallback: "14", validate: certificateLeaf.rule(), label: "Leaf alert",
 		help: "Days, from 1 to 365: the certificate alert is raised when the leaf expires in fewer days."},
 	{key: keyCertificateFailures, fallback: "3", validate: unreachableChecks.rule(), label: "Unreachable alert",
@@ -117,8 +117,9 @@ var certificateSection = section{Section{Name: "Certificate check", About: "Chec
 
 // CertificateCheck is whether the certificate check runs by itself
 // (Enabled), how long it waits between two checks of an endpoint
-// (Interval), and when an endpoint alerts: when the earliest expiry
-// after its leaf is less than Runway away, when its leaf expires in less
+// (Interval), and when an endpoint alerts: when the earliest expiry of
+// the anchor and of what lies between it and the leaf's issuer is less
+// than Runway away, when its leaf expires in less
 // than Leaf, and when Unreachable checks in a row reached no server.
 type CertificateCheck struct {
 	Enabled     bool

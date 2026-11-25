@@ -48,7 +48,7 @@
   <div class="flex flex-wrap items-start justify-between gap-4 px-6 pt-6">
     <div class="max-w-xl">
       <h2 id="certificates-heading" class="text-sm font-semibold">Certificates</h2>
-      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">The latest check of the door broker, while door_broker_tls is on, and of the device address, while it is https: what each served, verified against door_broker_ca_pem alone, as a door verifies it. The runway is the days until the earliest expiry along the path after the leaf, the trust anchor included. The chain shape is the subject and issuer of each certificate of the path the endpoint last served verified, and of the anchor; the Certificate alert mails once when a verified chain of another shape replaces it.</p>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">The latest check of the door broker, while door_broker_tls is on, and of the device address, while it is https: what each served, verified against door_broker_ca_pem alone, as a door verifies it. The runway is the days until the earliest expiry of the trust anchor and of the certificates between it and the leaf's issuer; doors check no expiry, and the leaf and its issuer are renewed by the certificate authority. The chain shape is the subject and issuer of each certificate of the path the endpoint last served verified, and of the anchor; the Certificate alert mails once when a verified chain reaches the list through other certificates above the leaf's issuer, and not for another intermediate.</p>
     </div>
     <form method="post" action="/admin/alerts/certificates" hx-disabled-elt="find button[type=submit]">
       <button type="submit" class="{{template "secondary-class"}}">Check now</button>

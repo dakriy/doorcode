@@ -51,8 +51,8 @@ var certificateCheckRows = [][]string{
 	{"Check certificates certificate_check_enabled Checks each endpoint again once the interval has passed since its last check. " +
 		"Check now works while it is off.", "On", "default"},
 	{"Check interval certificate_check_interval_hours Hours, from 1 to 720, between two checks of an endpoint.", "1 to 720 hours", "default"},
-	{"Runway alert certificate_runway_days Days, from 1 to 3650: the certificate alert is raised when the earliest expiry along a chain " +
-		"after its leaf, the trust anchor included, is fewer days away.", "1 to 3650 days", "default"},
+	{"Runway alert certificate_runway_days Days, from 1 to 3650: the certificate alert is raised when the earliest expiry of the trust anchor " +
+		"and of the certificates between it and the leaf's issuer is fewer days away.", "1 to 3650 days", "default"},
 	{"Leaf alert certificate_leaf_days Days, from 1 to 365: the certificate alert is raised when the leaf expires in fewer days.", "1 to 365 days", "default"},
 	{"Unreachable alert certificate_unreachable_checks Checks, from 1 to 100: the certificate alert is raised when this many checks " +
 		"in a row reach no server.", "1 to 100 checks", "default"},

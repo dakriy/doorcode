@@ -11061,7 +11061,7 @@
           },
           "baseline": {
             "$ref": "#/components/schemas/ChainShapeView",
-            "description": "The shape of the chain the endpoint last served verified, which the next verified chain is compared with; absent until one verified."
+            "description": "The shape of the chain the endpoint last served verified, whose certificates above the leaf's issuer, the anchor included, the next verified chain is compared with; absent until one verified."
           },
           "chain": {
             "type": "array",
@@ -11109,7 +11109,7 @@
           },
           "runway_days": {
             "type": "integer",
-            "description": "Whole days from the check until the earliest expiry along the path after the leaf, the anchor included."
+            "description": "Whole days from the check until the earliest expiry of the anchor and of the path's certificates above the leaf's issuer; the leaf and its issuer are left out."
           },
           "verified": {
             "type": "boolean",
@@ -11204,7 +11204,7 @@
           "since": {
             "type": "string",
             "format": "date-time",
-            "description": "When the check that first found this shape ran."
+            "description": "When the check that first found the certificates of this shape above the leaf's issuer ran."
           }
         },
         "required": [
