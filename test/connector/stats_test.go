@@ -127,13 +127,22 @@ func TestStoreSumsUpNothingForARangeWithoutEvents(t *testing.T) {
 }
 
 // trendRollup is a rollup of the door whose id is door for the hour that
-// starts at hour, of samples reports with mean signal and latency and
-// one opening.
-func trendRollup(door int64, hour time.Time, samples int, signal, latency float64) connector.StoredRollup {
-	return connector.StoredRollup{
+// starts at hour, of samples reports with mean signal, timed of them with
+// mean latency (none when timed is 0), and one opening.
+func trendRollup(door int64, hour time.Time, samples int, signal float64, timed int, latency float64) connector.StoredRollup {
+	r := connector.StoredRollup{
 		DoorID: door, Hour: hour, Samples: samples, Signal: connector.StoredSpread{Mean: signal, Min: -80, Max: -40},
-		Latency: connector.StoredSpread{Mean: latency, Min: 10, Max: 90}, FreeBytes: connector.StoredSpread{Mean: 1000, Min: 1000, Max: 1000}, Opens: 1,
+		LatencySamples: timed, FreeBytes: connector.StoredSpread{Mean: 1000, Min: 1000, Max: 1000}, Opens: 1,
 	}
+	if timed > 0 {
+		r.Latency = &connector.StoredSpread{Mean: latency, Min: 10, Max: 90}
+	}
+	return r
+}
+
+// latencyMean is a mean latency of mean milliseconds.
+func latencyMean(mean float64) *float64 {
+	return &mean
 }
 
 // trendWorld is overrideWorld with rollups of Lobby (1) for the hours
@@ -144,9 +153,9 @@ func trendWorld(t *testing.T, impl storeImpl) connector.Store {
 	t.Helper()
 	store := overrideWorld(t, impl)
 	rollups := []connector.StoredRollup{
-		trendRollup(1, utcAt(1, 22, 0), 1, -60, 20), trendRollup(1, utcAt(1, 23, 0), 1, -64, 40),
-		trendRollup(1, utcAt(2, 8, 0), 1, -50, 30), trendRollup(1, utcAt(2, 9, 0), 2, -70, 50),
-		trendRollup(2, utcAt(2, 8, 0), 4, -55, 25), trendRollup(1, utcAt(3, 0, 0), 4, -40, 10),
+		trendRollup(1, utcAt(1, 22, 0), 1, -60, 0, 0), trendRollup(1, utcAt(1, 23, 0), 1, -64, 1, 40),
+		trendRollup(1, utcAt(2, 8, 0), 1, -50, 1, 30), trendRollup(1, utcAt(2, 9, 0), 2, -70, 1, 50),
+		trendRollup(2, utcAt(2, 8, 0), 4, -55, 4, 25), trendRollup(1, utcAt(3, 0, 0), 4, -40, 4, 10),
 	}
 	if err := store.PutRollups(context.Background(), rollups); err != nil {
 		t.Fatal(err)
@@ -163,9 +172,9 @@ func TestStoreSumsUpRollupsByDoorAndTheDaysOfAZone(t *testing.T) {
 			got, err := store.Trends(context.Background(), connector.TrendQuery{From: utcAt(1, 0, 0), To: utcAt(3, 0, 0), Zone: zone, Unit: connector.ByDay})
 
 			want := []any{[]connector.StoredTrend{
-				{DoorID: 1, Start: time.Date(2026, 3, 1, 0, 0, 0, 0, zone), Hours: 1, Samples: 1, Signal: -60, Latency: 20, Opens: 1},
-				{DoorID: 1, Start: time.Date(2026, 3, 2, 0, 0, 0, 0, zone), Hours: 3, Samples: 4, Signal: -63.5, Latency: 42.5, Opens: 3},
-				{DoorID: 2, Start: time.Date(2026, 3, 2, 0, 0, 0, 0, zone), Hours: 1, Samples: 4, Signal: -55, Latency: 25, Opens: 1},
+				{DoorID: 1, Start: time.Date(2026, 3, 1, 0, 0, 0, 0, zone), Hours: 1, Samples: 1, Signal: -60, Opens: 1},
+				{DoorID: 1, Start: time.Date(2026, 3, 2, 0, 0, 0, 0, zone), Hours: 3, Samples: 4, Signal: -63.5, LatencySamples: 3, Latency: latencyMean(40), Opens: 3},
+				{DoorID: 2, Start: time.Date(2026, 3, 2, 0, 0, 0, 0, zone), Hours: 1, Samples: 4, Signal: -55, LatencySamples: 4, Latency: latencyMean(25), Opens: 1},
 			}, nil}
 			if diff := cmp.Diff(want, []any{got, err}); diff != "" {
 				t.Errorf("trends, error (-want +got):\n%s", diff)
@@ -186,8 +195,8 @@ func TestStoreSumsUpRollupsByTheHoursOfAZone(t *testing.T) {
 			got, err := store.Trends(context.Background(), connector.TrendQuery{From: utcAt(2, 0, 0), To: utcAt(2, 9, 0), Zone: zone, Unit: connector.ByHour})
 
 			want := []any{[]connector.StoredTrend{
-				{DoorID: 1, Start: utcAt(2, 7, 30), Hours: 1, Samples: 1, Signal: -50, Latency: 30, Opens: 1},
-				{DoorID: 2, Start: utcAt(2, 7, 30), Hours: 1, Samples: 4, Signal: -55, Latency: 25, Opens: 1},
+				{DoorID: 1, Start: utcAt(2, 7, 30), Hours: 1, Samples: 1, Signal: -50, LatencySamples: 1, Latency: latencyMean(30), Opens: 1},
+				{DoorID: 2, Start: utcAt(2, 7, 30), Hours: 1, Samples: 4, Signal: -55, LatencySamples: 4, Latency: latencyMean(25), Opens: 1},
 			}, nil}
 			if diff := cmp.Diff(want, []any{got, err}); diff != "" {
 				t.Errorf("trends, error (-want +got):\n%s", diff)

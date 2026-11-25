@@ -11652,7 +11652,7 @@
           },
           "latency_ms": {
             "type": "number",
-            "description": "The mean round trip over the reports, in milliseconds; absent without reports."
+            "description": "The mean latency over the reports that carried one, in milliseconds, each weighted alike (see latency_ms of a telemetry report); absent without such reports."
           },
           "opens": {
             "type": "integer",
@@ -13725,7 +13725,11 @@
           },
           "latency_ms": {
             "$ref": "#/components/schemas/SpreadView",
-            "description": "The round trip to the server, in milliseconds."
+            "description": "The latency over the hour's reports that carried one, in milliseconds (see latency_ms of a report); absent when none did."
+          },
+          "latency_samples": {
+            "type": "integer",
+            "description": "How many of the hour's reports carried a latency."
           },
           "mesh_children": {
             "type": "integer",
@@ -13776,7 +13780,7 @@
           "hour",
           "samples",
           "signal",
-          "latency_ms",
+          "latency_samples",
           "free_bytes",
           "opens",
           "mesh_layer",
@@ -14130,7 +14134,7 @@
           },
           "latency_ms": {
             "type": "integer",
-            "description": "The round trip from the controller to the server and back, in milliseconds."
+            "description": "The round trip of the controller's report before this one, in milliseconds, on its own clock: from handing that report to its MQTT client until the broker acknowledged it; it takes in the controller's send queue, the Wi-Fi, the TLS proxy, and the broker, not the server's handling. Absent when the controller had no measurement: the first report after it connects, or one whose report before was not sent or not acknowledged in time."
           },
           "mesh_children": {
             "type": "integer",
@@ -14192,7 +14196,6 @@
         "required": [
           "at",
           "signal",
-          "latency_ms",
           "uptime_s",
           "free_bytes",
           "firmware_version",
@@ -14398,7 +14401,7 @@
           },
           "latency_ms": {
             "type": "number",
-            "description": "The mean round trip to the server over the reports, in milliseconds."
+            "description": "The mean latency over the reports that carried one, in milliseconds, each hour weighted by those reports (see latency_ms of a telemetry report); absent when none did."
           },
           "opens": {
             "type": "integer",
@@ -14423,7 +14426,6 @@
           "hours",
           "samples",
           "signal",
-          "latency_ms",
           "opens"
         ]
       },

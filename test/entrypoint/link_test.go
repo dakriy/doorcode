@@ -77,12 +77,12 @@ func TestEachHourSumsItsLinkCountsAndKeepsTheLinkOfItsLastReport(t *testing.T) {
 
 	want := testsupport.JSON(`{"rollups":[
 		{"hour":"2026-01-05T09:00:00Z","samples":2,"signal":{"mean":-61,"min":-61,"max":-61},
-			"latency_ms":{"mean":40,"min":40,"max":40},"free_bytes":{"mean":120832,"min":120832,"max":120832},"opens":0,
+			"latency_samples":2,"latency_ms":{"mean":40,"min":40,"max":40},"free_bytes":{"mean":120832,"min":120832,"max":120832},"opens":0,
 			"mesh_layer":0,"mesh_children":0,
 			"checks_sent":18,"checks_lost":3,"tcp_sent":15000000000,"tcp_retransmits":27,"tcp_drops":6,"wifi_drops":9,
 			"wifi_drop_reason":203,"roams":12,"bssid":"f09fc2a1e002","channel":6},
 		{"hour":"2026-01-05T10:00:00Z","samples":1,"signal":{"mean":-61,"min":-61,"max":-61},
-			"latency_ms":{"mean":40,"min":40,"max":40},"free_bytes":{"mean":120832,"min":120832,"max":120832},"opens":0,
+			"latency_samples":1,"latency_ms":{"mean":40,"min":40,"max":40},"free_bytes":{"mean":120832,"min":120832,"max":120832},"opens":0,
 			"mesh_layer":0,"mesh_children":0,
 			"checks_sent":18,"checks_lost":3,"tcp_sent":15000000000,"tcp_retransmits":27,"tcp_drops":6,"wifi_drops":9,
 			"wifi_drop_reason":206,"roams":12,"bssid":"f09fc2a1e003","channel":11}]}`)

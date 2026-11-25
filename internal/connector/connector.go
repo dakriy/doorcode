@@ -417,8 +417,10 @@ type StoredDoorState struct {
 }
 
 // StoredTelemetry is one report of a door's controller, received at At:
-// its signal strength in dBm, the round trip to the server in
-// milliseconds, how long it has run in seconds, its free memory in bytes,
+// its signal strength in dBm, its latency in milliseconds (the round
+// trip of its report before, from handing it to its MQTT client until the
+// broker acknowledged it, on its own clock; nil when it had none to
+// give), how long it has run in seconds, its free memory in bytes,
 // its firmware version, whether the door was open, where it sat in the
 // site's mesh: its layer (0 when it reached the access point itself), the
 // hardware id of the controller it hopped through, and how many
@@ -429,7 +431,7 @@ type StoredDoorState struct {
 type StoredTelemetry struct {
 	At              time.Time
 	Signal          int
-	LatencyMS       int
+	LatencyMS       *int
 	UptimeS         int64
 	FreeBytes       int64
 	FirmwareVersion string
@@ -494,19 +496,22 @@ type StoredSpread struct {
 
 // StoredRollup sums up the Samples reports the controller of the door
 // whose id is DoorID made in the hour that starts at Hour: the spread of
-// their signal strength, latency, and free memory, how often the door
+// their signal strength and free memory, how many of them carried a
+// latency (LatencySamples) and the spread of those latencies, nil when
+// none did, how often the door
 // was opened in all, how its links fared in all, and the mesh layer and
 // children and the Wi-Fi link of its last report.
 type StoredRollup struct {
-	DoorID       int64
-	Hour         time.Time
-	Samples      int
-	Signal       StoredSpread
-	Latency      StoredSpread
-	FreeBytes    StoredSpread
-	Opens        int
-	MeshLayer    int
-	MeshChildren int
+	DoorID         int64
+	Hour           time.Time
+	Samples        int
+	Signal         StoredSpread
+	LatencySamples int
+	Latency        *StoredSpread
+	FreeBytes      StoredSpread
+	Opens          int
+	MeshLayer      int
+	MeshChildren   int
 	StoredLinkCounts
 	StoredLink
 }
@@ -564,16 +569,19 @@ type TrendQuery struct {
 // StoredTrend sums up the rollups of the door whose id is DoorID whose
 // hour starts in the hour or day that starts at Start: how many there are
 // (the hours its controller reported in), how many reports they sum up,
-// the means of their signal strength and latency means weighted by their
-// reports, and how often the door was opened in all.
+// the mean of their signal strength means weighted by their reports, how
+// many of the reports carried a latency (LatencySamples) and the mean of
+// their latency means weighted by those, nil when none did, and how often
+// the door was opened in all.
 type StoredTrend struct {
-	DoorID  int64
-	Start   time.Time
-	Hours   int
-	Samples int
-	Signal  float64
-	Latency float64
-	Opens   int
+	DoorID         int64
+	Start          time.Time
+	Hours          int
+	Samples        int
+	Signal         float64
+	LatencySamples int
+	Latency        *float64
+	Opens          int
 }
 
 // StoredDoor is a door as the store holds it. ZoneIDs are the zones it is

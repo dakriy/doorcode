@@ -59,13 +59,14 @@ func grouped[T any](ctx context.Context, s *Store, query string, args []any, fie
 // trendQuery sums up the rollups a TrendQuery selects: $1 and $2 its
 // range, $3 its zone's name, $4 its unit.
 const trendQuery = `select door_id, date_trunc($4, hour, $3) as start, count(*), sum(samples),
-	sum(signal_mean * samples) / sum(samples), sum(latency_mean * samples) / sum(samples), sum(opens)
+	sum(signal_mean * samples) / sum(samples), sum(latency_samples),
+	sum(latency_mean * latency_samples) / nullif(sum(latency_samples), 0), sum(opens)
 	from telemetry_rollups where hour >= $1 and hour < $2 group by door_id, start order by door_id, start`
 
 // Trends sums up the rollups q selects with one grouping query.
 func (s *Store) Trends(ctx context.Context, q connector.TrendQuery) ([]connector.StoredTrend, error) {
 	return grouped(ctx, s, trendQuery, []any{q.From, q.To, q.Zone.String(), q.Unit}, func(t *connector.StoredTrend) []any {
-		return []any{&t.DoorID, &t.Start, &t.Hours, &t.Samples, &t.Signal, &t.Latency, &t.Opens}
+		return []any{&t.DoorID, &t.Start, &t.Hours, &t.Samples, &t.Signal, &t.LatencySamples, &t.Latency, &t.Opens}
 	})
 }
 

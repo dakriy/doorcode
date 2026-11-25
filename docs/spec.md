@@ -285,7 +285,10 @@ again. It is logged as a `command` event, `reboot sent`, naming the admin.
 
 ### Telemetry and state
 
-Doors report, at the configured interval: signal strength, round-trip latency,
+Doors report, at the configured interval: signal strength, latency (the
+round trip of the previous report to the broker and its acknowledgement,
+on the door's clock; left out when the door has none, and then shown and
+counted as none, never as 0),
 uptime, free memory, firmware version, reconnect count, door open or closed,
 the number of opens, each count a total since the controller started (the
 server works out what each report counted since the one before, counting a
@@ -674,7 +677,7 @@ read: every per-door series, `doorcode_events_total`, and
 | `doorcode_door_update_pending` | gauge | `door`, `door_id` | 1 while the door takes part in the rollout and does not run its target yet, else 0. |
 | `doorcode_door_firmware_info` | gauge | `door`, `door_id`, `version` | Always 1; `version` is the firmware the controller runs. |
 | `doorcode_door_signal_dbm` | gauge | `door`, `door_id` | Signal strength last reported, in dBm. Online only. |
-| `doorcode_door_latency_seconds` | gauge | `door`, `door_id` | Round trip last reported, in seconds. Online only. |
+| `doorcode_door_latency_seconds` | gauge | `door`, `door_id` | Latency last reported, in seconds: the round trip of the door's report before to the broker and its acknowledgement. Online only, and absent while the latest report carried none. |
 | `doorcode_door_free_bytes` | gauge | `door`, `door_id` | Free memory last reported, in bytes. Online only. |
 | `doorcode_door_uptime_seconds` | gauge | `door`, `door_id` | How long the controller had run at its last report, in seconds. Online only. |
 | `doorcode_door_mesh_layer` | gauge | `door`, `door_id` | Mesh layer last reported, 0 at the access point. Online only. |

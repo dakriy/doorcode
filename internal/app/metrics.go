@@ -22,10 +22,12 @@ type stateMetric struct {
 }
 
 // reportMetric is a metric read from a controller's latest telemetry
-// report.
+// report. A report for which reported says false gives no sample, as a
+// door without a report gives none; nil reported is every report.
 type reportMetric struct {
 	name, help string
 	value      func(t connector.StoredTelemetry) float64
+	reported   func(t connector.StoredTelemetry) bool
 }
 
 // stateMetrics are the gauges of every door that is not deleted and has a
@@ -53,42 +55,43 @@ var stateMetrics = []stateMetric{
 // from its latest report, so an offline door shows no stale values.
 var reportGauges = []reportMetric{
 	{"doorcode_door_signal_dbm", "The Wi-Fi signal strength the door's controller last reported, in dBm.",
-		func(t connector.StoredTelemetry) float64 { return float64(t.Signal) }},
-	{"doorcode_door_latency_seconds", "The round trip to the server the door's controller last reported, in seconds.",
-		func(t connector.StoredTelemetry) float64 { return float64(t.LatencyMS) / 1000 }},
+		func(t connector.StoredTelemetry) float64 { return float64(t.Signal) }, nil},
+	{"doorcode_door_latency_seconds", "The latency the door's controller last reported, in seconds: the round trip of its report before, from handing it to its MQTT client until the broker acknowledged it, on its own clock; absent while its latest report carried none.",
+		func(t connector.StoredTelemetry) float64 { return float64(*t.LatencyMS) / 1000 },
+		func(t connector.StoredTelemetry) bool { return t.LatencyMS != nil }},
 	{"doorcode_door_free_bytes", "The free memory the door's controller last reported, in bytes.",
-		func(t connector.StoredTelemetry) float64 { return float64(t.FreeBytes) }},
+		func(t connector.StoredTelemetry) float64 { return float64(t.FreeBytes) }, nil},
 	{"doorcode_door_uptime_seconds", "How long the door's controller had run when it last reported, in seconds.",
-		func(t connector.StoredTelemetry) float64 { return float64(t.UptimeS) }},
+		func(t connector.StoredTelemetry) float64 { return float64(t.UptimeS) }, nil},
 	{"doorcode_door_mesh_layer", "The mesh layer the door's controller last reported, 0 when it reaches the access point itself.",
-		func(t connector.StoredTelemetry) float64 { return float64(t.MeshLayer) }},
+		func(t connector.StoredTelemetry) float64 { return float64(t.MeshLayer) }, nil},
 	{"doorcode_door_mesh_children", "How many controllers hopped through the door's controller when it last reported.",
-		func(t connector.StoredTelemetry) float64 { return float64(t.MeshChildren) }},
+		func(t connector.StoredTelemetry) float64 { return float64(t.MeshChildren) }, nil},
 	{"doorcode_door_wifi_channel", "The Wi-Fi channel of the access point the door's controller last reported, 0 with no link.",
-		func(t connector.StoredTelemetry) float64 { return float64(t.Channel) }},
+		func(t connector.StoredTelemetry) float64 { return float64(t.Channel) }, nil},
 }
 
 // reportCounters are the totals since the controller started that its
 // latest report gave, kept while it is offline.
 var reportCounters = []reportMetric{
 	{"doorcode_door_opens_total", "How often the door was opened since its controller started.",
-		func(t connector.StoredTelemetry) float64 { return float64(t.Totals.Opens) }},
+		func(t connector.StoredTelemetry) float64 { return float64(t.Totals.Opens) }, nil},
 	{"doorcode_door_reconnects_total", "How often the door's controller connected to the broker again since it started.",
-		func(t connector.StoredTelemetry) float64 { return float64(t.Totals.Reconnects) }},
+		func(t connector.StoredTelemetry) float64 { return float64(t.Totals.Reconnects) }, nil},
 	{"doorcode_door_checks_sent_total", "The code checks the door's controller sent since it started.",
-		func(t connector.StoredTelemetry) float64 { return float64(t.Totals.ChecksSent) }},
+		func(t connector.StoredTelemetry) float64 { return float64(t.Totals.ChecksSent) }, nil},
 	{"doorcode_door_checks_lost_total", "The code checks whose reply never reached the door's controller since it started.",
-		func(t connector.StoredTelemetry) float64 { return float64(t.Totals.ChecksLost) }},
+		func(t connector.StoredTelemetry) float64 { return float64(t.Totals.ChecksLost) }, nil},
 	{"doorcode_door_tcp_segments_total", "The TCP segments the door's controller sent for the first time since it started.",
-		func(t connector.StoredTelemetry) float64 { return float64(t.Totals.TCPSent) }},
+		func(t connector.StoredTelemetry) float64 { return float64(t.Totals.TCPSent) }, nil},
 	{"doorcode_door_tcp_retransmits_total", "The TCP segments the door's controller sent again since it started.",
-		func(t connector.StoredTelemetry) float64 { return float64(t.Totals.TCPRetransmits) }},
+		func(t connector.StoredTelemetry) float64 { return float64(t.Totals.TCPRetransmits) }, nil},
 	{"doorcode_door_tcp_drops_total", "The TCP segments the door's controller dropped since it started.",
-		func(t connector.StoredTelemetry) float64 { return float64(t.Totals.TCPDrops) }},
+		func(t connector.StoredTelemetry) float64 { return float64(t.Totals.TCPDrops) }, nil},
 	{"doorcode_door_wifi_drops_total", "How often the door's controller lost its Wi-Fi access point since it started.",
-		func(t connector.StoredTelemetry) float64 { return float64(t.Totals.WifiDrops) }},
+		func(t connector.StoredTelemetry) float64 { return float64(t.Totals.WifiDrops) }, nil},
 	{"doorcode_door_roams_total", "How often the door's controller moved to another access point by its own choice since it started.",
-		func(t connector.StoredTelemetry) float64 { return float64(t.Totals.Roams) }},
+		func(t connector.StoredTelemetry) float64 { return float64(t.Totals.Roams) }, nil},
 }
 
 // rolloutStates are the statuses of a door taking part in the firmware
@@ -227,7 +230,21 @@ func reportFamilies(metrics []reportMetric, kind string, doors []firmware.DoorFi
 	var out []exposition.Family
 	for _, m := range metrics {
 		fromReport := func(df firmware.DoorFirmware) float64 { return m.value(*df.Door.Controller.Telemetry) }
-		out = append(out, doorFamily(m.name, m.help, kind, doors, fromReport))
+		out = append(out, doorFamily(m.name, m.help, kind, reportedBy(m, doors), fromReport))
+	}
+	return out
+}
+
+// reportedBy is each of doors whose latest report gives m.
+func reportedBy(m reportMetric, doors []firmware.DoorFirmware) []firmware.DoorFirmware {
+	if m.reported == nil {
+		return doors
+	}
+	var out []firmware.DoorFirmware
+	for _, df := range doors {
+		if m.reported(*df.Door.Controller.Telemetry) {
+			out = append(out, df)
+		}
 	}
 	return out
 }

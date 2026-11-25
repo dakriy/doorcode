@@ -184,7 +184,7 @@ func TestEachHourKeepsTheMeshOfItsLastReport(t *testing.T) {
 	got := testsupport.JSONAt(send(t, k.b, "GET", "/api/v1/doors/1/telemetry/hourly", "", 200).Body, "/rollups/0")
 
 	want := testsupport.JSON(`{"hour":"2026-01-05T09:00:00Z","samples":2,"signal":{"mean":-61,"min":-61,"max":-61},
-		"latency_ms":{"mean":40,"min":40,"max":40},"free_bytes":{"mean":120832,"min":120832,"max":120832},"opens":0,
+		"latency_samples":2,"latency_ms":{"mean":40,"min":40,"max":40},"free_bytes":{"mean":120832,"min":120832,"max":120832},"opens":0,
 		"mesh_layer":2,"mesh_children":3,
 		"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"wifi_drop_reason":0,"roams":0,"bssid":"","channel":0}`)
 	if diff := cmp.Diff(want, got); diff != "" {

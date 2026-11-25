@@ -54,22 +54,32 @@ func Hourly(samples []connector.StoredSample) []connector.StoredRollup {
 }
 
 // RollUp sums up hour, at least one report of one door in one hour,
-// oldest first: the spread of their signal strength, latency, and free
-// memory, how often the door was opened and how its links fared in all,
-// and the mesh layer and children and the Wi-Fi link of the last report.
+// oldest first: the spread of their signal strength and free memory, how
+// many carried a latency and the spread of those, none when none did, how
+// often the door was opened and how its links fared in all, and the mesh
+// layer and children and the Wi-Fi link of the last report.
 func RollUp(hour []connector.StoredSample) connector.StoredRollup {
 	counts := connector.StoredCounts{}
+	var timed []connector.StoredSample
 	for _, sample := range hour {
 		counts = Added(counts, sample.StoredCounts)
+		if sample.LatencyMS != nil {
+			timed = append(timed, sample)
+		}
 	}
 	last := hour[len(hour)-1]
-	return connector.StoredRollup{
+	r := connector.StoredRollup{
 		DoorID: hour[0].DoorID, Hour: hour[0].At.Truncate(time.Hour), Samples: len(hour), Opens: counts.Opens,
 		MeshLayer: last.MeshLayer, MeshChildren: last.MeshChildren, StoredLinkCounts: counts.StoredLinkCounts, StoredLink: last.StoredLink,
-		Signal:    spread(hour, func(s connector.StoredSample) int64 { return int64(s.Signal) }),
-		Latency:   spread(hour, func(s connector.StoredSample) int64 { return int64(s.LatencyMS) }),
-		FreeBytes: spread(hour, func(s connector.StoredSample) int64 { return s.FreeBytes }),
+		Signal:         spread(hour, func(s connector.StoredSample) int64 { return int64(s.Signal) }),
+		FreeBytes:      spread(hour, func(s connector.StoredSample) int64 { return s.FreeBytes }),
+		LatencySamples: len(timed),
 	}
+	if len(timed) > 0 {
+		latency := spread(timed, func(s connector.StoredSample) int64 { return int64(*s.LatencyMS) })
+		r.Latency = &latency
+	}
+	return r
 }
 
 // sameHour reports whether a and b are reports of one door in one hour.

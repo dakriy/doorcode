@@ -220,8 +220,9 @@ type Health struct {
 
 // DoorHealth is how a door's controller kept in touch over a range: how
 // many hours it reported in and how many reports it made, how often the
-// door was opened, the mean signal strength and latency over every report
-// (nil without reports), and those of each step.
+// door was opened, the mean signal strength over every report (nil
+// without reports) and the mean latency over every report that carried
+// one (nil without such reports), and those of each step.
 type DoorHealth struct {
 	ID      int64
 	Name    string
@@ -273,6 +274,7 @@ func (s Service) Health(ctx context.Context, r Range, now time.Time, zone *time.
 func healthOf(d connector.StoredDoor, trends []connector.StoredTrend) DoorHealth {
 	out := DoorHealth{ID: d.ID, Name: d.Name, Trend: []connector.StoredTrend{}}
 	var signal, latency float64
+	timed := 0
 	for _, t := range trends {
 		if t.DoorID != d.ID {
 			continue
@@ -282,11 +284,18 @@ func healthOf(d connector.StoredDoor, trends []connector.StoredTrend) DoorHealth
 		out.Samples += t.Samples
 		out.Opens += t.Opens
 		signal += t.Signal * float64(t.Samples)
-		latency += t.Latency * float64(t.Samples)
+		if t.Latency != nil {
+			latency += *t.Latency * float64(t.LatencySamples)
+			timed += t.LatencySamples
+		}
 	}
 	if out.Samples > 0 {
-		signal, latency = signal/float64(out.Samples), latency/float64(out.Samples)
-		out.Signal, out.Latency = &signal, &latency
+		signal /= float64(out.Samples)
+		out.Signal = &signal
+	}
+	if timed > 0 {
+		latency /= float64(timed)
+		out.Latency = &latency
 	}
 	return out
 }

@@ -34,13 +34,40 @@ func sampleFields(s *connector.StoredSample) []any {
 
 // rollupColumns lists the telemetry_rollups columns in the order
 // rollupFields reads them.
-const rollupColumns = `door_id, hour, samples, signal_mean, signal_min, signal_max, latency_mean, latency_min, latency_max,
+const rollupColumns = `door_id, hour, samples, signal_mean, signal_min, signal_max, latency_samples, latency_mean, latency_min, latency_max,
 	free_bytes_mean, free_bytes_min, free_bytes_max, opens, mesh_layer, mesh_children, ` + linkColumns
 
-func rollupFields(r *connector.StoredRollup) []any {
-	fields := []any{&r.DoorID, &r.Hour, &r.Samples, &r.Signal.Mean, &r.Signal.Min, &r.Signal.Max, &r.Latency.Mean, &r.Latency.Min, &r.Latency.Max,
+// latencyColumns is a rollup's latency spread as its columns hold it,
+// each NULL for a rollup without one.
+type latencyColumns struct {
+	mean     *float64
+	min, max *int64
+}
+
+// latencyColumnsOf is spread as its columns hold it.
+func latencyColumnsOf(spread *connector.StoredSpread) latencyColumns {
+	if spread == nil {
+		return latencyColumns{}
+	}
+	return latencyColumns{mean: &spread.Mean, min: &spread.Min, max: &spread.Max}
+}
+
+func rollupFields(r *connector.StoredRollup, l *latencyColumns) []any {
+	fields := []any{&r.DoorID, &r.Hour, &r.Samples, &r.Signal.Mean, &r.Signal.Min, &r.Signal.Max, &r.LatencySamples, &l.mean, &l.min, &l.max,
 		&r.FreeBytes.Mean, &r.FreeBytes.Min, &r.FreeBytes.Max, &r.Opens, &r.MeshLayer, &r.MeshChildren}
 	return append(fields, linkFields(&r.StoredLinkCounts, &r.StoredLink)...)
+}
+
+// scanRollup reads a rollup from row, its latency spread nil when its
+// columns are NULL.
+func scanRollup(row pgx.CollectableRow) (connector.StoredRollup, error) {
+	var r connector.StoredRollup
+	var l latencyColumns
+	err := row.Scan(rollupFields(&r, &l)...)
+	if l.mean != nil {
+		r.Latency = &connector.StoredSpread{Mean: *l.mean, Min: *l.min, Max: *l.max}
+	}
+	return r, err
 }
 
 // AddSample inserts sample.
@@ -94,22 +121,28 @@ func (s *Store) PutRollups(ctx context.Context, rollups []connector.StoredRollup
 		for _, r := range rollups {
 			if _, err := tx.Exec(ctx, `insert into telemetry_rollups (`+rollupColumns+`)
 				values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
-					$16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
+					$16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
 				on conflict (door_id, hour) do update set samples = excluded.samples,
 					signal_mean = excluded.signal_mean, signal_min = excluded.signal_min, signal_max = excluded.signal_max,
-					latency_mean = excluded.latency_mean, latency_min = excluded.latency_min, latency_max = excluded.latency_max,
+					latency_samples = excluded.latency_samples, latency_mean = excluded.latency_mean, latency_min = excluded.latency_min, latency_max = excluded.latency_max,
 					free_bytes_mean = excluded.free_bytes_mean, free_bytes_min = excluded.free_bytes_min,
 					free_bytes_max = excluded.free_bytes_max, opens = excluded.opens,
 					mesh_layer = excluded.mesh_layer, mesh_children = excluded.mesh_children,
 					checks_sent = excluded.checks_sent, checks_lost = excluded.checks_lost, tcp_sent = excluded.tcp_sent,
 					tcp_retransmits = excluded.tcp_retransmits, tcp_drops = excluded.tcp_drops, wifi_drops = excluded.wifi_drops,
 					wifi_drop_reason = excluded.wifi_drop_reason, roams = excluded.roams, bssid = excluded.bssid,
-					channel = excluded.channel`, rollupFields(&r)...); err != nil {
+					channel = excluded.channel`, rollupArgs(r)...); err != nil {
 				return err
 			}
 		}
 		return nil
 	})
+}
+
+// rollupArgs is r's columns, in the order of rollupColumns, to store.
+func rollupArgs(r connector.StoredRollup) []any {
+	l := latencyColumnsOf(r.Latency)
+	return rollupFields(&r, &l)
 }
 
 // NewestRollup returns the latest hour a rollup sums up.
@@ -127,7 +160,7 @@ func (s *Store) Rollups(ctx context.Context, doorID int64, from, to time.Time) (
 	if err != nil {
 		return nil, err
 	}
-	return pgx.CollectRows(rows, scanned(rollupFields))
+	return pgx.CollectRows(rows, scanRollup)
 }
 
 // DeleteRollupsBefore removes the rollups whose hour starts before before.

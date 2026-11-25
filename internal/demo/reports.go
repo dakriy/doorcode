@@ -145,12 +145,18 @@ func (p profile) report(rng *rand.Rand, now, at time.Time, opens int) (connector
 	if busy {
 		latency += rng.IntN(20)
 	}
+	measured := &latency
+	if rng.IntN(40) == 0 {
+		// A report after the controller connected again carries no
+		// round trip.
+		measured = nil
+	}
 	checks := opens + rng.IntN(2)
 	if openMode(at) {
 		opens += rng.IntN(p.openModeOpenings + 1)
 	}
 	return connector.StoredTelemetry{
-		At: at, Signal: p.signal + rng.IntN(7) - 3, LatencyMS: latency, UptimeS: int64(at.Sub(at.Truncate(7 * 24 * time.Hour)).Seconds()),
+		At: at, Signal: p.signal + rng.IntN(7) - 3, LatencyMS: measured, UptimeS: int64(at.Sub(at.Truncate(7 * 24 * time.Hour)).Seconds()),
 		FreeBytes: 182000 + rng.Int64N(6000), FirmwareVersion: version,
 		MeshLayer: p.meshLayer(), MeshParent: p.meshParent, MeshChildren: p.meshChildren(),
 		StoredCounts: connector.StoredCounts{Opens: opens, StoredLinkCounts: p.wifi.counts(rng.IntN, p.signal, int(sampleEvery.Seconds()), checks)},

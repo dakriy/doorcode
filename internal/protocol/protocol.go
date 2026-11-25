@@ -316,8 +316,8 @@ type Timeline struct {
 }
 
 // Telemetry is what a door publishes on its telemetry topic at the
-// interval its configuration gives: its signal strength in dBm, the round
-// trip to the server in milliseconds, how long it has run in seconds, its
+// interval its configuration gives: its signal strength in dBm, its
+// latency in milliseconds (see LatencyMS), how long it has run in seconds, its
 // free memory in bytes, its firmware version, how often it has connected
 // to the broker again, whether the door is open, how often it was opened,
 // and where it sits in the site's Wi-Fi mesh: its layer (0 when it
@@ -337,6 +337,13 @@ type Timeline struct {
 // and 0 with no link. Firmware that does not report these leaves them
 // out, which reads as 0 and empty.
 //
+// LatencyMS is the round trip of the door's previous telemetry report on
+// its own clock, from handing that report to its MQTT client until the
+// broker acknowledged it; nil when the report leaves the key out, as one
+// does when the door has no measurement: the first report after it
+// connects, or one whose previous report was not handed over or not
+// acknowledged in time.
+//
 // Every count (Reconnects, Opens, ChecksSent, ChecksLost, TCPSent,
 // TCPRetransmits, TCPDrops, WifiDrops, and Roams) is a total since the
 // controller started, so a report lost on the way loses no counts.
@@ -347,7 +354,7 @@ type Timeline struct {
 type Telemetry struct {
 	Header
 	Signal          int    `cbor:"signal"`
-	LatencyMS       int    `cbor:"latency_ms"`
+	LatencyMS       *int   `cbor:"latency_ms,omitempty"`
 	UptimeS         int64  `cbor:"uptime_s"`
 	FreeBytes       int64  `cbor:"free_bytes"`
 	FirmwareVersion string `cbor:"firmware_version"`

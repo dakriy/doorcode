@@ -43,7 +43,7 @@ var metricFamilies = [][3]string{
 	{"doorcode_door_update_pending", "1 while the door takes part in the firmware rollout and does not run its target yet, else 0.", "gauge"},
 	{"doorcode_door_firmware_info", "The firmware version the door's controller runs, in its version label; always 1.", "gauge"},
 	{"doorcode_door_signal_dbm", "The Wi-Fi signal strength the door's controller last reported, in dBm.", "gauge"},
-	{"doorcode_door_latency_seconds", "The round trip to the server the door's controller last reported, in seconds.", "gauge"},
+	{"doorcode_door_latency_seconds", "The latency the door's controller last reported, in seconds: the round trip of its report before, from handing it to its MQTT client until the broker acknowledged it, on its own clock; absent while its latest report carried none.", "gauge"},
 	{"doorcode_door_free_bytes", "The free memory the door's controller last reported, in bytes.", "gauge"},
 	{"doorcode_door_uptime_seconds", "How long the door's controller had run when it last reported, in seconds.", "gauge"},
 	{"doorcode_door_mesh_layer", "The mesh layer the door's controller last reported, 0 when it reaches the access point itself.", "gauge"},

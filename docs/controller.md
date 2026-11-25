@@ -672,7 +672,8 @@ limit itself, though it may hold back entries faster than the bucket allows.
 ### Telemetry
 
 On `doorcode/doors/<id>/telemetry`, every `telemetry_interval_s` while
-connected, first soon after connecting. Every field is always sent.
+connected, first soon after connecting. Every field is always sent but
+`latency_ms`, which is left out when the controller has no measurement.
 
 Every count (`reconnects`, `opens`, `checks_sent`, `checks_lost`,
 `tcp_sent`, `tcp_retransmits`, `tcp_drops`, `wifi_drops`, and `roams`) is
@@ -684,7 +685,7 @@ A count kept in a 32-bit counter may wrap.
 | --- | --- | --- | --- |
 | `v` | uint | | Protocol version, 1. |
 | `signal` | int | dBm | Signal strength now. |
-| `latency_ms` | uint | ms | The controller's latest measure of the round trip to the server, such as the last MQTT ping or check and reply. |
+| `latency_ms` | uint | ms | Optional: the round trip of the door's previous telemetry report, measured on the door's own clock from handing that report to its MQTT client until the broker acknowledged it (the PUBACK of a QoS 1 publish). It takes in the controller's own send queue, the Wi-Fi, any TLS proxy, and the broker, not the server's handling of the report. Each measurement is sent once, in the next report. Left out (never null, never 0 for none) when there is no measurement: in the first report after the controller connects, or when its previous report could not be handed to the client or was not acknowledged before this one went out; an acknowledgement from an earlier connection measures nothing. Code checks are not timed. The server stores a report without it as having no latency and leaves it out of hourly figures, means, charts, and the latency gauge. |
 | `uptime_s` | uint | s | Time since the controller started. |
 | `free_bytes` | uint | bytes | Free memory. |
 | `firmware_version` | text | | The version running now. |

@@ -443,7 +443,10 @@ func healthViewOf(h stats.Health, chosen stats.Range, zone *time.Location) *heal
 		names = append(names, d.Name)
 		var s, l []point
 		for _, t := range d.Trend {
-			s, l = append(s, point{t.Start, t.Signal}), append(l, point{t.Start, t.Latency})
+			s = append(s, point{t.Start, t.Signal})
+			if t.Latency != nil {
+				l = append(l, point{t.Start, *t.Latency})
+			}
 		}
 		signal, latency = append(signal, s), append(latency, l)
 	}
@@ -459,7 +462,10 @@ func healthRowOf(h stats.Health, d stats.DoorHealth) healthRow {
 		row.Uptime, row.Percent = percentText(uptime), int(math.Round(uptime*100))
 	}
 	if d.Signal != nil {
-		row.Signal, row.Latency = valueText(*d.Signal, "dBm"), valueText(*d.Latency, "ms")
+		row.Signal, row.Latency = valueText(*d.Signal, "dBm"), noLatency
+	}
+	if d.Latency != nil {
+		row.Latency = valueText(*d.Latency, "ms")
 	}
 	return row
 }

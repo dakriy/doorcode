@@ -146,7 +146,7 @@ func (c catalog) rowOfState(d connector.StoredDoor, zone *time.Location) stateVi
 		view.Door = "Closed"
 	}
 	if t := ctrl.Telemetry; t != nil {
-		view.Latency, view.Uptime = strconv.Itoa(t.LatencyMS)+" ms", uptimeText(t.UptimeS)
+		view.Latency, view.Uptime = latencyText(t.LatencyMS), uptimeText(t.UptimeS)
 		view.Memory, view.Reconnects = strconv.FormatInt(t.FreeBytes/1024, 10)+" KiB", strconv.Itoa(t.Totals.Reconnects)
 		view.MeshLayer, view.MeshParent, view.MeshChildren = meshLayerText(t.MeshLayer), c.parentText(t.MeshParent), strconv.Itoa(t.MeshChildren)
 		view.AccessPoint, view.LastDrop = accessPointText(t.StoredLink), dropReasonText(t.WifiDropReason)
@@ -237,6 +237,27 @@ type point struct {
 	Value float64
 }
 
+// noLatency is what pages show of a latency where the reports carried
+// none.
+const noLatency = "None measured"
+
+// latencyText is how a door's page shows ms, a report's latency.
+func latencyText(ms *int) string {
+	if ms == nil {
+		return noLatency
+	}
+	return strconv.Itoa(*ms) + " ms"
+}
+
+// appendLatency is points with the mean of latency at at, an hour's,
+// when the hour has one.
+func appendLatency(points []point, at time.Time, latency *connector.StoredSpread) []point {
+	if latency == nil {
+		return points
+	}
+	return append(points, point{at, latency.Mean})
+}
+
 // telemetrySeries is what a door's charts draw: the signal strength, the
 // latency, the mesh layer, and the mesh children its controller reported,
 // and how its links fared hour by hour.
@@ -254,7 +275,7 @@ func (a *App) series(ctx context.Context, doorID int64, hourly bool, from, to ti
 		rollups, err := a.telemetry.Rollups(ctx, doorID, from, to)
 		for _, h := range rollups {
 			out.signal = append(out.signal, point{h.Hour, h.Signal.Mean})
-			out.latency = append(out.latency, point{h.Hour, h.Latency.Mean})
+			out.latency = appendLatency(out.latency, h.Hour, h.Latency)
 			out.meshLayer = append(out.meshLayer, point{h.Hour, float64(h.MeshLayer)})
 			out.meshChildren = append(out.meshChildren, point{h.Hour, float64(h.MeshChildren)})
 			out.link = append(out.link, linkHour{h.Hour, h.StoredLinkCounts})
@@ -264,7 +285,9 @@ func (a *App) series(ctx context.Context, doorID int64, hourly bool, from, to ti
 	samples, err := a.telemetry.Samples(ctx, doorID, from, to)
 	for _, s := range samples {
 		out.signal = append(out.signal, point{s.At, float64(s.Signal)})
-		out.latency = append(out.latency, point{s.At, float64(s.LatencyMS)})
+		if s.LatencyMS != nil {
+			out.latency = append(out.latency, point{s.At, float64(*s.LatencyMS)})
+		}
 		out.meshLayer = append(out.meshLayer, point{s.At, float64(s.MeshLayer)})
 		out.meshChildren = append(out.meshChildren, point{s.At, float64(s.MeshChildren)})
 	}

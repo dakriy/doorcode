@@ -273,11 +273,11 @@ func TestThePeriodicWorkRollsUpEachHourThatEndedFromItsReports(t *testing.T) {
 
 	want := testsupport.JSON(`{"rollups":[
 		{"hour":"2026-01-05T09:00:00Z","samples":2,"signal":{"mean":-65,"min":-70,"max":-60},
-			"latency_ms":{"mean":50,"min":40,"max":60},"free_bytes":{"mean":110000,"min":100000,"max":120000},"opens":5,
+			"latency_samples":2,"latency_ms":{"mean":50,"min":40,"max":60},"free_bytes":{"mean":110000,"min":100000,"max":120000},"opens":5,
 			"mesh_layer":0,"mesh_children":0,
 			"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"wifi_drop_reason":0,"roams":0,"bssid":"","channel":0},
 		{"hour":"2026-01-05T10:00:00Z","samples":1,"signal":{"mean":-65,"min":-65,"max":-65},
-			"latency_ms":{"mean":50,"min":50,"max":50},"free_bytes":{"mean":110000,"min":110000,"max":110000},"opens":0,
+			"latency_samples":1,"latency_ms":{"mean":50,"min":50,"max":50},"free_bytes":{"mean":110000,"min":110000,"max":110000},"opens":0,
 			"mesh_layer":0,"mesh_children":0,
 			"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"wifi_drop_reason":0,"roams":0,"bssid":"","channel":0}]}`)
 	if diff := cmp.Diff(want, got); diff != "" {
@@ -350,7 +350,7 @@ func TestARollupKeepsSummingUpReportsRemovedSince(t *testing.T) {
 	got := testsupport.JSONAt(send(t, b, "GET", "/api/v1/doors/1/telemetry/hourly", "", 200).Body, "/rollups/0")
 
 	want := testsupport.JSON(`{"hour":"2026-01-05T09:00:00Z","samples":2,"signal":{"mean":-65,"min":-70,"max":-60},
-		"latency_ms":{"mean":50,"min":40,"max":60},"free_bytes":{"mean":110000,"min":100000,"max":120000},"opens":5,
+		"latency_samples":2,"latency_ms":{"mean":50,"min":40,"max":60},"free_bytes":{"mean":110000,"min":100000,"max":120000},"opens":5,
 		"mesh_layer":0,"mesh_children":0,
 		"checks_sent":0,"checks_lost":0,"tcp_sent":0,"tcp_retransmits":0,"tcp_drops":0,"wifi_drops":0,"wifi_drop_reason":0,"roams":0,"bssid":"","channel":0}`)
 	if diff := cmp.Diff(want, got); diff != "" {

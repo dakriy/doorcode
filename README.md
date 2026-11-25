@@ -34,8 +34,11 @@ the engineering contract is [AGENTS.md](AGENTS.md).
   broker credentials that rotate automatically, pictures, zones, per-door
   configuration overrides over site defaults, opening from the UI, and live
   state: online, open or closed, held open, unresponsive.
-- **Telemetry.** Signal, latency, uptime, free memory, reconnects, opens,
-  and where the controller sits in the site's Wi-Fi mesh, kept as samples
+- **Telemetry.** Signal, latency (the round trip of a door's previous
+  report to the broker and its acknowledgement, measured by the door;
+  none when a report carries no measurement), uptime, free memory,
+  reconnects, opens, and where the controller sits in the site's Wi-Fi
+  mesh, kept as samples
   and hourly summaries, charted on each door's page; a door that hops
   through another controller carries a mesh badge in the door list, and a
   mesh page draws the whole mesh by layer, with relays and each door's path
@@ -322,7 +325,8 @@ What a scrape holds:
   `doorcode_door_online`, `doorcode_door_last_seen_timestamp_seconds`, its
   other state gauges, and the totals of its last report.
   A door whose controller has never reported has no telemetry gauges or
-  report totals at all.
+  report totals at all, and one whose latest report carried no latency
+  has no `doorcode_door_latency_seconds` series.
 - `doorcode_events_total` and the HTTP request counters are kept in
   memory and start from zero when the server starts; Prometheus treats
   the drop as a counter reset. Every door that is not deleted and has a
@@ -352,7 +356,7 @@ What a scrape holds:
 | `doorcode_door_update_pending` | gauge | `door`, `door_id` | 1 while the door takes part in the firmware rollout and does not run its target yet, else 0. |
 | `doorcode_door_firmware_info` | gauge | `door`, `door_id`, `version` | Always 1; `version` is the firmware version the controller runs. |
 | `doorcode_door_signal_dbm` | gauge | `door`, `door_id` | Wi-Fi signal strength last reported, in dBm. Online doors only. |
-| `doorcode_door_latency_seconds` | gauge | `door`, `door_id` | Round trip to the server last reported, in seconds. Online doors only. |
+| `doorcode_door_latency_seconds` | gauge | `door`, `door_id` | Latency last reported, in seconds: the round trip of the door's previous telemetry report, measured on the door's own clock from handing that report to its MQTT client until the broker acknowledged it. Online doors only, and no series while the latest report carried none, as a door without a report has none. |
 | `doorcode_door_free_bytes` | gauge | `door`, `door_id` | Free memory last reported, in bytes. Online doors only. |
 | `doorcode_door_uptime_seconds` | gauge | `door`, `door_id` | How long the controller had run when it last reported, in seconds. Online doors only. |
 | `doorcode_door_mesh_layer` | gauge | `door`, `door_id` | Mesh layer last reported, 0 when it reaches the access point itself. Online doors only. |

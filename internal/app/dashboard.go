@@ -84,7 +84,7 @@ type trendView struct {
 	Hours     int       `json:"hours" doc:"How many of its hours the controller reported in."`
 	Samples   int       `json:"samples" doc:"How many reports the controller made in it."`
 	Signal    float64   `json:"signal" doc:"The mean signal strength over the reports, in dBm."`
-	LatencyMS float64   `json:"latency_ms" doc:"The mean round trip to the server over the reports, in milliseconds."`
+	LatencyMS *float64  `json:"latency_ms,omitempty" doc:"The mean latency over the reports that carried one, in milliseconds, each hour weighted by those reports (see latency_ms of a telemetry report); absent when none did."`
 	Opens     int       `json:"opens" doc:"How often the door was opened in it."`
 }
 
@@ -95,7 +95,7 @@ type doorHealthView struct {
 	Samples   int         `json:"samples" doc:"How many reports the controller made."`
 	Opens     int         `json:"opens" doc:"How often the door was opened, as the controller counted, open mode included."`
 	Signal    *float64    `json:"signal,omitempty" doc:"The mean signal strength over the reports, in dBm; absent without reports."`
-	LatencyMS *float64    `json:"latency_ms,omitempty" doc:"The mean round trip over the reports, in milliseconds; absent without reports."`
+	LatencyMS *float64    `json:"latency_ms,omitempty" doc:"The mean latency over the reports that carried one, in milliseconds, each weighted alike (see latency_ms of a telemetry report); absent without such reports."`
 	Trend     []trendView `json:"trend" doc:"Each hour (ranges of up to 7 days) or day in which the controller reported, oldest first."`
 }
 

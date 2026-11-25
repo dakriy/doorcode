@@ -13,10 +13,15 @@ import (
 // firmware 1.4.3, 2 reconnects, the door closed, and no opens, but for
 // the fields changed names.
 func reportOf(changed map[string]any) []byte {
-	return testsupport.CBOR(with(map[string]any{
+	return testsupport.CBOR(reportFields(changed))
+}
+
+// reportFields is the fields of reportOf's report.
+func reportFields(changed map[string]any) map[string]any {
+	return with(map[string]any{
 		"v": 1, "signal": -61, "latency_ms": 40, "uptime_s": 3720, "free_bytes": 120832, "firmware_version": "1.4.3",
 		"reconnects": 2, "door_open": false, "opens": 0,
-	}, changed))
+	}, changed)
 }
 
 // report has Lobby's controller report its telemetry, as reportOf says,

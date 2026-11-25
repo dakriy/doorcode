@@ -163,8 +163,8 @@ func startIn(t time.Time, zone *time.Location, unit string) time.Time {
 }
 
 // trendSums is what Trends adds up for one door and start: the hours, the
-// reports, the signal and latency means weighted by reports, and the
-// opens.
+// reports, the signal means weighted by reports, the latency means
+// weighted by the reports that carried one, and the opens.
 type trendSums struct {
 	trend           connector.StoredTrend
 	signal, latency float64
@@ -190,14 +190,20 @@ func (s *Store) Trends(_ context.Context, q connector.TrendQuery) ([]connector.S
 		sum.trend.Samples += r.Samples
 		sum.trend.Opens += r.Opens
 		sum.signal += r.Signal.Mean * float64(r.Samples)
-		sum.latency += r.Latency.Mean * float64(r.Samples)
+		if r.Latency != nil {
+			sum.trend.LatencySamples += r.LatencySamples
+			sum.latency += r.Latency.Mean * float64(r.LatencySamples)
+		}
 	}
 	trends := []connector.StoredTrend{}
 	for _, sum := range sums {
 		t := sum.trend
 		if t.Samples > 0 {
 			t.Signal = sum.signal / float64(t.Samples)
-			t.Latency = sum.latency / float64(t.Samples)
+		}
+		if t.LatencySamples > 0 {
+			latency := sum.latency / float64(t.LatencySamples)
+			t.Latency = &latency
 		}
 		trends = append(trends, t)
 	}

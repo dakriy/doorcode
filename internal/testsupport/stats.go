@@ -82,6 +82,7 @@ func (s *Store) Trends(_ context.Context, q connector.TrendQuery) ([]connector.S
 		return nil, err
 	}
 	sums := map[trendKey]*connector.StoredTrend{}
+	latencies := map[trendKey]float64{}
 	for _, r := range s.rollups {
 		if !between(r.Hour, q.From, q.To) {
 			continue
@@ -95,13 +96,19 @@ func (s *Store) Trends(_ context.Context, q connector.TrendQuery) ([]connector.S
 		t.Hours++
 		t.Samples += r.Samples
 		t.Signal += r.Signal.Mean * float64(r.Samples)
-		t.Latency += r.Latency.Mean * float64(r.Samples)
+		if r.Latency != nil {
+			t.LatencySamples += r.LatencySamples
+			latencies[key] += r.Latency.Mean * float64(r.LatencySamples)
+		}
 		t.Opens += r.Opens
 	}
 	out := []connector.StoredTrend{}
-	for _, t := range sums {
+	for key, t := range sums {
 		t.Signal /= float64(t.Samples)
-		t.Latency /= float64(t.Samples)
+		if t.LatencySamples > 0 {
+			latency := latencies[key] / float64(t.LatencySamples)
+			t.Latency = &latency
+		}
 		out = append(out, *t)
 	}
 	slices.SortFunc(out, func(a, b connector.StoredTrend) int {

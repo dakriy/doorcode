@@ -20,7 +20,7 @@ const (
 type telemetryView struct {
 	At              time.Time  `json:"at" doc:"When the server received the report."`
 	Signal          int        `json:"signal" doc:"The signal strength, in dBm."`
-	LatencyMS       int        `json:"latency_ms" doc:"The round trip from the controller to the server and back, in milliseconds."`
+	LatencyMS       *int       `json:"latency_ms,omitempty" doc:"The round trip of the controller's report before this one, in milliseconds, on its own clock: from handing that report to its MQTT client until the broker acknowledged it; it takes in the controller's send queue, the Wi-Fi, the TLS proxy, and the broker, not the server's handling. Absent when the controller had no measurement: the first report after it connects, or one whose report before was not sent or not acknowledged in time."`
 	UptimeS         int64      `json:"uptime_s" doc:"How long the controller has run since it started, in seconds."`
 	FreeBytes       int64      `json:"free_bytes" doc:"The controller's free memory, in bytes."`
 	FirmwareVersion string     `json:"firmware_version" doc:"The firmware version the controller runs."`
@@ -87,24 +87,25 @@ type spreadView struct {
 }
 
 type rollupView struct {
-	Hour           time.Time  `json:"hour" doc:"The start of the hour, in UTC."`
-	Samples        int        `json:"samples" doc:"How many reports the controller made in the hour."`
-	Signal         spreadView `json:"signal" doc:"The signal strength, in dBm."`
-	LatencyMS      spreadView `json:"latency_ms" doc:"The round trip to the server, in milliseconds."`
-	FreeBytes      spreadView `json:"free_bytes" doc:"The free memory, in bytes."`
-	Opens          int        `json:"opens" doc:"How often the door was opened in the hour."`
-	MeshLayer      int        `json:"mesh_layer" doc:"The controller's mesh layer in its last report of the hour."`
-	MeshChildren   int        `json:"mesh_children" doc:"How many controllers hopped through this one in its last report of the hour."`
-	ChecksSent     int        `json:"checks_sent" doc:"How many code checks the controller sent in the hour."`
-	ChecksLost     int        `json:"checks_lost" doc:"How many checks it sent in the hour got no reply in time."`
-	TCPSent        int64      `json:"tcp_sent" doc:"How many TCP segments it sent for the first time in the hour."`
-	TCPRetransmits int64      `json:"tcp_retransmits" doc:"How many TCP segments it sent again in the hour."`
-	TCPDrops       int64      `json:"tcp_drops" doc:"How many TCP segments it dropped in the hour."`
-	WifiDrops      int        `json:"wifi_drops" doc:"How often its Wi-Fi station lost its access point in the hour."`
-	WifiDropReason int        `json:"wifi_drop_reason" doc:"The reason code of its latest loss of its access point since it started, in its last report of the hour."`
-	Roams          int        `json:"roams" doc:"How often its Wi-Fi station moved to another access point by its own choice in the hour."`
-	BSSID          string     `json:"bssid" doc:"The BSSID of the access point it had joined in its last report of the hour."`
-	Channel        int        `json:"channel" doc:"The Wi-Fi channel of that access point in its last report of the hour."`
+	Hour           time.Time   `json:"hour" doc:"The start of the hour, in UTC."`
+	Samples        int         `json:"samples" doc:"How many reports the controller made in the hour."`
+	Signal         spreadView  `json:"signal" doc:"The signal strength, in dBm."`
+	LatencySamples int         `json:"latency_samples" doc:"How many of the hour's reports carried a latency."`
+	LatencyMS      *spreadView `json:"latency_ms,omitempty" doc:"The latency over the hour's reports that carried one, in milliseconds (see latency_ms of a report); absent when none did."`
+	FreeBytes      spreadView  `json:"free_bytes" doc:"The free memory, in bytes."`
+	Opens          int         `json:"opens" doc:"How often the door was opened in the hour."`
+	MeshLayer      int         `json:"mesh_layer" doc:"The controller's mesh layer in its last report of the hour."`
+	MeshChildren   int         `json:"mesh_children" doc:"How many controllers hopped through this one in its last report of the hour."`
+	ChecksSent     int         `json:"checks_sent" doc:"How many code checks the controller sent in the hour."`
+	ChecksLost     int         `json:"checks_lost" doc:"How many checks it sent in the hour got no reply in time."`
+	TCPSent        int64       `json:"tcp_sent" doc:"How many TCP segments it sent for the first time in the hour."`
+	TCPRetransmits int64       `json:"tcp_retransmits" doc:"How many TCP segments it sent again in the hour."`
+	TCPDrops       int64       `json:"tcp_drops" doc:"How many TCP segments it dropped in the hour."`
+	WifiDrops      int         `json:"wifi_drops" doc:"How often its Wi-Fi station lost its access point in the hour."`
+	WifiDropReason int         `json:"wifi_drop_reason" doc:"The reason code of its latest loss of its access point since it started, in its last report of the hour."`
+	Roams          int         `json:"roams" doc:"How often its Wi-Fi station moved to another access point by its own choice in the hour."`
+	BSSID          string      `json:"bssid" doc:"The BSSID of the access point it had joined in its last report of the hour."`
+	Channel        int         `json:"channel" doc:"The Wi-Fi channel of that access point in its last report of the hour."`
 }
 
 type rollupList struct {
@@ -240,6 +241,15 @@ func viewOfSpread(s connector.StoredSpread) spreadView {
 	return spreadView{Mean: s.Mean, Min: s.Min, Max: s.Max}
 }
 
+// optionalSpread is the view of s, nil when s is.
+func optionalSpread(s *connector.StoredSpread) *spreadView {
+	if s == nil {
+		return nil
+	}
+	view := viewOfSpread(*s)
+	return &view
+}
+
 func (a *App) listRollups(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	from, to, ok := a.telemetryRange(r, rollupsHours)
 	if !ok {
@@ -254,7 +264,7 @@ func (a *App) listRollups(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	views := []rollupView{}
 	for _, h := range rollups {
 		views = append(views, rollupView{
-			Hour: h.Hour.UTC(), Samples: h.Samples, Signal: viewOfSpread(h.Signal), LatencyMS: viewOfSpread(h.Latency),
+			Hour: h.Hour.UTC(), Samples: h.Samples, Signal: viewOfSpread(h.Signal), LatencySamples: h.LatencySamples, LatencyMS: optionalSpread(h.Latency),
 			FreeBytes: viewOfSpread(h.FreeBytes), Opens: h.Opens, MeshLayer: h.MeshLayer, MeshChildren: h.MeshChildren,
 			ChecksSent: h.ChecksSent, ChecksLost: h.ChecksLost, TCPSent: h.TCPSent, TCPRetransmits: h.TCPRetransmits, TCPDrops: h.TCPDrops,
 			WifiDrops: h.WifiDrops, WifiDropReason: h.WifiDropReason, Roams: h.Roams, BSSID: h.BSSID, Channel: h.Channel,

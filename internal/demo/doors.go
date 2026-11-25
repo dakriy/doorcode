@@ -195,6 +195,10 @@ type door struct {
 	closing    *time.Timer
 	installing *time.Timer
 	installed  string
+	// reported is whether the controller has reported over this
+	// connection, so its next report carries the round trip of the one
+	// before.
+	reported bool
 }
 
 // serve connects as the door and serves it until the connection ends,
@@ -421,8 +425,14 @@ func (c *controller) report(d *door) {
 	link := c.door.Wifi.counts(rand.IntN, c.door.Signal, max(d.config.TelemetryIntervalS, 5), d.checks)
 	c.counted = telemetry.Added(c.counted, connector.StoredCounts{Opens: d.opens, StoredLinkCounts: link})
 	counts := c.counted
+	var latency *int
+	if d.reported {
+		ms := 12 + rand.IntN(25)
+		latency = &ms
+	}
+	d.reported = true
 	t := protocol.Telemetry{
-		Signal: c.door.Signal + rand.IntN(7) - 3, LatencyMS: 20 + rand.IntN(40), UptimeS: int64(time.Since(c.started).Seconds()),
+		Signal: c.door.Signal + rand.IntN(7) - 3, LatencyMS: latency, UptimeS: int64(time.Since(c.started).Seconds()),
 		FreeBytes: 182000 + rand.Int64N(6000), FirmwareVersion: c.door.Firmware, Reconnects: c.connects - 1, DoorOpen: d.open, Opens: counts.Opens,
 		MeshLayer: c.door.MeshLayer, MeshParent: c.door.MeshParent, MeshChildren: c.door.MeshChildren,
 		ChecksSent: counts.ChecksSent, ChecksLost: counts.ChecksLost, TCPSent: counts.TCPSent, TCPRetransmits: counts.TCPRetransmits,

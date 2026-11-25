@@ -16,12 +16,21 @@ import (
 // telemetryStart is the hour the samples of telemetryWorld start in.
 var telemetryStart = time.Date(2026, 3, 2, 8, 0, 0, 0, time.UTC)
 
+// latencyMS is a latency of ms milliseconds.
+func latencyMS(ms int) *int {
+	return &ms
+}
+
 // sampleAt is a report of the door whose id is door, minutes after
-// telemetryStart, with signal, its totals each different from the others
-// and from its counts.
+// telemetryStart, with signal, a latency of 40 ms but at an odd minute,
+// and its totals each different from the others and from its counts.
 func sampleAt(door int64, minutes, signal int) connector.StoredSample {
+	var latency *int
+	if minutes%2 == 0 {
+		latency = latencyMS(40)
+	}
 	return connector.StoredSample{DoorID: door, StoredTelemetry: connector.StoredTelemetry{
-		At: telemetryStart.Add(time.Duration(minutes) * time.Minute), Signal: signal, LatencyMS: 40, UptimeS: 3720,
+		At: telemetryStart.Add(time.Duration(minutes) * time.Minute), Signal: signal, LatencyMS: latency, UptimeS: 3720,
 		FreeBytes: 120832, FirmwareVersion: "1.4.2", Reconnects: 2, DoorOpen: minutes%2 == 0, Opens: 1,
 		MeshLayer: 2, MeshParent: "a4cf12e0b102", MeshChildren: 3,
 		StoredLinkCounts: connector.StoredLinkCounts{
@@ -131,11 +140,16 @@ func TestStoreRemovesTheSamplesBeforeATime(t *testing.T) {
 }
 
 // rollupAt is a rollup of the door whose id is door for the hour hours
-// after telemetryStart, of samples reports.
+// after telemetryStart, of samples reports, all but one carrying a
+// latency.
 func rollupAt(door int64, hours, samples int) connector.StoredRollup {
+	var latency *connector.StoredSpread
+	if samples > 1 {
+		latency = &connector.StoredSpread{Mean: 40.5, Min: 30, Max: 51}
+	}
 	return connector.StoredRollup{
 		DoorID: door, Hour: telemetryStart.Add(time.Duration(hours) * time.Hour), Samples: samples,
-		Signal: connector.StoredSpread{Mean: -60.5, Min: -61, Max: -60}, Latency: connector.StoredSpread{Mean: 40, Min: 40, Max: 40},
+		Signal: connector.StoredSpread{Mean: -60.5, Min: -61, Max: -60}, LatencySamples: samples - 1, Latency: latency,
 		FreeBytes: connector.StoredSpread{Mean: 120832.25, Min: 120000, Max: 121000}, Opens: 3, MeshLayer: samples + 1, MeshChildren: 2 * samples,
 		StoredLinkCounts: connector.StoredLinkCounts{
 			ChecksSent: 3 * samples, ChecksLost: samples, TCPSent: 5000000000 + int64(samples), TCPRetransmits: 4 * int64(samples),
