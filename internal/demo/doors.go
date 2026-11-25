@@ -231,7 +231,7 @@ func (c *controller) serve(ctx context.Context) error {
 func (c *controller) loop(ctx context.Context, d *door) error {
 	report := time.NewTimer(time.Second)
 	keypad := time.NewTimer(between(10*time.Second, 90*time.Second))
-	forced := time.NewTimer(between(2*time.Hour, 8*time.Hour))
+	exit := time.NewTimer(between(2*time.Hour, 8*time.Hour))
 	for {
 		select {
 		case <-ctx.Done():
@@ -250,9 +250,11 @@ func (c *controller) loop(ctx context.Context, d *door) error {
 		case <-keypad.C:
 			c.press(d)
 			keypad.Reset(between(40*time.Second, 150*time.Second))
-		case <-forced.C:
+		case <-exit.C:
+			// Someone leaves from inside, opening the door without
+			// unlocking it.
 			c.swing(d, 8*time.Second, d.state(time.Now()) == "open")
-			forced.Reset(between(2*time.Hour, 8*time.Hour))
+			exit.Reset(between(2*time.Hour, 8*time.Hour))
 		case <-timerC(d.closing):
 			d.closing, d.open = nil, false
 			c.say(d, closedEvent(d, time.Now()))

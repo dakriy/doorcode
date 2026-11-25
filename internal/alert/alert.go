@@ -36,8 +36,6 @@ type Kind struct {
 
 // The kinds of alert.
 var (
-	ForcedOpen = Kind{Key: "forced_open", Name: "Door forced open",
-		About: "A door opened while nothing unlocked it. It clears when the door closes."}
 	HeldOpen = Kind{Key: "held_open", Name: "Door held open",
 		About: "A door stood open for longer than its held-open time while it should have been locked. It clears when the door closes or an open span of its timeline begins."}
 	Offline = Kind{Key: "offline", Name: "Door offline",
@@ -57,7 +55,7 @@ var (
 )
 
 // Kinds is every kind of alert, in display order.
-var Kinds = []Kind{ForcedOpen, HeldOpen, Offline, Unresponsive, ConfigReverted, ConfigRestarting, ConfigMismatch, UpdateFailed, Certificate}
+var Kinds = []Kind{HeldOpen, Offline, Unresponsive, ConfigReverted, ConfigRestarting, ConfigMismatch, UpdateFailed, Certificate}
 
 // The states of a message in the outbox.
 const (

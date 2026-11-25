@@ -1,8 +1,8 @@
 // Package telemetry follows the doors' state from what their controllers
 // report: their telemetry, kept as history with hourly rollups, the door
-// opening and closing, how long it was open, the alarms that raises (a door
-// forced open or held open), controllers starting, and controllers that
-// have gone unresponsive.
+// opening and closing, how long it was open, the alarm that raises (a door
+// held open), controllers starting, and controllers that have gone
+// unresponsive.
 package telemetry
 
 import (
@@ -46,13 +46,12 @@ type Store interface {
 
 // Service follows the doors' state.
 type Service struct {
-	Store    Store
-	Doors    door.Service
-	Events   event.Service
-	Settings settings.Service
-	Clock    connector.Clock
-	// Alerts is told when a door is forced open or held open and when it
-	// closes, and follows the conditions the periodic work finds a door
+	Store  Store
+	Doors  door.Service
+	Events event.Service
+	Clock  connector.Clock
+	// Alerts is told when a door is held open and when it closes, and
+	// follows the conditions the periodic work finds a door
 	// in.
 	Alerts alert.Service
 	// Changed is called whenever what door lists show of a door's state
@@ -102,7 +101,7 @@ func (s Service) report(ctx context.Context, doorID int64, payload []byte) error
 		c.ConfigStarts, c.ConfigStartsSince = 0, nil
 	}
 	if m.DoorOpen {
-		if err := s.checkOpened(ctx, d.ID, held, now); err != nil {
+		if err := s.checkOpened(ctx, d.ID, held, nil, now); err != nil {
 			return err
 		}
 		c = opened(c, now)
@@ -116,8 +115,7 @@ func (s Service) report(ctx context.Context, doorID int64, payload []byte) error
 }
 
 // doorEvent handles what the controller of the door whose id is doorID
-// says happened to the door. A door that opens locked is logged as
-// forced open as well as opened.
+// says happened to the door.
 func (s Service) doorEvent(ctx context.Context, doorID int64, payload []byte) error {
 	var m protocol.DoorEvent
 	if err := protocol.Decode(payload, &m); err != nil {
@@ -131,10 +129,7 @@ func (s Service) doorEvent(ctx context.Context, doorID int64, payload []byte) er
 	c := heard(held, now)
 	switch m.Event {
 	case protocol.EventOpened:
-		if err := s.checkOpened(ctx, d.ID, held, now); err != nil {
-			return err
-		}
-		if err := s.checkForced(ctx, d, held, m.Unlocked, now); err != nil {
+		if err := s.checkOpened(ctx, d.ID, held, m.Unlocked, now); err != nil {
 			return err
 		}
 		c = opened(c, now)
@@ -229,9 +224,6 @@ func (s Service) save(ctx context.Context, d connector.StoredDoor, held, c conne
 	if held.HeldOpen && !c.HeldOpen {
 		s.Alerts.Resolve(ctx, alert.DoorCondition(alert.HeldOpen, d), now)
 	}
-	if held.DoorState == Open && c.DoorState != Open {
-		s.Alerts.Resolve(ctx, alert.DoorCondition(alert.ForcedOpen, d), now)
-	}
 	if slices.Equal(badgesAs(d, held), badgesAs(d, c)) && MeshOf(held) == MeshOf(c) {
 		s.Reported(d.ID)
 	} else {
@@ -291,87 +283,31 @@ func MeshOf(c connector.StoredController) Mesh {
 	return Mesh{Layer: c.Telemetry.MeshLayer, Parent: c.Telemetry.MeshParent}
 }
 
-// checkForced logs d as forced open at now, unless its door, whose
-// controller was held, was open already or was unlocked when it opened.
-// Whether it was unlocked is what its controller said, when it said
-// anything, else what checkWindow finds.
-func (s Service) checkForced(ctx context.Context, d connector.StoredDoor, held connector.StoredController, said *bool, now time.Time) error {
-	if held.DoorState == Open {
-		return nil
-	}
-	if said == nil {
-		return s.checkWindow(ctx, d, now)
-	}
-	if *said {
-		return nil
-	}
-	return s.forced(ctx, d, now, "Its controller says it was locked when it opened.")
-}
-
-// checkWindow logs d as forced open at now unless something unlocked it
-// within its strike window before now.
-func (s Service) checkWindow(ctx context.Context, d connector.StoredDoor, now time.Time) error {
-	defaults, err := s.Settings.DoorDefaults(ctx)
-	if err != nil {
-		return err
-	}
-	config, err := defaults.For(d.Config)
-	if err != nil {
-		return err
-	}
-	window := config.StrikeWindow()
-	unlocked, err := s.unlocked(ctx, d.ID, now.Add(-window), now)
-	if err != nil || unlocked {
-		return err
-	}
-	return s.forced(ctx, d, now, fmt.Sprintf("Nothing unlocked it in the %g seconds before it opened.", window.Seconds()))
-}
-
-// forced logs d as forced open at now, with detail, and raises its
-// alert.
-func (s Service) forced(ctx context.Context, d connector.StoredDoor, now time.Time, detail string) error {
-	if _, err := s.Events.Record(ctx, alarm(now, d.ID, event.ForcedOpen, detail)); err != nil {
-		return err
-	}
-	s.Alerts.Raise(ctx, alert.DoorCondition(alert.ForcedOpen, d), now, detail)
-	return nil
-}
-
-// unlocked reports whether something unlocked the door whose id is doorID
-// from since up to now: a code or a command it was allowed, an opening
-// from the admin UI, or its timeline holding it open.
-func (s Service) unlocked(ctx context.Context, doorID int64, since, now time.Time) (bool, error) {
-	allowed, err := s.Events.Find(ctx, event.Query{
-		EventQuery: connector.EventQuery{DoorID: doorID, Outcome: event.Allowed, From: &since}, Page: 1, PerPage: 1,
-	})
-	if err != nil {
-		return false, err
-	}
-	if allowed.Total > 0 {
-		return true, nil
-	}
-	return s.openDuring(ctx, doorID, since, now)
-}
-
-// openDuring reports whether the timeline of the door whose id is doorID
-// holds it open at any time from from up to to.
-func (s Service) openDuring(ctx context.Context, doorID int64, from, to time.Time) (bool, error) {
-	current, err := s.Settings.Current(ctx)
-	if err != nil {
-		return false, err
-	}
-	_, spans, err := s.Doors.Timeline(ctx, doorID, current.Zone, from, to)
-	return slices.ContainsFunc(spans, func(span timeline.Span) bool { return span.State == timeline.Open }), err
-}
-
 // checkOpened logs the door whose id is doorID as opened at now, unless
-// its controller, which was held, had it open already.
-func (s Service) checkOpened(ctx context.Context, doorID int64, held connector.StoredController, now time.Time) error {
+// its controller, which was held, had it open already. When its
+// controller said whether the strike was unlocked as the door opened,
+// the event's detail says so.
+func (s Service) checkOpened(ctx context.Context, doorID int64, held connector.StoredController, unlocked *bool, now time.Time) error {
 	if held.DoorState == Open {
 		return nil
 	}
-	_, err := s.Events.Record(ctx, connector.StoredEvent{At: now, DoorID: doorID, Type: event.Door, Outcome: event.Info, Reason: event.Opened})
+	_, err := s.Events.Record(ctx, connector.StoredEvent{
+		At: now, DoorID: doorID, Type: event.Door, Outcome: event.Info, Reason: event.Opened, Detail: strikeDetail(unlocked),
+	})
 	return err
+}
+
+// strikeDetail is what an opening's event says of unlocked, whether its
+// controller said the strike was unlocked as the door opened: nothing
+// when it said nothing.
+func strikeDetail(unlocked *bool) string {
+	if unlocked == nil {
+		return ""
+	}
+	if *unlocked {
+		return "Its controller says the strike was unlocked when it opened."
+	}
+	return "Its controller says the strike was locked when it opened."
 }
 
 // checkClosed logs how long the door whose id is doorID was open when it

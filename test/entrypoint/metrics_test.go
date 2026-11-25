@@ -102,7 +102,7 @@ doorcode_firmware_updates{state="done"} 0
 // first alarm: one for each reason, at 0.
 func zeroAlarms(door, id string) []string {
 	out := []string{}
-	for _, reason := range []string{"configuration reverted", "forced open", "held open"} {
+	for _, reason := range []string{"configuration reverted", "held open"} {
 		out = append(out, `doorcode_events_total{door="`+door+`",door_id="`+id+`",type="alarm",outcome="alert",reason="`+reason+`",start_reason=""} 0`)
 	}
 	return out
@@ -470,7 +470,7 @@ func TestANewlyEnrolledDoorShowsEachAlarmAndStartAtZero(t *testing.T) {
 func TestAnAlarmOrStartCountsUpFromItsZeroSeries(t *testing.T) {
 	t.Parallel()
 	k := keypadSite(t, testsupport.NewFactory())
-	k.opens(false)
+	k.givesUp("2026-01-05T09:00:00Z", otherDigest)
 	k.starts("")
 	k.starts("cosmic_ray")
 	k.starts("watchdog")
@@ -479,10 +479,8 @@ func TestAnAlarmOrStartCountsUpFromItsZeroSeries(t *testing.T) {
 	got := eventsScrape(t, k.a, k.b)
 
 	want := []string{
-		`doorcode_events_total{door="Lobby",door_id="1",type="alarm",outcome="alert",reason="configuration reverted",start_reason=""} 0`,
-		`doorcode_events_total{door="Lobby",door_id="1",type="alarm",outcome="alert",reason="forced open",start_reason=""} 1`,
+		`doorcode_events_total{door="Lobby",door_id="1",type="alarm",outcome="alert",reason="configuration reverted",start_reason=""} 1`,
 		`doorcode_events_total{door="Lobby",door_id="1",type="alarm",outcome="alert",reason="held open",start_reason=""} 0`,
-		`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="opened",start_reason=""} 1`,
 		`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="started",start_reason=""} 1`,
 		`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="started",start_reason="brownout"} 0`,
 		`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="started",start_reason="external"} 0`,
@@ -506,15 +504,14 @@ func TestAScrapeCountsTheChecksAlarmsAndStartsAtADoor(t *testing.T) {
 	k.press("999999")
 	k.press("999999")
 	k.starts("panic")
-	k.opens(false)
+	k.givesUp("2026-01-05T09:00:00Z", otherDigest)
 
 	got := countedEvents(t, k.a, k.b)
 
 	want := []string{
-		`doorcode_events_total{door="Lobby",door_id="1",type="alarm",outcome="alert",reason="forced open",start_reason=""} 1`,
+		`doorcode_events_total{door="Lobby",door_id="1",type="alarm",outcome="alert",reason="configuration reverted",start_reason=""} 1`,
 		`doorcode_events_total{door="Lobby",door_id="1",type="check",outcome="allowed",reason="access rule",start_reason=""} 1`,
 		`doorcode_events_total{door="Lobby",door_id="1",type="check",outcome="denied",reason="no rule",start_reason=""} 2`,
-		`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="opened",start_reason=""} 1`,
 		`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="started",start_reason="panic"} 1`,
 	}
 	if diff := cmp.Diff(want, got); diff != "" {

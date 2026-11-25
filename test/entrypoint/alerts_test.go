@@ -96,12 +96,23 @@ func alertFooter(kind string) string {
 	return "\nThis mail goes to every alert recipient while the alert " + kind + " is enabled on the Alerts tab of the settings.\n"
 }
 
-// forcedSubject and heldSubject are the subjects of the mail about Lobby
-// being forced open and held open.
-const (
-	forcedSubject = "Door forced open: Lobby"
-	heldSubject   = "Door held open: Lobby"
-)
+// heldSubject is the subject of the mail about Lobby being held open.
+const heldSubject = "Door held open: Lobby"
+
+// heldText is the text of the mail raising Lobby held open at at.
+func heldText(at string) string {
+	return "Door held open at Lobby, " + at + ".\n\nOpen for longer than 60 seconds.\n" + alertFooter("Door held open")
+}
+
+// holdsOpen has Lobby's door open, unlocked, at the RFC 3339 time opened
+// and the server do its periodic work at raised, a minute later, once the
+// door has stood open for its held-open time.
+func (k *keypad) holdsOpen(opened, raised string) {
+	k.t.Helper()
+	k.at(opened)
+	k.opens(true)
+	k.sweepAt(raised)
+}
 
 // cleared is the subject of the mail saying the condition whose raise had
 // subject cleared.
@@ -114,7 +125,6 @@ func TestEveryKindOfAlertIsDisabledUntilEnabledAndMailsNobodyByDefault(t *testin
 	got := testsupport.JSONAt(send(t, b, "GET", "/api/v1/alerts", "", 200).Body, "")
 
 	want := testsupport.JSON(`{"kinds":[
-		{"key":"forced_open","name":"Door forced open","about":"A door opened while nothing unlocked it. It clears when the door closes.","enabled":false},
 		{"key":"held_open","name":"Door held open","about":"A door stood open for longer than its held-open time while it should have been locked. It clears when the door closes or an open span of its timeline begins.","enabled":false},
 		{"key":"offline","name":"Door offline","about":"A door's controller has not been connected to the broker for the minutes of the unresponsive_minutes setting. It clears once the controller connects again.","enabled":false},
 		{"key":"unresponsive","name":"Door unresponsive","about":"A door's controller has not been heard from for the minutes of the unresponsive_minutes setting while the broker says it is connected. It clears once the server hears from it or it is shown offline.","enabled":false},
@@ -129,34 +139,12 @@ func TestEveryKindOfAlertIsDisabledUntilEnabledAndMailsNobodyByDefault(t *testin
 	}
 }
 
-func TestADoorForcedOpenMailsTheRecipientsOnceAndAgainWhenItCloses(t *testing.T) {
+func TestAlertMailComesFromTheSiteToEachRecipient(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	k := alertSite(t, f, "forced_open")
+	k := alertSite(t, f, "held_open")
 
-	k.opens(false)
-	k.at("2026-01-05T09:00:10Z")
-	k.report(map[string]any{"door_open": true})
-	k.at("2026-01-05T09:00:20Z")
-	k.says("closed")
-
-	want := [][]any{
-		{recipients, forcedSubject, "Door forced open at Lobby, Mon 5 Jan 2026 09:00:00 UTC.\n\n" +
-			"Its controller says it was locked when it opened.\n" + alertFooter("Door forced open")},
-		{recipients, cleared(forcedSubject), "Door forced open at Lobby cleared, Mon 5 Jan 2026 09:00:20 UTC.\n\n" +
-			"It was raised Mon 5 Jan 2026 09:00:00 UTC.\n" + alertFooter("Door forced open")},
-	}
-	if diff := cmp.Diff(want, mailed(t, f)); diff != "" {
-		t.Errorf("mail (-want +got):\n%s", diff)
-	}
-}
-
-func TestTheMailOfADoorForcedOpenComesFromTheSiteToEachRecipient(t *testing.T) {
-	t.Parallel()
-	f := testsupport.NewFactory()
-	k := alertSite(t, f, "forced_open")
-
-	k.opens(false)
+	k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
 
 	sent := f.MailerStub.Sent()[0]
 	headers := sentMail(t, f)[0].Headers
@@ -209,8 +197,8 @@ func TestOnlyTheEnabledKindsOfAlertMail(t *testing.T) {
 	f := testsupport.NewFactory()
 	k := alertSite(t, f, "held_open")
 
-	k.opens(false)
-	k.sweepAt("2026-01-05T09:01:00Z")
+	k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
+	k.sweepAt("2026-01-05T09:05:00Z", "2026-01-05T09:06:00Z")
 
 	if diff := cmp.Diff([]any{heldSubject}, subjects(t, f)); diff != "" {
 		t.Errorf("subjects (-want +got):\n%s", diff)
@@ -229,7 +217,7 @@ func TestAClearedConditionMailsOnlyWhenItsRaiseWasMailedItsKindIsStillEnabledAnd
 		"its kind disabled after it was raised": {
 			before: func(*keypad) {},
 			between: func(k *keypad) {
-				send(k.t, k.b, "PUT", "/api/v1/alerts/kinds/forced_open", `{"enabled":false}`, 200)
+				send(k.t, k.b, "PUT", "/api/v1/alerts/kinds/held_open", `{"enabled":false}`, 200)
 			},
 		},
 		"the recipients emptied after it was raised": {
@@ -241,14 +229,14 @@ func TestAClearedConditionMailsOnlyWhenItsRaiseWasMailedItsKindIsStillEnabledAnd
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			f := testsupport.NewFactory()
-			k := alertSite(t, f, "forced_open")
+			k := alertSite(t, f, "held_open")
 			c.before(k)
-			k.opens(false)
+			k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
 			c.between(k)
 
 			k.says("closed")
 
-			if diff := cmp.Diff([]any{forcedSubject}, subjects(t, f)); diff != "" {
+			if diff := cmp.Diff([]any{heldSubject}, subjects(t, f)); diff != "" {
 				t.Errorf("subjects (-want +got):\n%s", diff)
 			}
 		})
@@ -258,25 +246,24 @@ func TestAClearedConditionMailsOnlyWhenItsRaiseWasMailedItsKindIsStillEnabledAnd
 func TestAConditionThatComesBackMailsAgainOnlyOnceItStayedClearForTheHoldDown(t *testing.T) {
 	t.Parallel()
 	cases := map[string]struct {
-		holdDown, back string
-		want           []any
+		holdDown, opened, back string
+		want                   []any
 	}{
-		"back a second before the default 15 minutes": {"15", "2026-01-05T09:15:19Z", []any{forcedSubject, cleared(forcedSubject)}},
-		"back after the default 15 minutes":           {"15", "2026-01-05T09:15:20Z", []any{forcedSubject, cleared(forcedSubject), forcedSubject}},
-		"back at once with no hold-down":              {"0", "2026-01-05T09:00:20Z", []any{forcedSubject, cleared(forcedSubject), forcedSubject}},
+		"back a second before the default 15 minutes": {"15", "2026-01-05T09:15:19Z", "2026-01-05T09:16:19Z", []any{heldSubject, cleared(heldSubject)}},
+		"back after the default 15 minutes":           {"15", "2026-01-05T09:15:20Z", "2026-01-05T09:16:20Z", []any{heldSubject, cleared(heldSubject), heldSubject}},
+		"back at once with no hold-down":              {"0", "2026-01-05T09:01:20Z", "2026-01-05T09:02:20Z", []any{heldSubject, cleared(heldSubject), heldSubject}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			f := testsupport.NewFactory()
-			k := alertSite(t, f, "forced_open")
+			k := alertSite(t, f, "held_open")
 			k.setting("alert_hold_down_minutes", c.holdDown)
-			k.opens(false)
-			k.at("2026-01-05T09:00:20Z")
+			k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
+			k.at("2026-01-05T09:01:20Z")
 			k.says("closed")
 
-			k.at(c.back)
-			k.opens(false)
+			k.holdsOpen(c.opened, c.back)
 
 			if diff := cmp.Diff(c.want, subjects(t, f)); diff != "" {
 				t.Errorf("subjects (-want +got):\n%s", diff)
@@ -288,25 +275,21 @@ func TestAConditionThatComesBackMailsAgainOnlyOnceItStayedClearForTheHoldDown(t 
 func TestAConditionThatCameBackQuietlyClearsQuietlyAndTheHoldDownCountsFromThen(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	k := alertSite(t, f, "forced_open")
-	k.opens(false)
-	k.at("2026-01-05T09:00:20Z")
+	k := alertSite(t, f, "held_open")
+	k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
+	k.at("2026-01-05T09:01:20Z")
 	k.says("closed")
-	k.at("2026-01-05T09:10:00Z")
-	k.opens(false)
-	k.at("2026-01-05T09:10:20Z")
+	k.holdsOpen("2026-01-05T09:10:00Z", "2026-01-05T09:11:00Z")
+	k.at("2026-01-05T09:11:20Z")
 	k.says("closed")
 
-	k.at("2026-01-05T09:25:19Z")
-	k.opens(false)
-	k.at("2026-01-05T09:25:30Z")
+	k.holdsOpen("2026-01-05T09:25:19Z", "2026-01-05T09:26:19Z")
+	k.at("2026-01-05T09:26:30Z")
 	k.says("closed")
-	k.at("2026-01-05T09:40:30Z")
-	k.opens(false)
+	k.holdsOpen("2026-01-05T09:40:30Z", "2026-01-05T09:41:30Z")
 
-	want := []any{forcedSubject, cleared(forcedSubject), forcedSubject}
-	if diff := cmp.Diff([]any{want, "Door forced open at Lobby, Mon 5 Jan 2026 09:40:30 UTC.\n\n" +
-		"Its controller says it was locked when it opened.\n" + alertFooter("Door forced open")},
+	want := []any{heldSubject, cleared(heldSubject), heldSubject}
+	if diff := cmp.Diff([]any{want, heldText("Mon 5 Jan 2026 09:41:30 UTC")},
 		[]any{subjects(t, f), mailed(t, f)[2][2]}); diff != "" {
 		t.Errorf("subjects, last text (-want +got):\n%s", diff)
 	}
@@ -315,19 +298,18 @@ func TestAConditionThatCameBackQuietlyClearsQuietlyAndTheHoldDownCountsFromThen(
 func TestAClosingWithNothingRaisedLeavesTheHoldDownCountingFromTheLastClearing(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	k := alertSite(t, f, "forced_open")
-	k.opens(false)
-	k.at("2026-01-05T09:00:20Z")
+	k := alertSite(t, f, "held_open")
+	k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
+	k.at("2026-01-05T09:01:20Z")
 	k.says("closed")
 	k.at("2026-01-05T09:10:00Z")
 	k.opens(true)
 	k.at("2026-01-05T09:10:10Z")
 	k.says("closed")
 
-	k.at("2026-01-05T09:15:20Z")
-	k.opens(false)
+	k.holdsOpen("2026-01-05T09:15:20Z", "2026-01-05T09:16:20Z")
 
-	if diff := cmp.Diff([]any{forcedSubject, cleared(forcedSubject), forcedSubject}, subjects(t, f)); diff != "" {
+	if diff := cmp.Diff([]any{heldSubject, cleared(heldSubject), heldSubject}, subjects(t, f)); diff != "" {
 		t.Errorf("subjects (-want +got):\n%s", diff)
 	}
 }
@@ -339,28 +321,28 @@ const refused = "the mail server could not be reached or refused the message: 42
 func TestMailTheServerRefusesIsTriedAgainAfterAPauseThatDoublesUntilItFails(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	k := alertSite(t, f, "forced_open")
+	k := alertSite(t, f, "held_open")
 	f.MailerStub.FailWith("421 Try again later")
-	k.opens(false)
+	k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
 
 	var got []any
 	for _, at := range []string{
-		"2026-01-05T09:00:59Z", "2026-01-05T09:01:00Z", "2026-01-05T09:03:00Z", "2026-01-05T09:07:00Z", "2026-01-05T09:15:00Z",
-		"2026-01-05T09:30:59Z", "2026-01-05T09:31:00Z", "2026-01-05T10:31:00Z",
+		"2026-01-05T09:01:59Z", "2026-01-05T09:02:00Z", "2026-01-05T09:04:00Z", "2026-01-05T09:08:00Z", "2026-01-05T09:16:00Z",
+		"2026-01-05T09:31:59Z", "2026-01-05T09:32:00Z", "2026-01-05T10:32:00Z",
 	} {
 		k.runAt(at)
 		got = append(got, []any{k.outbox("/0/status"), k.outbox("/0/attempts"), k.outbox("/0/next_attempt_at"), k.outbox("/0/last_attempt_at")})
 	}
 
 	want := []any{
-		[]any{"pending", 1.0, "2026-01-05T09:01:00Z", "2026-01-05T09:00:00Z"},
-		[]any{"pending", 2.0, "2026-01-05T09:03:00Z", "2026-01-05T09:01:00Z"},
-		[]any{"pending", 3.0, "2026-01-05T09:07:00Z", "2026-01-05T09:03:00Z"},
-		[]any{"pending", 4.0, "2026-01-05T09:15:00Z", "2026-01-05T09:07:00Z"},
-		[]any{"pending", 5.0, "2026-01-05T09:31:00Z", "2026-01-05T09:15:00Z"},
-		[]any{"pending", 5.0, "2026-01-05T09:31:00Z", "2026-01-05T09:15:00Z"},
-		[]any{"failed", 6.0, nil, "2026-01-05T09:31:00Z"},
-		[]any{"failed", 6.0, nil, "2026-01-05T09:31:00Z"},
+		[]any{"pending", 1.0, "2026-01-05T09:02:00Z", "2026-01-05T09:01:00Z"},
+		[]any{"pending", 2.0, "2026-01-05T09:04:00Z", "2026-01-05T09:02:00Z"},
+		[]any{"pending", 3.0, "2026-01-05T09:08:00Z", "2026-01-05T09:04:00Z"},
+		[]any{"pending", 4.0, "2026-01-05T09:16:00Z", "2026-01-05T09:08:00Z"},
+		[]any{"pending", 5.0, "2026-01-05T09:32:00Z", "2026-01-05T09:16:00Z"},
+		[]any{"pending", 5.0, "2026-01-05T09:32:00Z", "2026-01-05T09:16:00Z"},
+		[]any{"failed", 6.0, nil, "2026-01-05T09:32:00Z"},
+		[]any{"failed", 6.0, nil, "2026-01-05T09:32:00Z"},
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("status, attempts, next attempt, last attempt after each run (-want +got):\n%s", diff)
@@ -370,20 +352,20 @@ func TestMailTheServerRefusesIsTriedAgainAfterAPauseThatDoublesUntilItFails(t *t
 func TestAFailedMessageKeepsTheLastErrorItWasRefusedWith(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	k := alertSite(t, f, "forced_open")
+	k := alertSite(t, f, "held_open")
 	f.MailerStub.FailWith("421 Try again later")
-	k.opens(false)
+	k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
 
-	for _, at := range []string{"2026-01-05T09:01:00Z", "2026-01-05T09:03:00Z", "2026-01-05T09:07:00Z", "2026-01-05T09:15:00Z"} {
+	for _, at := range []string{"2026-01-05T09:02:00Z", "2026-01-05T09:04:00Z", "2026-01-05T09:08:00Z", "2026-01-05T09:16:00Z"} {
 		k.runAt(at)
 	}
 	f.MailerStub.FailWith("550 Mailbox unavailable")
-	k.runAt("2026-01-05T09:31:00Z")
+	k.runAt("2026-01-05T09:32:00Z")
 
-	want := testsupport.JSON(`{"id":1,"kind":"forced_open","subject":"Door forced open: Lobby",
-		"text":"Door forced open at Lobby, Mon 5 Jan 2026 09:00:00 UTC.\n\nIts controller says it was locked when it opened.\n\nThis mail goes to every alert recipient while the alert Door forced open is enabled on the Alerts tab of the settings.\n",
-		"to":["ops@example.com","desk@example.com"],"status":"failed","attempts":6,"created_at":"2026-01-05T09:00:00Z",
-		"last_attempt_at":"2026-01-05T09:31:00Z",
+	want := testsupport.JSON(`{"id":1,"kind":"held_open","subject":"Door held open: Lobby",
+		"text":"Door held open at Lobby, Mon 5 Jan 2026 09:01:00 UTC.\n\nOpen for longer than 60 seconds.\n\nThis mail goes to every alert recipient while the alert Door held open is enabled on the Alerts tab of the settings.\n",
+		"to":["ops@example.com","desk@example.com"],"status":"failed","attempts":6,"created_at":"2026-01-05T09:01:00Z",
+		"last_attempt_at":"2026-01-05T09:32:00Z",
 		"last_error":"the mail server could not be reached or refused the message: 550 Mailbox unavailable"}`)
 	if diff := cmp.Diff(want, k.outbox("/0")); diff != "" {
 		t.Errorf("message (-want +got):\n%s", diff)
@@ -393,16 +375,16 @@ func TestAFailedMessageKeepsTheLastErrorItWasRefusedWith(t *testing.T) {
 func TestMailTheServerTakesOnARetryIsSentWithoutAnError(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	k := alertSite(t, f, "forced_open")
+	k := alertSite(t, f, "held_open")
 	f.MailerStub.FailWith("421 Try again later")
-	k.opens(false)
+	k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
 	before := k.outbox("/0/last_error")
 	f.MailerStub.Fail(nil)
 
-	k.runAt("2026-01-05T09:01:00Z")
+	k.runAt("2026-01-05T09:02:00Z")
 
 	got := []any{before, k.outbox("/0/status"), k.outbox("/0/attempts"), k.outbox("/0/sent_at"), k.outbox("/0/last_error"), subjects(t, f)}
-	if diff := cmp.Diff([]any{refused, "sent", 2.0, "2026-01-05T09:01:00Z", nil, []any{forcedSubject}}, got); diff != "" {
+	if diff := cmp.Diff([]any{refused, "sent", 2.0, "2026-01-05T09:02:00Z", nil, []any{heldSubject}}, got); diff != "" {
 		t.Errorf("error before, status, attempts, sent, error, subjects (-want +got):\n%s", diff)
 	}
 }
@@ -410,16 +392,16 @@ func TestMailTheServerTakesOnARetryIsSentWithoutAnError(t *testing.T) {
 func TestTheEarliestMessageWaitingIsTriedWhenItIsDue(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	k := alertSite(t, f, "forced_open")
+	k := alertSite(t, f, "held_open")
 	f.MailerStub.FailWith("421 Try again later")
-	k.opens(false)
-	k.at("2026-01-05T09:00:30Z")
+	k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
+	k.at("2026-01-05T09:01:30Z")
 	k.says("closed")
 
-	k.runAt("2026-01-05T09:01:00Z")
+	k.runAt("2026-01-05T09:02:00Z")
 
 	got := []any{k.outbox("/0/attempts"), k.outbox("/0/next_attempt_at"), k.outbox("/1/attempts"), k.outbox("/1/next_attempt_at")}
-	if diff := cmp.Diff([]any{1.0, "2026-01-05T09:01:30Z", 2.0, "2026-01-05T09:03:00Z"}, got); diff != "" {
+	if diff := cmp.Diff([]any{1.0, "2026-01-05T09:02:30Z", 2.0, "2026-01-05T09:04:00Z"}, got); diff != "" {
 		t.Errorf("cleared mail's attempts and next, raised mail's attempts and next (-want +got):\n%s", diff)
 	}
 }
@@ -439,23 +421,23 @@ func lastLogged(f *testsupport.Factory, message string) testsupport.LogEntry {
 func TestADeliveryThatCannotReadTheOutboxIsLoggedAndTriedAgainAMinuteLater(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	k := alertSite(t, f, "forced_open")
+	k := alertSite(t, f, "held_open")
 	f.MailerStub.FailWith("421 Try again later")
-	k.opens(false)
-	k.at("2026-01-05T09:00:30Z")
+	k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
+	k.at("2026-01-05T09:01:30Z")
 	k.says("closed")
 	f.MailerStub.Fail(nil)
 	f.StoreStub.FailAlerts()
-	k.runAt("2026-01-05T09:01:00Z")
+	k.runAt("2026-01-05T09:02:00Z")
 	logged := lastLogged(f, "mail delivery failed")
 	f.StoreStub.Recover()
 
-	k.runAt("2026-01-05T09:01:59Z")
+	k.runAt("2026-01-05T09:02:59Z")
 	early := k.outbox("/1/attempts")
-	k.runAt("2026-01-05T09:02:00Z")
+	k.runAt("2026-01-05T09:03:00Z")
 
 	want := []any{testsupport.LogEntry{Level: "error", Message: "mail delivery failed", Fields: map[string]string{"error": "stub: unavailable"}},
-		1.0, "sent", "2026-01-05T09:02:00Z"}
+		1.0, "sent", "2026-01-05T09:03:00Z"}
 	if diff := cmp.Diff(want, []any{logged, early, k.outbox("/1/status"), k.outbox("/1/sent_at")}); diff != "" {
 		t.Errorf("log, attempts before the minute, status, sent (-want +got):\n%s", diff)
 	}
@@ -464,14 +446,14 @@ func TestADeliveryThatCannotReadTheOutboxIsLoggedAndTriedAgainAMinuteLater(t *te
 func TestADeliveryThatCannotUpdateTheOutboxIsLogged(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	k := alertSite(t, f, "forced_open")
+	k := alertSite(t, f, "held_open")
 	f.MailerStub.FailWith("421 Try again later")
-	k.opens(false)
-	k.at("2026-01-05T09:00:30Z")
+	k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
+	k.at("2026-01-05T09:01:30Z")
 	k.says("closed")
 	f.StoreStub.FailAlertWrites()
 
-	k.runAt("2026-01-05T09:01:00Z")
+	k.runAt("2026-01-05T09:02:00Z")
 
 	want := testsupport.LogEntry{Level: "error", Message: "mail delivery failed", Fields: map[string]string{"error": "stub: unavailable"}}
 	if diff := cmp.Diff(want, lastLogged(f, "mail delivery failed")); diff != "" {
@@ -498,22 +480,23 @@ func TestAnAlertTheStoreCannotFollowIsLoggedAndTheDoorIsHandledAll(t *testing.T)
 		fail   func(s *testsupport.Store)
 		logged testsupport.LogEntry
 	}{
-		"when it cannot be read":                            {[]string{"forced_open"}, (*testsupport.Store).FailAlerts, notFollowed("forced_open")},
-		"when its mail cannot be queued":                    {[]string{"forced_open"}, (*testsupport.Store).FailAlertWrites, notFollowed("forced_open")},
-		"when its condition cannot be stored, mailing none": {nil, (*testsupport.Store).FailAlertWrites, notFollowed("forced_open")},
+		"when it cannot be read":                            {[]string{"held_open"}, (*testsupport.Store).FailAlerts, notFollowed("held_open")},
+		"when its mail cannot be queued":                    {[]string{"held_open"}, (*testsupport.Store).FailAlertWrites, notFollowed("held_open")},
+		"when its condition cannot be stored, mailing none": {nil, (*testsupport.Store).FailAlertWrites, notFollowed("held_open")},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			f := testsupport.NewFactory()
 			k := alertSite(t, f, c.kinds...)
+			k.opens(true)
 			c.fail(f.StoreStub)
 
-			k.opens(false)
+			k.sweepAt("2026-01-05T09:01:00Z")
 
-			got := []any{lastLogged(f, "alert condition not followed"), k.reasons(), k.state("/door")}
-			if diff := cmp.Diff([]any{c.logged, []any{"forced open", "opened"}, "open"}, got); diff != "" {
-				t.Errorf("log, reasons, door state (-want +got):\n%s", diff)
+			got := []any{lastLogged(f, "alert condition not followed"), k.reasons(), k.state("/held_open")}
+			if diff := cmp.Diff([]any{c.logged, []any{"held open", "opened"}, true}, got); diff != "" {
+				t.Errorf("log, reasons, held open (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -522,8 +505,8 @@ func TestAnAlertTheStoreCannotFollowIsLoggedAndTheDoorIsHandledAll(t *testing.T)
 func TestAClearingTheStoreCannotFollowIsLoggedAndTheDoorStillCloses(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	k := alertSite(t, f, "forced_open")
-	k.opens(false)
+	k := alertSite(t, f, "held_open")
+	k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
 	f.StoreStub.FailAlerts()
 
 	k.says("closed")
@@ -531,7 +514,7 @@ func TestAClearingTheStoreCannotFollowIsLoggedAndTheDoorStillCloses(t *testing.T
 	logged := lastLogged(f, "alert condition not followed")
 
 	got := []any{logged, k.state("/door")}
-	if diff := cmp.Diff([]any{notFollowed("forced_open"), "closed"}, got); diff != "" {
+	if diff := cmp.Diff([]any{notFollowed("held_open"), "closed"}, got); diff != "" {
 		t.Errorf("logs, door state (-want +got):\n%s", diff)
 	}
 }
@@ -539,35 +522,34 @@ func TestAClearingTheStoreCannotFollowIsLoggedAndTheDoorStillCloses(t *testing.T
 func TestAConditionStillRaisedMailsNoSecondRaiseAndClearsOnTheNextClosing(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	k := alertSite(t, f, "forced_open")
-	k.opens(false)
+	k := alertSite(t, f, "held_open")
+	k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
 	f.StoreStub.FailAlerts()
-	k.at("2026-01-05T09:00:20Z")
+	k.at("2026-01-05T09:01:20Z")
 	k.says("closed")
 	f.StoreStub.Recover()
-	k.at("2026-01-05T09:30:00Z")
-	k.opens(false)
+	k.holdsOpen("2026-01-05T09:30:00Z", "2026-01-05T09:31:00Z")
 	raised := subjects(t, f)
 
-	k.at("2026-01-05T09:30:20Z")
+	k.at("2026-01-05T09:31:20Z")
 	k.says("closed")
 
-	if diff := cmp.Diff([]any{[]any{forcedSubject}, []any{forcedSubject, cleared(forcedSubject)}}, []any{raised, subjects(t, f)}); diff != "" {
+	if diff := cmp.Diff([]any{[]any{heldSubject}, []any{heldSubject, cleared(heldSubject)}}, []any{raised, subjects(t, f)}); diff != "" {
 		t.Errorf("subjects after the second opening, after its closing (-want +got):\n%s", diff)
 	}
 }
 
 // spoiledHoldDown is what is logged while the environment gives a
 // hold-down that is no number.
-var spoiledHoldDown = notFollowedWith("forced_open", "invalid value for alert_hold_down_minutes: must be a whole number of minutes from 0 to 10080")
+var spoiledHoldDown = notFollowedWith("held_open", "invalid value for alert_hold_down_minutes: must be a whole number of minutes from 0 to 10080")
 
 func TestARaiseWhoseSettingsCannotBeReadIsLoggedAndTheDoorStillOpens(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	k := alertSite(t, f, "forced_open")
+	k := alertSite(t, f, "held_open")
 	f.EnvStub["DOORCODE_ALERT_HOLD_DOWN_MINUTES"] = "soon"
 
-	k.opens(false)
+	k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
 
 	got := []any{lastLogged(f, "alert condition not followed"), subjects(t, f), k.state("/door")}
 	if diff := cmp.Diff([]any{spoiledHoldDown, []any{}, "open"}, got); diff != "" {
@@ -578,14 +560,14 @@ func TestARaiseWhoseSettingsCannotBeReadIsLoggedAndTheDoorStillOpens(t *testing.
 func TestAClearingWhoseSettingsCannotBeReadIsLoggedAndTheDoorStillCloses(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	k := alertSite(t, f, "forced_open")
-	k.opens(false)
+	k := alertSite(t, f, "held_open")
+	k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
 	f.EnvStub["DOORCODE_ALERT_HOLD_DOWN_MINUTES"] = "soon"
 
 	k.says("closed")
 
 	got := []any{lastLogged(f, "alert condition not followed"), subjects(t, f), k.state("/door")}
-	if diff := cmp.Diff([]any{spoiledHoldDown, []any{forcedSubject}, "closed"}, got); diff != "" {
+	if diff := cmp.Diff([]any{spoiledHoldDown, []any{heldSubject}, "closed"}, got); diff != "" {
 		t.Errorf("log, subjects, door state (-want +got):\n%s", diff)
 	}
 }
@@ -593,13 +575,13 @@ func TestAClearingWhoseSettingsCannotBeReadIsLoggedAndTheDoorStillCloses(t *test
 func TestAClearedMailTheStoreCannotQueueIsLogged(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	k := alertSite(t, f, "forced_open")
-	k.opens(false)
+	k := alertSite(t, f, "held_open")
+	k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
 	f.StoreStub.FailAlertWrites()
 
 	k.says("closed")
 
-	if diff := cmp.Diff(notFollowed("forced_open"), lastLogged(f, "alert condition not followed")); diff != "" {
+	if diff := cmp.Diff(notFollowed("held_open"), lastLogged(f, "alert condition not followed")); diff != "" {
 		t.Errorf("log (-want +got):\n%s", diff)
 	}
 }
@@ -609,7 +591,7 @@ func TestAKindOfAlertIsEnabledAndDisabledThroughTheAPI(t *testing.T) {
 	b := signedInAdmin(t, testsupport.NewFactory())
 
 	on := send(t, b, "PUT", "/api/v1/alerts/kinds/held_open", `{"enabled":true}`, 200)
-	shown := testsupport.JSONAt(send(t, b, "GET", "/api/v1/alerts", "", 200).Body, "/kinds/1/enabled")
+	shown := testsupport.JSONAt(send(t, b, "GET", "/api/v1/alerts", "", 200).Body, "/kinds/0/enabled")
 	off := send(t, b, "PUT", "/api/v1/alerts/kinds/held_open", `{"enabled":false}`, 200)
 
 	want := []any{testsupport.JSON(`{"key":"held_open","name":"Door held open","about":"A door stood open for longer than its held-open time while it should have been locked. It clears when the door closes or an open span of its timeline begins.","enabled":true}`),

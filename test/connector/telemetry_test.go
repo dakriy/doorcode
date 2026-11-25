@@ -227,7 +227,7 @@ func TestStoreKeepsAlarmEvents(t *testing.T) {
 		t.Run(impl.name, func(t *testing.T) {
 			store := overrideWorld(t, impl)
 			ctx := context.Background()
-			e := connector.StoredEvent{At: telemetryStart, DoorID: 1, Type: "alarm", Outcome: "alert", Reason: "forced open", Detail: "Forced."}
+			e := connector.StoredEvent{At: telemetryStart, DoorID: 1, Type: "alarm", Outcome: "alert", Reason: "held open", Detail: "Held."}
 			if _, err := store.AddEvent(ctx, e); err != nil {
 				t.Fatal(err)
 			}

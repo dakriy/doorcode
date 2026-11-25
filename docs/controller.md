@@ -377,11 +377,11 @@ below for a field it lacks.
 
 | Field | CBOR type | Unit | Range | Default | Who uses it, for what |
 | --- | --- | --- | --- | --- | --- |
-| `strike_pulse_ms` | uint | ms | 100 to 60000 | 3000 | Controller: how long the strike stays released each time the door lets someone in, and for an open span's keypress. The server sends the same value as a reply's or open command's `strike_ms`, and lets the door open within this, plus `reply_timeout_ms`, of letting someone in without calling it forced open. |
+| `strike_pulse_ms` | uint | ms | 100 to 60000 | 3000 | Controller: how long the strike stays released each time the door lets someone in, and for an open span's keypress. The server sends the same value as a reply's or open command's `strike_ms`. |
 | `keypad_idle_clear_ms` | uint | ms | 1000 to 600000 | 10000 | Controller: discard a partly typed entry after this long without a key. |
 | `min_code_length` | uint | digits | 1 to 16 | 4 | Controller: the fewest digits a code may have; discard an entry whose code (the digits before any `*`) is shorter without sending it. |
 | `max_code_length` | uint | digits | 16 to 64 | 32 | Controller: the longest entry the keypad takes, a keypad command included; take no more keys once an entry is this long, and do not send a longer one. |
-| `reply_timeout_ms` | uint | ms | 100 to 60000 | 3000 | Controller: how long to wait for the server's reply to a check before denying the entry. The server allows a door to open this long, plus the strike pulse, after it let someone in before calling it forced. |
+| `reply_timeout_ms` | uint | ms | 100 to 60000 | 3000 | Controller: how long to wait for the server's reply to a check before denying the entry. |
 | `telemetry_interval_s` | uint | s | 5 to 86400 | 60 | Controller: how often to publish telemetry, its health readings such as its signal and uptime. |
 | `held_open_s` | uint | s | 5 to 86400 | 60 | Server: how long a door may stand open, while it should be locked, before it counts as held open and an event is logged. The controller may use it for a local warning. |
 | `timeline_refresh_hours` | uint | hours | 1 to 24 | 6 | Server: how often it sends the door its timeline of when to stay open and locked even when nothing changed it. The controller can expect a new timeline at least this often while connected. |
@@ -788,13 +788,6 @@ digest is that of the configuration last sent.
 
 From these the server derives:
 
-- **forced open:** `opened` when the door was not open already and
-  - with `unlocked`, it is false; the controller's word decides, whatever
-    the server last let in;
-  - without `unlocked` (firmware that predates it), nothing let anyone in
-    within `strike_pulse_ms` + `reply_timeout_ms` before it (no allowed
-    check or keypad command, no `open` command from the administration,
-    no open span), so send `opened` as soon as the sensor sees it;
 - **held open:** open for `held_open_s` or longer while it should be
   locked. Time in an open span of the door's timeline (open mode or an open
   override) does not count: the count starts when the door opened or when
@@ -806,9 +799,13 @@ From these the server derives:
   server's state, by an `opened` event or by a report with `door_open`
   true, in an open span or outside one, one event of type `door`,
   outcome `info`, reason `opened`, with no length. None is recorded when
-  the server had the door open already. When the opening is also forced
-  open, the alarm is a separate event beside it. Its outcome is `info`,
-  so it never counts as an unlock for the forced open check.
+  the server had the door open already. An `opened` event that carries
+  `unlocked` gives the event the detail "Its controller says the strike
+  was unlocked when it opened." or "Its controller says the strike was
+  locked when it opened."; a report, or an `opened` event without it,
+  gives none. No alarm is raised either way: someone leaving from inside
+  opens the door locked, and the board cannot tell that from a forced
+  door.
 - **closed:** whenever the door goes from open to closed in the server's
   state, by a `closed` event or by a report with `door_open` false, in an
   open span or outside one, one event of type `door`, outcome `info`,

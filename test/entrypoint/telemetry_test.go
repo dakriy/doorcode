@@ -50,7 +50,7 @@ func TestADoorStaysOpenSinceItOpenedWhileItReportsItOpen(t *testing.T) {
 	k.report(map[string]any{"door_open": true})
 
 	got := []any{k.state("/opened_at"), k.reasons()}
-	if diff := cmp.Diff([]any{"2026-01-05T09:00:00Z", []any{"forced open", "opened"}}, got); diff != "" {
+	if diff := cmp.Diff([]any{"2026-01-05T09:00:00Z", []any{"opened"}}, got); diff != "" {
 		t.Errorf("opened at, reasons (-want +got):\n%s", diff)
 	}
 }
@@ -76,7 +76,6 @@ func TestADoorPageShowsTheDoorsLiveState(t *testing.T) {
 		},
 		[][]string{{"When", "Alarm", "Details"},
 			{"Mon 5 Jan 2026 09:01:00", "Held open", "Open for longer than 60 seconds."},
-			{"Mon 5 Jan 2026 09:00:00", "Forced open", "Nothing unlocked it in the 6 seconds before it opened."},
 		},
 	}
 	got := []any{page.Details, page.Tables["Alarms"]}

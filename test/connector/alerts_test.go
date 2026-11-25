@@ -24,7 +24,7 @@ func outboxWorld(t *testing.T, impl storeImpl) connector.Store {
 	sent := alertsStart.Add(90 * time.Second)
 	for i, m := range []connector.StoredMail{
 		{Kind: "held_open", Subject: "Held", Text: "Open.\n", To: []string{"ops@example.com"}, Status: "pending"},
-		{Kind: "forced_open", Subject: "Forced", Text: "Forced.\n", To: []string{"ops@example.com", "desk@example.com"}, Status: "sent",
+		{Kind: "config_mismatch", Subject: "Mismatched", Text: "Mismatched.\n", To: []string{"ops@example.com", "desk@example.com"}, Status: "sent",
 			Attempts: 1, LastAttemptAt: &sent, SentAt: &sent},
 		{Kind: "held_open", Subject: "Held again", Text: "Again.\n", To: []string{"desk@example.com"}, Status: "pending",
 			Attempts: 2, LastAttemptAt: &sent, LastError: "421 Busy"},
@@ -47,12 +47,12 @@ func TestStoreKeepsWhetherEachKindOfAlertIsEnabled(t *testing.T) {
 			before, beforeErr := store.AlertKinds(ctx)
 			errs := []error{
 				store.SetAlertKind(ctx, "held_open", true),
-				store.SetAlertKind(ctx, "forced_open", true),
+				store.SetAlertKind(ctx, "config_mismatch", true),
 				store.SetAlertKind(ctx, "held_open", false),
 			}
 			after, afterErr := store.AlertKinds(ctx)
 
-			want := []any{map[string]bool{}, nil, []error{nil, nil, nil}, map[string]bool{"held_open": false, "forced_open": true}, nil}
+			want := []any{map[string]bool{}, nil, []error{nil, nil, nil}, map[string]bool{"held_open": false, "config_mismatch": true}, nil}
 			if diff := cmp.Diff(want, []any{before, beforeErr, errs, after, afterErr}); diff != "" {
 				t.Errorf("before, error, set errors, after, error (-want +got):\n%s", diff)
 			}
@@ -71,19 +71,19 @@ func TestStoreKeepsEachAlertConditionByKindAndSubject(t *testing.T) {
 			errs := []error{
 				store.PutAlertCondition(ctx, connector.StoredCondition{Kind: "held_open", Subject: "door 1", Active: true, Mailed: true, ChangedAt: alertsStart}),
 				store.PutAlertCondition(ctx, connector.StoredCondition{Kind: "held_open", Subject: "door 2", Active: true, ChangedAt: alertsStart}),
-				store.PutAlertCondition(ctx, connector.StoredCondition{Kind: "forced_open", Subject: "door 1", Active: true, ChangedAt: alertsStart}),
+				store.PutAlertCondition(ctx, connector.StoredCondition{Kind: "config_mismatch", Subject: "door 1", Active: true, ChangedAt: alertsStart}),
 				store.PutAlertCondition(ctx, connector.StoredCondition{Kind: "held_open", Subject: "door 1", Mailed: true, ChangedAt: later}),
 				store.PutAlertCondition(ctx, connector.StoredCondition{Kind: "offline", Subject: "door 1", Active: true, Owed: true, ChangedAt: alertsStart,
 					Name: "Lobby", Detail: "Not connected."}),
 			}
 			one, oneHeld, oneErr := store.AlertCondition(ctx, "held_open", "door 1")
-			other, otherHeld, otherErr := store.AlertCondition(ctx, "forced_open", "door 1")
+			other, otherHeld, otherErr := store.AlertCondition(ctx, "config_mismatch", "door 1")
 			owed, owedHeld, owedErr := store.AlertCondition(ctx, "offline", "door 1")
 
 			want := []any{
 				connector.StoredCondition{}, false, nil, []error{nil, nil, nil, nil, nil},
 				connector.StoredCondition{Kind: "held_open", Subject: "door 1", Mailed: true, ChangedAt: later}, true, nil,
-				connector.StoredCondition{Kind: "forced_open", Subject: "door 1", Active: true, ChangedAt: alertsStart}, true, nil,
+				connector.StoredCondition{Kind: "config_mismatch", Subject: "door 1", Active: true, ChangedAt: alertsStart}, true, nil,
 				connector.StoredCondition{Kind: "offline", Subject: "door 1", Active: true, Owed: true, ChangedAt: alertsStart, Name: "Lobby", Detail: "Not connected."}, true, nil,
 			}
 			got := []any{none, noneHeld, noneErr, errs, one, oneHeld, oneErr, other, otherHeld, otherErr, owed, owedHeld, owedErr}
@@ -104,7 +104,7 @@ func TestStoreListsTheActiveAlertConditionsByKindAndSubject(t *testing.T) {
 				{Kind: "offline", Subject: "door 2", Active: true, Mailed: true, ChangedAt: alertsStart},
 				{Kind: "held_open", Subject: "door 1", ChangedAt: alertsStart},
 				{Kind: "offline", Subject: "door 10", Active: true, ChangedAt: alertsStart},
-				{Kind: "forced_open", Subject: "door 3", Active: true, ChangedAt: alertsStart},
+				{Kind: "config_mismatch", Subject: "door 3", Active: true, ChangedAt: alertsStart},
 			} {
 				if err := store.PutAlertCondition(ctx, c); err != nil {
 					t.Fatal(err)
@@ -114,7 +114,7 @@ func TestStoreListsTheActiveAlertConditionsByKindAndSubject(t *testing.T) {
 			active, err := store.ActiveAlertConditions(ctx)
 
 			want := []any{[]connector.StoredCondition{}, nil, []connector.StoredCondition{
-				{Kind: "forced_open", Subject: "door 3", Active: true, ChangedAt: alertsStart},
+				{Kind: "config_mismatch", Subject: "door 3", Active: true, ChangedAt: alertsStart},
 				{Kind: "offline", Subject: "door 10", Active: true, ChangedAt: alertsStart},
 				{Kind: "offline", Subject: "door 2", Active: true, Mailed: true, ChangedAt: alertsStart},
 			}, nil}

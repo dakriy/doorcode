@@ -324,7 +324,7 @@ func configTable(changed map[string][2]string) [][]string {
 	tls := ""
 	for _, f := range []struct{ name, label, about, value string }{
 		{"strike_pulse_ms", "Strike pulse",
-			"How long the door's strike stays released each time it lets someone in. The door may open within this, plus the reply timeout, without counting as forced open.", "3000"},
+			"How long the door's strike stays released each time it lets someone in.", "3000"},
 		{"held_open_s", "Held open after",
 			"How long a door may stand open, when it should be locked, before it counts as held open and an event is logged.", "60"},
 		{"keypad_idle_clear_ms", "Keypad idle clear",

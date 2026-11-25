@@ -307,8 +307,9 @@ point is listed; when nothing meshes it says so. `GET /api/v1/mesh` returns
 the same graph. Doors also send door open and close transitions as events, in
 open mode too. The server logs every opening (reason *opened*) and every
 closing (reason *closed*, with how long the door was open) as door events,
-in open mode as much as outside it, and derives *forced open* (opened
-without a preceding unlock) and *held open* (open longer than a configurable duration while it
+in open mode as much as outside it, an opening's detail saying whether the
+controller found the strike unlocked when it said so, and derives *held
+open* (open longer than a configurable duration while it
 should be locked, counting no time in open mode or an open override) and
 shows them live. A door with no contact for a configurable period is
 *unresponsive*.
@@ -647,7 +648,7 @@ started, as its latest report gave them, so they reset when it restarts.
 never by reading the events table at scrape time, so it and the HTTP
 request counters start from zero when the server starts. Every door that
 is not deleted and has a controller always shows a series, at 0 until its
-first event, for each alarm reason (`forced open`, `held open`,
+first event, for each alarm reason the server logs (`held open`,
 `configuration reverted`) and for a controller start with each
 `start_reason` (each one the server knows, `other`, and empty, for a
 controller that did not say), under exactly the labels that event is
@@ -704,7 +705,7 @@ The event labels take the events page's values: `type` is `check`,
 `locked`, `expired`, `rate limited`, `not a commander`, `bad command`,
 `command failed`, `reboot too soon`, `update under way`, `unreachable`,
 `keypad open`, `keypad locked`, `keypad cancel`, `keypad reboot`,
-`reboot sent`, `admin UI`, `forced open`, `held open`,
+`reboot sent`, `admin UI`, `held open`,
 `configuration reverted`, `opened`, `closed`, `started`, `update sent`,
 `update succeeded`, `update failed`. `start_reason` is set only on a
 controller's start (`type="door"`, `reason="started"`), as the controller

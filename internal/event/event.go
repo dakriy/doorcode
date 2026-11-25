@@ -24,7 +24,7 @@ const (
 	// Open is a door opened from the admin UI or the API.
 	Open = "open"
 	// Alarm is something wrong with a door's state, such as the door
-	// forced open.
+	// held open.
 	Alarm = "alarm"
 	// Update is a firmware update sent to a door, or its end.
 	Update = "update"
@@ -114,8 +114,6 @@ const RebootSent = "reboot sent"
 
 // The reasons of alarms.
 const (
-	// ForcedOpen is a door opened when nothing had unlocked it.
-	ForcedOpen = "forced open"
 	// HeldOpen is a door open for longer than its configuration allows.
 	HeldOpen = "held open"
 	// ConfigReverted is a door's controller giving up the configuration
@@ -124,8 +122,14 @@ const (
 	ConfigReverted = "configuration reverted"
 )
 
-// AlarmReasons is every reason of an alarm, in the order pages list them.
-var AlarmReasons = []string{ForcedOpen, HeldOpen, ConfigReverted}
+// AlarmReasons is every reason of an alarm the server logs, in the order
+// pages list them.
+var AlarmReasons = []string{HeldOpen, ConfigReverted}
+
+// ForcedOpen is the reason of an alarm the server does not log: a door
+// that opened while nothing had unlocked it. Stored events may carry it,
+// so pages and the API list it among the reasons they filter by.
+const ForcedOpen = "forced open"
 
 // Opened is the reason of a door opening after it was not open.
 const Opened = "opened"
@@ -159,7 +163,7 @@ var Reasons = slices.Concat(
 		KeypadOpen, KeypadLocked, KeypadCancel, KeypadReboot, RebootSent, FromUI,
 	},
 	AlarmReasons,
-	[]string{Opened, Closed, Started, UpdateSent, UpdateSucceeded, UpdateFailed},
+	[]string{ForcedOpen, Opened, Closed, Started, UpdateSent, UpdateSucceeded, UpdateFailed},
 )
 
 // Service records and finds events, and counts those it recorded.

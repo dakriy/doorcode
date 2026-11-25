@@ -186,7 +186,7 @@ func New(ctx context.Context, f connector.Factory) (*App, error) {
 		Providers: &identity.Providers{},
 	}
 	a.telemetry = telemetry.Service{
-		Store: store, Doors: a.doors, Events: a.events, Settings: s, Clock: clock, Alerts: a.alerts,
+		Store: store, Doors: a.doors, Events: a.events, Clock: clock, Alerts: a.alerts,
 		Changed: a.live.notify, Reported: a.live.report,
 	}
 	a.firmware = firmware.Service{

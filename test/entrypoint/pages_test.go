@@ -127,7 +127,7 @@ var settingRows = map[string]struct{ section, label, help string }{
 	"update_concurrency":     {"Firmware updates", "Doors updating at once", ""},
 	"update_timeout_minutes": {"Firmware updates", "Update timeout", "Minutes a door may take to come back on its new version before the update fails."},
 	"door_strike_pulse_ms": {"Door defaults", "Strike pulse",
-		"How long the door's strike stays released each time it lets someone in. The door may open within this, plus the reply timeout, without counting as forced open."},
+		"How long the door's strike stays released each time it lets someone in."},
 	"door_keypad_idle_clear_ms": {"Door defaults", "Keypad idle clear",
 		"How long a partly typed entry waits for the next key before the keypad discards it."},
 	"door_min_code_length": {"Door defaults", "Shortest code",

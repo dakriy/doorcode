@@ -104,8 +104,8 @@ func pastEvents(rng *rand.Rand, start, now time.Time) []connector.StoredEvent {
 		return e.DoorID == workshop && e.Reason == event.HeldOpen && !e.At.Before(deliveryStart)
 	})
 	// The doors' openings and closings go first, so an opening at the
-	// instant of a forced open alarm stays before it, as the server
-	// records them.
+	// instant of another event stays before it, as the server records
+	// them.
 	events = append(doorActivity(rng, events), events...)
 	events = append(events, pastUpdates(now)...)
 	events = append(events, pastStarts(now)...)
@@ -174,10 +174,6 @@ func occasional(rng *rand.Rand, day time.Time) []connector.StoredEvent {
 		out = append(out, connector.StoredEvent{At: at(9, 17), DoorID: workshop, Type: event.Open, Outcome: event.Allowed, Reason: event.FromUI,
 			UserID: &admin, Detail: "Strike released for 3000 ms."})
 	}
-	if rng.IntN(5) == 0 {
-		out = append(out, connector.StoredEvent{At: at(0, 24), DoorID: loadingDock, Type: event.Alarm, Outcome: event.Alert, Reason: event.ForcedOpen,
-			Detail: "Nothing unlocked it in the 6 seconds before it opened."})
-	}
 	if rng.IntN(4) == 0 {
 		out = append(out, connector.StoredEvent{At: at(8, 18), DoorID: workshop, Type: event.Alarm, Outcome: event.Alert, Reason: event.HeldOpen,
 			Detail: "Open for longer than 60 seconds."})
@@ -200,9 +196,8 @@ func keypadOpen(rng *rand.Rand, at time.Time) []connector.StoredEvent {
 
 // doorActivity is the door opening and closing for each opening among
 // events, in open spans as much as outside them: someone let in by a code
-// or from the UI opening it a moment later, and the door forced open
-// opening as the alarm is raised, each closing seconds later, and a door
-// held open, opening a minute before the alarm and closing a little after
+// or from the UI opening it a moment later, closing seconds later, and a
+// door held open, opening a minute before the alarm and closing a little after
 // it. A keypad command is not an opening; the check it came with is.
 func doorActivity(rng *rand.Rand, events []connector.StoredEvent) []connector.StoredEvent {
 	var out []connector.StoredEvent
@@ -213,8 +208,6 @@ func doorActivity(rng *rand.Rand, events []connector.StoredEvent) []connector.St
 		case e.Outcome == event.Allowed && e.Type != event.Command:
 			openedAt = e.At.Add(time.Duration(500+rng.IntN(2000)) * time.Millisecond)
 			open = time.Duration(3000+rng.IntN(7000)) * time.Millisecond
-		case e.Reason == event.ForcedOpen:
-			openedAt, open = e.At, time.Duration(5000+rng.IntN(10000))*time.Millisecond
 		case e.Reason == event.HeldOpen:
 			openedAt, open = e.At.Add(-time.Minute), time.Minute+time.Duration(10000+rng.IntN(50000))*time.Millisecond
 		default:

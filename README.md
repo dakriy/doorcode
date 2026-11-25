@@ -33,7 +33,7 @@ the engineering contract is [AGENTS.md](AGENTS.md).
 - **Doors.** Enrollment over MQTT with administrator approval, per-door
   broker credentials that rotate automatically, pictures, zones, per-door
   configuration overrides over site defaults, opening from the UI, and live
-  state: online, open or closed, forced open, held open, unresponsive.
+  state: online, open or closed, held open, unresponsive.
 - **Telemetry.** Signal, latency, uptime, free memory, reconnects, opens,
   and where the controller sits in the site's Wi-Fi mesh, kept as samples
   and hourly summaries, charted on each door's page; a door that hops
@@ -69,8 +69,8 @@ the engineering contract is [AGENTS.md](AGENTS.md).
   and so on) and free its name, email, or user id. That is meant for
   integrations that make temporary users and doors for testing, needs the
   `admin` role, and is offered by no page.
-- **Alerts.** Mail to a site-wide list of recipients when a door is forced
-  open, held open, offline, or unresponsive, runs a configuration other
+- **Alerts.** Mail to a site-wide list of recipients when a door is held
+  open, offline, or unresponsive, runs a configuration other
   than the one it was sent, or fails a firmware update, or when the
   certificates the broker or the device address serve stop verifying,
   run short, or cannot be reached, once when raised and once more when it
@@ -300,7 +300,7 @@ To make the token Prometheus scrapes with:
 
 [`deploy/prometheus/`](deploy/prometheus) holds an example scrape
 configuration (`prometheus.yml`) and example alert rules (`alerts.yml`):
-a door offline or unresponsive, held or forced open, a weak signal, lost
+a door offline or unresponsive, held open, a weak signal, lost
 code checks, controller restarts by panic or watchdog, a spike of denied
 or rate-limited checks, a failed firmware update, a lasting configuration
 mismatch, and the server, its broker, or its store down.
@@ -377,8 +377,8 @@ What a scrape holds:
 The values of `doorcode_events_total`'s labels are those of the events
 page: `type` is `check`, `command`, `open`, `alarm`, `door`, or `update`;
 `outcome` is `allowed`, `denied`, `alert`, or `info`; `reason` is, for
-example, `no rule` or `rate limited` on a denied check, `forced open`,
-`held open`, or `configuration reverted` on an alarm, `started` on a
+example, `no rule` or `rate limited` on a denied check, `held open`
+or `configuration reverted` on an alarm, `started` on a
 controller's start, and `update failed` on an update (see
 [docs/spec.md](docs/spec.md), section 15, for the full list).
 
@@ -562,7 +562,6 @@ the settings API changes the settings.
 
 | Kind | Raised | Cleared |
 | --- | --- | --- |
-| `forced_open` | A door opens while nothing unlocked it, when the server logs a `forced open` alarm. | The door closes. |
 | `held_open` | A door stays open past its held-open time while it should be locked, when the server logs a `held open` alarm. | The door closes, or an open span of its timeline begins. |
 | `offline` | A door's controller has not been connected to the broker for `unresponsive_minutes` (a door whose credentials were revoked included). | The controller connects again. |
 | `unresponsive` | A door is marked unresponsive: connected, but not heard from for `unresponsive_minutes`. | The server hears from it, or it is shown offline. |
@@ -575,8 +574,8 @@ the settings API changes the settings.
 The periodic work, at most once a minute, raises and clears `offline`,
 `unresponsive`, the three configuration kinds, and `update_failed` from
 each door's state and firmware status as they stand then, so they may be
-raised or cleared up to a minute after they changed; `forced_open` and
-`held_open` are raised and cleared as the server handles what happens. A
+raised or cleared up to a minute after they changed; `held_open` is
+raised and cleared as the server handles what happens. A
 door that is deleted or loses its controller keeps its conditions as they
 were.
 

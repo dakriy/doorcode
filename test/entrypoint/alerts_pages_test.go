@@ -12,7 +12,6 @@ import (
 // alert.
 var kindRows = [][]string{
 	{"Alert", "Raised and cleared"},
-	{"Door forced open forced_open", "A door opened while nothing unlocked it. It clears when the door closes."},
 	{"Door held open held_open", "A door stood open for longer than its held-open time while it should have been locked. " +
 		"It clears when the door closes or an open span of its timeline begins."},
 	{"Door offline offline", "A door's controller has not been connected to the broker for the minutes of the unresponsive_minutes setting. " +
@@ -161,29 +160,29 @@ func TestTheAlertsTabAsksForEachCertificateCheckSettingWithItsControl(t *testing
 func TestTheAlertsPageListsTheOutboxNewestFirstWithEachMessagesStatus(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	k := alertSite(t, f, "forced_open")
+	k := alertSite(t, f, "held_open")
 	k.inZone("Europe/Berlin")
 	k.setting("alert_hold_down_minutes", "0")
 	f.MailerStub.FailWith("421 Try again later")
-	k.opens(false)
-	for _, at := range []string{"2026-01-05T09:01:00Z", "2026-01-05T09:03:00Z", "2026-01-05T09:07:00Z", "2026-01-05T09:15:00Z", "2026-01-05T09:31:00Z"} {
+	k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
+	for _, at := range []string{"2026-01-05T09:02:00Z", "2026-01-05T09:04:00Z", "2026-01-05T09:08:00Z", "2026-01-05T09:16:00Z", "2026-01-05T09:32:00Z"} {
 		k.runAt(at)
 	}
-	f.MailerStub.FailWith("421 Busy")
-	k.says("closed")
 	f.MailerStub.Fail(nil)
-	k.at("2026-01-05T09:31:30Z")
-	k.opens(false)
+	k.says("closed")
+	f.MailerStub.FailWith("421 Busy")
+
+	k.holdsOpen("2026-01-05T09:32:10Z", "2026-01-05T09:33:10Z")
 
 	got := pageOf(k.b.Get("/admin/alerts")).Tables["Outbox"]
 
 	to := "ops@example.com, desk@example.com"
 	want := [][]string{
 		outboxHead,
-		{"Mon 5 Jan 2026 10:31:30", "Door forced open: Lobby", to, "Sent Mon 5 Jan 2026 10:31:30", "1", ""},
-		{"Mon 5 Jan 2026 10:31:00", "Cleared: Door forced open: Lobby", to, "Waiting, next try Mon 5 Jan 2026 10:32:00", "1",
+		{"Mon 5 Jan 2026 10:33:10", "Door held open: Lobby", to, "Waiting, next try Mon 5 Jan 2026 10:34:10", "1",
 			"the mail server could not be reached or refused the message: 421 Busy"},
-		{"Mon 5 Jan 2026 10:00:00", "Door forced open: Lobby", to, "Failed", "6", refused},
+		{"Mon 5 Jan 2026 10:32:00", "Cleared: Door held open: Lobby", to, "Sent Mon 5 Jan 2026 10:32:00", "1", ""},
+		{"Mon 5 Jan 2026 10:01:00", "Door held open: Lobby", to, "Failed", "6", refused},
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("outbox (-want +got):\n%s", diff)
@@ -200,14 +199,14 @@ func TestSavingTheAlertsTabStoresTheKindsTickedAndTheAlertMailSettings(t *testin
 	t.Parallel()
 	f := testsupport.NewFactory()
 	b := signedInAdmin(t, f)
-	send(t, b, "PUT", "/api/v1/alerts/kinds/forced_open", `{"enabled":true}`, 200)
+	send(t, b, "PUT", "/api/v1/alerts/kinds/offline", `{"enabled":true}`, 200)
 
 	saved := b.Post("/admin/settings", "kind", "", "kind", "held_open", "alert_recipients", "ops@example.com\r\ndesk@example.com",
 		"alert_mail_cleared", "false", "alert_hold_down_minutes", "30")
 	shown := pageOf(b.Get(saved.Location))
 	api := send(t, b, "GET", "/api/v1/alerts", "", 200).Body
 
-	want := []any{303, alertsTabPath, []string{"The settings have been saved. Doors receive changed configuration defaults right away."}, []string{"kind=held_open"}, testsupport.JSON(`[false,true]`),
+	want := []any{303, alertsTabPath, []string{"The settings have been saved. Doors receive changed configuration defaults right away."}, []string{"kind=held_open"}, testsupport.JSON(`[true,false]`),
 		testsupport.JSON(`["ops@example.com","desk@example.com"]`), false, 30.0}
 	got := []any{saved.Status, saved.Location, shown.Messages, shown.Checked,
 		[]any{testsupport.JSONAt(api, "/kinds/0/enabled"), testsupport.JSONAt(api, "/kinds/1/enabled")},
@@ -235,7 +234,7 @@ func TestARefusedAlertsTabShowsWhatIsWrongAndStoresNothing(t *testing.T) {
 		"certificate_runway_days": "548", "certificate_leaf_days": "14", "certificate_unreachable_checks": "3"},
 		false, testsupport.JSON(`[]`), 15.0}
 	got := []any{refusedForm.Status, page.FieldErrors, page.Values,
-		testsupport.JSONAt(api, "/kinds/1/enabled"), testsupport.JSONAt(api, "/recipients"), testsupport.JSONAt(api, "/hold_down_minutes")}
+		testsupport.JSONAt(api, "/kinds/0/enabled"), testsupport.JSONAt(api, "/recipients"), testsupport.JSONAt(api, "/hold_down_minutes")}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("status, errors, values, held open enabled, recipients, hold-down (-want +got):\n%s", diff)
 	}
@@ -247,12 +246,12 @@ func TestTheAlertsTabShowsAnAlertMailSettingTheEnvironmentGivesAsReadOnly(t *tes
 	f.EnvStub["DOORCODE_ALERT_RECIPIENTS"] = "ops@example.com"
 	b := signedInAdmin(t, f)
 
-	saved := b.Post("/admin/settings", "kind", "", "kind", "forced_open", "alert_mail_cleared", "false", "alert_hold_down_minutes", "15")
+	saved := b.Post("/admin/settings", "kind", "", "kind", "held_open", "alert_mail_cleared", "false", "alert_hold_down_minutes", "15")
 	page := pageOf(b.Get(alertsTabPath))
 
 	note := "Set by DOORCODE_ALERT_RECIPIENTS in the environment; change it there."
 	want := []any{303, []string{settingsNote, note},
-		alertMailRows("ops@example.com "+note, "On", "", "environment, read-only")[1], []string{"kind=forced_open"}}
+		alertMailRows("ops@example.com "+note, "On", "", "environment, read-only")[1], []string{"kind=held_open"}}
 	if diff := cmp.Diff(want, []any{saved.Status, page.Notes, page.Tables["Alert mail"][1], page.Checked}); diff != "" {
 		t.Errorf("save, notes, recipients row, checked (-want +got):\n%s", diff)
 	}

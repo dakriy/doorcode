@@ -8,7 +8,7 @@ import (
 	"github.com/dakriy/doorcode/internal/testsupport"
 )
 
-// unsendable is each way alertSite's mail about Lobby forced open cannot
+// unsendable is each way alertSite's mail about Lobby held open cannot
 // be sent, block, the save that lets it be sent again, allow, and what the
 // Alerts page says of the raise's mail in between, waiting.
 var unsendable = map[string]struct {
@@ -31,13 +31,13 @@ var unsendable = map[string]struct {
 		waiting: "Waiting: mailed once it can be",
 	},
 	"its kind disabled, then enabled through the API": {
-		block:   func(k *keypad) { k.enable("forced_open", false) },
-		allow:   func(k *keypad) { k.enable("forced_open", true) },
+		block:   func(k *keypad) { k.enable("held_open", false) },
+		allow:   func(k *keypad) { k.enable("held_open", true) },
 		waiting: "Not mailed: this alert is off",
 	},
 	"its kind disabled, then ticked on the settings page": {
-		block:   func(k *keypad) { k.enable("forced_open", false) },
-		allow:   func(k *keypad) { k.saved(k.b.Post("/admin/settings", "kind", "forced_open")) },
+		block:   func(k *keypad) { k.enable("held_open", false) },
+		allow:   func(k *keypad) { k.saved(k.b.Post("/admin/settings", "kind", "held_open")) },
 		waiting: "Not mailed: this alert is off",
 	},
 }
@@ -63,20 +63,15 @@ func (k *keypad) raised() [][]string {
 	return pageOf(k.b.Get("/admin/alerts")).Tables["Raised now"]
 }
 
-// forcedText is the text of the mail raising Lobby forced open at at.
-func forcedText(at string) string {
-	return "Door forced open at Lobby, " + at + ".\n\nIts controller says it was locked when it opened.\n" + alertFooter("Door forced open")
-}
-
 func TestARaiseThatCouldNotBeMailedIsListedAndMailedOnceMailCanBeSent(t *testing.T) {
 	t.Parallel()
 	for name, c := range unsendable {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			f := testsupport.NewFactory()
-			k := alertSite(t, f, "forced_open")
+			k := alertSite(t, f, "held_open")
 			c.block(k)
-			k.opens(false)
+			k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
 			waiting := k.raised()
 			k.at("2026-01-05T09:30:00Z")
 			c.allow(k)
@@ -84,13 +79,13 @@ func TestARaiseThatCouldNotBeMailedIsListedAndMailedOnceMailCanBeSent(t *testing
 
 			k.runAt("2026-01-05T09:31:00Z")
 
-			// The door standing open raises more by 09:30, listed after
-			// forced_open; only its row is compared at the end.
+			// The door going silent raises more by 09:30, listed after
+			// held_open; only its row is compared at the end.
 			want := []any{
-				[][]string{raisedHead, {"Door forced open", "Lobby", "Mon 5 Jan 2026 09:00:00", c.waiting}},
-				[][]any{{recipients, forcedSubject, forcedText("Mon 5 Jan 2026 09:00:00 UTC")}},
+				[][]string{raisedHead, {"Door held open", "Lobby", "Mon 5 Jan 2026 09:01:00", c.waiting}},
+				[][]any{{recipients, heldSubject, heldText("Mon 5 Jan 2026 09:01:00 UTC")}},
 				"2026-01-05T09:30:00Z",
-				[][]string{raisedHead, {"Door forced open", "Lobby", "Mon 5 Jan 2026 09:00:00", "Mailed"}},
+				[][]string{raisedHead, {"Door held open", "Lobby", "Mon 5 Jan 2026 09:01:00", "Mailed"}},
 			}
 			if diff := cmp.Diff(want, []any{waiting, mailed(t, f), k.outbox("/0/created_at"), k.raised()[:2]}); diff != "" {
 				t.Errorf("raised while waiting, mail, when it was queued, raised after (-want +got):\n%s", diff)
@@ -105,19 +100,18 @@ func TestARaiseThatClearedBeforeItCouldBeMailedIsNeverMailedAndHoldsNothingDown(
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			f := testsupport.NewFactory()
-			k := alertSite(t, f, "forced_open")
+			k := alertSite(t, f, "held_open")
 			c.block(k)
-			k.opens(false)
+			k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
 			k.at("2026-01-05T09:20:00Z")
 			k.says("closed")
 			k.at("2026-01-05T09:25:00Z")
 			c.allow(k)
 			run(t, k.a)
 
-			k.at("2026-01-05T09:30:00Z")
-			k.opens(false)
+			k.holdsOpen("2026-01-05T09:30:00Z", "2026-01-05T09:31:00Z")
 
-			if diff := cmp.Diff([][]any{{recipients, forcedSubject, forcedText("Mon 5 Jan 2026 09:30:00 UTC")}}, mailed(t, f)); diff != "" {
+			if diff := cmp.Diff([][]any{{recipients, heldSubject, heldText("Mon 5 Jan 2026 09:31:00 UTC")}}, mailed(t, f)); diff != "" {
 				t.Errorf("mail (-want +got):\n%s", diff)
 			}
 		})
@@ -127,9 +121,9 @@ func TestARaiseThatClearedBeforeItCouldBeMailedIsNeverMailedAndHoldsNothingDown(
 func TestARaiseMailedOnceItCouldBeIsFollowedByItsClearedMail(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	k := alertSite(t, f, "forced_open")
+	k := alertSite(t, f, "held_open")
 	k.setting("alert_recipients", "")
-	k.opens(false)
+	k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
 	k.at("2026-01-05T09:30:00Z")
 	k.setting("alert_recipients", "ops@example.com,\nFront desk <desk@example.com>")
 	run(t, k.a)
@@ -138,9 +132,9 @@ func TestARaiseMailedOnceItCouldBeIsFollowedByItsClearedMail(t *testing.T) {
 	k.says("closed")
 
 	want := [][]any{
-		{recipients, forcedSubject, forcedText("Mon 5 Jan 2026 09:00:00 UTC")},
-		{recipients, cleared(forcedSubject), "Door forced open at Lobby cleared, Mon 5 Jan 2026 09:40:00 UTC.\n\n" +
-			"It was raised Mon 5 Jan 2026 09:00:00 UTC.\n" + alertFooter("Door forced open")},
+		{recipients, heldSubject, heldText("Mon 5 Jan 2026 09:01:00 UTC")},
+		{recipients, cleared(heldSubject), "Door held open at Lobby cleared, Mon 5 Jan 2026 09:40:00 UTC.\n\n" +
+			"It was raised Mon 5 Jan 2026 09:01:00 UTC.\n" + alertFooter("Door held open")},
 	}
 	if diff := cmp.Diff(want, mailed(t, f)); diff != "" {
 		t.Errorf("mail (-want +got):\n%s", diff)
@@ -150,12 +144,12 @@ func TestARaiseMailedOnceItCouldBeIsFollowedByItsClearedMail(t *testing.T) {
 func TestMailWaitingWhileMailIsNotSetUpUsesNoAttemptAndGoesOutOnceItIs(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	k := alertSite(t, f, "forced_open")
+	k := alertSite(t, f, "held_open")
 	f.MailerStub.FailWith("421 Try again later")
-	k.opens(false)
+	k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
 	k.setting("mail_host", "")
 	var during []any
-	for _, at := range []string{"2026-01-05T09:01:00Z", "2026-01-05T09:31:00Z", "2026-01-05T10:31:00Z"} {
+	for _, at := range []string{"2026-01-05T09:02:00Z", "2026-01-05T09:32:00Z", "2026-01-05T10:32:00Z"} {
 		k.runAt(at)
 		during = append(during, []any{k.outbox("/0/status"), k.outbox("/0/attempts")})
 	}
@@ -169,9 +163,9 @@ func TestMailWaitingWhileMailIsNotSetUpUsesNoAttemptAndGoesOutOnceItIs(t *testin
 	want := []any{
 		[]any{[]any{"pending", 1.0}, []any{"pending", 1.0}, []any{"pending", 1.0}},
 		[]string{mailNotSetUpNote, nothingToCheck},
-		[]string{"Mon 5 Jan 2026 09:00:00", forcedSubject, "ops@example.com, desk@example.com", "Waiting for mail to be set up", "1", refused},
+		[]string{"Mon 5 Jan 2026 09:01:00", heldSubject, "ops@example.com, desk@example.com", "Waiting for mail to be set up", "1", refused},
 		[]any{"sent", 2.0, "2026-01-05T10:40:00Z"},
-		[]any{forcedSubject},
+		[]any{heldSubject},
 	}
 	got := []any{during, page.Notes, page.Tables["Outbox"][1], []any{k.outbox("/0/status"), k.outbox("/0/attempts"), k.outbox("/0/sent_at")}, subjects(t, f)}
 	if diff := cmp.Diff(want, got); diff != "" {
@@ -185,7 +179,6 @@ func TestEveryKindOfDoorAlertRaisedWhileDisabledMailsOnceWhenEnabled(t *testing.
 		raise func(k *keypad)
 		name  string
 	}{
-		"forced_open": {func(k *keypad) { k.opens(false) }, "Door forced open"},
 		"held_open": {func(k *keypad) {
 			k.opens(true)
 			k.sweepAt("2026-01-05T09:01:00Z")
@@ -266,16 +259,15 @@ func TestACertificateAlertRaisedWhileItIsDisabledMailsOnceItIsEnabled(t *testing
 func TestTheAlertsPageListsARaiseWithinTheHoldDownAsNotMailedInTheSiteTimezone(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	k := alertSite(t, f, "forced_open")
+	k := alertSite(t, f, "held_open")
 	k.inZone("Europe/Berlin")
-	k.opens(false)
-	k.at("2026-01-05T09:00:20Z")
+	k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
+	k.at("2026-01-05T09:01:20Z")
 	k.says("closed")
-	k.at("2026-01-05T09:03:00Z")
 
-	k.opens(false)
+	k.holdsOpen("2026-01-05T09:03:00Z", "2026-01-05T09:04:00Z")
 
-	want := [][]string{raisedHead, {"Door forced open", "Lobby", "Mon 5 Jan 2026 10:03:00", "Not mailed: raised again within the hold-down"}}
+	want := [][]string{raisedHead, {"Door held open", "Lobby", "Mon 5 Jan 2026 10:04:00", "Not mailed: raised again within the hold-down"}}
 	if diff := cmp.Diff(want, k.raised()); diff != "" {
 		t.Errorf("raised (-want +got):\n%s", diff)
 	}
@@ -302,9 +294,9 @@ func TestOwedMailTheDeliveryCannotQueueOrReadTheSettingsForIsLoggedAndQueuedAMin
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			f := testsupport.NewFactory()
-			k := alertSite(t, f, "forced_open")
+			k := alertSite(t, f, "held_open")
 			k.setting("alert_recipients", "")
-			k.opens(false)
+			k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
 			k.at("2026-01-05T09:30:00Z")
 			k.setting("alert_recipients", "ops@example.com,\nFront desk <desk@example.com>")
 			c.spoil(f)
@@ -315,7 +307,7 @@ func TestOwedMailTheDeliveryCannotQueueOrReadTheSettingsForIsLoggedAndQueuedAMin
 			k.runAt("2026-01-05T09:31:00Z")
 
 			want := []any{testsupport.LogEntry{Level: "error", Message: "mail delivery failed", Fields: map[string]string{"error": c.error}},
-				[][]any{{recipients, forcedSubject, forcedText("Mon 5 Jan 2026 09:00:00 UTC")}}}
+				[][]any{{recipients, heldSubject, heldText("Mon 5 Jan 2026 09:01:00 UTC")}}}
 			if diff := cmp.Diff(want, []any{logged, mailed(t, f)}); diff != "" {
 				t.Errorf("log, mail a minute later (-want +got):\n%s", diff)
 			}
@@ -326,19 +318,19 @@ func TestOwedMailTheDeliveryCannotQueueOrReadTheSettingsForIsLoggedAndQueuedAMin
 func TestARetryIsTriedWhenDueWhileNothingIsOwedThoughTheAlertSettingsCannotBeRead(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
-	k := alertSite(t, f, "forced_open")
+	k := alertSite(t, f, "held_open")
 	f.MailerStub.FailWith("421 Try again later")
-	k.opens(false)
+	k.holdsOpen("2026-01-05T09:00:00Z", "2026-01-05T09:01:00Z")
 	f.EnvStub["DOORCODE_ALERT_HOLD_DOWN_MINUTES"] = "soon"
-	k.at("2026-01-05T09:00:30Z")
+	k.at("2026-01-05T09:01:30Z")
 	k.setting("site_name", "Front office")
 	run(t, k.a)
 
-	k.runAt("2026-01-05T09:01:00Z")
+	k.runAt("2026-01-05T09:02:00Z")
 
 	delete(f.EnvStub, "DOORCODE_ALERT_HOLD_DOWN_MINUTES")
 	got := []any{k.outbox("/0/attempts"), k.outbox("/0/last_attempt_at")}
-	if diff := cmp.Diff([]any{2.0, "2026-01-05T09:01:00Z"}, got); diff != "" {
+	if diff := cmp.Diff([]any{2.0, "2026-01-05T09:02:00Z"}, got); diff != "" {
 		t.Errorf("attempts, last attempt (-want +got):\n%s", diff)
 	}
 }

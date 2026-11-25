@@ -9,11 +9,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/jackc/tern/v2/migrate"
 
 	"github.com/dakriy/doorcode/internal/connector"
-	"github.com/dakriy/doorcode/internal/driver/postgres"
-	"github.com/dakriy/doorcode/internal/driver/postgres/migrations"
 	"github.com/dakriy/doorcode/internal/testsupport"
 )
 
@@ -90,23 +87,7 @@ func TestStoreCreatesTheFirstUserWithoutGroupsWhenTheSlugNamesNone(t *testing.T)
 
 func TestMigrationMovesTheAdminRoleIntoTheAdministratorsGroup(t *testing.T) {
 	ctx := context.Background()
-	schema := freshSchema(t)
-	conn := connect(t, schema)
-	store, err := postgres.Open(ctx, schema)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(store.Close)
-	m, err := migrate.NewMigrator(ctx, conn, "schema_version")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := m.LoadMigrations(migrations.FS); err != nil {
-		t.Fatal(err)
-	}
-	if err := m.MigrateTo(ctx, 3); err != nil {
-		t.Fatal(err)
-	}
+	store, conn := migratedTo(t, 3)
 	for _, row := range []struct{ email, roles string }{{"admin@example.com", "{admin}"}, {"plain@example.com", "{}"}} {
 		if _, err := conn.Exec(ctx, `insert into users (email, display_name, roles, created_at) values ($1, 'X', $2, now())`,
 			row.email, row.roles); err != nil {

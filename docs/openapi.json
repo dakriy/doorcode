@@ -12136,7 +12136,7 @@
           },
           "detail": {
             "type": "string",
-            "description": "More about it in words, such as what a command did."
+            "description": "More about it in words, such as what a command did, or whether the strike was unlocked when the door opened."
           },
           "door": {
             "$ref": "#/components/schemas/NameRef",
@@ -12156,7 +12156,7 @@
           },
           "reason": {
             "type": "string",
-            "description": "Why, such as access rule, open mode, no rule, locked, expired, rate limited, unreachable, forced open, held open, opened, closed, started, update sent, update succeeded, or update failed."
+            "description": "Why, such as access rule, open mode, no rule, locked, expired, rate limited, unreachable, held open, opened, closed, started, update sent, update succeeded, or update failed."
           },
           "request_id": {
             "type": "string",
@@ -12172,7 +12172,7 @@
           },
           "type": {
             "type": "string",
-            "description": "check (a code entered at the keypad), command (a keypad command carried out), open (opened from the admin UI or the API), alarm (the door forced open or held open), door (the door opening, closing after it was open, or its controller starting), or update (a firmware update sent, succeeded, or failed)."
+            "description": "check (a code entered at the keypad), command (a keypad command carried out), open (opened from the admin UI or the API), alarm (the door held open, or its configuration reverted), door (the door opening, closing after it was open, or its controller starting), or update (a firmware update sent, succeeded, or failed)."
           },
           "user": {
             "$ref": "#/components/schemas/NameRef",

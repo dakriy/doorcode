@@ -222,13 +222,6 @@ func (c DoorConfig) HeldOpen() time.Duration {
 	return time.Duration(c.HeldOpenS) * time.Second
 }
 
-// StrikeWindow is how long after the server lets someone in, or tells the
-// door to open, the door may open without being forced: its strike pulse,
-// and its reply timeout for the time the news takes to come and go.
-func (c DoorConfig) StrikeWindow() time.Duration {
-	return time.Duration(c.StrikePulseMS+c.ReplyTimeoutMS) * time.Millisecond
-}
-
 // TimelineRefresh is how often the server sends a door its timeline again
 // when nothing changed it.
 func (c DoorConfig) TimelineRefresh() time.Duration {
@@ -265,7 +258,7 @@ type DoorField struct {
 var DoorFields = grouped(
 	doorGroup{"Keypad and strike", []DoorField{
 		wholeField("strike_pulse_ms", "Strike pulse",
-			"How long the door's strike stays released each time it lets someone in. The door may open within this, plus the reply timeout, without counting as forced open.",
+			"How long the door's strike stays released each time it lets someone in.",
 			"3000", 100, 60000, "milliseconds", func(c *DoorConfig) *int { return &c.StrikePulseMS }),
 		wholeField("held_open_s", "Held open after",
 			"How long a door may stand open, when it should be locked, before it counts as held open and an event is logged.",
