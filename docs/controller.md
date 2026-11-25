@@ -734,13 +734,12 @@ nothing from (online status, telemetry, or event) for
 
 On `doorcode/doors/<id>/event`, when the door sensor changes, in open mode
 too: `opened` and `closed`, so the server shows the door's state at once.
-Inside an `open` span the strike is released, so `opened` says `unlocked`
-true, and `closed` leaves out `open_ms` for an opening that began there,
-as for any other. Firmware that predates this says nothing inside an
+Inside an `open` span `closed` leaves out `open_ms` for an opening that
+began there, as for any other. Firmware that predates this says nothing inside an
 `open` span; the server learns the state from its next report. And once
 after the controller starts, in open mode too: `started`, the first time
 it comes online as the door since it started (section 7), never on a
-plain reconnect, with neither `unlocked` nor `open_ms`. And once it is
+plain reconnect, without `open_ms`. And once it is
 online again after giving up a configuration it tried (section 9), right
 after `started`: `config_reverted`, carrying the digest of the
 configuration given up.
@@ -749,7 +748,6 @@ configuration given up.
 | --- | --- | --- |
 | `v` | uint | Protocol version, 1. |
 | `event` | text | `opened` (`protocol.EventOpened`), `closed` (`protocol.EventClosed`), `started` (`protocol.EventStarted`), or `config_reverted` (`protocol.EventConfigReverted`). |
-| `unlocked` | bool | With `opened` only, optional: whether the door was unlocked when the sensor saw it open, that is, the strike was released, or had been locked again for no longer than a short grace period the controller chooses. |
 | `open_ms` | uint | With `closed` only, optional: how many milliseconds the door was open, by the controller's clock. Sent only when the controller saw the opening from its start and it began outside an open span; otherwise left out. |
 | `reason` | text | With `started` only, optional: why the controller started, one of the values below; left out when it cannot tell. |
 | `config_digest` | text | With `config_reverted` only: the digest of the configuration given up, 16 lowercase hex digits. |
@@ -800,13 +798,9 @@ From these the server derives:
   server's state, by an `opened` event or by a report with `door_open`
   true, in an open span or outside one, one event of type `door`,
   outcome `info`, reason `opened`, with no length. None is recorded when
-  the server had the door open already. An `opened` event that carries
-  `unlocked` gives the event the detail "Its controller says the strike
-  was unlocked when it opened." or "Its controller says the strike was
-  locked when it opened."; a report, or an `opened` event without it,
-  gives none. No alarm is raised either way: someone leaving from inside
-  opens the door locked, and the board cannot tell that from a forced
-  door.
+  the server had the door open already. An opening is never an alarm,
+  whether or not the strike was released: someone leaving from inside
+  opens the door with the strike locked.
 - **closed:** whenever the door goes from open to closed in the server's
   state, by a `closed` event or by a report with `door_open` false, in an
   open span or outside one, one event of type `door`, outcome `info`,
@@ -1080,7 +1074,7 @@ it.
 | `Telemetry` (`Signal`, `LatencyMS`, `UptimeS`, `FreeBytes`, `FirmwareVersion`, `Reconnects`, `DoorOpen`, `Opens`, `MeshLayer`, `MeshParent`, `MeshChildren`, `ChecksSent`, `ChecksLost`, `TCPSent`, `TCPRetransmits`, `TCPDrops`, `WifiDrops`, `WifiDropReason`, `Roams`, `BSSID`, `Channel`, `ConfigDigest`) | message | `signal`, `latency_ms`, `uptime_s`, `free_bytes`, `firmware_version`, `reconnects`, `door_open`, `opens`, `mesh_layer`, `mesh_parent`, `mesh_children`, `checks_sent`, `checks_lost`, `tcp_sent`, `tcp_retransmits`, `tcp_drops`, `wifi_drops`, `wifi_drop_reason`, `roams`, `bssid`, `channel`, `config_digest`. | 12 |
 | `EventOpened`, `EventClosed`, `EventStarted`, `EventConfigReverted` | constants | `opened`, `closed`, `started`, `config_reverted`. | 12 |
 | `StartPowerOn`, `StartSoftware`, `StartPanic`, `StartWatchdog`, `StartBrownout`, `StartExternal`, `StartUnknown` | constants | `power_on`, `software`, `panic`, `watchdog`, `brownout`, `external`, `unknown`. | 12 |
-| `DoorEvent` (`Event`, `Unlocked`, `OpenMS`, `Reason`, `ConfigDigest`) | message | `event`, `unlocked` (a `*bool`, nil when left out), `open_ms` (a `*uint64`, nil when left out), `reason` (empty when left out), `config_digest` (empty when left out). | 12 |
+| `DoorEvent` (`Event`, `OpenMS`, `Reason`, `ConfigDigest`) | message | `event`, `open_ms` (a `*uint64`, nil when left out), `reason` (empty when left out), `config_digest` (empty when left out). | 12 |
 | `ErrVersion` | error | A message of another protocol version. | 4 |
 | `Encode(m)` | function | `m` as CBOR, core deterministic, with `v` set to `Version`. | 4 |
 | `Decode(payload, m)` | function | Reads a payload, refusing anything but a CBOR map of this version. | 4 |

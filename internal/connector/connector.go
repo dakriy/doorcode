@@ -818,8 +818,8 @@ type RulesStore interface {
 }
 
 // StoredOverride is an override as the store holds it: from Start up to End
-// the door whose id is DoorID is forced open or locked, as Kind ("open" or
-// "locked") says. CreatedBy is the id of the user who created it;
+// the door whose id is DoorID is held open or locked, as Kind ("open" or
+// "locked") says, whatever its open-mode schedules say. CreatedBy is the id of the user who created it;
 // CreatorName is that user's display name, which the store fills when it
 // returns an override and ignores when it stores one.
 type StoredOverride struct {

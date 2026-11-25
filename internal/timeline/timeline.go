@@ -101,13 +101,13 @@ func Pieces(from, to time.Time, bounds []time.Time) []schedule.Interval {
 
 // stateAt is the state the door is in at t, empty for its normal state.
 func stateAt(t time.Time, openMode []schedule.Interval, overrides []connector.StoredOverride) string {
-	forced := func(kind string) bool {
+	overridden := func(kind string) bool {
 		return slices.ContainsFunc(overrides, func(o connector.StoredOverride) bool { return o.Kind == kind && covers(o.Start, o.End, t) })
 	}
-	if forced(Locked) {
+	if overridden(Locked) {
 		return Locked
 	}
-	if forced(Open) || slices.ContainsFunc(openMode, func(in schedule.Interval) bool { return covers(in.Start, in.End, t) }) {
+	if overridden(Open) || slices.ContainsFunc(openMode, func(in schedule.Interval) bool { return covers(in.Start, in.End, t) }) {
 		return Open
 	}
 	return ""

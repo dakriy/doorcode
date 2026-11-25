@@ -122,14 +122,8 @@ const (
 	ConfigReverted = "configuration reverted"
 )
 
-// AlarmReasons is every reason of an alarm the server logs, in the order
-// pages list them.
+// AlarmReasons is every reason of an alarm, in the order pages list them.
 var AlarmReasons = []string{HeldOpen, ConfigReverted}
-
-// ForcedOpen is the reason of an alarm the server does not log: a door
-// that opened while nothing had unlocked it. Stored events may carry it,
-// so pages and the API list it among the reasons they filter by.
-const ForcedOpen = "forced open"
 
 // Opened is the reason of a door opening after it was not open.
 const Opened = "opened"
@@ -163,7 +157,7 @@ var Reasons = slices.Concat(
 		KeypadOpen, KeypadLocked, KeypadCancel, KeypadReboot, RebootSent, FromUI,
 	},
 	AlarmReasons,
-	[]string{ForcedOpen, Opened, Closed, Started, UpdateSent, UpdateSucceeded, UpdateFailed},
+	[]string{Opened, Closed, Started, UpdateSent, UpdateSucceeded, UpdateFailed},
 )
 
 // Service records and finds events, and counts those it recorded.

@@ -159,7 +159,7 @@ func TestTheEventsPageShowsHowLongADoorWasOpen(t *testing.T) {
 
 	want := [][]string{eventsHead,
 		{"Mon 5 Jan 2026 09:00:50", "Lobby", "No one", "Info Closed", "Door activity Open for 48.3s"},
-		{"Mon 5 Jan 2026 09:00:00", "Lobby", "No one", "Info Opened", "Door activity Its controller says the strike was unlocked when it opened."},
+		{"Mon 5 Jan 2026 09:00:00", "Lobby", "No one", "Info Opened", "Door activity"},
 		{"Showing 1 to 2 of 2"},
 	}
 	if diff := cmp.Diff(want, page.Tables["Events"]); diff != "" {

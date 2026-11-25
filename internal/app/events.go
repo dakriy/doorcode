@@ -31,7 +31,7 @@ type eventView struct {
 	User        *nameRef  `json:"user,omitempty" doc:"The user whose code it was, or who gave the command, opened the door, or sent the update, by id and display name; absent for a code nobody has and for what nobody did."`
 	RuleID      *int64    `json:"rule_id,omitempty" doc:"The access rule that let the user in; absent unless one did."`
 	RequestID   string    `json:"request_id,omitempty" doc:"The id the door gave the code check; absent for other events."`
-	Detail      string    `json:"detail,omitempty" doc:"More about it in words, such as what a command did, or whether the strike was unlocked when the door opened."`
+	Detail      string    `json:"detail,omitempty" doc:"More about it in words, such as what a command did."`
 	OpenMS      *int64    `json:"open_ms,omitempty" doc:"How many milliseconds the door was open, by its controller's clock when it said, else from when the server saw it open; absent unless the event is a door closing."`
 	StartReason string    `json:"start_reason,omitempty" doc:"Why the door's controller said it started, as it said it: power_on, software, panic, watchdog, brownout, external, unknown, or a value the server does not know; absent unless the event is a controller starting that said why, and for starts recorded before the server kept it."`
 }

@@ -418,8 +418,7 @@ var StartReasons = []string{StartPowerOn, StartSoftware, StartPanic, StartWatchd
 // DoorEvent is what a door publishes on its event topic when something
 // happens to it, such as EventOpened. A door says each time it opens and
 // closes, in open mode too; controllers that predate that say nothing in
-// open mode. With EventOpened, Unlocked says whether the
-// door was unlocked when it opened, and with EventClosed, OpenMS how many
+// open mode. With EventClosed, OpenMS says how many
 // milliseconds it was open by the controller's clock, sent only when the
 // controller saw the opening from its start outside an open span. A
 // controller says EventStarted once, the first time it comes online as
@@ -430,7 +429,6 @@ var StartReasons = []string{StartPowerOn, StartSoftware, StartPanic, StartWatchd
 type DoorEvent struct {
 	Header
 	Event        string  `cbor:"event"`
-	Unlocked     *bool   `cbor:"unlocked,omitempty"`
 	OpenMS       *uint64 `cbor:"open_ms,omitempty"`
 	Reason       string  `cbor:"reason,omitempty"`
 	ConfigDigest string  `cbor:"config_digest,omitempty"`

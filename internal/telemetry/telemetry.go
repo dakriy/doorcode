@@ -101,7 +101,7 @@ func (s Service) report(ctx context.Context, doorID int64, payload []byte) error
 		c.ConfigStarts, c.ConfigStartsSince = 0, nil
 	}
 	if m.DoorOpen {
-		if err := s.checkOpened(ctx, d.ID, held, nil, now); err != nil {
+		if err := s.checkOpened(ctx, d.ID, held, now); err != nil {
 			return err
 		}
 		c = opened(c, now)
@@ -129,7 +129,7 @@ func (s Service) doorEvent(ctx context.Context, doorID int64, payload []byte) er
 	c := heard(held, now)
 	switch m.Event {
 	case protocol.EventOpened:
-		if err := s.checkOpened(ctx, d.ID, held, m.Unlocked, now); err != nil {
+		if err := s.checkOpened(ctx, d.ID, held, now); err != nil {
 			return err
 		}
 		c = opened(c, now)
@@ -284,30 +284,13 @@ func MeshOf(c connector.StoredController) Mesh {
 }
 
 // checkOpened logs the door whose id is doorID as opened at now, unless
-// its controller, which was held, had it open already. When its
-// controller said whether the strike was unlocked as the door opened,
-// the event's detail says so.
-func (s Service) checkOpened(ctx context.Context, doorID int64, held connector.StoredController, unlocked *bool, now time.Time) error {
+// its controller, which was held, had it open already.
+func (s Service) checkOpened(ctx context.Context, doorID int64, held connector.StoredController, now time.Time) error {
 	if held.DoorState == Open {
 		return nil
 	}
-	_, err := s.Events.Record(ctx, connector.StoredEvent{
-		At: now, DoorID: doorID, Type: event.Door, Outcome: event.Info, Reason: event.Opened, Detail: strikeDetail(unlocked),
-	})
+	_, err := s.Events.Record(ctx, connector.StoredEvent{At: now, DoorID: doorID, Type: event.Door, Outcome: event.Info, Reason: event.Opened})
 	return err
-}
-
-// strikeDetail is what an opening's event says of unlocked, whether its
-// controller said the strike was unlocked as the door opened: nothing
-// when it said nothing.
-func strikeDetail(unlocked *bool) string {
-	if unlocked == nil {
-		return ""
-	}
-	if *unlocked {
-		return "Its controller says the strike was unlocked when it opened."
-	}
-	return "Its controller says the strike was locked when it opened."
 }
 
 // checkClosed logs how long the door whose id is doorID was open when it

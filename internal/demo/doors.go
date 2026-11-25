@@ -255,9 +255,8 @@ func (c *controller) loop(ctx context.Context, d *door) error {
 			c.press(d)
 			keypad.Reset(between(40*time.Second, 150*time.Second))
 		case <-exit.C:
-			// Someone leaves from inside, opening the door without
-			// unlocking it.
-			c.swing(d, 8*time.Second, d.state(time.Now()) == "open")
+			// Someone leaves from inside.
+			c.swing(d, 8*time.Second)
 			exit.Reset(between(2*time.Hour, 8*time.Hour))
 		case <-timerC(d.closing):
 			d.closing, d.open = nil, false
@@ -302,7 +301,7 @@ func (c *controller) receive(d *door, m connector.Message) bool {
 	case protocol.LeafReply:
 		var reply protocol.Reply
 		if protocol.Decode(m.Payload, &reply) == nil && reply.Allow {
-			c.swing(d, between(3*time.Second, 9*time.Second), true)
+			c.swing(d, between(3*time.Second, 9*time.Second))
 		}
 	case protocol.LeafCommand:
 		return c.command(d, m.Payload)
@@ -321,7 +320,7 @@ func (c *controller) command(d *door, payload []byte) bool {
 	switch cmd.Command {
 	case protocol.CommandOpen:
 		c.ack(d, cmd.ID)
-		c.swing(d, between(4*time.Second, 10*time.Second), true)
+		c.swing(d, between(4*time.Second, 10*time.Second))
 	case protocol.CommandCredentials:
 		c.creds.Username, c.creds.Token = cmd.Username, cmd.Token
 		d.conn.Close()
@@ -358,12 +357,12 @@ func (c *controller) ack(d *door, id string) {
 	c.publish(d, protocol.LeafAck, &protocol.Ack{ID: id, Result: "done"})
 }
 
-// press is someone at the keypad: in open mode the door just opens,
-// unlocked; otherwise the controller asks the server about a code, mostly
+// press is someone at the keypad: in open mode the door just opens;
+// otherwise the controller asks the server about a code, mostly
 // one somebody has.
 func (c *controller) press(d *door) {
 	if d.state(time.Now()) == "open" {
-		c.swing(d, between(3*time.Second, 9*time.Second), true)
+		c.swing(d, between(3*time.Second, 9*time.Second))
 		return
 	}
 	digits := fmt.Sprintf("%06d", rand.IntN(1000000))
@@ -387,9 +386,8 @@ func (d *door) state(at time.Time) string {
 }
 
 // swing opens the door, unless it is open already, and has it close after
-// open, saying whether it was unlocked when it opened. Now and then
-// someone holds it open far longer.
-func (c *controller) swing(d *door, open time.Duration, unlocked bool) {
+// open. Now and then someone holds it open far longer.
+func (c *controller) swing(d *door, open time.Duration) {
 	if d.open {
 		return
 	}
@@ -400,7 +398,7 @@ func (c *controller) swing(d *door, open time.Duration, unlocked bool) {
 	d.spanned = d.state(d.openedAt) == "open"
 	d.opens++
 	d.closing = time.NewTimer(open)
-	c.say(d, protocol.DoorEvent{Event: protocol.EventOpened, Unlocked: &unlocked})
+	c.say(d, protocol.DoorEvent{Event: protocol.EventOpened})
 }
 
 // closedEvent is d's door closing at now, saying how long it was open

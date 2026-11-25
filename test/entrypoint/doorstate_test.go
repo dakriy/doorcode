@@ -38,8 +38,8 @@ func (k *keypad) says(what string) {
 	k.publish("doorcode/doors/1/event", testsupport.CBOR(map[string]any{"v": 1, "event": what}))
 }
 
-// opens has Lobby's controller say the door opened, unlocked or not, and
-// the server handle it.
+// opens has Lobby's controller say the door opened, saying whether the
+// strike was released as firmware may, and the server handle it.
 func (k *keypad) opens(unlocked bool) {
 	k.t.Helper()
 	k.publish("doorcode/doors/1/event", testsupport.CBOR(map[string]any{"v": 1, "event": "opened", "unlocked": unlocked}))
@@ -74,35 +74,28 @@ func (k *keypad) state(pointer string) any {
 	return testsupport.JSONAt(send(k.t, k.b, "GET", "/api/v1/doors/1/state", "", 200).Body, pointer)
 }
 
-func TestAnOpeningSaysWhetherItsControllerFoundTheStrikeUnlockedAndRaisesNoAlarm(t *testing.T) {
+func TestAnOpeningIsAPlainOpenedEventWhateverTheStrikeWasAndRaisesNoAlarm(t *testing.T) {
 	t.Parallel()
-	staffRule := `{"group_id":2,"schedule_id":2,"zone_ids":[1]}`
-	cases := map[string]struct {
-		before func(k *keypad)
-		open   func(k *keypad)
-		want   []any
-	}{
-		"locked, with nothing unlocking it": {func(*keypad) {}, func(k *keypad) { k.opens(false) },
-			[]any{"Its controller says the strike was locked when it opened.", []any{"opened"}}},
-		"locked, after a code allowed": {func(k *keypad) {
-			createRule(k.t, k.b, staffRule)
-			k.press("111111")
-		}, func(k *keypad) { k.opens(false) }, []any{"Its controller says the strike was locked when it opened.", []any{"opened", "access rule"}}},
-		"unlocked, after a code denied": {func(k *keypad) { k.press("111111") }, func(k *keypad) { k.opens(true) },
-			[]any{"Its controller says the strike was unlocked when it opened.", []any{"opened", "no rule"}}},
-		"saying nothing of the strike": {func(*keypad) {}, func(k *keypad) { k.says("opened") }, []any{nil, []any{"opened"}}},
+	cases := map[string]func(k *keypad){
+		"with the strike locked":   func(k *keypad) { k.opens(false) },
+		"with the strike released": func(k *keypad) { k.opens(true) },
+		"saying nothing of it":     func(k *keypad) { k.says("opened") },
 	}
-	for name, c := range cases {
+	for name, open := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			k := keypadSite(t, testsupport.NewFactory())
-			c.before(k)
+			f := testsupport.NewFactory()
+			k := alertSite(t, f, everyKind...)
 
-			c.open(k)
+			open(k)
 
-			got := []any{k.state("/door"), []any{testsupport.JSONAt(send(t, k.b, "GET", "/api/v1/events", "", 200).Body, "/events/0/detail"), k.reasons()}}
-			if diff := cmp.Diff([]any{"open", c.want}, got); diff != "" {
-				t.Errorf("door, detail and reasons (-want +got):\n%s", diff)
+			opened := testsupport.JSON(`{"id":1,"at":"2026-01-05T09:00:00Z","door":{"id":1,"name":"Lobby"},"type":"door","outcome":"info","reason":"opened"}`)
+			want := []any{[]any{opened}, "Online Open", nothingRaised, []any{},
+				[]string{`doorcode_events_total{door="Lobby",door_id="1",type="door",outcome="info",reason="opened",start_reason=""} 1`}}
+			events := testsupport.JSONAt(send(t, k.b, "GET", "/api/v1/events", "", 200).Body, "/events")
+			got := []any{events, k.badges(), k.raised(), subjects(t, f), countedEvents(t, k.a, k.b)}
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Errorf("events, badges, raised, mail, counted events (-want +got):\n%s", diff)
 			}
 		})
 	}

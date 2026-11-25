@@ -12,17 +12,15 @@ func TestADoorOpeningIsLoggedInOpenModeAndOutsideIt(t *testing.T) {
 	t.Parallel()
 	byEvent := func(k *keypad) { k.opens(true) }
 	byReport := func(k *keypad) { k.report(map[string]any{"door_open": true}) }
-	unlocked := `,"detail":"Its controller says the strike was unlocked when it opened."`
 	cases := map[string]struct {
 		arrange func(k *keypad)
 		open    func(k *keypad)
-		detail  string
 	}{
-		"an opened event":                        {func(*keypad) {}, byEvent, unlocked},
-		"an opened event in open mode":           {(*keypad).inOpenMode, byEvent, unlocked},
-		"a report of the door open":              {func(*keypad) {}, byReport, ""},
-		"a report of the door open in open mode": {(*keypad).inOpenMode, byReport, ""},
-		"an opened event after a closing":        {func(k *keypad) { k.says("closed") }, byEvent, unlocked},
+		"an opened event":                        {func(*keypad) {}, byEvent},
+		"an opened event in open mode":           {(*keypad).inOpenMode, byEvent},
+		"a report of the door open":              {func(*keypad) {}, byReport},
+		"a report of the door open in open mode": {(*keypad).inOpenMode, byReport},
+		"an opened event after a closing":        {func(k *keypad) { k.says("closed") }, byEvent},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -33,7 +31,7 @@ func TestADoorOpeningIsLoggedInOpenModeAndOutsideIt(t *testing.T) {
 
 			c.open(k)
 
-			want := testsupport.JSON(`{"id":1,"at":"2026-01-05T10:00:00Z","door":{"id":1,"name":"Lobby"},"type":"door","outcome":"info","reason":"opened"` + c.detail + `}`)
+			want := testsupport.JSON(`{"id":1,"at":"2026-01-05T10:00:00Z","door":{"id":1,"name":"Lobby"},"type":"door","outcome":"info","reason":"opened"}`)
 			if diff := cmp.Diff([]any{"open", want, []any{"opened"}}, []any{k.state("/door"), k.lastEvent(), k.reasons()}); diff != "" {
 				t.Errorf("door, event, reasons (-want +got):\n%s", diff)
 			}
@@ -111,12 +109,12 @@ func TestTheEventsPageFiltersByOpenings(t *testing.T) {
 	page := testsupport.ParsePage(k.b.Get("/admin/events?reason=opened").Body)
 
 	want := []any{
-		[][]string{eventsHead, {"Mon 5 Jan 2026 09:00:00", "Lobby", "No one", "Info Opened", "Door activity Its controller says the strike was unlocked when it opened."}, {"Showing 1 to 1 of 1"}},
+		[][]string{eventsHead, {"Mon 5 Jan 2026 09:00:00", "Lobby", "No one", "Info Opened", "Door activity"}, {"Showing 1 to 1 of 1"}},
 		[]string{
 			"Every reason", "Access rule", "Open mode", "Open override", "Door commander", "Command",
 			"No rule", "Locked", "Expired", "Rate limited", "Not a commander", "Bad command", "Command failed", "Reboot too soon", "Update under way", "Unreachable",
 			"Keypad open", "Keypad locked", "Keypad cancel", "Keypad reboot", "Reboot sent", "Admin UI", "Held open", "Configuration reverted",
-			"Forced open", "Opened (selected)", "Closed", "Started", "Update sent", "Update succeeded", "Update failed",
+			"Opened (selected)", "Closed", "Started", "Update sent", "Update succeeded", "Update failed",
 		},
 	}
 	if diff := cmp.Diff(want, []any{page.Tables["Events"], page.Options["reason"]}); diff != "" {

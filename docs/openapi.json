@@ -12136,7 +12136,7 @@
           },
           "detail": {
             "type": "string",
-            "description": "More about it in words, such as what a command did, or whether the strike was unlocked when the door opened."
+            "description": "More about it in words, such as what a command did."
           },
           "door": {
             "$ref": "#/components/schemas/NameRef",

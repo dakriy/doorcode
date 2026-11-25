@@ -105,7 +105,7 @@ func heldText(at string) string {
 	return "Door held open at Lobby, " + at + ".\n\nOpen for longer than 60 seconds.\n" + alertFooter("Door held open")
 }
 
-// holdsOpen has Lobby's door open, unlocked, at the RFC 3339 time opened
+// holdsOpen has Lobby's door open at the RFC 3339 time opened
 // and the server do its periodic work at raised, a minute later, once the
 // door has stood open for its held-open time.
 func (k *keypad) holdsOpen(opened, raised string) {

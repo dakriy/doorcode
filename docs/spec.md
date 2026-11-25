@@ -310,9 +310,7 @@ point is listed; when nothing meshes it says so. `GET /api/v1/mesh` returns
 the same graph. Doors also send door open and close transitions as events, in
 open mode too. The server logs every opening (reason *opened*) and every
 closing (reason *closed*, with how long the door was open) as door events,
-in open mode as much as outside it, an opening's detail saying whether the
-controller found the strike unlocked when it said so, and derives *held
-open* (open longer than a configurable duration while it
+in open mode as much as outside it, and derives *held open* (open longer than a configurable duration while it
 should be locked, counting no time in open mode or an open override) and
 shows them live. A door with no contact for a configurable period is
 *unresponsive*.

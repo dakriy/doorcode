@@ -5,6 +5,7 @@ package connector_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/jackc/pgx/v5"
@@ -51,7 +52,7 @@ func exec(t *testing.T, conn *pgx.Conn, statements ...string) {
 	}
 }
 
-func TestMigrationRemovesTheForcedOpenAlertButNotItsMailAlreadyTriedNorOtherKinds(t *testing.T) {
+func TestMigrationsRemoveTheForcedOpenAlertAndAllItsMailButNotOtherKinds(t *testing.T) {
 	ctx := context.Background()
 	store, conn := migratedTo(t, 32)
 	exec(t, conn,
@@ -80,7 +81,7 @@ func TestMigrationRemovesTheForcedOpenAlertButNotItsMailAlreadyTriedNorOtherKind
 
 	want := []any{
 		map[string]string{"held_open": "mail"}, []string{"held_open"}, []connector.StoredCondition{},
-		[][]string{{"held_open", "Held", "pending"}, {"forced_open", "Given up", "failed"}, {"forced_open", "Sent", "sent"}},
+		[][]string{{"held_open", "Held", "pending"}},
 		[]error{nil, nil, nil, nil},
 	}
 	var activeKinds []string
@@ -123,5 +124,48 @@ func TestMigrationSetsEachKindThatMailedToMailAndEveryOtherOnMutingWhatItOwes(t 
 	}}
 	if diff := cmp.Diff(want, []any{kinds, kindsErr, conditions}); diff != "" {
 		t.Errorf("kinds, error, conditions: kind, active, mailed, owed, muted, error (-want +got):\n%s", diff)
+	}
+}
+
+func TestMigrationRemovesEveryForcedOpenEventAndMailButNothingElse(t *testing.T) {
+	ctx := context.Background()
+	store, conn := migratedTo(t, 35)
+	exec(t, conn, `insert into doors (name, location, notes, public, created_at) values ('Lobby', '', '', true, now())`)
+	at := time.Date(2026, 1, 5, 9, 0, 0, 0, time.UTC)
+	for _, e := range []connector.StoredEvent{
+		{At: at, DoorID: 1, Type: "alarm", Outcome: "alert", Reason: "forced open", Detail: "Forced."},
+		{At: at.Add(time.Minute), DoorID: 1, Type: "door", Outcome: "info", Reason: "opened"},
+		{At: at.Add(2 * time.Minute), DoorID: 1, Type: "alarm", Outcome: "alert", Reason: "held open", Detail: "Held."},
+	} {
+		if _, err := store.AddEvent(ctx, e); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, m := range []connector.StoredMail{
+		{Kind: "forced_open", Subject: "Sent", To: []string{"ops@example.com"}, Status: "sent", CreatedAt: at, NextAttemptAt: at},
+		{Kind: "forced_open", Subject: "Given up", To: []string{"ops@example.com"}, Status: "failed", CreatedAt: at, NextAttemptAt: at},
+		{Kind: "held_open", Subject: "Held", To: []string{"ops@example.com"}, Status: "sent", CreatedAt: at, NextAttemptAt: at},
+	} {
+		if _, err := store.AddMail(ctx, m); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := store.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	events, total, eventsErr := store.Events(ctx, connector.EventQuery{Limit: 10})
+	recent, mailErr := store.RecentMail(ctx, 10)
+	var reasons, subjects []string
+	for _, e := range events {
+		reasons = append(reasons, e.Reason)
+	}
+	for _, m := range recent {
+		subjects = append(subjects, m.Kind+": "+m.Subject)
+	}
+
+	want := []any{[]string{"held open", "opened"}, 2, []string{"held_open: Held"}, []error{nil, nil}}
+	if diff := cmp.Diff(want, []any{reasons, total, subjects, []error{eventsErr, mailErr}}); diff != "" {
+		t.Errorf("event reasons, events, mail, errors (-want +got):\n%s", diff)
 	}
 }
