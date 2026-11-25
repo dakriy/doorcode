@@ -79,7 +79,7 @@ func TestMigrationRemovesTheForcedOpenAlertButNotItsMailAlreadyTriedNorOtherKind
 	}
 
 	want := []any{
-		map[string]bool{"held_open": true}, []string{"held_open"}, []connector.StoredCondition{},
+		map[string]string{"held_open": "mail"}, []string{"held_open"}, []connector.StoredCondition{},
 		[][]string{{"held_open", "Held", "pending"}, {"forced_open", "Given up", "failed"}, {"forced_open", "Sent", "sent"}},
 		[]error{nil, nil, nil, nil},
 	}
@@ -90,5 +90,38 @@ func TestMigrationRemovesTheForcedOpenAlertButNotItsMailAlreadyTriedNorOtherKind
 	got := []any{kinds, activeKinds, owed, outbox, []error{kindsErr, activeErr, owedErr, recentErr}}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("kinds stored, active kinds, owed, outbox, errors (-want +got):\n%s", diff)
+	}
+}
+
+func TestMigrationSetsEachKindThatMailedToMailAndEveryOtherOnMutingWhatItOwes(t *testing.T) {
+	ctx := context.Background()
+	store, conn := migratedTo(t, 33)
+	exec(t, conn,
+		`insert into alert_kinds (kind, enabled) values ('held_open', true), ('offline', false)`,
+		`insert into alert_conditions (kind, subject, active, mailed, owed, changed_at, name, detail) values
+			('held_open', 'door 1', true, false, true, '2026-01-05T09:00:00Z', 'Lobby', 'Held.'),
+			('offline', 'door 1', true, false, true, '2026-01-05T09:00:00Z', 'Lobby', 'Offline.'),
+			('unresponsive', 'door 1', true, true, false, '2026-01-05T09:00:00Z', 'Lobby', 'Silent.'),
+			('certificate', 'broker changed 1', false, false, true, '2026-01-05T09:00:00Z', 'Broker', 'Changed.')`,
+	)
+
+	if err := store.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	kinds, kindsErr := store.AlertKinds(ctx)
+	var conditions [][]any
+	for _, key := range [][2]string{{"held_open", "door 1"}, {"offline", "door 1"}, {"unresponsive", "door 1"}, {"certificate", "broker changed 1"}} {
+		c, _, err := store.AlertCondition(ctx, key[0], key[1])
+		conditions = append(conditions, []any{c.Kind, c.Active, c.Mailed, c.Owed, c.Muted, err})
+	}
+
+	want := []any{map[string]string{"held_open": "mail", "offline": "on"}, nil, [][]any{
+		{"held_open", true, false, true, false, nil},
+		{"offline", true, false, false, true, nil},
+		{"unresponsive", true, true, false, false, nil},
+		{"certificate", false, false, false, false, nil},
+	}}
+	if diff := cmp.Diff(want, []any{kinds, kindsErr, conditions}); diff != "" {
+		t.Errorf("kinds, error, conditions: kind, active, mailed, owed, muted, error (-want +got):\n%s", diff)
 	}
 }

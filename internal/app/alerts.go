@@ -83,14 +83,14 @@ func (a *App) deliverIfDue(ctx context.Context) {
 }
 
 type alertKindView struct {
-	Key     string `json:"key" doc:"The kind's key."`
-	Name    string `json:"name" doc:"The kind's name, which its mail's subject starts with."`
-	About   string `json:"about" doc:"What raises and clears it."`
-	Enabled bool   `json:"enabled" doc:"True when it mails the recipients; every kind is disabled until an administrator enables it."`
+	Key   string `json:"key" doc:"The kind's key."`
+	Name  string `json:"name" doc:"The kind's name, which its mail's subject starts with."`
+	About string `json:"about" doc:"What raises and clears it."`
+	State string `json:"state" doc:"off (no condition of it is raised), on (its conditions are raised and listed, not mailed), or mail (they are raised, listed, and mailed to the recipients); every kind is on until an administrator sets it otherwise."`
 }
 
 type alertKindUpdate struct {
-	Enabled *bool `json:"enabled" doc:"Whether the kind mails the recipients."`
+	State string `json:"state" doc:"off, on, or mail. Setting a kind off clears its conditions; setting it on or off drops the mail its conditions owe. Neither mails, and setting a kind to mail mails only what is raised from then on."`
 }
 
 type outboxView struct {
@@ -109,8 +109,8 @@ type outboxView struct {
 }
 
 type alertsView struct {
-	Kinds           []alertKindView `json:"kinds" doc:"Every kind of alert, with whether it is enabled."`
-	Recipients      []string        `json:"recipients" doc:"The addresses every enabled kind mails, from the setting alert_recipients."`
+	Kinds           []alertKindView `json:"kinds" doc:"Every kind of alert, with its state."`
+	Recipients      []string        `json:"recipients" doc:"The addresses every kind set to mail mails, from the setting alert_recipients."`
 	MailCleared     bool            `json:"mail_cleared" doc:"True when a condition that was mailed about mails again once it clears, from the setting alert_mail_cleared."`
 	HoldDownMinutes int             `json:"hold_down_minutes" doc:"Minutes a cleared condition must stay clear before it mails again, from the setting alert_hold_down_minutes."`
 	Outbox          []outboxView    `json:"outbox" doc:"The newest messages of the outbox, at most 50, newest first."`
@@ -121,7 +121,6 @@ var alertKindParam = openapi.Param{Name: "kind", In: "path", Description: "The k
 
 func (a *App) alertRoutes() []route {
 	admin := holding(auth.RoleAdmin)
-	enabled := true
 	return []route{
 		pageRoute(http.MethodGet, alertsPath, admin, a.alertsPage),
 		apiRoute(http.MethodGet, "/alerts", admin, a.getAlerts, apiDoc{
@@ -129,12 +128,12 @@ func (a *App) alertRoutes() []route {
 			responses: []openapi.Response{{Status: http.StatusOK, Description: "Every kind of alert, whom and when they mail, and the newest messages of the outbox. The settings API changes the recipients and when they are mailed.", Body: alertsView{}}},
 		}),
 		apiRoute(http.MethodPut, "/alerts/kinds/{kind}", admin, a.updateAlertKind, apiDoc{
-			id: "updateAlertKind", summary: "Enable or disable a kind of alert", tag: "alerts",
+			id: "updateAlertKind", summary: "Set a kind of alert off, on, or to mail", tag: "alerts",
 			params:  []openapi.Param{alertKindParam},
-			request: alertKindUpdate{Enabled: &enabled},
+			request: alertKindUpdate{State: string(alert.Mail)},
 			responses: []openapi.Response{
-				{Status: http.StatusOK, Description: "The kind with whether it is enabled now.", Body: alertKindView{}},
-				{Status: http.StatusBadRequest, Description: "The body is not a JSON object with enabled true or false.", Body: errorBody{}},
+				{Status: http.StatusOK, Description: "The kind with its state now.", Body: alertKindView{}},
+				{Status: http.StatusBadRequest, Description: "The body is not a JSON object, or its state is not off, on, or mail.", Body: errorBody{}},
 				{Status: http.StatusNotFound, Description: "No kind of alert has this key.", Body: errorBody{}},
 			},
 		}),
@@ -142,7 +141,7 @@ func (a *App) alertRoutes() []route {
 }
 
 func kindViewOf(k alert.KindState) alertKindView {
-	return alertKindView{Key: k.Key, Name: k.Name, About: k.About, Enabled: k.Enabled}
+	return alertKindView{Key: k.Key, Name: k.Name, About: k.About, State: string(k.State)}
 }
 
 func outboxViewOf(m connector.StoredMail) outboxView {
@@ -200,15 +199,14 @@ func (a *App) getAlerts(w http.ResponseWriter, r *http.Request, _ auth.User) {
 
 func (a *App) updateAlertKind(w http.ResponseWriter, r *http.Request, _ auth.User) {
 	var body alertKindUpdate
-	if err := decodeJSON(w, r, &body); err != nil || body.Enabled == nil {
-		writeError(w, http.StatusBadRequest, "body must be a JSON object with enabled true or false")
+	if err := decodeJSON(w, r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "body must be a JSON object with state off, on, or mail")
 		return
 	}
-	k, err := a.alerts.Enable(r.Context(), r.PathValue("kind"), *body.Enabled)
+	k, err := a.alerts.SetState(r.Context(), r.PathValue("kind"), body.State)
 	if err != nil {
-		a.refuse(w, r, err, []refusalStatus{{alert.ErrUnknownKind, http.StatusNotFound}})
+		a.refuse(w, r, err, []refusalStatus{{alert.ErrUnknownKind, http.StatusNotFound}, {alert.ErrUnknownState, http.StatusBadRequest}})
 		return
 	}
-	a.wakeDelivery()
 	writeJSON(w, http.StatusOK, kindViewOf(k))
 }

@@ -11,23 +11,23 @@ import (
 // kindRows is how the Alerts tab of the settings page lists the kinds of
 // alert.
 var kindRows = [][]string{
-	{"Alert", "Raised and cleared"},
-	{"Door held open held_open", "A door stood open for longer than its held-open time while it should have been locked. " +
+	{"Alert", "State", "Raised and cleared"},
+	{"Door held open held_open", "off on mail", "A door stood open for longer than its held-open time while it should have been locked. " +
 		"It clears when the door closes or an open span of its timeline begins."},
-	{"Door offline offline", "A door's controller has not been connected to the broker for the minutes of the unresponsive_minutes setting. " +
+	{"Door offline offline", "off on mail", "A door's controller has not been connected to the broker for the minutes of the unresponsive_minutes setting. " +
 		"It clears once the controller connects again."},
-	{"Door unresponsive unresponsive", "A door's controller has not been heard from for the minutes of the unresponsive_minutes setting " +
+	{"Door unresponsive unresponsive", "off on mail", "A door's controller has not been heard from for the minutes of the unresponsive_minutes setting " +
 		"while the broker says it is connected. It clears once the server hears from it or it is shown offline."},
-	{"Door configuration reverted config_reverted", "A door gave up the configuration it was last sent, because it could not come online with it, " +
+	{"Door configuration reverted config_reverted", "off on mail", "A door gave up the configuration it was last sent, because it could not come online with it, " +
 		"and runs the one before. It clears once the door no longer shows the Reverted configuration badge: " +
 		"it reports the configuration it was last sent, or is sent another."},
-	{"Door restarting with its configuration config_restarting", "A door's controller started at least twice since the configuration " +
+	{"Door restarting with its configuration config_restarting", "off on mail", "A door's controller started at least twice since the configuration " +
 		"it was last sent went out, with no report naming that configuration. It clears once the door no longer shows the Restarting with configuration badge."},
-	{"Door configuration mismatched config_mismatch", "A door's controller went on reporting a configuration other than the one it was last sent. " +
+	{"Door configuration mismatched config_mismatch", "off on mail", "A door's controller went on reporting a configuration other than the one it was last sent. " +
 		"It clears once the door no longer shows the Mismatched configuration badge."},
-	{"Door firmware update failed update_failed", "A door's firmware update failed: the door said it could not install it, " +
+	{"Door firmware update failed update_failed", "off on mail", "A door's firmware update failed: the door said it could not install it, " +
 		"or it did not connect again with it in time. It clears once the door's firmware no longer shows Update failed: an update of it is under way again, it runs its target, or its target changes."},
-	{"Certificate certificate", certificateAbout},
+	{"Certificate certificate", "off on mail", certificateAbout},
 }
 
 // alertMailRows is how the Alerts tab of the settings page lists the
@@ -36,7 +36,7 @@ var kindRows = [][]string{
 func alertMailRows(recipients, cleared, holdDown, source string) [][]string {
 	return [][]string{
 		{"Setting", "Value", "Source"},
-		{"Recipients alert_recipients The addresses every enabled alert mails, separated by commas or new lines, such as ops@example.com. " +
+		{"Recipients alert_recipients The addresses every alert set to mail mails, separated by commas or new lines, such as ops@example.com. " +
 			"Nothing is mailed while it is empty.", recipients, source},
 		{"Mail when cleared alert_mail_cleared Mails the recipients once more when a condition an alert mailed about clears.", cleared, "default"},
 		{"Quiet after clearing alert_hold_down_minutes Minutes a cleared condition must stay clear before it mails again when it comes back; " +
@@ -101,7 +101,7 @@ func TestTheAlertsTabOfTheSettingsPageShowsTheKindsAndTheAlertSettings(t *testin
 
 	want := settingsTab("Alerts")
 	want.Messages = []string{"You are signed in."}
-	want.Values = map[string]string{"kind": "", "alert_recipients": "", "alert_mail_cleared": "false", "alert_hold_down_minutes": "15",
+	want.Values = map[string]string{"alert_recipients": "", "alert_mail_cleared": "false", "alert_hold_down_minutes": "15",
 		"certificate_check_enabled": "false", "certificate_check_interval_hours": "24",
 		"certificate_runway_days": "548", "certificate_leaf_days": "14", "certificate_unreachable_checks": "3"}
 	want.Checked = []string{"alert_mail_cleared=true"}
@@ -112,6 +112,25 @@ func TestTheAlertsTabOfTheSettingsPageShowsTheKindsAndTheAlertSettings(t *testin
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("page (-want +got):\n%s", diff)
+	}
+}
+
+func TestTheAlertsTabOffersEachKindOffOnOrMailWithItsStateChosen(t *testing.T) {
+	t.Parallel()
+	b := signedInAdmin(t, testsupport.NewFactory())
+	send(t, b, "PUT", "/api/v1/alerts/kinds/offline", `{"state":"off"}`, 200)
+	send(t, b, "PUT", "/api/v1/alerts/kinds/certificate", `{"state":"mail"}`, 200)
+
+	page := testsupport.ParsePage(b.Get(alertsTabPath).Body)
+
+	on := []string{"off", "on (selected)", "mail"}
+	want := map[string][]string{
+		"alert_kind.held_open": on, "alert_kind.offline": {"off (selected)", "on", "mail"}, "alert_kind.unresponsive": on,
+		"alert_kind.config_reverted": on, "alert_kind.config_restarting": on, "alert_kind.config_mismatch": on,
+		"alert_kind.update_failed": on, "alert_kind.certificate": {"off", "on", "mail (selected)"},
+	}
+	if diff := cmp.Diff(want, page.Options); diff != "" {
+		t.Errorf("options (-want +got):\n%s", diff)
 	}
 }
 
@@ -195,21 +214,22 @@ func (k *keypad) inZone(zone string) {
 	k.setting("site_timezone", zone)
 }
 
-func TestSavingTheAlertsTabStoresTheKindsTickedAndTheAlertMailSettings(t *testing.T) {
+func TestSavingTheAlertsTabStoresTheStatesChosenAndTheAlertMailSettings(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	b := signedInAdmin(t, f)
-	send(t, b, "PUT", "/api/v1/alerts/kinds/offline", `{"enabled":true}`, 200)
+	send(t, b, "PUT", "/api/v1/alerts/kinds/offline", `{"state":"mail"}`, 200)
 
-	saved := b.Post("/admin/settings", "kind", "", "kind", "held_open", "alert_recipients", "ops@example.com\r\ndesk@example.com",
+	saved := b.Post("/admin/settings", "alert_kind.held_open", "mail", "alert_kind.offline", "off", "alert_recipients", "ops@example.com\r\ndesk@example.com",
 		"alert_mail_cleared", "false", "alert_hold_down_minutes", "30")
-	shown := pageOf(b.Get(saved.Location))
+	shown := testsupport.ParsePage(b.Get(saved.Location).Body)
 	api := send(t, b, "GET", "/api/v1/alerts", "", 200).Body
 
-	want := []any{303, alertsTabPath, []string{"The settings have been saved. Doors receive changed configuration defaults right away."}, []string{"kind=held_open"}, testsupport.JSON(`[true,false]`),
+	want := []any{303, alertsTabPath, []string{"The settings have been saved. Doors receive changed configuration defaults right away."},
+		[]string{"off", "on", "mail (selected)"}, []string{"off (selected)", "on", "mail"}, testsupport.JSON(`["mail","off","on"]`),
 		testsupport.JSON(`["ops@example.com","desk@example.com"]`), false, 30.0}
-	got := []any{saved.Status, saved.Location, shown.Messages, shown.Checked,
-		[]any{testsupport.JSONAt(api, "/kinds/0/enabled"), testsupport.JSONAt(api, "/kinds/1/enabled")},
+	got := []any{saved.Status, saved.Location, shown.Messages, shown.Options["alert_kind.held_open"], shown.Options["alert_kind.offline"],
+		[]any{testsupport.JSONAt(api, "/kinds/0/state"), testsupport.JSONAt(api, "/kinds/1/state"), testsupport.JSONAt(api, "/kinds/2/state")},
 		testsupport.JSONAt(api, "/recipients"), testsupport.JSONAt(api, "/mail_cleared"), testsupport.JSONAt(api, "/hold_down_minutes")}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("save, page after, kinds, recipients, mail cleared, hold-down (-want +got):\n%s", diff)
@@ -221,22 +241,22 @@ func TestARefusedAlertsTabShowsWhatIsWrongAndStoresNothing(t *testing.T) {
 	f := testsupport.NewFactory()
 	b := signedInAdmin(t, f)
 
-	refusedForm := b.Post("/admin/settings", "kind", "", "kind", "held_open", "alert_recipients", "nobody", "alert_mail_cleared", "true",
+	refusedForm := b.Post("/admin/settings", "alert_kind.held_open", "mail", "alert_recipients", "nobody", "alert_mail_cleared", "true",
 		"alert_hold_down_minutes", "-5")
-	page := pageOf(refusedForm)
+	page := testsupport.ParsePage(refusedForm.Body)
 	api := send(t, b, "GET", "/api/v1/alerts", "", 200).Body
 
 	want := []any{422, map[string]string{
 		"alert_recipients":        "Must be email addresses separated by commas or new lines, such as ops@example.com, Front desk <desk@example.com>.",
 		"alert_hold_down_minutes": "Must be a whole number of minutes from 0 to 10080.",
-	}, map[string]string{"kind": "", "alert_recipients": "nobody", "alert_mail_cleared": "false", "alert_hold_down_minutes": "-5",
+	}, map[string]string{"alert_recipients": "nobody", "alert_mail_cleared": "false", "alert_hold_down_minutes": "-5",
 		"certificate_check_enabled": "false", "certificate_check_interval_hours": "24",
 		"certificate_runway_days": "548", "certificate_leaf_days": "14", "certificate_unreachable_checks": "3"},
-		false, testsupport.JSON(`[]`), 15.0}
-	got := []any{refusedForm.Status, page.FieldErrors, page.Values,
-		testsupport.JSONAt(api, "/kinds/0/enabled"), testsupport.JSONAt(api, "/recipients"), testsupport.JSONAt(api, "/hold_down_minutes")}
+		[]string{"off", "on", "mail (selected)"}, "on", testsupport.JSON(`[]`), 15.0}
+	got := []any{refusedForm.Status, page.FieldErrors, page.Values, page.Options["alert_kind.held_open"],
+		testsupport.JSONAt(api, "/kinds/0/state"), testsupport.JSONAt(api, "/recipients"), testsupport.JSONAt(api, "/hold_down_minutes")}
 	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("status, errors, values, held open enabled, recipients, hold-down (-want +got):\n%s", diff)
+		t.Errorf("status, errors, values, held open shown, held open stored, recipients, hold-down (-want +got):\n%s", diff)
 	}
 }
 
@@ -246,14 +266,14 @@ func TestTheAlertsTabShowsAnAlertMailSettingTheEnvironmentGivesAsReadOnly(t *tes
 	f.EnvStub["DOORCODE_ALERT_RECIPIENTS"] = "ops@example.com"
 	b := signedInAdmin(t, f)
 
-	saved := b.Post("/admin/settings", "kind", "", "kind", "held_open", "alert_mail_cleared", "false", "alert_hold_down_minutes", "15")
-	page := pageOf(b.Get(alertsTabPath))
+	saved := b.Post("/admin/settings", "alert_kind.offline", "mail", "alert_mail_cleared", "false", "alert_hold_down_minutes", "15")
+	page := testsupport.ParsePage(b.Get(alertsTabPath).Body)
 
 	note := "Set by DOORCODE_ALERT_RECIPIENTS in the environment; change it there."
 	want := []any{303, []string{settingsNote, note},
-		alertMailRows("ops@example.com "+note, "On", "", "environment, read-only")[1], []string{"kind=held_open"}}
-	if diff := cmp.Diff(want, []any{saved.Status, page.Notes, page.Tables["Alert mail"][1], page.Checked}); diff != "" {
-		t.Errorf("save, notes, recipients row, checked (-want +got):\n%s", diff)
+		alertMailRows("ops@example.com "+note, "On", "", "environment, read-only")[1], []string{"off", "on", "mail (selected)"}}
+	if diff := cmp.Diff(want, []any{saved.Status, page.Notes, page.Tables["Alert mail"][1], page.Options["alert_kind.offline"]}); diff != "" {
+		t.Errorf("save, notes, recipients row, offline (-want +got):\n%s", diff)
 	}
 }
 
@@ -271,10 +291,10 @@ func TestTheAlertsPageFailsWhenTheStoreDoes(t *testing.T) {
 			return b.Get(alertsTabPath)
 		}},
 		"saving the kinds": {(*testsupport.Store).FailAlertWrites, func(b *testsupport.Browser) testsupport.Response {
-			return b.Post("/admin/settings", "kind", "held_open")
+			return b.Post("/admin/settings", "alert_kind.held_open", "mail")
 		}},
 		"saving the settings and the kinds": {(*testsupport.Store).FailSettingWrites, func(b *testsupport.Browser) testsupport.Response {
-			return b.Post("/admin/settings", "kind", "", "alert_hold_down_minutes", "20")
+			return b.Post("/admin/settings", "alert_kind.held_open", "mail", "alert_hold_down_minutes", "20")
 		}},
 	}
 	for name, c := range cases {

@@ -615,7 +615,7 @@
     "/alerts/kinds/{kind}": {
       "put": {
         "operationId": "updateAlertKind",
-        "summary": "Enable or disable a kind of alert",
+        "summary": "Set a kind of alert off, on, or to mail",
         "tags": [
           "alerts"
         ],
@@ -647,14 +647,14 @@
                 "$ref": "#/components/schemas/AlertKindUpdate"
               },
               "example": {
-                "enabled": true
+                "state": "mail"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "The kind with whether it is enabled now.",
+            "description": "The kind with its state now.",
             "content": {
               "application/json": {
                 "schema": {
@@ -664,7 +664,7 @@
             }
           },
           "400": {
-            "description": "The body is not a JSON object with enabled true or false.",
+            "description": "The body is not a JSON object, or its state is not off, on, or mail.",
             "content": {
               "application/json": {
                 "schema": {
@@ -10962,13 +10962,13 @@
       "AlertKindUpdate": {
         "type": "object",
         "properties": {
-          "enabled": {
-            "type": "boolean",
-            "description": "Whether the kind mails the recipients."
+          "state": {
+            "type": "string",
+            "description": "off, on, or mail. Setting a kind off clears its conditions; setting it on or off drops the mail its conditions owe. Neither mails, and setting a kind to mail mails only what is raised from then on."
           }
         },
         "required": [
-          "enabled"
+          "state"
         ]
       },
       "AlertKindView": {
@@ -10978,10 +10978,6 @@
             "type": "string",
             "description": "What raises and clears it."
           },
-          "enabled": {
-            "type": "boolean",
-            "description": "True when it mails the recipients; every kind is disabled until an administrator enables it."
-          },
           "key": {
             "type": "string",
             "description": "The kind's key."
@@ -10989,13 +10985,17 @@
           "name": {
             "type": "string",
             "description": "The kind's name, which its mail's subject starts with."
+          },
+          "state": {
+            "type": "string",
+            "description": "off (no condition of it is raised), on (its conditions are raised and listed, not mailed), or mail (they are raised, listed, and mailed to the recipients); every kind is on until an administrator sets it otherwise."
           }
         },
         "required": [
           "key",
           "name",
           "about",
-          "enabled"
+          "state"
         ]
       },
       "AlertsView": {
@@ -11007,7 +11007,7 @@
           },
           "kinds": {
             "type": "array",
-            "description": "Every kind of alert, with whether it is enabled.",
+            "description": "Every kind of alert, with its state.",
             "items": {
               "$ref": "#/components/schemas/AlertKindView"
             }
@@ -11025,7 +11025,7 @@
           },
           "recipients": {
             "type": "array",
-            "description": "The addresses every enabled kind mails, from the setting alert_recipients.",
+            "description": "The addresses every kind set to mail mails, from the setting alert_recipients.",
             "items": {
               "type": "string"
             }

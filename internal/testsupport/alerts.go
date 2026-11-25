@@ -16,8 +16,8 @@ type conditionKey struct {
 	kind, subject string
 }
 
-// AlertKinds returns whether each stored kind of alert is enabled.
-func (s *Store) AlertKinds(context.Context) (map[string]bool, error) {
+// AlertKinds returns the state stored for each kind of alert.
+func (s *Store) AlertKinds(context.Context) (map[string]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.usable(alertsAggregate); err != nil {
@@ -26,14 +26,14 @@ func (s *Store) AlertKinds(context.Context) (map[string]bool, error) {
 	return maps.Clone(s.alertKinds), nil
 }
 
-// SetAlertKind stores whether the kind of alert named kind is enabled.
-func (s *Store) SetAlertKind(_ context.Context, kind string, enabled bool) error {
+// SetAlertKind stores state as the state of the kind of alert named kind.
+func (s *Store) SetAlertKind(_ context.Context, kind, state string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.writable(alertsAggregate, alertWrites); err != nil {
 		return err
 	}
-	s.alertKinds[kind] = enabled
+	s.alertKinds[kind] = state
 	return nil
 }
 

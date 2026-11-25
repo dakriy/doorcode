@@ -16,23 +16,29 @@
   <section aria-labelledby="kinds-heading" class="overflow-hidden {{template "card-class"}}">
     <div class="px-6 pt-6">
       <h2 id="kinds-heading" class="text-sm font-semibold">Kinds of alert</h2>
-      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Every kind is off until it is turned on here; nothing is mailed while no recipient is given. A condition raised while its kind is off, no recipient is given, or mail is not set up is mailed once all three allow it, if it is still raised then. The Alerts page lists what is raised now.</p>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Each kind is off, on, or mail. Off raises nothing, and setting a kind off clears what it raised. On raises its conditions and lists them on the Alerts page without mailing them. Mail does the same and mails the recipients about each condition raised while the kind is set to mail, and about its clearing; a condition raised before is never mailed. A kind is on until it is set otherwise. Door badges, events, and metrics show a door's state whatever its alerts are set to.</p>
     </div>
-    <input type="hidden" name="kind" value="">
     <div class="mt-4 overflow-x-auto">
       <table aria-label="Kinds of alert" class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
         <thead class="{{template "table-head-class"}}">
           <tr>
             <th scope="col" class="px-6 py-2">Alert</th>
+            <th scope="col" class="px-6 py-2">State</th>
             <th scope="col" class="px-6 py-2">Raised and cleared</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
-          {{range .}}
+          {{range .}}{{$id := printf "kind-%s" .Key}}
           <tr>
             <td class="w-2/5 px-6 py-3 align-top">
-              <label class="inline-flex items-center gap-2 font-medium"><input name="kind" type="checkbox" value="{{.Key}}"{{if .Enabled}} checked{{end}} class="size-4 rounded border-zinc-300 accent-brand-600 dark:border-zinc-700">{{.Name}}</label>
+              <label for="{{$id}}" class="font-medium">{{.Name}}</label>
               <span class="block font-mono text-xs text-zinc-500 dark:text-zinc-400">{{.Key}}</span>
+            </td>
+            <td class="px-6 py-3 align-top">
+              <select id="{{$id}}" name="{{.Field}}"{{if .Error}} aria-invalid="true" aria-describedby="{{$id}}-error"{{end}} class="{{template "input-base"}} font-mono">
+                {{range .Options}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
+              </select>
+              {{if .Error}}<p id="{{$id}}-error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{.Error}}</p>{{end}}
             </td>
             <td class="px-6 py-3 align-top text-zinc-600 dark:text-zinc-400">{{.About}}</td>
           </tr>

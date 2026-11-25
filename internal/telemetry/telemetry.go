@@ -50,8 +50,8 @@ type Service struct {
 	Doors  door.Service
 	Events event.Service
 	Clock  connector.Clock
-	// Alerts is told when a door is held open and when it closes, and
-	// follows the conditions the periodic work finds a door
+	// Alerts is told when a door held open closes or enters an open
+	// span, and follows the conditions the periodic work finds a door
 	// in.
 	Alerts alert.Service
 	// Changed is called whenever what door lists show of a door's state
@@ -372,7 +372,7 @@ func (s Service) watch(ctx context.Context, current settings.Current, defaults s
 		}
 		if raisedErr == nil {
 			d.Controller = &c
-			s.follow(ctx, raised, d, current.UnresponsiveAfter, now)
+			s.follow(ctx, raised, d, current.UnresponsiveAfter, config.HeldOpen(), now)
 		}
 	}
 	return raisedErr
@@ -404,6 +404,7 @@ var badgeKinds = []struct {
 	kind  alert.Kind
 }{
 	{BadgeUnresponsive, alert.Unresponsive},
+	{BadgeHeldOpen, alert.HeldOpen},
 	{BadgeRevertedConfig, alert.ConfigReverted},
 	{BadgeRestartingConfig, alert.ConfigRestarting},
 	{BadgeMismatchedConfig, alert.ConfigMismatch},
@@ -411,14 +412,15 @@ var badgeKinds = []struct {
 
 // follow keeps the alert conditions d is in at now as raised saw them:
 // offline once its controller has not been connected for silent, and
-// each kind of badgeKinds while door lists show its badge.
-func (s Service) follow(ctx context.Context, raised alert.Raised, d connector.StoredDoor, silent time.Duration, now time.Time) {
+// each kind of badgeKinds while door lists show its badge, held open
+// after heldOpen.
+func (s Service) follow(ctx context.Context, raised alert.Raised, d connector.StoredDoor, silent, heldOpen time.Duration, now time.Time) {
 	c := *d.Controller
 	offline := !c.Online && !now.Before(c.LastSeenAt.Add(silent))
 	s.Alerts.Follow(ctx, raised, alert.DoorCondition(alert.Offline, d), offline, now, heardFrom(c)+" and is not connected.")
 	badges := DoorBadges(d)
 	for _, k := range badgeKinds {
-		s.Alerts.Follow(ctx, raised, alert.DoorCondition(k.kind, d), slices.Contains(badges, k.badge), now, badgeDetail(d, k.badge))
+		s.Alerts.Follow(ctx, raised, alert.DoorCondition(k.kind, d), slices.Contains(badges, k.badge), now, badgeDetail(d, k.badge, heldOpen))
 	}
 }
 
@@ -427,12 +429,22 @@ func heardFrom(c connector.StoredController) string {
 	return "Its controller was last heard from " + alert.Stamp(c.LastSeenAt)
 }
 
-// badgeDetail is what alert mail says of d showing badge.
-func badgeDetail(d connector.StoredDoor, badge string) string {
-	if badge == BadgeUnresponsive {
+// badgeDetail is what alert mail says of d showing badge, held open
+// after heldOpen.
+func badgeDetail(d connector.StoredDoor, badge string, heldOpen time.Duration) string {
+	switch badge {
+	case BadgeUnresponsive:
 		return heardFrom(*d.Controller) + ", though the broker says it is connected."
+	case BadgeHeldOpen:
+		return heldOpenDetail(heldOpen)
 	}
 	return configDetail(d, ConfigOf(d))
+}
+
+// heldOpenDetail is what the alarm and the alert mail say of a door held
+// open after heldOpen.
+func heldOpenDetail(heldOpen time.Duration) string {
+	return fmt.Sprintf("Open for longer than %g seconds.", heldOpen.Seconds())
 }
 
 // configDetail is what alert mail says of check, how what the controller
@@ -457,8 +469,8 @@ func configDetail(d connector.StoredDoor, check ConfigCheck) string {
 // not. Only time it should be locked counts: in
 // an open span of its timeline, in zone, it is not held open, and after
 // one the time counts from the span's end. Once it has been open that
-// long for heldOpen, it is logged as held open and its alert raised, once
-// until a span or a closing starts the count again.
+// long for heldOpen, it is logged as held open, once until a span or a
+// closing starts the count again; follow raises its alert.
 func (s Service) checkHeld(ctx context.Context, d connector.StoredDoor, c connector.StoredController, heldOpen time.Duration, zone *time.Location, now time.Time) (connector.StoredController, error) {
 	if c.DoorState != Open {
 		return c, nil
@@ -474,11 +486,9 @@ func (s Service) checkHeld(ctx context.Context, d connector.StoredDoor, c connec
 	if c.HeldOpen || now.Before(since.Add(heldOpen)) {
 		return c, nil
 	}
-	detail := fmt.Sprintf("Open for longer than %g seconds.", heldOpen.Seconds())
-	if _, err := s.Events.Record(ctx, alarm(now, d.ID, event.HeldOpen, detail)); err != nil {
+	if _, err := s.Events.Record(ctx, alarm(now, d.ID, event.HeldOpen, heldOpenDetail(heldOpen))); err != nil {
 		return c, err
 	}
-	s.Alerts.Raise(ctx, alert.DoorCondition(alert.HeldOpen, d), now, detail)
 	c.HeldOpen = true
 	return c, nil
 }

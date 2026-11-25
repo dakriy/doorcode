@@ -20,9 +20,9 @@ const (
 var alertHoldDown = length{whole{0, 10080, "minutes"}, minutesOf}
 
 // alertsSection is the settings of whom alerts mail and when.
-var alertsSection = section{Section{Name: "Alert mail", About: "Whom every enabled alert mails, whether it mails again when its condition clears, and how long a cleared condition stays quiet.", Tab: TabAlerts}, []definition{
+var alertsSection = section{Section{Name: "Alert mail", About: "Whom every alert set to mail mails, whether it mails again when its condition clears, and how long a cleared condition stays quiet.", Tab: TabAlerts}, []definition{
 	{key: keyAlertRecipients, fallback: "", validate: accepting(recipients).askedWith(Input{Kind: KindAddresses, Example: recipientsExample}), label: "Recipients",
-		help: "The addresses every enabled alert mails, separated by commas or new lines, such as ops@example.com. Nothing is mailed while it is empty."},
+		help: "The addresses every alert set to mail mails, separated by commas or new lines, such as ops@example.com. Nothing is mailed while it is empty."},
 	{key: keyAlertCleared, fallback: Yes, validate: accepting(boolean), label: "Mail when cleared",
 		help: "Mails the recipients once more when a condition an alert mailed about clears."},
 	{key: keyAlertHoldDown, fallback: "15", validate: alertHoldDown.rule(), label: "Quiet after clearing",

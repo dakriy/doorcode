@@ -75,7 +75,8 @@ the engineering contract is [AGENTS.md](AGENTS.md).
   certificates the broker or the device address serve stop verifying,
   run short, or cannot be reached, once when raised and once more when it
   clears; and once when such a chain changes shape. Each
-  kind of alert is off until an administrator turns it on, a condition that
+  kind of alert is off, on (raised and listed, not mailed), or set to mail,
+  and is on until an administrator sets it otherwise; a condition that
   comes back soon after clearing mails nothing, and mail waits in a durable
   outbox that is retried with growing pauses, so a slow or failing mail
   server never holds up the doors.
@@ -124,7 +125,7 @@ which the Mail tab shows as set by the deployment, and a variable the demo
 is started with wins over its preset. Start one first with
 `docker compose -f docker-compose.dev.yml up -d --wait mailpit` (or
 `docker run -d -p 1025:1025 -p 8025:8025 axllent/mailpit:v1.29.6`); Send
-test email on the Mail tab, and alert mails once alerts are enabled, then
+test email on the Mail tab, and alert mails once alerts are set to mail, then
 show at <http://localhost:8025>.
 
 ## Deploy with docker compose
@@ -468,7 +469,7 @@ page folds away the single sign-on and identity claims parts while
 | `mail_password` | Its password. Secret: stored encrypted. | empty |
 | `mail_from` | The address mail comes from, alone or after a name, such as `Doorcode <doorcode@example.com>`. | empty |
 | `mail_reply_to` | The address replies go to; empty for `mail_from`. | empty |
-| `alert_recipients` | The addresses every enabled alert mails, separated by commas or new lines, each alone or after a name. On the Alerts tab. Nothing is mailed while it is empty. | empty |
+| `alert_recipients` | The addresses every alert set to mail mails, separated by commas or new lines, each alone or after a name. On the Alerts tab. Nothing is mailed while it is empty. | empty |
 | `alert_mail_cleared` | `true` mails the recipients once more when a condition an alert mailed about clears. On the Alerts tab. | `true` |
 | `alert_hold_down_minutes` | Minutes, 0 to 10080, a cleared condition must stay clear before it mails again when it comes back; one that comes back sooner is followed without mail. On the Alerts tab. | `15` |
 | `certificate_check_enabled` | `true` has the server check, in the background, the certificates of the broker and of `device_url` (see [Certificate check](#certificate-check)); Check now works either way. On the Alerts tab. | `false` |
@@ -552,13 +553,14 @@ navigation) shows what is happening and changes no setting: every
 condition raised now with what became of its mail (Raised now), the
 certificate checks with Check now, and the newest alert mail with its
 status, attempts, and last error. Its Alert settings link opens the Alerts
-tab of the settings page (`/admin/settings?tab=alerts`), which turns each
-kind of alert on or off and sets whom alerts mail (`alert_recipients`),
+tab of the settings page (`/admin/settings?tab=alerts`), which sets each
+kind of alert to `off`, `on`, or `mail` and sets whom alerts mail (`alert_recipients`),
 when (`alert_mail_cleared`, `alert_hold_down_minutes`), and how the
 certificates are checked, all saved with the settings form.
 `GET /api/v1/alerts` reads the kinds, the recipients, and the outbox, and
-`PUT /api/v1/alerts/kinds/{kind}` with `{"enabled": true}` turns a kind on;
-the settings API changes the settings.
+`PUT /api/v1/alerts/kinds/{kind}` with `{"state": "off"}`, `{"state": "on"}`,
+or `{"state": "mail"}` sets a kind (400 for any other body); the settings
+API changes the settings.
 
 | Kind | Raised | Cleared |
 | --- | --- | --- |
@@ -571,36 +573,52 @@ the settings API changes the settings.
 | `update_failed` | A door's firmware update fails, when the server logs an `update failed` event: the door said it could not install it, or it did not connect again with it before `update_timeout_minutes`. | The door's firmware no longer shows Update failed: an update of it is under way again, it runs its target, or its target changes. |
 | `certificate` | A [certificate check](#certificate-check) of an endpoint finds, each its own condition: what it served does not verify; its runway is fewer days than `certificate_runway_days`; its leaf expires in fewer days than `certificate_leaf_days`; or `certificate_unreachable_checks` checks in a row reached no server. Once, and never cleared: a verified chain whose shape differs from the endpoint's chain shape. | A later check passes that reason: it verifies, the runway or the leaf has enough days, or it reaches the server. A check that reaches no server leaves the other reasons as they were. Without a cleared mail, the next check once the settings no longer give the endpoint. |
 
-The periodic work, at most once a minute, raises and clears `offline`,
-`unresponsive`, the three configuration kinds, and `update_failed` from
-each door's state and firmware status as they stand then, so they may be
-raised or cleared up to a minute after they changed; `held_open` is
-raised and cleared as the server handles what happens. A
-door that is deleted or loses its controller keeps its conditions as they
-were.
+The periodic work, at most once a minute, raises and clears `held_open`,
+`offline`, `unresponsive`, the three configuration kinds, and
+`update_failed` from each door's state and firmware status as they stand
+then, so they may be raised or cleared up to a minute after they changed;
+`held_open` also clears as soon as the door closes or an open span
+begins. A door already in a condition when its kind is set on or to mail
+is raised at the next run. A door that is deleted or loses its controller
+keeps its conditions as they were.
 
-Every kind is off until it is turned on, and nothing is mailed while
-`alert_recipients` is empty or mail is not set up (`mail_host` or
-`mail_from` empty). A condition is followed per door whether or not its
-kind is on, and is listed under Raised now while it holds: it mails the
-recipients once when raised and, while `alert_mail_cleared` is on, once
-more when it clears, if its raise was mailed and its kind is still on. A
-condition that is raised again less than `alert_hold_down_minutes` after a
-mailed raise cleared is followed without mail, and so is its clearing.
+Each kind is in one of three states, `on` until it is set otherwise:
 
-A raise that cannot be mailed when it happens, because its kind is off, no
-recipient is given, or mail is not set up, is not counted as mailed: it is
-listed under Raised now as waiting, or as not mailed because its alert is
-off while its kind is off, and once all three allow it (looked at by the
-mail delivery loop the next time it runs, and at once after a kind or a
-setting is saved), its raise mail is sent then, once, if the
-condition is still raised, giving the time it was raised. A condition that
-clears before that sends nothing, neither its raise nor its clearing, and
-holds nothing down: it mails at once if it is raised again. A chain change
-of the `certificate` kind that happens while the kind is on but no
-recipient is given or mail is not set up is kept the same way and mailed
-once, saying when it happened; one that happens while the kind is off is
-never mailed.
+| State | Raised and listed under Raised now | Mailed |
+| --- | --- | --- |
+| `off` | No. Setting a kind off clears every condition of it, without mail. | No. |
+| `on` | Yes. | No. |
+| `mail` | Yes. | A condition raised while its kind is `mail`. |
+
+The state decides only alerts. A door's badges, its alarm and other
+events, its page, and the Prometheus metrics show its state whatever its
+kinds are set to, `off` included.
+
+A condition's mail is decided when it is raised: one raised while its
+kind is `on` is never mailed, neither its raise nor its clearing, even
+once the kind is set to `mail`, so setting a kind to `mail` never sends a
+backlog; only what is raised from then on is mailed. A condition raised
+while its kind is `mail` mails the recipients once and, while
+`alert_mail_cleared` is on, once more when it clears, if its raise was
+mailed and its kind is still set to `mail`. A condition that is raised
+again less than `alert_hold_down_minutes` after a mailed raise cleared is
+followed without mail, and so is its clearing; a raise that was never to
+be mailed holds nothing down.
+
+Nothing is mailed while `alert_recipients` is empty or mail is not set up
+(`mail_host` or `mail_from` empty). A raise of a kind set to `mail` that
+cannot be mailed then is listed under Raised now as waiting, and once
+both allow it (looked at by the mail delivery loop the next time it runs,
+and at once after a setting is saved) its raise mail is sent, once, if the
+condition is still raised and its kind still set to `mail`, giving the
+time it was raised. Setting the kind `on` or `off` meanwhile drops that
+mail. A condition that clears before its mail could be sent sends
+nothing, neither its raise nor its clearing, and holds nothing down: it
+mails at once if it is raised again. A chain change of the `certificate`
+kind that happens while the kind is `mail` but no recipient is given or
+mail is not set up is kept the same way and mailed once, saying when it
+happened; one that happens while the kind is `on` is never mailed, and
+one that happens while it is `off` is not kept.
 
 Alert mail goes through the Mail settings as they are when it is sent. It is
 put in an outbox in the database and sent by a background loop beside the

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"maps"
 	"net/http"
+	"net/url"
 	"slices"
 	"time"
 
@@ -160,9 +161,9 @@ type settingsContent struct {
 	// MailTo is the viewer's own address, which the Mail tab's test email
 	// goes to; empty on the other tabs.
 	MailTo string
-	// Kinds is every kind of alert, ticked when enabled, on the Alerts
-	// tab; nil on the others.
-	Kinds          []alert.KindState
+	// Kinds is every kind of alert with the state it offers chosen, on
+	// the Alerts tab; nil on the others.
+	Kinds          []kindRow
 	Errors         map[string]string
 	SignInImage    string
 	Favicon        string
@@ -230,7 +231,7 @@ func (a *App) showSettings(w http.ResponseWriter, r *http.Request, status int, v
 	if pictures {
 		signIn, favicon, err = a.lookImages(r)
 	}
-	kinds, kindsErr := a.kindsOn(r.Context(), tab)
+	kinds, kindsErr := a.kindsOn(r.Context(), tab, entered, errs)
 	if err = errors.Join(err, kindsErr); err != nil {
 		a.pageError(w, r, err)
 		return
@@ -243,13 +244,65 @@ func (a *App) showSettings(w http.ResponseWriter, r *http.Request, status int, v
 	a.render(w, r, status, settingsTemplate, "Settings", &viewer, content)
 }
 
-// kindsOn is every kind of alert with whether it is enabled when tab is
-// the Alerts tab, and none otherwise.
-func (a *App) kindsOn(ctx context.Context, tab settings.Tab) ([]alert.KindState, error) {
+// kindFormPrefix starts the name of the form field holding a kind of
+// alert's state, which its key ends.
+const kindFormPrefix = "alert_kind."
+
+// kindRow is a kind of alert as the Alerts tab of the settings page shows
+// it: the name of its field, the states it offers with the one shown
+// chosen, and what is wrong with the one entered.
+type kindRow struct {
+	alert.Kind
+	Field   string
+	Options []selectOption
+	Error   string
+}
+
+// kindsOn is, when tab is the Alerts tab, every kind of alert with the
+// state entered for it under its field, or its own state where entered
+// has none, and what errs says is wrong with it; none otherwise.
+func (a *App) kindsOn(ctx context.Context, tab settings.Tab, entered, errs map[string]string) ([]kindRow, error) {
 	if tab != settings.TabAlerts {
 		return nil, nil
 	}
-	return a.alerts.States(ctx)
+	states, err := a.alerts.States(ctx)
+	rows := []kindRow{}
+	for _, k := range states {
+		field := kindFormPrefix + k.Key
+		shown, given := entered[field]
+		if !given {
+			shown = string(k.State)
+		}
+		rows = append(rows, kindRow{Kind: k.Kind, Field: field, Options: stateOptions(shown), Error: errs[field]})
+	}
+	return rows, err
+}
+
+// stateOptions is the options of a select offering the states of a kind
+// of alert with shown chosen.
+func stateOptions(shown string) []selectOption {
+	choices := []string{}
+	for _, state := range alert.StateChoices {
+		choices = append(choices, string(state))
+	}
+	return choiceOptions(choices, shown)
+}
+
+// kindsChosen is the state form sets for each kind of alert whose field it
+// sends, by field, and what is wrong with each that names no state.
+func kindsChosen(form url.Values) (map[string]string, map[string]string) {
+	chosen, errs := map[string]string{}, map[string]string{}
+	for _, kind := range alert.Kinds {
+		field := kindFormPrefix + kind.Key
+		if !form.Has(field) {
+			continue
+		}
+		chosen[field] = form.Get(field)
+		if _, err := alert.ParseState(chosen[field]); err != nil {
+			errs[field] = "Must be off, on, or mail."
+		}
+	}
+	return chosen, errs
 }
 
 // mailTo is the address the Mail tab's test email goes to, viewer's own
@@ -359,37 +412,48 @@ func (a *App) settingsPage(w http.ResponseWriter, r *http.Request, viewer auth.U
 
 // saveSettingsFromForm stores every setting the form changed, and clears
 // every secret it ticks, or none when one is refused, and sends the doors
-// what that changes for them. A form that sends kind, as the Alerts tab
-// does, then enables exactly the kinds of alert it ticks. It goes back to
-// the tab that shows what the form sent, or shows the tab with the first
-// value refused.
+// what that changes for them. A form that sets the states of kinds of
+// alert, as the Alerts tab does, then stores each of them; one that names
+// no state refuses the whole form. It goes back to the tab that shows
+// what the form sent, or shows the tab with the first value refused,
+// holding what the form sent.
 func (a *App) saveSettingsFromForm(w http.ResponseWriter, r *http.Request, viewer auth.User) {
 	_ = r.ParseForm()
 	entered := settings.FormValues(r.PostForm)
+	chosen, kindErrs := kindsChosen(r.PostForm)
+	shown := maps.Clone(entered)
+	maps.Copy(shown, chosen)
+	if len(kindErrs) > 0 {
+		a.showSettings(w, r, http.StatusUnprocessableEntity, viewer, settings.TabAlerts, shown, kindErrs, "")
+		return
+	}
 	changed, err := a.settings.UpdateAll(r.Context(), entered, r.PostForm["clear"])
 	if errs, rejected := fieldErrors(err); rejected {
 		tab := settings.TabHolding(slices.Collect(maps.Keys(errs)))
-		a.showSettings(w, r, http.StatusUnprocessableEntity, viewer, tab, entered, errs, "")
+		a.showSettings(w, r, http.StatusUnprocessableEntity, viewer, tab, shown, errs, "")
 		return
-	}
-	tab := settings.TabHolding(append(slices.Collect(maps.Keys(entered)), r.PostForm["clear"]...))
-	if kinds, sent := r.PostForm["kind"]; sent {
-		tab = settings.TabAlerts
-		if err == nil {
-			err = a.enableTicked(r.Context(), kinds)
-		}
 	}
 	if err == nil {
 		a.settingsChanged(r.Context(), changed)
 	}
+	tab := settings.TabHolding(append(slices.Collect(maps.Keys(entered)), r.PostForm["clear"]...))
+	if len(chosen) > 0 {
+		tab = settings.TabAlerts
+		if err == nil {
+			err = a.setKinds(r.Context(), chosen)
+		}
+	}
 	a.changed(w, r, err, settingsTabPath(tab), "settings-saved")
 }
 
-// enableTicked enables the kinds of alert whose keys are ticked and
-// disables the others.
-func (a *App) enableTicked(ctx context.Context, ticked []string) error {
+// setKinds stores the state chosen for each kind of alert, by field.
+func (a *App) setKinds(ctx context.Context, chosen map[string]string) error {
 	for _, kind := range alert.Kinds {
-		if _, err := a.alerts.Enable(ctx, kind.Key, slices.Contains(ticked, kind.Key)); err != nil {
+		state, given := chosen[kindFormPrefix+kind.Key]
+		if !given {
+			continue
+		}
+		if _, err := a.alerts.SetState(ctx, kind.Key, state); err != nil {
 			return err
 		}
 	}

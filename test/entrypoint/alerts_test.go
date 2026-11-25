@@ -10,7 +10,8 @@ import (
 
 // alertSite is a keypad site whose mail goes through smtp.example.com as
 // mailSite sets it up, whose alerts mail ops@example.com and Front desk
-// <desk@example.com>, and where each kind of alert in kinds is enabled.
+// <desk@example.com>, and where each kind of alert in kinds is set to
+// mail.
 func alertSite(t *testing.T, f *testsupport.Factory, kinds ...string) *keypad {
 	t.Helper()
 	k := keypadSite(t, f)
@@ -20,7 +21,7 @@ func alertSite(t *testing.T, f *testsupport.Factory, kinds ...string) *keypad {
 
 // mailAlerts has the administrator's client c send mail through
 // smtp.example.com, mail alerts to ops@example.com and Front desk
-// <desk@example.com>, and enable each kind of alert in kinds.
+// <desk@example.com>, and set each kind of alert in kinds to mail.
 func mailAlerts(t *testing.T, c *testsupport.Browser, kinds ...string) {
 	t.Helper()
 	for _, setting := range [][2]string{
@@ -31,7 +32,7 @@ func mailAlerts(t *testing.T, c *testsupport.Browser, kinds ...string) {
 		putSetting(t, c, setting[0], setting[1])
 	}
 	for _, kind := range kinds {
-		send(t, c, "PUT", "/api/v1/alerts/kinds/"+kind, `{"enabled":true}`, 200)
+		send(t, c, "PUT", "/api/v1/alerts/kinds/"+kind, `{"state":"mail"}`, 200)
 	}
 }
 
@@ -93,7 +94,7 @@ var recipients = []string{"ops@example.com", "desk@example.com"}
 
 // alertFooter ends every message about the kind of alert named kind.
 func alertFooter(kind string) string {
-	return "\nThis mail goes to every alert recipient while the alert " + kind + " is enabled on the Alerts tab of the settings.\n"
+	return "\nThis mail goes to every alert recipient while the alert " + kind + " is set to mail on the Alerts tab of the settings.\n"
 }
 
 // heldSubject is the subject of the mail about Lobby being held open.
@@ -118,21 +119,21 @@ func (k *keypad) holdsOpen(opened, raised string) {
 // subject cleared.
 func cleared(subject string) string { return "Cleared: " + subject }
 
-func TestEveryKindOfAlertIsDisabledUntilEnabledAndMailsNobodyByDefault(t *testing.T) {
+func TestEveryKindOfAlertIsOnUntilSetOtherwiseAndMailsNobodyByDefault(t *testing.T) {
 	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 
 	got := testsupport.JSONAt(send(t, b, "GET", "/api/v1/alerts", "", 200).Body, "")
 
 	want := testsupport.JSON(`{"kinds":[
-		{"key":"held_open","name":"Door held open","about":"A door stood open for longer than its held-open time while it should have been locked. It clears when the door closes or an open span of its timeline begins.","enabled":false},
-		{"key":"offline","name":"Door offline","about":"A door's controller has not been connected to the broker for the minutes of the unresponsive_minutes setting. It clears once the controller connects again.","enabled":false},
-		{"key":"unresponsive","name":"Door unresponsive","about":"A door's controller has not been heard from for the minutes of the unresponsive_minutes setting while the broker says it is connected. It clears once the server hears from it or it is shown offline.","enabled":false},
-		{"key":"config_reverted","name":"Door configuration reverted","about":"A door gave up the configuration it was last sent, because it could not come online with it, and runs the one before. It clears once the door no longer shows the Reverted configuration badge: it reports the configuration it was last sent, or is sent another.","enabled":false},
-		{"key":"config_restarting","name":"Door restarting with its configuration","about":"A door's controller started at least twice since the configuration it was last sent went out, with no report naming that configuration. It clears once the door no longer shows the Restarting with configuration badge.","enabled":false},
-		{"key":"config_mismatch","name":"Door configuration mismatched","about":"A door's controller went on reporting a configuration other than the one it was last sent. It clears once the door no longer shows the Mismatched configuration badge.","enabled":false},
-		{"key":"update_failed","name":"Door firmware update failed","about":"A door's firmware update failed: the door said it could not install it, or it did not connect again with it in time. It clears once the door's firmware no longer shows Update failed: an update of it is under way again, it runs its target, or its target changes.","enabled":false},
-		{"key":"certificate","name":"Certificate","about":"` + certificateAbout + `","enabled":false}],
+		{"key":"held_open","name":"Door held open","about":"A door stood open for longer than its held-open time while it should have been locked. It clears when the door closes or an open span of its timeline begins.","state":"on"},
+		{"key":"offline","name":"Door offline","about":"A door's controller has not been connected to the broker for the minutes of the unresponsive_minutes setting. It clears once the controller connects again.","state":"on"},
+		{"key":"unresponsive","name":"Door unresponsive","about":"A door's controller has not been heard from for the minutes of the unresponsive_minutes setting while the broker says it is connected. It clears once the server hears from it or it is shown offline.","state":"on"},
+		{"key":"config_reverted","name":"Door configuration reverted","about":"A door gave up the configuration it was last sent, because it could not come online with it, and runs the one before. It clears once the door no longer shows the Reverted configuration badge: it reports the configuration it was last sent, or is sent another.","state":"on"},
+		{"key":"config_restarting","name":"Door restarting with its configuration","about":"A door's controller started at least twice since the configuration it was last sent went out, with no report naming that configuration. It clears once the door no longer shows the Restarting with configuration badge.","state":"on"},
+		{"key":"config_mismatch","name":"Door configuration mismatched","about":"A door's controller went on reporting a configuration other than the one it was last sent. It clears once the door no longer shows the Mismatched configuration badge.","state":"on"},
+		{"key":"update_failed","name":"Door firmware update failed","about":"A door's firmware update failed: the door said it could not install it, or it did not connect again with it in time. It clears once the door's firmware no longer shows Update failed: an update of it is under way again, it runs its target, or its target changes.","state":"on"},
+		{"key":"certificate","name":"Certificate","about":"` + certificateAbout + `","state":"on"}],
 		"recipients":[],"mail_cleared":true,"hold_down_minutes":15,"outbox":[]}`)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("alerts (-want +got):\n%s", diff)
@@ -192,7 +193,7 @@ func TestADoorHeldOpenClearsWhenAnOpenSpanBegins(t *testing.T) {
 	}
 }
 
-func TestOnlyTheEnabledKindsOfAlertMail(t *testing.T) {
+func TestOnlyTheKindsOfAlertSetToMailMail(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	k := alertSite(t, f, "held_open")
@@ -205,7 +206,7 @@ func TestOnlyTheEnabledKindsOfAlertMail(t *testing.T) {
 	}
 }
 
-func TestAClearedConditionMailsOnlyWhenItsRaiseWasMailedItsKindIsStillEnabledAndTheSettingSaysSo(t *testing.T) {
+func TestAClearedConditionMailsOnlyWhenItsRaiseWasMailedItsKindIsStillSetToMailAndTheSettingSaysSo(t *testing.T) {
 	t.Parallel()
 	cases := map[string]struct {
 		before, between func(k *keypad)
@@ -214,10 +215,10 @@ func TestAClearedConditionMailsOnlyWhenItsRaiseWasMailedItsKindIsStillEnabledAnd
 			before:  func(k *keypad) { k.setting("alert_mail_cleared", "false") },
 			between: func(*keypad) {},
 		},
-		"its kind disabled after it was raised": {
+		"its kind set on after it was raised": {
 			before: func(*keypad) {},
 			between: func(k *keypad) {
-				send(k.t, k.b, "PUT", "/api/v1/alerts/kinds/held_open", `{"enabled":false}`, 200)
+				send(k.t, k.b, "PUT", "/api/v1/alerts/kinds/held_open", `{"state":"on"}`, 200)
 			},
 		},
 		"the recipients emptied after it was raised": {
@@ -363,7 +364,7 @@ func TestAFailedMessageKeepsTheLastErrorItWasRefusedWith(t *testing.T) {
 	k.runAt("2026-01-05T09:32:00Z")
 
 	want := testsupport.JSON(`{"id":1,"kind":"held_open","subject":"Door held open: Lobby",
-		"text":"Door held open at Lobby, Mon 5 Jan 2026 09:01:00 UTC.\n\nOpen for longer than 60 seconds.\n\nThis mail goes to every alert recipient while the alert Door held open is enabled on the Alerts tab of the settings.\n",
+		"text":"Door held open at Lobby, Mon 5 Jan 2026 09:01:00 UTC.\n\nOpen for longer than 60 seconds.\n\nThis mail goes to every alert recipient while the alert Door held open is set to mail on the Alerts tab of the settings.\n",
 		"to":["ops@example.com","desk@example.com"],"status":"failed","attempts":6,"created_at":"2026-01-05T09:01:00Z",
 		"last_attempt_at":"2026-01-05T09:32:00Z",
 		"last_error":"the mail server could not be reached or refused the message: 550 Mailbox unavailable"}`)
@@ -475,12 +476,15 @@ func notFollowedWith(kind, err string) testsupport.LogEntry {
 
 func TestAnAlertTheStoreCannotFollowIsLoggedAndTheDoorIsHandledAll(t *testing.T) {
 	t.Parallel()
+	unlisted := testsupport.LogEntry{Level: "error", Message: "periodic work failed",
+		Fields: map[string]string{"error": "follow the doors' alert conditions: read the alert conditions raised: stub: unavailable\n" +
+			"follow the alerts of updates failing: read the alert conditions raised: stub: unavailable"}}
 	cases := map[string]struct {
 		kinds  []string
 		fail   func(s *testsupport.Store)
 		logged testsupport.LogEntry
 	}{
-		"when it cannot be read":                            {[]string{"held_open"}, (*testsupport.Store).FailAlerts, notFollowed("held_open")},
+		"when it cannot be read":                            {[]string{"held_open"}, (*testsupport.Store).FailAlerts, unlisted},
 		"when its mail cannot be queued":                    {[]string{"held_open"}, (*testsupport.Store).FailAlertWrites, notFollowed("held_open")},
 		"when its condition cannot be stored, mailing none": {nil, (*testsupport.Store).FailAlertWrites, notFollowed("held_open")},
 	}
@@ -494,7 +498,7 @@ func TestAnAlertTheStoreCannotFollowIsLoggedAndTheDoorIsHandledAll(t *testing.T)
 
 			k.sweepAt("2026-01-05T09:01:00Z")
 
-			got := []any{lastLogged(f, "alert condition not followed"), k.reasons(), k.state("/held_open")}
+			got := []any{lastLogged(f, c.logged.Message), k.reasons(), k.state("/held_open")}
 			if diff := cmp.Diff([]any{c.logged, []any{"held open", "opened"}, true}, got); diff != "" {
 				t.Errorf("log, reasons, held open (-want +got):\n%s", diff)
 			}
@@ -519,7 +523,7 @@ func TestAClearingTheStoreCannotFollowIsLoggedAndTheDoorStillCloses(t *testing.T
 	}
 }
 
-func TestAConditionStillRaisedMailsNoSecondRaiseAndClearsOnTheNextClosing(t *testing.T) {
+func TestAClosingTheStoreCouldNotFollowClearsItsConditionAtTheNextSweep(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	k := alertSite(t, f, "held_open")
@@ -528,14 +532,14 @@ func TestAConditionStillRaisedMailsNoSecondRaiseAndClearsOnTheNextClosing(t *tes
 	k.at("2026-01-05T09:01:20Z")
 	k.says("closed")
 	f.StoreStub.Recover()
-	k.holdsOpen("2026-01-05T09:30:00Z", "2026-01-05T09:31:00Z")
 	raised := subjects(t, f)
 
-	k.at("2026-01-05T09:31:20Z")
-	k.says("closed")
+	k.sweepAt("2026-01-05T09:02:00Z")
 
-	if diff := cmp.Diff([]any{[]any{heldSubject}, []any{heldSubject, cleared(heldSubject)}}, []any{raised, subjects(t, f)}); diff != "" {
-		t.Errorf("subjects after the second opening, after its closing (-want +got):\n%s", diff)
+	want := []any{[]any{heldSubject}, []any{recipients, cleared(heldSubject), "Door held open at Lobby cleared, Mon 5 Jan 2026 09:02:00 UTC.\n\n" +
+		"It was raised Mon 5 Jan 2026 09:01:00 UTC.\n" + alertFooter("Door held open")}}
+	if diff := cmp.Diff(want, []any{raised, mailed(t, f)[1]}); diff != "" {
+		t.Errorf("subjects after the closing, mail at the sweep (-want +got):\n%s", diff)
 	}
 }
 
@@ -586,41 +590,47 @@ func TestAClearedMailTheStoreCannotQueueIsLogged(t *testing.T) {
 	}
 }
 
-func TestAKindOfAlertIsEnabledAndDisabledThroughTheAPI(t *testing.T) {
+func TestAKindOfAlertIsSetOffOnOrToMailThroughTheAPI(t *testing.T) {
 	t.Parallel()
 	b := signedInAdmin(t, testsupport.NewFactory())
 
-	on := send(t, b, "PUT", "/api/v1/alerts/kinds/held_open", `{"enabled":true}`, 200)
-	shown := testsupport.JSONAt(send(t, b, "GET", "/api/v1/alerts", "", 200).Body, "/kinds/0/enabled")
-	off := send(t, b, "PUT", "/api/v1/alerts/kinds/held_open", `{"enabled":false}`, 200)
+	mail := send(t, b, "PUT", "/api/v1/alerts/kinds/held_open", `{"state":"mail"}`, 200)
+	shown := testsupport.JSONAt(send(t, b, "GET", "/api/v1/alerts", "", 200).Body, "/kinds/0/state")
+	off := send(t, b, "PUT", "/api/v1/alerts/kinds/held_open", `{"state":"off"}`, 200)
+	on := send(t, b, "PUT", "/api/v1/alerts/kinds/held_open", `{"state":"on"}`, 200)
 
-	want := []any{testsupport.JSON(`{"key":"held_open","name":"Door held open","about":"A door stood open for longer than its held-open time while it should have been locked. It clears when the door closes or an open span of its timeline begins.","enabled":true}`),
-		true, false}
-	if diff := cmp.Diff(want, []any{testsupport.JSONAt(on.Body, ""), shown, testsupport.JSONAt(off.Body, "/enabled")}); diff != "" {
-		t.Errorf("enabled, shown, disabled (-want +got):\n%s", diff)
+	want := []any{testsupport.JSON(`{"key":"held_open","name":"Door held open","about":"A door stood open for longer than its held-open time while it should have been locked. It clears when the door closes or an open span of its timeline begins.","state":"mail"}`),
+		"mail", "off", "on"}
+	got := []any{testsupport.JSONAt(mail.Body, ""), shown, testsupport.JSONAt(off.Body, "/state"), testsupport.JSONAt(on.Body, "/state")}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("set to mail, shown, set off, set on (-want +got):\n%s", diff)
 	}
 }
 
-func TestEnablingAKindOfAlertIsRefusedWhenItCannotBe(t *testing.T) {
+func TestSettingAKindOfAlertIsRefusedWhenItCannotBe(t *testing.T) {
 	t.Parallel()
+	works := func(*testsupport.Store) {}
 	cases := map[string]struct {
 		target, body string
-		fail         bool
+		fail         func(s *testsupport.Store)
 		want         testsupport.Response
 	}{
-		"an unknown kind":        {"/api/v1/alerts/kinds/door_on_fire", `{"enabled":true}`, false, apiError(404, "no kind of alert has this key: door_on_fire")},
-		"no enabled":             {"/api/v1/alerts/kinds/held_open", `{}`, false, apiError(400, "body must be a JSON object with enabled true or false")},
-		"a body that is no JSON": {"/api/v1/alerts/kinds/held_open", `on`, false, apiError(400, "body must be a JSON object with enabled true or false")},
-		"a store that fails":     {"/api/v1/alerts/kinds/held_open", `{"enabled":true}`, true, internalError("767778797a7b7c7d")},
+		"an unknown kind":        {"/api/v1/alerts/kinds/door_on_fire", `{"state":"mail"}`, works, apiError(404, "no kind of alert has this key: door_on_fire")},
+		"no state":               {"/api/v1/alerts/kinds/held_open", `{}`, works, apiError(400, "a kind of alert is off, on, or mail")},
+		"a state there is not":   {"/api/v1/alerts/kinds/held_open", `{"state":"loud"}`, works, apiError(400, "a kind of alert is off, on, or mail")},
+		"a state that is a flag": {"/api/v1/alerts/kinds/held_open", `{"state":true}`, works, apiError(400, "body must be a JSON object with state off, on, or mail")},
+		"a body that is no JSON": {"/api/v1/alerts/kinds/held_open", `on`, works, apiError(400, "body must be a JSON object with state off, on, or mail")},
+		"a store that cannot store it": {"/api/v1/alerts/kinds/held_open", `{"state":"mail"}`, (*testsupport.Store).FailAlertWrites,
+			internalError("767778797a7b7c7d")},
+		"a store whose conditions cannot be read, setting it off": {"/api/v1/alerts/kinds/held_open", `{"state":"off"}`, (*testsupport.Store).FailAlerts,
+			internalError("767778797a7b7c7d")},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			f := testsupport.NewFactory()
 			b := signedInAdmin(t, f)
-			if c.fail {
-				f.StoreStub.FailAlertWrites()
-			}
+			c.fail(f.StoreStub)
 
 			got := b.Send("PUT", c.target, c.body)
 

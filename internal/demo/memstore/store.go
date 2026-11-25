@@ -62,7 +62,7 @@ type Store struct {
 	updates  map[int64]connector.StoredUpdate
 	requests map[int64]connector.StoredRequest
 
-	alertKinds map[string]bool
+	alertKinds map[string]string
 	conditions map[conditionKey]connector.StoredCondition
 	outbox     []connector.StoredMail
 
@@ -100,7 +100,7 @@ func New() *Store {
 		firmware:    map[int64]firmwareRow{},
 		updates:     map[int64]connector.StoredUpdate{},
 		requests:    map[int64]connector.StoredRequest{},
-		alertKinds:  map[string]bool{},
+		alertKinds:  map[string]string{},
 		conditions:  map[conditionKey]connector.StoredCondition{},
 		certChecks:  map[string]connector.StoredCertificateCheck{},
 		last:        map[string]int64{},

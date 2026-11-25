@@ -221,7 +221,7 @@ type Store struct {
 	updates      []connector.StoredUpdate
 	requests     []connector.StoredRequest
 	nextRequest  int64
-	alertKinds   map[string]bool
+	alertKinds   map[string]string
 	conditions   map[conditionKey]connector.StoredCondition
 	outbox       []connector.StoredMail
 	nextMail     int64
@@ -290,7 +290,7 @@ func NewStore() *Store {
 		sessions:   map[string]connector.StoredSession{},
 		failing:    map[aggregate]bool{},
 		holds:      map[int64]chan struct{}{},
-		alertKinds: map[string]bool{},
+		alertKinds: map[string]string{},
 		conditions: map[conditionKey]connector.StoredCondition{},
 		certChecks: map[string]connector.StoredCertificateCheck{},
 	}

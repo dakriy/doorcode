@@ -1106,14 +1106,16 @@ type FirmwareStore interface {
 // and the Subject it is about, such as one door, whether it is Active,
 // Mailed (while active, whether its raise was mailed; once resolved,
 // whether the hold-down applies to its next raise), whether its raise
-// mail is Owed, waiting until it can be sent, when it was last raised or
-// resolved, ChangedAt, and the Name and Detail its raise mail gives.
+// mail is Owed, waiting until it can be sent, whether its raise is Muted,
+// never to be mailed, when it was last raised or resolved, ChangedAt, and
+// the Name and Detail its raise mail gives.
 type StoredCondition struct {
 	Kind      string
 	Subject   string
 	Active    bool
 	Mailed    bool
 	Owed      bool
+	Muted     bool
 	ChangedAt time.Time
 	Name      string
 	Detail    string
@@ -1143,11 +1145,12 @@ type StoredMail struct {
 // AlertsStore holds the alerts aggregate: which kinds of alert are
 // enabled, the state of each alert condition, and the mail outbox.
 type AlertsStore interface {
-	// AlertKinds returns whether each kind of alert stored is enabled, by
+	// AlertKinds returns the state stored for each kind of alert, by
 	// kind.
-	AlertKinds(ctx context.Context) (map[string]bool, error)
-	// SetAlertKind stores whether the kind of alert named kind is enabled.
-	SetAlertKind(ctx context.Context, kind string, enabled bool) error
+	AlertKinds(ctx context.Context) (map[string]string, error)
+	// SetAlertKind stores state as the state of the kind of alert named
+	// kind.
+	SetAlertKind(ctx context.Context, kind, state string) error
 	// AlertCondition returns the condition of kind about subject, and
 	// whether there is one.
 	AlertCondition(ctx context.Context, kind, subject string) (StoredCondition, bool, error)

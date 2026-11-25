@@ -9,7 +9,7 @@ import (
 )
 
 // certificateAlerts is certificateSite with alert mail set up as
-// mailAlerts does and the certificate alert enabled.
+// mailAlerts does and the certificate alert set to mail.
 func certificateAlerts(t *testing.T, f *testsupport.Factory) *certificates {
 	t.Helper()
 	c := certificateSite(t, f)
@@ -302,16 +302,56 @@ func TestAShapeChangeIsMailedOnceThoughItsCheckCouldNotBeStored(t *testing.T) {
 	}
 }
 
-func TestAShapeChangeWhileTheAlertIsDisabledIsNotMailedOnceItIsEnabled(t *testing.T) {
+func TestSettingTheCertificateAlertOffClearsEveryConditionOfItWithoutMail(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	c := certificateAlerts(t, f)
+	c.set("certificate_runway_days", "3650")
+	c.set("certificate_leaf_days", "365")
+	c.serves(c.fullChain()...)
+	c.checkAt(testsupport.DefaultNow)
+	before := subjects(t, f)
+
+	send(t, c.api, "PUT", "/api/v1/alerts/kinds/certificate", `{"state":"off"}`, 200)
+
+	raised := pageOf(c.b.Get("/admin/alerts")).Tables["Raised now"]
+	want := []any{[]any{brokerAlert("runway short"), brokerAlert("leaf expiring")}, [][]string{raisedHead, {"Nothing is raised."}}, 2}
+	if diff := cmp.Diff(want, []any{before, raised, len(subjects(t, f))}); diff != "" {
+		t.Errorf("subjects before, raised after, messages after (-want +got):\n%s", diff)
+	}
+}
+
+func TestAShapeChangeFoundWhileTheAlertIsOffIsMailedWhenFoundAgainOnceItIsSetToMail(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	c := certificateAlerts(t, f)
 	c.serves(c.fullChain()...)
 	c.checkAt(testsupport.DefaultNow)
-	send(t, c.api, "PUT", "/api/v1/alerts/kinds/certificate", `{"enabled":false}`, 200)
+	send(t, c.api, "PUT", "/api/v1/alerts/kinds/certificate", `{"state":"off"}`, 200)
+	c.trust(c.pki.X1)
+	f.StoreStub.FailCertificateWrites()
+	f.ClockStub.Set("2026-01-05T10:00:00Z")
+	c.api.Send("POST", "/api/v1/alerts/certificates/check", "")
+	f.StoreStub.Recover()
+	send(t, c.api, "PUT", "/api/v1/alerts/kinds/certificate", `{"state":"mail"}`, 200)
+
+	c.checkAt("2026-01-05T11:00:00Z")
+
+	if diff := cmp.Diff([]any{brokerAlert("chain changed")}, subjects(t, f)); diff != "" {
+		t.Errorf("subjects (-want +got):\n%s", diff)
+	}
+}
+
+func TestAShapeChangeWhileTheAlertIsOnIsNotMailedOnceItIsSetToMail(t *testing.T) {
+	t.Parallel()
+	f := testsupport.NewFactory()
+	c := certificateAlerts(t, f)
+	c.serves(c.fullChain()...)
+	c.checkAt(testsupport.DefaultNow)
+	send(t, c.api, "PUT", "/api/v1/alerts/kinds/certificate", `{"state":"on"}`, 200)
 	c.trust(c.pki.X1)
 	c.checkAt("2026-01-05T10:00:00Z")
-	send(t, c.api, "PUT", "/api/v1/alerts/kinds/certificate", `{"enabled":true}`, 200)
+	send(t, c.api, "PUT", "/api/v1/alerts/kinds/certificate", `{"state":"mail"}`, 200)
 	c.checkAt("2026-01-05T11:00:00Z")
 	quiet := subjects(t, f)
 
@@ -323,7 +363,7 @@ func TestAShapeChangeWhileTheAlertIsDisabledIsNotMailedOnceItIsEnabled(t *testin
 
 	want := []any{[]any{}, []any{brokerAlert("chain changed")}, brokerAlert("chain changed"), 1}
 	if diff := cmp.Diff(want, []any{quiet, subjects(t, f), queued, len(outbox.([]any))}); diff != "" {
-		t.Errorf("subjects while disabled, once enabled, the outbox (-want +got):\n%s", diff)
+		t.Errorf("subjects while on, once set to mail, the outbox (-want +got):\n%s", diff)
 	}
 }
 
@@ -358,7 +398,7 @@ func TestAShapeChangeTheAlertsCannotFollowIsLoggedAndTheCheckIsStored(t *testing
 		},
 		"when its condition cannot be stored, mailing none": {
 			func(c *certificates) {
-				send(c.t, c.api, "PUT", "/api/v1/alerts/kinds/certificate", `{"enabled":false}`, 200)
+				send(c.t, c.api, "PUT", "/api/v1/alerts/kinds/certificate", `{"state":"on"}`, 200)
 				c.f.StoreStub.FailAlertWrites()
 			},
 			[]string{occurrence + ": stub: unavailable"},

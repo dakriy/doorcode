@@ -30,23 +30,13 @@ var unsendable = map[string]struct {
 		allow:   func(k *keypad) { k.setting("alert_recipients", "ops@example.com,\nFront desk <desk@example.com>") },
 		waiting: "Waiting: mailed once it can be",
 	},
-	"its kind disabled, then enabled through the API": {
-		block:   func(k *keypad) { k.enable("held_open", false) },
-		allow:   func(k *keypad) { k.enable("held_open", true) },
-		waiting: "Not mailed: this alert is off",
-	},
-	"its kind disabled, then ticked on the settings page": {
-		block:   func(k *keypad) { k.enable("held_open", false) },
-		allow:   func(k *keypad) { k.saved(k.b.Post("/admin/settings", "kind", "held_open")) },
-		waiting: "Not mailed: this alert is off",
-	},
 }
 
-// enable enables or disables the kind of alert whose key is kind through
-// the API.
-func (k *keypad) enable(kind string, enabled bool) {
+// setKind sets the kind of alert whose key is kind to state through the
+// API.
+func (k *keypad) setKind(kind, state string) {
 	k.t.Helper()
-	send(k.t, k.b, "PUT", "/api/v1/alerts/kinds/"+kind, `{"enabled":`+map[bool]string{true: "true", false: "false"}[enabled]+`}`, 200)
+	send(k.t, k.b, "PUT", "/api/v1/alerts/kinds/"+kind, `{"state":"`+state+`"}`, 200)
 }
 
 // saved fails the test unless form, a form's answer, says it was saved.
@@ -173,35 +163,59 @@ func TestMailWaitingWhileMailIsNotSetUpUsesNoAttemptAndGoesOutOnceItIs(t *testin
 	}
 }
 
-func TestEveryKindOfDoorAlertRaisedWhileDisabledMailsOnceWhenEnabled(t *testing.T) {
+// raisedAs is the Alerts page's row of the condition of the kind of alert
+// named name about Lobby, nil when none is listed.
+func (k *keypad) raisedAs(name string) []string {
+	k.t.Helper()
+	return lobbyRow(k.raised(), name)
+}
+
+// lobbyRow is the row of raised, the Alerts page's Raised now, of the
+// condition of the kind of alert named name about Lobby, nil when none
+// is listed.
+func lobbyRow(raised [][]string, name string) []string {
+	for _, row := range raised {
+		if row[0] == name && row[1] == "Lobby" {
+			return row
+		}
+	}
+	return nil
+}
+
+// muted is what the Alerts page says of the mail of a condition raised
+// while its alert was on.
+const muted = "Not mailed: this alert was on, not set to mail"
+
+func TestEveryKindOfDoorAlertRaisedWhileOnIsNotMailedOnceSetToMail(t *testing.T) {
 	t.Parallel()
 	cases := map[string]struct {
 		raise func(k *keypad)
 		name  string
+		since string
 	}{
 		"held_open": {func(k *keypad) {
 			k.opens(true)
 			k.sweepAt("2026-01-05T09:01:00Z")
-		}, "Door held open"},
+		}, "Door held open", "Mon 5 Jan 2026 09:01:00"},
 		"offline": {func(k *keypad) {
 			k.goesOnline("2026-01-05T09:00:00Z", false)
 			k.sweepAt("2026-01-05T09:05:00Z")
-		}, "Door offline"},
-		"unresponsive": {func(k *keypad) { k.sweepAt("2026-01-05T09:05:00Z") }, "Door unresponsive"},
+		}, "Door offline", "Mon 5 Jan 2026 09:05:00"},
+		"unresponsive": {func(k *keypad) { k.sweepAt("2026-01-05T09:05:00Z") }, "Door unresponsive", "Mon 5 Jan 2026 09:05:00"},
 		"config_reverted": {func(k *keypad) {
 			k.givesUp("2026-01-05T09:01:00Z", k.sentDigest())
 			k.sweepAt("2026-01-05T09:03:00Z")
-		}, "Door configuration reverted"},
+		}, "Door configuration reverted", "Mon 5 Jan 2026 09:03:00"},
 		"config_restarting": {func(k *keypad) {
 			k.restarts("2026-01-05T09:01:00Z")
 			k.restarts("2026-01-05T09:02:00Z")
 			k.sweepAt("2026-01-05T09:03:00Z")
-		}, "Door restarting with its configuration"},
+		}, "Door restarting with its configuration", "Mon 5 Jan 2026 09:03:00"},
 		"config_mismatch": {func(k *keypad) {
 			k.runs("2026-01-05T09:01:00Z", otherDigest)
 			k.runs("2026-01-05T09:02:00Z", otherDigest)
 			k.sweepAt("2026-01-05T09:03:00Z")
-		}, "Door configuration mismatched"},
+		}, "Door configuration mismatched", "Mon 5 Jan 2026 09:03:00"},
 	}
 	for kind, c := range cases {
 		t.Run(kind, func(t *testing.T) {
@@ -209,19 +223,20 @@ func TestEveryKindOfDoorAlertRaisedWhileDisabledMailsOnceWhenEnabled(t *testing.
 			f := testsupport.NewFactory()
 			k := alertSite(t, f)
 			c.raise(k)
-			k.enable(kind, true)
+			k.setKind(kind, "mail")
 
 			run(t, k.a)
 			run(t, k.a)
 
-			if diff := cmp.Diff([]any{c.name + ": Lobby"}, subjects(t, f)); diff != "" {
-				t.Errorf("subjects (-want +got):\n%s", diff)
+			want := []any{[]any{}, []string{c.name, "Lobby", c.since, muted}}
+			if diff := cmp.Diff(want, []any{subjects(t, f), k.raisedAs(c.name)}); diff != "" {
+				t.Errorf("subjects, raised (-want +got):\n%s", diff)
 			}
 		})
 	}
 }
 
-func TestAFailedUpdateRaisedWhileItsAlertIsDisabledMailsOnceItIsEnabled(t *testing.T) {
+func TestAFailedUpdateRaisedWhileItsAlertIsOnIsNotMailedOnceSetToMail(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	fl := fleetSite(t, f)
@@ -229,30 +244,31 @@ func TestAFailedUpdateRaisedWhileItsAlertIsDisabledMailsOnceItIsEnabled(t *testi
 	fl.at("2026-01-06T02:00:00Z")
 	fl.acks(1, "failed", "image does not fit")
 	fl.at("2026-01-06T02:01:00Z")
-	send(t, fl.b, "PUT", "/api/v1/alerts/kinds/update_failed", `{"enabled":true}`, 200)
+	send(t, fl.b, "PUT", "/api/v1/alerts/kinds/update_failed", `{"state":"mail"}`, 200)
 
-	fl.at("2026-01-06T02:01:00Z")
+	run(t, fl.a)
 
-	want := [][]any{{recipients, failedSubject, failedText("Tue 6 Jan 2026 02:01:00 UTC", "Tue 6 Jan 2026 02:00:00 UTC", "The door could not install it: image does not fit.")}}
-	if diff := cmp.Diff(want, mailOf(t, f, failedSubject)); diff != "" {
-		t.Errorf("Lobby's mail (-want +got):\n%s", diff)
+	raised := lobbyRow(pageOf(signIn(t, f, fl.a.Handler()).Get("/admin/alerts")).Tables["Raised now"], "Door firmware update failed")
+	if diff := cmp.Diff([]any{[][]any{}, muted}, []any{mailOf(t, f, failedSubject), raised[3]}); diff != "" {
+		t.Errorf("Lobby's mail, raised (-want +got):\n%s", diff)
 	}
 }
 
-func TestACertificateAlertRaisedWhileItIsDisabledMailsOnceItIsEnabled(t *testing.T) {
+func TestACertificateAlertRaisedWhileItIsOnIsNotMailedOnceSetToMail(t *testing.T) {
 	t.Parallel()
 	f := testsupport.NewFactory()
 	c := certificateSite(t, f)
 	mailAlerts(t, c.api)
 	c.serves(c.leaf(), c.pki.YE1, c.pki.RootYE)
 	c.checkAt(testsupport.DefaultNow)
-	send(t, c.api, "PUT", "/api/v1/alerts/kinds/certificate", `{"enabled":true}`, 200)
+	send(t, c.api, "PUT", "/api/v1/alerts/kinds/certificate", `{"state":"mail"}`, 200)
 
 	run(t, c.a)
 	run(t, c.a)
 
-	if diff := cmp.Diff([]any{brokerAlert("not verified")}, subjects(t, f)); diff != "" {
-		t.Errorf("subjects (-want +got):\n%s", diff)
+	raised := pageOf(c.b.Get("/admin/alerts")).Tables["Raised now"]
+	if diff := cmp.Diff([]any{[]any{}, muted}, []any{subjects(t, f), raised[1][3]}); diff != "" {
+		t.Errorf("subjects, raised mail (-want +got):\n%s", diff)
 	}
 }
 

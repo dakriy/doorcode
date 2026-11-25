@@ -18,35 +18,34 @@ func mailFields(m *connector.StoredMail) []any {
 		&m.LastAttemptAt, &m.SentAt, &m.LastError}
 }
 
-// AlertKinds returns whether each stored kind of alert is enabled.
-func (s *Store) AlertKinds(ctx context.Context) (map[string]bool, error) {
-	rows, err := s.pool.Query(ctx, `select kind, enabled from alert_kinds`)
+// AlertKinds returns the state stored for each kind of alert.
+func (s *Store) AlertKinds(ctx context.Context) (map[string]string, error) {
+	rows, err := s.pool.Query(ctx, `select kind, state from alert_kinds`)
 	if err != nil {
 		return nil, err
 	}
-	kinds := map[string]bool{}
-	var kind string
-	var enabled bool
-	_, err = pgx.ForEachRow(rows, []any{&kind, &enabled}, func() error {
-		kinds[kind] = enabled
+	kinds := map[string]string{}
+	var kind, state string
+	_, err = pgx.ForEachRow(rows, []any{&kind, &state}, func() error {
+		kinds[kind] = state
 		return nil
 	})
 	return kinds, err
 }
 
-// SetAlertKind stores whether the kind of alert named kind is enabled.
-func (s *Store) SetAlertKind(ctx context.Context, kind string, enabled bool) error {
-	_, err := s.pool.Exec(ctx, `insert into alert_kinds (kind, enabled) values ($1, $2)
-		on conflict (kind) do update set enabled = excluded.enabled`, kind, enabled)
+// SetAlertKind stores state as the state of the kind of alert named kind.
+func (s *Store) SetAlertKind(ctx context.Context, kind, state string) error {
+	_, err := s.pool.Exec(ctx, `insert into alert_kinds (kind, state) values ($1, $2)
+		on conflict (kind) do update set state = excluded.state`, kind, state)
 	return err
 }
 
 // conditionColumns lists the alert_conditions columns in the order
 // conditionFields reads them.
-const conditionColumns = `kind, subject, active, mailed, owed, changed_at, name, detail`
+const conditionColumns = `kind, subject, active, mailed, owed, muted, changed_at, name, detail`
 
 func conditionFields(c *connector.StoredCondition) []any {
-	return []any{&c.Kind, &c.Subject, &c.Active, &c.Mailed, &c.Owed, &c.ChangedAt, &c.Name, &c.Detail}
+	return []any{&c.Kind, &c.Subject, &c.Active, &c.Mailed, &c.Owed, &c.Muted, &c.ChangedAt, &c.Name, &c.Detail}
 }
 
 // AlertCondition returns the condition of kind about subject.
@@ -59,10 +58,10 @@ func (s *Store) AlertCondition(ctx context.Context, kind, subject string) (conne
 
 // PutAlertCondition stores c over the condition of its kind and subject.
 func (s *Store) PutAlertCondition(ctx context.Context, c connector.StoredCondition) error {
-	_, err := s.pool.Exec(ctx, `insert into alert_conditions (`+conditionColumns+`) values ($1, $2, $3, $4, $5, $6, $7, $8)
+	_, err := s.pool.Exec(ctx, `insert into alert_conditions (`+conditionColumns+`) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		on conflict (kind, subject) do update set active = excluded.active, mailed = excluded.mailed, owed = excluded.owed,
-			changed_at = excluded.changed_at, name = excluded.name, detail = excluded.detail`,
-		c.Kind, c.Subject, c.Active, c.Mailed, c.Owed, c.ChangedAt, c.Name, c.Detail)
+			muted = excluded.muted, changed_at = excluded.changed_at, name = excluded.name, detail = excluded.detail`,
+		c.Kind, c.Subject, c.Active, c.Mailed, c.Owed, c.Muted, c.ChangedAt, c.Name, c.Detail)
 	return err
 }
 

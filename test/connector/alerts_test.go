@@ -38,7 +38,7 @@ func outboxWorld(t *testing.T, impl storeImpl) connector.Store {
 	return store
 }
 
-func TestStoreKeepsWhetherEachKindOfAlertIsEnabled(t *testing.T) {
+func TestStoreKeepsTheStateOfEachKindOfAlert(t *testing.T) {
 	for _, impl := range storeImpls {
 		t.Run(impl.name, func(t *testing.T) {
 			store := migrated(t, impl)
@@ -46,13 +46,13 @@ func TestStoreKeepsWhetherEachKindOfAlertIsEnabled(t *testing.T) {
 
 			before, beforeErr := store.AlertKinds(ctx)
 			errs := []error{
-				store.SetAlertKind(ctx, "held_open", true),
-				store.SetAlertKind(ctx, "config_mismatch", true),
-				store.SetAlertKind(ctx, "held_open", false),
+				store.SetAlertKind(ctx, "held_open", "mail"),
+				store.SetAlertKind(ctx, "config_mismatch", "off"),
+				store.SetAlertKind(ctx, "held_open", "on"),
 			}
 			after, afterErr := store.AlertKinds(ctx)
 
-			want := []any{map[string]bool{}, nil, []error{nil, nil, nil}, map[string]bool{"held_open": false, "config_mismatch": true}, nil}
+			want := []any{map[string]string{}, nil, []error{nil, nil, nil}, map[string]string{"held_open": "on", "config_mismatch": "off"}, nil}
 			if diff := cmp.Diff(want, []any{before, beforeErr, errs, after, afterErr}); diff != "" {
 				t.Errorf("before, error, set errors, after, error (-want +got):\n%s", diff)
 			}
@@ -75,18 +75,22 @@ func TestStoreKeepsEachAlertConditionByKindAndSubject(t *testing.T) {
 				store.PutAlertCondition(ctx, connector.StoredCondition{Kind: "held_open", Subject: "door 1", Mailed: true, ChangedAt: later}),
 				store.PutAlertCondition(ctx, connector.StoredCondition{Kind: "offline", Subject: "door 1", Active: true, Owed: true, ChangedAt: alertsStart,
 					Name: "Lobby", Detail: "Not connected."}),
+				store.PutAlertCondition(ctx, connector.StoredCondition{Kind: "unresponsive", Subject: "door 1", ChangedAt: alertsStart}),
+				store.PutAlertCondition(ctx, connector.StoredCondition{Kind: "unresponsive", Subject: "door 1", Active: true, Muted: true, ChangedAt: alertsStart}),
 			}
 			one, oneHeld, oneErr := store.AlertCondition(ctx, "held_open", "door 1")
 			other, otherHeld, otherErr := store.AlertCondition(ctx, "config_mismatch", "door 1")
 			owed, owedHeld, owedErr := store.AlertCondition(ctx, "offline", "door 1")
+			muted, mutedHeld, mutedErr := store.AlertCondition(ctx, "unresponsive", "door 1")
 
 			want := []any{
-				connector.StoredCondition{}, false, nil, []error{nil, nil, nil, nil, nil},
+				connector.StoredCondition{}, false, nil, []error{nil, nil, nil, nil, nil, nil, nil},
 				connector.StoredCondition{Kind: "held_open", Subject: "door 1", Mailed: true, ChangedAt: later}, true, nil,
 				connector.StoredCondition{Kind: "config_mismatch", Subject: "door 1", Active: true, ChangedAt: alertsStart}, true, nil,
 				connector.StoredCondition{Kind: "offline", Subject: "door 1", Active: true, Owed: true, ChangedAt: alertsStart, Name: "Lobby", Detail: "Not connected."}, true, nil,
+				connector.StoredCondition{Kind: "unresponsive", Subject: "door 1", Active: true, Muted: true, ChangedAt: alertsStart}, true, nil,
 			}
-			got := []any{none, noneHeld, noneErr, errs, one, oneHeld, oneErr, other, otherHeld, otherErr, owed, owedHeld, owedErr}
+			got := []any{none, noneHeld, noneErr, errs, one, oneHeld, oneErr, other, otherHeld, otherErr, owed, owedHeld, owedErr, muted, mutedHeld, mutedErr}
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("none, one, other (-want +got):\n%s", diff)
 			}
